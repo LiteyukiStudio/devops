@@ -1,0 +1,48 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+*.pid
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Go build outputs
+bin/
+tmp/
+*.test
+coverage.out
+
+# Local database and generated runtime data
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+redis-data/
+
+# Frontend dependencies and build outputs
+node_modules/
+web/node_modules/
+web/dist/
+web/dist-ssr/
+web/.vite/
+web/*.local
+
+# Package manager temporary files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+

@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS app_configs;
+DROP TABLE IF EXISTS access_tokens;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS project_members;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS auth_admission_policies;
+DROP TABLE IF EXISTS external_identities;
+DROP TABLE IF EXISTS auth_providers;
+DROP TABLE IF EXISTS oidc_auth_states;
+DROP TABLE IF EXISTS user_sessions;
+DROP TABLE IF EXISTS users;

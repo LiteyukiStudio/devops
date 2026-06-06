@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info:
+  title: Liteyuki DevOps API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080/api/v1
+paths:
+  /public/configs:
+    post:
+      summary: Get public app configs by keys
+      responses:
+        "200":
+          description: Public config dictionary
+  /users/me:
+    get:
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+    put:
+      summary: Update current user preferences
+      responses:
+        "200":
+          description: Updated current user
+  /configs/definitions:
+    get:
+      summary: List configurable app config definitions
+      responses:
+        "200":
+          description: Config definitions
+  /configs:
+    put:
+      summary: Update app configs
+      responses:
+        "200":
+          description: Updated config dictionary
+  /projects:
+    get:
+      summary: List projects
+      responses:
+        "200":
+          description: Project list
+    post:
+      summary: Create project
+      responses:
+        "201":
+          description: Created project
+  /projects/{projectId}/applications:
+    get:
+      summary: List applications
+      responses:
+        "200":
+          description: Application list
+    post:
+      summary: Create application
+      responses:
+        "201":
+          description: Created application
+  /access-tokens:
+    get:
+      summary: List access tokens
+      responses:
+        "200":
+          description: Access token list
+    post:
+      summary: Create access token
+      responses:
+        "201":
+          description: Created access token with one-time secret
