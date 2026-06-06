@@ -3,73 +3,1156 @@ info:
   title: Liteyuki DevOps API
   version: 0.1.0
 servers:
-  - url: http://localhost:8080/api/v1
+  - url: http://localhost:8080
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Configs
+  - name: Git
+  - name: Registries
+  - name: Projects
+  - name: Applications
+  - name: AccessTokens
 paths:
-  /auth/bootstrap:
+  /healthz:
     get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+
+  /api/v1/public/configs:
+    post:
+      tags: [Configs]
+      summary: Get public app configs by keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigKeysInput"
+      responses:
+        "200":
+          description: Public config dictionary.
+
+  /api/v1/auth/bootstrap:
+    get:
+      tags: [Auth]
       summary: Get bootstrap and runtime mode status
       responses:
         "200":
           description: Bootstrap status. devLoginHint is returned only in development mode.
-  /public/configs:
+
+  /api/v1/auth/bootstrap/admin:
     post:
-      summary: Get public app configs by keys
+      tags: [Auth]
+      summary: Initialize the first platform admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitializeAdminInput"
+      responses:
+        "201":
+          description: Created platform admin and session.
+        "409":
+          description: Platform admin already exists.
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with a local account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
       responses:
         "200":
-          description: Public config dictionary
-  /users/me:
+          description: Login succeeded.
+        "401":
+          description: Login failed.
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout current session
+      responses:
+        "204":
+          description: Logged out.
+
+  /api/v1/auth/providers:
     get:
+      tags: [Auth]
+      summary: List auth providers
+      responses:
+        "200":
+          description: Auth provider list.
+    post:
+      tags: [Auth]
+      summary: Create auth provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthProviderInput"
+      responses:
+        "201":
+          description: Created auth provider.
+
+  /api/v1/auth/providers/{providerId}:
+    put:
+      tags: [Auth]
+      summary: Update auth provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthProviderInput"
+      responses:
+        "200":
+          description: Updated auth provider.
+
+  /api/v1/auth/admission-policy:
+    get:
+      tags: [Auth]
+      summary: Get auth admission policy
+      responses:
+        "200":
+          description: Auth admission policy.
+    put:
+      tags: [Auth]
+      summary: Update auth admission policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthAdmissionPolicyInput"
+      responses:
+        "200":
+          description: Updated auth admission policy.
+
+  /api/v1/auth/oidc/{providerId}/start:
+    get:
+      tags: [Auth]
+      summary: Start OIDC login or binding flow
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [login, bind]
+            default: login
+        - name: redirect
+          in: query
+          schema:
+            type: string
+            default: /projects
+      responses:
+        "302":
+          description: Redirect to OIDC provider.
+
+  /api/v1/auth/oidc/callback:
+    get:
+      tags: [Auth]
+      summary: Complete OIDC callback
+      parameters:
+        - $ref: "#/components/parameters/OAuthState"
+        - $ref: "#/components/parameters/OAuthCode"
+      responses:
+        "302":
+          description: Redirect after OIDC callback.
+
+  /api/v1/users/me:
+    get:
+      tags: [Users]
       summary: Get current user
       responses:
         "200":
-          description: Current user
+          description: Current user.
     put:
+      tags: [Users]
       summary: Update current user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCurrentUserInput"
       responses:
         "200":
-          description: Updated current user
-  /configs/definitions:
+          description: Updated current user.
+
+  /api/v1/users/me/external-identities:
     get:
+      tags: [Users]
+      summary: List current user's external identities
+      responses:
+        "200":
+          description: External identity list.
+
+  /api/v1/users/me/external-identities/{identityId}:
+    delete:
+      tags: [Users]
+      summary: Unbind current user's external identity
+      parameters:
+        - $ref: "#/components/parameters/IdentityId"
+      responses:
+        "204":
+          description: External identity unbound.
+
+  /api/v1/users:
+    get:
+      tags: [Users]
+      summary: List users
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, email, name, role, authType, status]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
+      responses:
+        "200":
+          description: Paginated user list.
+    post:
+      tags: [Users]
+      summary: Create local user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user.
+
+  /api/v1/users/{userId}:
+    put:
+      tags: [Users]
+      summary: Update user
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "200":
+          description: Updated user.
+
+  /api/v1/configs/definitions:
+    get:
+      tags: [Configs]
       summary: List configurable app config definitions
       responses:
         "200":
-          description: Config definitions
-  /configs:
+          description: Config definitions.
+
+  /api/v1/configs:
     put:
+      tags: [Configs]
       summary: Update app configs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateConfigsInput"
       responses:
         "200":
-          description: Updated config dictionary
-  /projects:
+          description: Updated config dictionary.
+
+  /api/v1/git/providers:
     get:
+      tags: [Git]
+      summary: List Git providers
+      responses:
+        "200":
+          description: Git provider list.
+    post:
+      tags: [Git]
+      summary: Create Git provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GitProviderInput"
+      responses:
+        "201":
+          description: Created Git provider.
+
+  /api/v1/git/providers/{providerId}:
+    put:
+      tags: [Git]
+      summary: Update Git provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GitProviderInput"
+      responses:
+        "200":
+          description: Updated Git provider.
+    delete:
+      tags: [Git]
+      summary: Delete Git provider
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+      responses:
+        "204":
+          description: Deleted Git provider.
+
+  /api/v1/git/providers/{providerId}/oauth/start:
+    get:
+      tags: [Git]
+      summary: Start GitHub or Gitea OAuth flow
+      parameters:
+        - $ref: "#/components/parameters/ProviderId"
+        - name: redirect
+          in: query
+          schema:
+            type: string
+            default: /projects
+      responses:
+        "302":
+          description: Redirect to Git OAuth provider.
+
+  /api/v1/git/oauth/callback:
+    get:
+      tags: [Git]
+      summary: Complete Git OAuth callback
+      parameters:
+        - $ref: "#/components/parameters/OAuthState"
+        - $ref: "#/components/parameters/OAuthCode"
+      responses:
+        "302":
+          description: Redirect after Git OAuth callback.
+
+  /api/v1/git/webhooks/{bindingId}:
+    post:
+      tags: [Git]
+      summary: Receive Git webhook event
+      parameters:
+        - $ref: "#/components/parameters/BindingId"
+      responses:
+        "200":
+          description: Webhook accepted.
+        "401":
+          description: Invalid webhook signature.
+
+  /api/v1/git/accounts:
+    get:
+      tags: [Git]
+      summary: List current user Git accounts
+      responses:
+        "200":
+          description: Git account list.
+    post:
+      tags: [Git]
+      summary: Create current user Git account manually
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GitAccountInput"
+      responses:
+        "201":
+          description: Created Git account.
+
+  /api/v1/git/accounts/{accountId}:
+    put:
+      tags: [Git]
+      summary: Update current user Git account
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GitAccountInput"
+      responses:
+        "200":
+          description: Updated Git account.
+    delete:
+      tags: [Git]
+      summary: Delete current user Git account
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "204":
+          description: Deleted Git account.
+
+  /api/v1/git/accounts/{accountId}/refresh:
+    post:
+      tags: [Git]
+      summary: Refresh current user Git account token
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: Refreshed Git account.
+
+  /api/v1/git/accounts/{accountId}/repositories:
+    get:
+      tags: [Git]
+      summary: List repositories visible to a Git account
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Repository list.
+
+  /api/v1/git/accounts/{accountId}/repositories/{owner}/{repo}/branches:
+    get:
+      tags: [Git]
+      summary: List repository branches
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/Owner"
+        - $ref: "#/components/parameters/Repo"
+      responses:
+        "200":
+          description: Branch list.
+
+  /api/v1/git/accounts/{accountId}/repositories/{owner}/{repo}/file:
+    get:
+      tags: [Git]
+      summary: Read repository file content
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/Owner"
+        - $ref: "#/components/parameters/Repo"
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+            examples: [Dockerfile, .devops/app.yaml]
+        - name: ref
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File content.
+
+  /api/v1/registries:
+    get:
+      tags: [Registries]
+      summary: List artifact registries
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Artifact registry list.
+    post:
+      tags: [Registries]
+      summary: Create artifact registry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArtifactRegistryInput"
+      responses:
+        "201":
+          description: Created artifact registry.
+
+  /api/v1/registries/{registryId}:
+    put:
+      tags: [Registries]
+      summary: Update artifact registry
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArtifactRegistryInput"
+      responses:
+        "200":
+          description: Updated artifact registry.
+    delete:
+      tags: [Registries]
+      summary: Delete artifact registry
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      responses:
+        "204":
+          description: Deleted artifact registry.
+
+  /api/v1/registries/{registryId}/test:
+    post:
+      tags: [Registries]
+      summary: Test artifact registry connectivity
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      responses:
+        "200":
+          description: Registry test result.
+
+  /api/v1/registries/{registryId}/credentials:
+    get:
+      tags: [Registries]
+      summary: List registry credentials
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      responses:
+        "200":
+          description: Registry credential list.
+    post:
+      tags: [Registries]
+      summary: Create registry credential
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistryCredentialInput"
+      responses:
+        "201":
+          description: Created registry credential.
+
+  /api/v1/registries/{registryId}/credentials/{credentialId}:
+    delete:
+      tags: [Registries]
+      summary: Delete registry credential
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+        - $ref: "#/components/parameters/CredentialId"
+      responses:
+        "204":
+          description: Deleted registry credential.
+
+  /api/v1/container-images:
+    get:
+      tags: [Registries]
+      summary: List container image records
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
+        - name: applicationId
+          in: query
+          schema:
+            type: string
+        - name: registryId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Container image list.
+    post:
+      tags: [Registries]
+      summary: Create container image record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContainerImageInput"
+      responses:
+        "201":
+          description: Created container image record.
+
+  /api/v1/projects:
+    get:
+      tags: [Projects]
       summary: List projects
       responses:
         "200":
-          description: Project list
+          description: Project list.
     post:
+      tags: [Projects]
       summary: Create project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
       responses:
         "201":
-          description: Created project
-  /projects/{projectId}/applications:
+          description: Created project.
+
+  /api/v1/projects/{projectId}:
     get:
+      tags: [Projects]
+      summary: Get project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project.
+    put:
+      tags: [Projects]
+      summary: Update project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "200":
+          description: Updated project.
+    delete:
+      tags: [Projects]
+      summary: Delete project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Deleted project.
+
+  /api/v1/projects/{projectId}/registries/default:
+    get:
+      tags: [Registries]
+      summary: Get default artifact registry for a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Default artifact registry.
+
+  /api/v1/projects/{projectId}/members:
+    get:
+      tags: [Projects]
+      summary: List project members
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project member list.
+    post:
+      tags: [Projects]
+      summary: Create project member
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMemberInput"
+      responses:
+        "201":
+          description: Created project member.
+
+  /api/v1/projects/{projectId}/members/{memberId}:
+    put:
+      tags: [Projects]
+      summary: Update project member
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMemberInput"
+      responses:
+        "200":
+          description: Updated project member.
+    delete:
+      tags: [Projects]
+      summary: Delete project member
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "204":
+          description: Deleted project member.
+
+  /api/v1/projects/{projectId}/applications:
+    get:
+      tags: [Applications]
       summary: List applications
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
       responses:
         "200":
-          description: Application list
+          description: Application list.
     post:
+      tags: [Applications]
       summary: Create application
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationInput"
       responses:
         "201":
-          description: Created application
-  /access-tokens:
-    get:
-      summary: List access tokens
+          description: Created application.
+
+  /api/v1/projects/{projectId}/applications/parse-config:
+    post:
+      tags: [Applications]
+      summary: Parse .devops/app.yaml
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParseApplicationConfigInput"
       responses:
         "200":
-          description: Access token list
+          description: Parsed application config.
+
+  /api/v1/projects/{projectId}/applications/{applicationId}:
+    get:
+      tags: [Applications]
+      summary: Get application
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Application.
+    put:
+      tags: [Applications]
+      summary: Update application
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ApplicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationInput"
+      responses:
+        "200":
+          description: Updated application.
+    delete:
+      tags: [Applications]
+      summary: Delete application
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "204":
+          description: Deleted application.
+
+  /api/v1/projects/{projectId}/repository-bindings:
+    get:
+      tags: [Git]
+      summary: List repository bindings for a project
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Repository binding list.
     post:
-      summary: Create access token
+      tags: [Git]
+      summary: Bind an application to a Git repository
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepositoryBindingInput"
       responses:
         "201":
-          description: Created access token with one-time secret
+          description: Created repository binding.
+
+  /api/v1/projects/{projectId}/repository-bindings/{bindingId}:
+    put:
+      tags: [Git]
+      summary: Update repository binding
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/BindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RepositoryBindingInput"
+      responses:
+        "200":
+          description: Updated repository binding.
+    delete:
+      tags: [Git]
+      summary: Delete repository binding
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/BindingId"
+      responses:
+        "204":
+          description: Deleted repository binding.
+
+  /api/v1/projects/{projectId}/repository-bindings/{bindingId}/webhook:
+    post:
+      tags: [Git]
+      summary: Create webhook for a repository binding
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/BindingId"
+      responses:
+        "200":
+          description: Created repository webhook.
+
+  /api/v1/access-tokens:
+    get:
+      tags: [AccessTokens]
+      summary: List access tokens
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, expiresAt, name, scope, status]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
+      responses:
+        "200":
+          description: Paginated access token list.
+    post:
+      tags: [AccessTokens]
+      summary: Create access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccessTokenInput"
+      responses:
+        "201":
+          description: Created access token with one-time secret.
+
+  /api/v1/access-tokens/{tokenId}:
+    delete:
+      tags: [AccessTokens]
+      summary: Revoke access token
+      parameters:
+        - $ref: "#/components/parameters/TokenId"
+      responses:
+        "204":
+          description: Revoked access token.
+
+components:
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema: { type: string }
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema: { type: string }
+    BindingId:
+      name: bindingId
+      in: path
+      required: true
+      schema: { type: string }
+    CredentialId:
+      name: credentialId
+      in: path
+      required: true
+      schema: { type: string }
+    IdentityId:
+      name: identityId
+      in: path
+      required: true
+      schema: { type: string }
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema: { type: string }
+    OAuthCode:
+      name: code
+      in: query
+      required: true
+      schema: { type: string }
+    OAuthState:
+      name: state
+      in: query
+      required: true
+      schema: { type: string }
+    Owner:
+      name: owner
+      in: path
+      required: true
+      schema: { type: string }
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema: { type: string }
+    ProviderId:
+      name: providerId
+      in: path
+      required: true
+      schema: { type: string }
+    RegistryId:
+      name: registryId
+      in: path
+      required: true
+      schema: { type: string }
+    Repo:
+      name: repo
+      in: path
+      required: true
+      schema: { type: string }
+    SortOrder:
+      name: sortOrder
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+    TokenId:
+      name: tokenId
+      in: path
+      required: true
+      schema: { type: string }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string }
+
+  schemas:
+    AccessTokenInput:
+      type: object
+      properties:
+        name: { type: string }
+        scope: { type: string }
+        expiresInDays: { type: integer, minimum: 0 }
+      required: [name, scope]
+    ApplicationInput:
+      type: object
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        sourceType: { type: string, enum: [repository, image] }
+        repositoryUrl: { type: string }
+        imageReference: { type: string }
+        dockerfilePath: { type: string }
+        buildContext: { type: string }
+        servicePort: { type: integer }
+      required: [name, slug, sourceType]
+    ArtifactRegistryInput:
+      type: object
+      properties:
+        name: { type: string }
+        provider: { type: string, enum: [harbor, dockerhub, gitea-registry] }
+        endpoint: { type: string }
+        namespace: { type: string }
+        scope: { type: string, enum: [global, project, user] }
+        ownerRef: { type: string }
+        credentialRef: { type: string }
+        isDefault: { type: boolean }
+        capabilities: { type: array, items: { type: string } }
+      required: [name, provider, endpoint, scope]
+    AuthAdmissionPolicyInput:
+      type: object
+      properties:
+        allowLocalLogin: { type: boolean }
+        allowOidcLogin: { type: boolean }
+        allowedEmailDomains: { type: array, items: { type: string } }
+        allowedOidcGroups: { type: array, items: { type: string } }
+        invitedEmails: { type: array, items: { type: string } }
+        defaultRole: { type: string, enum: [platform_admin, user] }
+    AuthProviderInput:
+      type: object
+      properties:
+        type: { type: string, enum: [oidc] }
+        name: { type: string }
+        enabled: { type: boolean }
+        issuerUrl: { type: string }
+        clientId: { type: string }
+        clientSecret: { type: string }
+        scopes: { type: string }
+        groupClaim: { type: string }
+        emailClaim: { type: string }
+        usernameClaim: { type: string }
+        isDefault: { type: boolean }
+      required: [name, issuerUrl, clientId]
+    ConfigKeysInput:
+      type: object
+      properties:
+        keys:
+          type: array
+          items: { type: string }
+      required: [keys]
+    ContainerImageInput:
+      type: object
+      properties:
+        projectId: { type: string }
+        applicationId: { type: string }
+        registryId: { type: string }
+        repository: { type: string }
+        tag: { type: string }
+        digest: { type: string }
+        imageRef: { type: string }
+        sourceCommit: { type: string }
+        buildRunId: { type: string }
+        sourceType: { type: string }
+        scanStatus: { type: string }
+      required: [registryId, repository, tag]
+    GitAccountInput:
+      type: object
+      properties:
+        providerId: { type: string }
+        externalUserId: { type: string }
+        username: { type: string }
+        avatarUrl: { type: string }
+        accessTokenRef: { type: string }
+        refreshTokenRef: { type: string }
+        scopes: { type: array, items: { type: string } }
+        status: { type: string, enum: [connected, expired, revoked] }
+      required: [providerId, username]
+    GitProviderInput:
+      type: object
+      properties:
+        type: { type: string, enum: [github, gitea, gitlab] }
+        name: { type: string }
+        baseUrl: { type: string }
+        authType: { type: string, enum: [oauth, github-app, pat] }
+        clientId: { type: string }
+        clientSecretRef: { type: string }
+        enabled: { type: boolean }
+      required: [name]
+    InitializeAdminInput:
+      type: object
+      properties:
+        email: { type: string }
+        name: { type: string }
+        password: { type: string, minLength: 8 }
+        language: { type: string, enum: [zh-CN, en-US] }
+      required: [email, password]
+    LoginInput:
+      type: object
+      properties:
+        email: { type: string }
+        password: { type: string }
+      required: [email, password]
+    ParseApplicationConfigInput:
+      type: object
+      properties:
+        content: { type: string }
+      required: [content]
+    ProjectInput:
+      type: object
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        namespaceStrategy: { type: string, enum: [project] }
+      required: [name, slug]
+    ProjectMemberInput:
+      type: object
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [owner, admin, developer, viewer] }
+      required: [email, role]
+    RegistryCredentialInput:
+      type: object
+      properties:
+        name: { type: string }
+        username: { type: string }
+        password: { type: string }
+        token: { type: string }
+        scope: { type: string, enum: [pull, push-pull] }
+    RepositoryBindingInput:
+      type: object
+      properties:
+        applicationId: { type: string }
+        gitAccountId: { type: string }
+        owner: { type: string }
+        repo: { type: string }
+        cloneUrl: { type: string }
+        defaultBranch: { type: string }
+        webhookStatus: { type: string, enum: [pending, created, disabled, failed] }
+        credentialRef: { type: string }
+      required: [applicationId, gitAccountId, owner, repo]
+    UpdateConfigsInput:
+      type: object
+      properties:
+        values:
+          type: object
+          additionalProperties: { type: string }
+      required: [values]
+    UpdateCurrentUserInput:
+      type: object
+      properties:
+        language: { type: string, enum: [zh-CN, en-US] }
+    UserInput:
+      type: object
+      properties:
+        email: { type: string }
+        name: { type: string }
+        password: { type: string }
+        role: { type: string, enum: [platform_admin, user] }
+        language: { type: string, enum: [zh-CN, en-US] }
+        disabled: { type: boolean }
+      required: [email, name]

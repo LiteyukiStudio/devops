@@ -26,7 +26,7 @@ func (h *Handlers) ListAuthProviders(ctx *gin.Context) {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, providers)
+	ctx.JSON(http.StatusOK, authProviderResponses(providers))
 }
 
 func (h *Handlers) CreateAuthProvider(ctx *gin.Context) {
@@ -39,7 +39,7 @@ func (h *Handlers) CreateAuthProvider(ctx *gin.Context) {
 		return
 	}
 
-	provider, ok := authProviderFromInput(input, "")
+	provider, ok := authProviderFromInput(input, "", "")
 	if !ok {
 		writeError(ctx, http.StatusBadRequest, "请输入有效的 OIDC Provider 配置")
 		return
@@ -58,7 +58,7 @@ func (h *Handlers) CreateAuthProvider(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, provider)
+	ctx.JSON(http.StatusCreated, authProviderResponse(provider))
 }
 
 func (h *Handlers) UpdateAuthProvider(ctx *gin.Context) {
@@ -77,7 +77,7 @@ func (h *Handlers) UpdateAuthProvider(ctx *gin.Context) {
 		return
 	}
 
-	next, ok := authProviderFromInput(input, provider.ID)
+	next, ok := authProviderFromInput(input, provider.ID, provider.ClientSecretRef)
 	if !ok {
 		writeError(ctx, http.StatusBadRequest, "请输入有效的 OIDC Provider 配置")
 		return
@@ -109,7 +109,7 @@ func (h *Handlers) UpdateAuthProvider(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, provider)
+	ctx.JSON(http.StatusOK, authProviderResponse(provider))
 }
 
 func (h *Handlers) ListMyExternalIdentities(ctx *gin.Context) {
@@ -192,10 +192,16 @@ func (h *Handlers) bindExternalIdentityToUser(user model.User, provider model.Au
 	return identity, nil
 }
 
-func authProviderFromInput(input authProviderInput, providerID string) (model.AuthProvider, bool) {
+func authProviderFromInput(input authProviderInput, providerID string, existingSecretRef string) (model.AuthProvider, bool) {
 	providerType := strings.ToLower(strings.TrimSpace(input.Type))
 	if providerType == "" {
 		providerType = "oidc"
+	}
+	clientSecretRef := strings.TrimSpace(input.ClientSecretRef)
+	if secret := strings.TrimSpace(input.ClientSecret); secret != "" {
+		clientSecretRef = storedSecretRef(secret)
+	} else if clientSecretRef == "" {
+		clientSecretRef = existingSecretRef
 	}
 	enabled := true
 	if input.Enabled != nil {
@@ -208,7 +214,7 @@ func authProviderFromInput(input authProviderInput, providerID string) (model.Au
 		Enabled:         enabled,
 		IssuerURL:       strings.TrimRight(strings.TrimSpace(input.IssuerURL), "/"),
 		ClientID:        strings.TrimSpace(input.ClientID),
-		ClientSecretRef: strings.TrimSpace(input.ClientSecretRef),
+		ClientSecretRef: clientSecretRef,
 		Scopes:          fallback(strings.TrimSpace(input.Scopes), "openid profile email"),
 		GroupClaim:      fallback(strings.TrimSpace(input.GroupClaim), "groups"),
 		EmailClaim:      fallback(strings.TrimSpace(input.EmailClaim), "email"),
@@ -216,6 +222,33 @@ func authProviderFromInput(input authProviderInput, providerID string) (model.Au
 		IsDefault:       input.IsDefault,
 	}
 	return provider, provider.Type == "oidc" && provider.Name != "" && provider.IssuerURL != "" && provider.ClientID != ""
+}
+
+func authProviderResponses(providers []model.AuthProvider) []authProviderOutput {
+	result := make([]authProviderOutput, 0, len(providers))
+	for _, provider := range providers {
+		result = append(result, authProviderResponse(provider))
+	}
+	return result
+}
+
+func authProviderResponse(provider model.AuthProvider) authProviderOutput {
+	return authProviderOutput{
+		ID:              provider.ID,
+		Type:            provider.Type,
+		Name:            provider.Name,
+		Enabled:         provider.Enabled,
+		IssuerURL:       provider.IssuerURL,
+		ClientID:        provider.ClientID,
+		ClientSecretRef: safeClientSecretRef(provider.ClientSecretRef),
+		ClientSecretSet: secretRefHasValue(provider.ClientSecretRef),
+		Scopes:          provider.Scopes,
+		GroupClaim:      provider.GroupClaim,
+		EmailClaim:      provider.EmailClaim,
+		UsernameClaim:   provider.UsernameClaim,
+		IsDefault:       provider.IsDefault,
+		CreatedAt:       provider.CreatedAt,
+	}
 }
 
 func normalizeEmail(email string) string {
@@ -228,12 +261,30 @@ type authProviderInput struct {
 	Enabled         *bool  `json:"enabled"`
 	IssuerURL       string `json:"issuerUrl" binding:"required"`
 	ClientID        string `json:"clientId" binding:"required"`
+	ClientSecret    string `json:"clientSecret"`
 	ClientSecretRef string `json:"clientSecretRef"`
 	Scopes          string `json:"scopes"`
 	GroupClaim      string `json:"groupClaim"`
 	EmailClaim      string `json:"emailClaim"`
 	UsernameClaim   string `json:"usernameClaim"`
 	IsDefault       bool   `json:"isDefault"`
+}
+
+type authProviderOutput struct {
+	ID              string    `json:"id"`
+	Type            string    `json:"type"`
+	Name            string    `json:"name"`
+	Enabled         bool      `json:"enabled"`
+	IssuerURL       string    `json:"issuerUrl"`
+	ClientID        string    `json:"clientId"`
+	ClientSecretRef string    `json:"clientSecretRef"`
+	ClientSecretSet bool      `json:"clientSecretSet"`
+	Scopes          string    `json:"scopes"`
+	GroupClaim      string    `json:"groupClaim"`
+	EmailClaim      string    `json:"emailClaim"`
+	UsernameClaim   string    `json:"usernameClaim"`
+	IsDefault       bool      `json:"isDefault"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 type oidcIdentityClaims struct {

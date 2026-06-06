@@ -296,7 +296,7 @@ func resolveSecret(ref string) string {
 	if strings.HasPrefix(ref, "env:") {
 		return os.Getenv(strings.TrimPrefix(ref, "env:"))
 	}
-	return ref
+	return resolveStoredSecretRef(ref)
 }
 
 func normalizeScopes(scopes string) []string {

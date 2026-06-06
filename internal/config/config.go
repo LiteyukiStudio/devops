@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -23,14 +24,38 @@ func Load() Config {
 	}
 }
 
+func RuntimeMode() string {
+	switch strings.ToLower(os.Getenv("APP_ENV")) {
+	case "production", "prod":
+		return "production"
+	case "development", "dev", "local":
+		return "development"
+	}
+
+	if strings.Contains(os.Args[0], "go-build") {
+		return "development"
+	}
+	return "production"
+}
+
 func loadEnvFile() {
 	envFile := os.Getenv("ENV_FILE")
 	if envFile == "" {
-		return
+		if RuntimeMode() != "development" {
+			return
+		}
+		envFile = ".env.dev"
 	}
 
 	if err := godotenv.Load(envFile); err != nil {
-		log.Printf("load env file %s: %v", envFile, err)
+		if RuntimeMode() == "development" {
+			log.Printf("development mode: env file %s not loaded: %v; using process environment", envFile, err)
+		}
+		return
+	}
+
+	if RuntimeMode() == "development" {
+		log.Printf("development mode: loaded env file %s", envFile)
 	}
 }
 

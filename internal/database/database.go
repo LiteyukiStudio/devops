@@ -30,6 +30,13 @@ func Migrate(db *gorm.DB) error {
 		&model.AccessToken{},
 		&model.AuditLog{},
 		&model.Application{},
+		&model.GitProvider{},
+		&model.GitAccount{},
+		&model.GitOAuthState{},
+		&model.RepositoryBinding{},
+		&model.ArtifactRegistry{},
+		&model.RegistryCredential{},
+		&model.ContainerImage{},
 		&model.AppConfig{},
 	)
 }

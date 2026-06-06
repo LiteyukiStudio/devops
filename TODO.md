@@ -24,6 +24,10 @@
 - [x] 接入 shadcn/ui。
 - [x] 接入 @antfu/eslint-config。
 - [x] 接入 i18next。
+- [x] 将前端可见文本 i18n 规则提升为 MUST，并清理当前主要页面硬编码文案。
+- [x] 增加 MUST 准则：潜在超过 100 条的列表 API 必须支持分页、排序字段和排序方向。
+- [x] 增加 MUST 准则：前端基础组件优先使用 shadcn/ui，有现成组件时禁止自造轮子。
+- [x] 在 `web/SHADCN_COMPONENTS.md` 维护 shadcn/ui 官方组件清单和替换优先级。
 - [x] 接入 Sonner toast。
 - [x] 为自动关闭 toast 增加倒计时进度条。
 - [x] 实现 light/dark/system 主题三态。
@@ -55,6 +59,11 @@
 - [x] 支持 OIDC 允许组白名单。
 - [x] 支持可配置 OIDC group claim。
 - [x] 支持邮箱域白名单和邀请邮箱白名单。
+- [x] 支持 OIDC Client Secret 前端填写、后端加密保存、API 不回显。
+- [x] 移除 OIDC Client Secret 引用输入，降低身份源配置复杂度。
+- [x] 移除 Casdoor/OIDC 环境变量 bootstrap，身份源统一通过平台后台配置。
+- [x] 开发模式打印 `ENV_FILE` 加载状态和文件路径，便于确认本地 `.env.*` 是否生效。
+- [x] 开发模式未显式设置 `ENV_FILE` 时默认尝试读取 `.env.dev`。
 - [x] 准入失败记录 AuditLog。
 - [x] 实现统一 AuthErrorPage。
 - [x] 实现统一 ForbiddenPage。
@@ -68,7 +77,12 @@
 - [x] 实现当前用户和基础权限状态管理。
 - [x] 实现用户语言偏好保存和前端 i18n 同步。
 - [x] 实现项目成员权限状态管理。
+- [x] 为复杂表单字段补充 label 问询提示和统一校验交互。
+- [x] 将用户列表改为统一列表组件展示，并接入后端分页查询。
+- [x] 为用户列表 API 补充排序字段和排序方向参数。
 - [x] 将 Access Token 管理合并到账号安全页，作为账号安全的子内容块。
+- [x] 将 Access Token 列表改为统一列表组件展示，并接入后端分页查询。
+- [x] 为 Access Token 列表 API 补充排序字段和排序方向参数。
 - [ ] 抽离统一分页组件，并将列表 API 改造为支持分页、排序、搜索和可选批量选择。
 - [x] 使用浏览器验收本地登录、退出和 Access Token 创建/撤销流程。
 - [x] 使用浏览器验收权限隐藏流程。
@@ -83,6 +97,10 @@
 - [x] 支持 sourceType: image。
 - [x] 实现 .devops/app.yaml 读取和解析。
 - [x] 实现项目页。
+- [x] 前端展示命名从“项目”调整为“项目空间”，强化集合概念。
+- [x] 增加表单准则：可搜索/可选择的资源优先选择，不让用户手填。
+- [x] 将项目技术栈要求整合进 AGENTS.md，并删除独立 docs/02 文档。
+- [x] 按 Skill 编写原则精简 AGENTS.md，保留核心 MUST 和渐进阅读入口。
 - [x] 实现应用页。
 - [x] 实现创建应用向导。
 - [x] 实现应用配置页。
@@ -97,23 +115,25 @@
 
 ## 5. Git 集成
 
-- [ ] 实现 GitProvider。
-- [ ] 实现 GitAccount。
-- [ ] 支持 Gitea OAuth。
-- [ ] 支持 GitHub OAuth 或 GitHub App。
-- [ ] 实现 RepositoryBinding。
-- [ ] 创建 Git webhook。
-- [ ] 校验 webhook 签名。
-- [ ] 处理 push/tag webhook 事件。
+- [x] 实现 GitProvider 基础模型、迁移和 CRUD API。
+- [x] 实现 GitAccount 基础模型、迁移和当前用户 CRUD API。
+- [x] 支持 Gitea OAuth API。
+- [x] 支持 GitHub OAuth API。
+- [x] 实现 RepositoryBinding 基础模型、迁移和项目内 CRUD API。
+- [x] 实现 GitProvider / GitAccount OAuth 回调和 token 刷新 API。
+- [x] 实现仓库列表、分支、Dockerfile 和 `.devops/app.yaml` 读取 API。
+- [x] 创建 Git webhook API。
+- [x] 校验 webhook 签名 API。
+- [x] 处理 push/tag webhook 事件 API。
 
 ## 6. 镜像站
 
-- [ ] 实现 ArtifactRegistry。
-- [ ] 支持 global/project/user scope。
-- [ ] 实现 RegistryCredential 加密引用。
-- [ ] 实现 registry 凭据测试。
-- [ ] 实现默认镜像站选择优先级。
-- [ ] 实现 ContainerImage 记录。
+- [x] 实现 ArtifactRegistry。
+- [x] 支持 global/project/user scope。
+- [x] 实现 RegistryCredential 加密引用。
+- [x] 实现 registry 凭据测试。
+- [x] 实现默认镜像站选择优先级。
+- [x] 实现 ContainerImage 记录。
 
 ## 7. 平台构建
 
@@ -165,9 +185,10 @@
 
 ## 10. 前端联调验收
 
-- [ ] 实现仓库绑定页，并与 Git 集成联调。
+- [x] 实现仓库绑定页，并与 Git 集成基础 CRUD 占位联调。
+- [ ] 仓库绑定页接入真实 OAuth、仓库列表、分支读取和 webhook 创建状态。
 - [ ] 实现构建页，并与 BuildRun 状态和日志联调。
-- [ ] 实现镜像站页，并与 ArtifactRegistry 联调。
+- [x] 实现镜像站页，并与 ArtifactRegistry 联调。
 - [ ] 实现部署环境页，并与 Environment/Release 联调。
 - [ ] 实现网关域名页，并与 GatewayRoute/证书状态联调。
 - [ ] 使用浏览器验收仓库绑定、构建、镜像站、部署、域名完整链路。

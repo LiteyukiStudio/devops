@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/LiteyukiStudio/devops/internal/config"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
@@ -25,11 +27,10 @@ type Handlers struct {
 }
 
 func NewHandlers(db *gorm.DB) *Handlers {
-	mode := runtimeMode()
+	mode := config.RuntimeMode()
 	if mode == "development" {
 		ensureDevelopmentAdmin(db)
 	}
-	ensureCasdoorAuthProvider(db)
 	return &Handlers{db: db, configs: newConfigCache(db), mode: mode}
 }
 
@@ -169,12 +170,26 @@ func (h *Handlers) ListUsers(ctx *gin.Context) {
 		return
 	}
 
+	pagination := paginationFromQuery(ctx)
 	var users []model.User
-	if err := h.db.Order("created_at desc").Find(&users).Error; err != nil {
+	query := h.db.Model(&model.User{})
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, users)
+	if err := query.Order(orderByClause(pagination, map[string]string{
+		"createdAt": "created_at",
+		"email":     "email",
+		"name":      "name",
+		"role":      "role",
+		"authType":  "auth_type",
+		"status":    "disabled",
+	}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&users).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, paginatedResponse(users, total, pagination))
 }
 
 func (h *Handlers) CreateUser(ctx *gin.Context) {
@@ -591,12 +606,25 @@ func (h *Handlers) ListAccessTokens(ctx *gin.Context) {
 		return
 	}
 
+	pagination := paginationFromQuery(ctx)
 	var tokens []model.AccessToken
-	if err := h.db.Where("user_id = ?", user.ID).Order("created_at desc").Find(&tokens).Error; err != nil {
+	query := h.db.Model(&model.AccessToken{}).Where("user_id = ?", user.ID)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, tokens)
+	if err := query.Order(orderByClause(pagination, map[string]string{
+		"createdAt": "created_at",
+		"expiresAt": "expires_at",
+		"name":      "name",
+		"scope":     "scope",
+		"status":    "revoked_at",
+	}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&tokens).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, paginatedResponse(tokens, total, pagination))
 }
 
 func (h *Handlers) CreateAccessToken(ctx *gin.Context) {
@@ -882,45 +910,6 @@ func developmentAdminPassword() string {
 	return env("LOCAL_ADMIN_PASSWORD", "devops")
 }
 
-func ensureCasdoorAuthProvider(db *gorm.DB) {
-	issuerURL := strings.TrimRight(env("CASDOOR_ISSUER_URL", env("OIDC_CASDOOR_ISSUER_URL", "")), "/")
-	clientID := env("CASDOOR_CLIENT_ID", env("OIDC_CASDOOR_CLIENT_ID", ""))
-	clientSecretRef := env("CASDOOR_CLIENT_SECRET_REF", env("OIDC_CASDOOR_CLIENT_SECRET_REF", ""))
-	if issuerURL == "" || clientID == "" {
-		return
-	}
-
-	provider := model.AuthProvider{
-		ID:              "auth_provider_casdoor",
-		Type:            "oidc",
-		Name:            env("CASDOOR_PROVIDER_NAME", "Casdoor"),
-		Enabled:         true,
-		IssuerURL:       issuerURL,
-		ClientID:        clientID,
-		ClientSecretRef: clientSecretRef,
-		Scopes:          env("CASDOOR_SCOPES", "openid profile email"),
-		GroupClaim:      env("CASDOOR_GROUP_CLAIM", "groups"),
-		EmailClaim:      env("CASDOOR_EMAIL_CLAIM", "email"),
-		UsernameClaim:   env("CASDOOR_USERNAME_CLAIM", "preferred_username"),
-		IsDefault:       true,
-	}
-	_ = db.FirstOrCreate(&provider, "id = ?", provider.ID).Error
-}
-
-func runtimeMode() string {
-	switch strings.ToLower(os.Getenv("APP_ENV")) {
-	case "production", "prod":
-		return "production"
-	case "development", "dev", "local":
-		return "development"
-	}
-
-	if strings.Contains(os.Args[0], "go-build") {
-		return "development"
-	}
-	return "production"
-}
-
 func normalizeLanguage(language string) string {
 	switch language {
 	case "en-US":
@@ -928,6 +917,72 @@ func normalizeLanguage(language string) string {
 	default:
 		return "zh-CN"
 	}
+}
+
+type paginationParams struct {
+	Page      int
+	PageSize  int
+	SortBy    string
+	SortOrder string
+}
+
+func (p paginationParams) Offset() int {
+	return (p.Page - 1) * p.PageSize
+}
+
+func paginationFromQuery(ctx *gin.Context) paginationParams {
+	page := parsePositiveInt(ctx.Query("page"), 1)
+	pageSize := parsePositiveInt(ctx.Query("pageSize"), 20)
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	sortOrder := strings.ToLower(ctx.Query("sortOrder"))
+	if sortOrder != "asc" {
+		sortOrder = "desc"
+	}
+	return paginationParams{
+		Page:      page,
+		PageSize:  pageSize,
+		SortBy:    ctx.Query("sortBy"),
+		SortOrder: sortOrder,
+	}
+}
+
+func paginatedResponse[T any](items []T, total int64, pagination paginationParams) gin.H {
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pagination.PageSize) - 1) / int64(pagination.PageSize))
+	}
+	return gin.H{
+		"items":      items,
+		"page":       pagination.Page,
+		"pageSize":   pagination.PageSize,
+		"sortBy":     pagination.SortBy,
+		"sortOrder":  pagination.SortOrder,
+		"total":      total,
+		"totalPages": totalPages,
+	}
+}
+
+func orderByClause(pagination paginationParams, allowedFields map[string]string, defaultColumn string) string {
+	column := allowedFields[pagination.SortBy]
+	if column == "" {
+		column = defaultColumn
+	}
+
+	order := pagination.SortOrder
+	if order != "asc" {
+		order = "desc"
+	}
+	return column + " " + order
+}
+
+func parsePositiveInt(value string, fallback int) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return fallback
+	}
+	return parsed
 }
 
 func normalizeUserRole(role string) string {

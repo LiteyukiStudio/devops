@@ -143,6 +143,120 @@ type Application struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+type GitProvider struct {
+	ID              string         `gorm:"primaryKey" json:"id"`
+	Type            string         `gorm:"not null" json:"type"`
+	Name            string         `gorm:"not null" json:"name"`
+	BaseURL         string         `gorm:"not null" json:"baseUrl"`
+	AuthType        string         `gorm:"not null;default:oauth" json:"authType"`
+	ClientID        string         `json:"clientId"`
+	ClientSecretRef string         `json:"clientSecretRef"`
+	Enabled         bool           `gorm:"not null;default:true" json:"enabled"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type GitAccount struct {
+	ID              string         `gorm:"primaryKey" json:"id"`
+	UserID          string         `gorm:"index;not null" json:"userId"`
+	ProviderID      string         `gorm:"index;not null" json:"providerId"`
+	ExternalUserID  string         `json:"externalUserId"`
+	Username        string         `gorm:"not null" json:"username"`
+	AvatarURL       string         `json:"avatarUrl"`
+	AccessTokenRef  string         `json:"accessTokenRef"`
+	RefreshTokenRef string         `json:"refreshTokenRef"`
+	Scopes          string         `json:"scopes"`
+	ExpiresAt       *time.Time     `json:"expiresAt"`
+	Status          string         `gorm:"not null;default:connected" json:"status"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type GitOAuthState struct {
+	ID           string    `gorm:"primaryKey" json:"id"`
+	StateHash    string    `gorm:"uniqueIndex;not null" json:"-"`
+	ProviderID   string    `gorm:"index;not null" json:"providerId"`
+	UserID       string    `gorm:"index;not null" json:"userId"`
+	RedirectPath string    `gorm:"not null;default:/projects" json:"redirectPath"`
+	ExpiresAt    time.Time `gorm:"index;not null" json:"expiresAt"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+type RepositoryBinding struct {
+	ID            string         `gorm:"primaryKey" json:"id"`
+	ProjectID     string         `gorm:"index;not null" json:"projectId"`
+	ApplicationID string         `gorm:"index;not null" json:"applicationId"`
+	GitProviderID string         `gorm:"index;not null" json:"gitProviderId"`
+	GitAccountID  string         `gorm:"index;not null" json:"gitAccountId"`
+	Owner         string         `gorm:"not null" json:"owner"`
+	Repo          string         `gorm:"not null" json:"repo"`
+	CloneURL      string         `gorm:"not null" json:"cloneUrl"`
+	DefaultBranch string         `gorm:"not null;default:main" json:"defaultBranch"`
+	WebhookStatus string         `gorm:"not null;default:pending" json:"webhookStatus"`
+	WebhookID     string         `json:"webhookId"`
+	WebhookSecret string         `json:"-"`
+	CredentialRef string         `json:"credentialRef"`
+	LastEvent     string         `json:"lastEvent"`
+	LastCommitSHA string         `json:"lastCommitSha"`
+	LastWebhookAt *time.Time     `json:"lastWebhookAt"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type ArtifactRegistry struct {
+	ID            string         `gorm:"primaryKey" json:"id"`
+	Name          string         `gorm:"not null" json:"name"`
+	Provider      string         `gorm:"not null" json:"provider"`
+	Endpoint      string         `gorm:"not null" json:"endpoint"`
+	Namespace     string         `json:"namespace"`
+	Scope         string         `gorm:"index;not null;default:global" json:"scope"`
+	OwnerRef      string         `gorm:"index" json:"ownerRef"`
+	CredentialRef string         `json:"credentialRef"`
+	IsDefault     bool           `gorm:"not null;default:false" json:"isDefault"`
+	Capabilities  string         `json:"capabilities"`
+	CreatedBy     string         `gorm:"index" json:"createdBy"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type RegistryCredential struct {
+	ID          string         `gorm:"primaryKey" json:"id"`
+	RegistryID  string         `gorm:"index;not null" json:"registryId"`
+	Name        string         `gorm:"not null" json:"name"`
+	Username    string         `json:"username"`
+	PasswordRef string         `json:"-"`
+	TokenRef    string         `json:"-"`
+	Scope       string         `gorm:"not null;default:push-pull" json:"scope"`
+	CreatedBy   string         `gorm:"index" json:"createdBy"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type ContainerImage struct {
+	ID            string         `gorm:"primaryKey" json:"id"`
+	ProjectID     string         `gorm:"index" json:"projectId"`
+	ApplicationID string         `gorm:"index" json:"applicationId"`
+	RegistryID    string         `gorm:"index;not null" json:"registryId"`
+	Repository    string         `gorm:"not null" json:"repository"`
+	Tag           string         `gorm:"not null" json:"tag"`
+	Digest        string         `json:"digest"`
+	ImageRef      string         `gorm:"not null" json:"imageRef"`
+	SourceCommit  string         `json:"sourceCommit"`
+	BuildRunID    string         `gorm:"index" json:"buildRunId"`
+	SourceType    string         `gorm:"not null;default:manual-image" json:"sourceType"`
+	ScanStatus    string         `gorm:"not null;default:unknown" json:"scanStatus"`
+	CreatedBy     string         `gorm:"index" json:"createdBy"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
 type AppConfig struct {
 	Key       string    `gorm:"primaryKey" json:"key"`
 	Value     string    `gorm:"not null" json:"value"`
