@@ -1,0 +1,14 @@
+{
+  "name": "liteyuki-devops-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "api": "node api-smoke.mjs",
+    "browser": "node browser-smoke.mjs",
+    "all": "bash run-all.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}
+
