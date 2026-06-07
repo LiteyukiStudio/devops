@@ -1,0 +1,136 @@
+package tasks
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+)
+
+func TestPolicyForTypeUsesDedicatedQueuesAndTimeouts(t *testing.T) {
+	deploy := PolicyForType(TypeDeployRun)
+	if deploy.Queue != QueueDeploy || deploy.Unique != 30*time.Minute {
+		t.Fatalf("deploy policy = %#v", deploy)
+	}
+	git := PolicyForType(TypeGitAccountRefresh)
+	if git.Queue != QueueLight || git.MaxRetry != 2 || git.Unique != 5*time.Minute {
+		t.Fatalf("git policy = %#v", git)
+	}
+}
+
+func TestNewDeployRunTaskBuildsTypedPayload(t *testing.T) {
+	payload := DeployRunPayload{
+		ReleaseID: "rel_1",
+		ProjectID: "prj_1",
+		ActorID:   "usr_1",
+	}
+
+	task, err := NewDeployRunTask(payload)
+	if err != nil {
+		t.Fatalf("NewDeployRunTask returned error: %v", err)
+	}
+	if task.Type() != TypeDeployRun {
+		t.Fatalf("task type = %q", task.Type())
+	}
+
+	var got DeployRunPayload
+	if err := json.Unmarshal(task.Payload(), &got); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if got.ReleaseID != payload.ReleaseID || got.ProjectID != payload.ProjectID {
+		t.Fatalf("payload = %#v", got)
+	}
+	if got.Envelope.TaskType != TypeDeployRun || got.Envelope.ResourceRef != "rel_1" {
+		t.Fatalf("envelope = %#v", got.Envelope)
+	}
+}
+
+func TestNewDeployRunTaskRequiresCoreIDs(t *testing.T) {
+	if _, err := NewDeployRunTask(DeployRunPayload{ProjectID: "prj_1"}); err == nil {
+		t.Fatal("expected missing release id to fail")
+	}
+	if _, err := NewDeployRunTask(DeployRunPayload{ReleaseID: "rel_1"}); err == nil {
+		t.Fatal("expected missing project id to fail")
+	}
+}
+
+func TestNewGatewayApplyTaskBuildsTypedPayload(t *testing.T) {
+	payload := GatewayApplyPayload{
+		GatewayRouteID: "gwr_1",
+		ProjectID:      "prj_1",
+		ActorID:        "usr_1",
+	}
+
+	task, err := NewGatewayApplyTask(payload)
+	if err != nil {
+		t.Fatalf("NewGatewayApplyTask returned error: %v", err)
+	}
+	if task.Type() != TypeGatewayApply {
+		t.Fatalf("task type = %q", task.Type())
+	}
+
+	var got GatewayApplyPayload
+	if err := json.Unmarshal(task.Payload(), &got); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if got.GatewayRouteID != payload.GatewayRouteID || got.ProjectID != payload.ProjectID {
+		t.Fatalf("payload = %#v", got)
+	}
+	if got.Envelope.TaskType != TypeGatewayApply || got.Envelope.ResourceRef != "gwr_1" {
+		t.Fatalf("envelope = %#v", got.Envelope)
+	}
+}
+
+func TestNewGatewayApplyTaskRequiresCoreIDs(t *testing.T) {
+	if _, err := NewGatewayApplyTask(GatewayApplyPayload{ProjectID: "prj_1"}); err == nil {
+		t.Fatal("expected missing gateway route id to fail")
+	}
+	if _, err := NewGatewayApplyTask(GatewayApplyPayload{GatewayRouteID: "gwr_1"}); err == nil {
+		t.Fatal("expected missing project id to fail")
+	}
+}
+
+func TestNewGitAccountRefreshTaskBuildsTypedPayload(t *testing.T) {
+	payload := GitAccountRefreshPayload{ActorID: "system"}
+
+	task, err := NewGitAccountRefreshTask(payload)
+	if err != nil {
+		t.Fatalf("NewGitAccountRefreshTask returned error: %v", err)
+	}
+	if task.Type() != TypeGitAccountRefresh {
+		t.Fatalf("task type = %q", task.Type())
+	}
+
+	var got GitAccountRefreshPayload
+	if err := json.Unmarshal(task.Payload(), &got); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if got.ActorID != payload.ActorID {
+		t.Fatalf("payload = %#v", got)
+	}
+	if got.Envelope.TaskType != TypeGitAccountRefresh || got.Envelope.ResourceRef != "git-accounts" {
+		t.Fatalf("envelope = %#v", got.Envelope)
+	}
+}
+
+func TestTaskEnvelopeDedupeKeyIsStableForSameResource(t *testing.T) {
+	first, err := NewGatewayApplyTask(GatewayApplyPayload{GatewayRouteID: "gwr_1", ProjectID: "prj_1", ActorID: "usr_1"})
+	if err != nil {
+		t.Fatalf("NewGatewayApplyTask returned error: %v", err)
+	}
+	second, err := NewGatewayApplyTask(GatewayApplyPayload{GatewayRouteID: "gwr_1", ProjectID: "prj_1", ActorID: "usr_1"})
+	if err != nil {
+		t.Fatalf("NewGatewayApplyTask returned error: %v", err)
+	}
+
+	var firstPayload GatewayApplyPayload
+	var secondPayload GatewayApplyPayload
+	if err := json.Unmarshal(first.Payload(), &firstPayload); err != nil {
+		t.Fatalf("unmarshal first payload: %v", err)
+	}
+	if err := json.Unmarshal(second.Payload(), &secondPayload); err != nil {
+		t.Fatalf("unmarshal second payload: %v", err)
+	}
+	if firstPayload.Envelope.DedupeKey != secondPayload.Envelope.DedupeKey || firstPayload.Envelope.TaskID != secondPayload.Envelope.TaskID {
+		t.Fatalf("envelopes = %#v / %#v", firstPayload.Envelope, secondPayload.Envelope)
+	}
+}

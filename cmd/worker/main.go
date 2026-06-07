@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/LiteyukiStudio/devops/internal/config"
+	"github.com/LiteyukiStudio/devops/internal/database"
 	"github.com/LiteyukiStudio/devops/internal/worker"
 )
 
@@ -15,7 +16,16 @@ func main() {
 		select {}
 	}
 
-	if err := worker.Run(cfg.RedisAddr); err != nil {
+	db, err := database.Open(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("open database: %v", err)
+	}
+
+	options := worker.Options{
+		DeployRolloutTimeoutSeconds: cfg.DeployRolloutTimeoutSeconds,
+		CertManagerClusterIssuer:    cfg.CertManagerClusterIssuer,
+	}
+	if err := worker.Run(cfg.RedisAddr, db, options); err != nil {
 		log.Fatalf("run worker: %v", err)
 	}
 }

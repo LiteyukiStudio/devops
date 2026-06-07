@@ -28,6 +28,11 @@ func (h *Handlers) StartOIDC(ctx *gin.Context) {
 		return
 	}
 
+	if strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")) == "" {
+		writeError(ctx, http.StatusInternalServerError, "PUBLIC_BASE_URL is required")
+		return
+	}
+
 	mode := ctx.DefaultQuery("mode", "login")
 	state := "oidc_" + randomHex(32)
 	nonce := randomHex(24)
@@ -44,7 +49,8 @@ func (h *Handlers) StartOIDC(ctx *gin.Context) {
 		mode = "login"
 	}
 
-	oidcProvider, err := oidc.NewProvider(ctx.Request.Context(), provider.IssuerURL)
+	egressCtx := h.adminConfiguredEgressContext(ctx.Request.Context(), 15*time.Second)
+	oidcProvider, err := oidc.NewProvider(egressCtx, provider.IssuerURL)
 	if err != nil {
 		writeError(ctx, http.StatusBadRequest, "OIDC provider discovery failed")
 		return
@@ -77,6 +83,11 @@ func (h *Handlers) CompleteOIDC(ctx *gin.Context) {
 		return
 	}
 
+	if strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")) == "" {
+		h.redirectAuthError(ctx, "oidc_callback_invalid")
+		return
+	}
+
 	var authState model.OIDCAuthState
 	err := h.db.First(&authState, "state_hash = ? and expires_at > ?", hashToken(plainState), time.Now()).Error
 	if err != nil {
@@ -93,7 +104,8 @@ func (h *Handlers) CompleteOIDC(ctx *gin.Context) {
 		return
 	}
 
-	oidcProvider, err := oidc.NewProvider(ctx.Request.Context(), provider.IssuerURL)
+	egressCtx := h.adminConfiguredEgressContext(ctx.Request.Context(), 15*time.Second)
+	oidcProvider, err := oidc.NewProvider(egressCtx, provider.IssuerURL)
 	if err != nil {
 		h.audit(authState.UserID, "oidc.callback", provider.ID, false, err.Error())
 		h.redirectAuthError(ctx, "oidc_discovery_failed")
@@ -101,7 +113,7 @@ func (h *Handlers) CompleteOIDC(ctx *gin.Context) {
 	}
 
 	oauthConfig := h.oauth2Config(provider, oidcProvider)
-	token, err := oauthConfig.Exchange(ctx.Request.Context(), code)
+	token, err := oauthConfig.Exchange(egressCtx, code)
 	if err != nil {
 		h.audit(authState.UserID, "oidc.callback", provider.ID, false, "code exchange failed")
 		h.redirectAuthError(ctx, "oidc_code_invalid")
@@ -148,6 +160,9 @@ func (h *Handlers) CompleteOIDC(ctx *gin.Context) {
 	if !h.createSession(ctx, user.ID) {
 		return
 	}
+	if !h.createRememberToken(ctx, user.ID) {
+		return
+	}
 	h.audit(user.ID, "oidc.login", provider.ID, true, "login succeeded")
 	ctx.Redirect(http.StatusFound, authState.RedirectPath)
 }
@@ -174,7 +189,7 @@ func (h *Handlers) completeOIDCBind(ctx *gin.Context, authState model.OIDCAuthSt
 func (h *Handlers) oauth2Config(provider model.AuthProvider, oidcProvider *oidc.Provider) oauth2.Config {
 	return oauth2.Config{
 		ClientID:     provider.ClientID,
-		ClientSecret: resolveSecret(provider.ClientSecretRef),
+		ClientSecret: h.resolveSecret(provider.ClientSecretRef),
 		Endpoint:     oidcProvider.Endpoint(),
 		RedirectURL:  externalBaseURL() + "/api/v1/auth/oidc/callback",
 		Scopes:       normalizeScopes(provider.Scopes),
@@ -285,18 +300,15 @@ func (h *Handlers) redirectAuthError(ctx *gin.Context, code string) {
 }
 
 func externalBaseURL() string {
-	if value := strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/"); value != "" {
-		return value
-	}
-	return "http://localhost:8080"
+	return strings.TrimRight(os.Getenv("PUBLIC_BASE_URL"), "/")
 }
 
-func resolveSecret(ref string) string {
+func (h *Handlers) resolveSecret(ref string) string {
 	ref = strings.TrimSpace(ref)
 	if strings.HasPrefix(ref, "env:") {
 		return os.Getenv(strings.TrimPrefix(ref, "env:"))
 	}
-	return resolveStoredSecretRef(ref)
+	return h.secrets.Resolve(ref)
 }
 
 func normalizeScopes(scopes string) []string {
@@ -367,8 +379,9 @@ func authErrorCode(err error) string {
 	}
 }
 
-func validateOIDCProvider(ctx context.Context, provider model.AuthProvider) error {
-	if _, err := oidc.NewProvider(ctx, provider.IssuerURL); err != nil {
+func (h *Handlers) validateOIDCProvider(ctx context.Context, provider model.AuthProvider) error {
+	egressCtx := h.adminConfiguredEgressContext(ctx, 15*time.Second)
+	if _, err := oidc.NewProvider(egressCtx, provider.IssuerURL); err != nil {
 		return fmt.Errorf("OIDC discovery failed: %w", err)
 	}
 	return nil

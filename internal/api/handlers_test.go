@@ -1,13 +1,23 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
+	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
+	"github.com/LiteyukiStudio/devops/internal/secret"
+	"github.com/LiteyukiStudio/devops/internal/security"
+	"github.com/LiteyukiStudio/devops/internal/tasks"
+	"github.com/hibiken/asynq"
 )
 
 func TestBootstrapStatusHidesDevLoginHintInProduction(t *testing.T) {
@@ -75,6 +85,65 @@ func TestOrderByClauseUsesWhitelist(t *testing.T) {
 	}
 }
 
+func TestConfigValueToStringAcceptsStructuredValues(t *testing.T) {
+	text, err := configValueToString("Liteyuki")
+	if err != nil || text != "Liteyuki" {
+		t.Fatalf("string value = %q, %v", text, err)
+	}
+
+	text, err = configValueToString(true)
+	if err != nil || text != "true" {
+		t.Fatalf("bool value = %q, %v", text, err)
+	}
+
+	text, err = configValueToString(map[string]any{"url": "/liteyuki-logo.svg"})
+	if err != nil || text != `{"url":"/liteyuki-logo.svg"}` {
+		t.Fatalf("object value = %q, %v", text, err)
+	}
+}
+
+func TestIPBlockListDefinitionDefaultsToReservedRanges(t *testing.T) {
+	var definition configDefinition
+	for _, item := range configDefinitions {
+		if item.Key == "security.egress.ipBlockList" {
+			definition = item
+			break
+		}
+	}
+
+	if definition.Key == "" {
+		t.Fatal("ip block list definition not found")
+	}
+	for _, expected := range []string{"0.0.0.0/8", "10.0.0.0/8", "127.0.0.0/8", "192.168.0.0/16", "::1/128", "fc00::/7", "fe80::/10"} {
+		if !strings.Contains(definition.Default, expected) {
+			t.Fatalf("expected default ip block list to include %s, got %q", expected, definition.Default)
+		}
+	}
+}
+
+func TestDefaultIPBlockListOverridesAdminPrivateNetworkAccess(t *testing.T) {
+	h := &Handlers{
+		configs: &configCache{values: map[string]string{
+			"security.egress.domainAllowList": "",
+			"security.egress.domainBlockList": "",
+			"security.egress.ipAllowList":     "",
+			"security.egress.ipBlockList":     security.ReservedIPBlockListText(),
+			"security.egress.allowedPorts":    "",
+		}},
+	}
+
+	policy := h.egressPolicyForUser(model.User{Role: "platform_admin"})
+	if _, err := policy.ValidateURL("http://127.0.0.1:8080"); !errors.Is(err, security.ErrBlockedByPolicy) {
+		t.Fatalf("expected default explicit block list to block loopback even for admin policy, got %v", err)
+	}
+
+	h.configs.values["security.egress.ipBlockList"] = ""
+	policy = h.egressPolicyForUser(model.User{Role: "platform_admin"})
+	if _, err := policy.ValidateURL("http://127.0.0.1:8080"); err != nil {
+		t.Fatalf("expected edited empty block list to allow admin private network access, got %v", err)
+	}
+}
+
 func TestBootstrapStatusIncludesDevLoginHintInDevelopment(t *testing.T) {
 	t.Setenv("LOCAL_ADMIN_EMAIL", "Admin@Example.com")
 	t.Setenv("LOCAL_ADMIN_PASSWORD", "secret-password")
@@ -98,7 +167,7 @@ func TestBootstrapStatusIncludesDevLoginHintInDevelopment(t *testing.T) {
 
 func TestAuthProviderResponseHidesStoredClientSecret(t *testing.T) {
 	t.Setenv("SECRET_ENCRYPTION_KEY", "test-key")
-	provider := model.AuthProvider{ClientSecretRef: storedSecretRef("super-secret")}
+	provider := model.AuthProvider{ClientSecretRef: secret.Encrypt("super-secret")}
 
 	output := authProviderResponse(provider)
 
@@ -112,7 +181,7 @@ func TestAuthProviderResponseHidesStoredClientSecret(t *testing.T) {
 
 func TestAuthProviderFromInputPreservesExistingSecret(t *testing.T) {
 	t.Setenv("SECRET_ENCRYPTION_KEY", "test-key")
-	existingSecretRef := storedSecretRef("old-secret")
+	existingSecretRef := secret.Encrypt("old-secret")
 	provider, ok := authProviderFromInput(authProviderInput{
 		Type:      "oidc",
 		Name:      "Casdoor",
@@ -128,18 +197,149 @@ func TestAuthProviderFromInputPreservesExistingSecret(t *testing.T) {
 	}
 }
 
-func TestResolveSecretSupportsStoredLiteralAndEnvRefs(t *testing.T) {
+func TestResolveSecretSupportsStoredAndEnvRefsOnly(t *testing.T) {
 	t.Setenv("SECRET_ENCRYPTION_KEY", "test-key")
 	t.Setenv("OIDC_TEST_SECRET", "env-secret")
+	h := &Handlers{}
 
-	if secret := resolveSecret(storedSecretRef("stored-secret")); secret != "stored-secret" {
+	if secret := h.resolveSecret(secret.Encrypt("stored-secret")); secret != "stored-secret" {
 		t.Fatalf("expected stored secret, got %q", secret)
 	}
-	if secret := resolveSecret("literal:literal-secret"); secret != "literal-secret" {
-		t.Fatalf("expected literal secret, got %q", secret)
+	if secret := h.resolveSecret("literal:literal-secret"); secret != "" {
+		t.Fatalf("expected literal secret ref to be rejected, got %q", secret)
 	}
-	if secret := resolveSecret("env:OIDC_TEST_SECRET"); secret != "env-secret" {
+	if secret := h.resolveSecret("plain-secret"); secret != "" {
+		t.Fatalf("expected bare secret ref to be rejected, got %q", secret)
+	}
+	if secret := h.resolveSecret("env:OIDC_TEST_SECRET"); secret != "env-secret" {
 		t.Fatalf("expected env secret, got %q", secret)
+	}
+}
+
+func TestAccessTokenUnknownRouteIsDenied(t *testing.T) {
+	if accessTokenAllows("*", "system:unmapped") {
+		t.Fatal("expected unmapped route to be denied even for wildcard legacy token")
+	}
+}
+
+func TestEnqueueDeployRunPassesStablePayload(t *testing.T) {
+	fake := &fakeBuildTaskEnqueuer{}
+	h := &Handlers{taskClient: fake}
+	release := model.Release{ID: "rel_1", ProjectID: "prj_1", CreatedBy: "usr_1"}
+
+	if !h.enqueueDeployRun(context.Background(), release) {
+		t.Fatal("expected enqueueDeployRun to succeed")
+	}
+
+	want := tasks.DeployRunPayload{
+		ReleaseID: "rel_1",
+		ProjectID: "prj_1",
+		ActorID:   "usr_1",
+	}
+	if fake.deployPayload != want {
+		t.Fatalf("payload = %#v", fake.deployPayload)
+	}
+}
+
+func TestEnqueueGatewayApplyPassesStablePayload(t *testing.T) {
+	fake := &fakeBuildTaskEnqueuer{}
+	h := &Handlers{taskClient: fake}
+	route := model.GatewayRoute{ID: "gwr_1", ProjectID: "prj_1", CreatedBy: "usr_1"}
+
+	if !h.enqueueGatewayApply(context.Background(), route) {
+		t.Fatal("expected enqueueGatewayApply to succeed")
+	}
+
+	want := tasks.GatewayApplyPayload{
+		GatewayRouteID: "gwr_1",
+		ProjectID:      "prj_1",
+		ActorID:        "usr_1",
+	}
+	if fake.gatewayPayload != want {
+		t.Fatalf("payload = %#v", fake.gatewayPayload)
+	}
+}
+
+func TestRollbackReleaseFromTargetUsesPreviousSuccessfulRelease(t *testing.T) {
+	source := model.Release{
+		ID:            "rel_current",
+		ProjectID:     "prj_1",
+		ApplicationID: "app_1",
+		EnvironmentID: "env_1",
+		ImageRef:      "registry.example.com/acme/api:v3",
+		Revision:      3,
+	}
+	target := model.Release{
+		ID:       "rel_previous",
+		ImageRef: "registry.example.com/acme/api:v2",
+		Revision: 2,
+	}
+
+	release := rollbackReleaseFromTarget(source, target, "usr_1", 4)
+	if release.ImageRef != target.ImageRef || release.RollbackFromID != target.ID {
+		t.Fatalf("release = %#v", release)
+	}
+	if release.Type != "rollback" || release.Status != "pending" || release.Revision != 4 {
+		t.Fatalf("rollback metadata = %#v", release)
+	}
+}
+
+type fakeBuildTaskEnqueuer struct {
+	deployPayload  tasks.DeployRunPayload
+	gatewayPayload tasks.GatewayApplyPayload
+}
+
+func (f *fakeBuildTaskEnqueuer) EnqueueDeployRun(_ context.Context, payload tasks.DeployRunPayload) (*asynq.TaskInfo, error) {
+	f.deployPayload = payload
+	return &asynq.TaskInfo{}, nil
+}
+
+func (f *fakeBuildTaskEnqueuer) EnqueueGatewayApply(_ context.Context, payload tasks.GatewayApplyPayload) (*asynq.TaskInfo, error) {
+	f.gatewayPayload = payload
+	return &asynq.TaskInfo{}, nil
+}
+
+func TestNormalizeAccessTokenScopeRejectsWildcardAndUnknownScopes(t *testing.T) {
+	if scope := normalizeAccessTokenScope("*"); scope != "" {
+		t.Fatalf("expected wildcard scope to be rejected, got %q", scope)
+	}
+	if scope := normalizeAccessTokenScope("project:read,git:read"); scope != "project:read,git:read" {
+		t.Fatalf("expected normalized scope list, got %q", scope)
+	}
+	if scope := normalizeAccessTokenScope("project:read,unknown:write"); scope != "" {
+		t.Fatalf("expected unknown scope to be rejected, got %q", scope)
+	}
+}
+
+func TestUserCannotCreateAdministrativeAccessTokenScope(t *testing.T) {
+	user := model.User{Role: "user"}
+	if userCanCreateAccessTokenScope(user, "user:manage") {
+		t.Fatal("expected normal user to be blocked from user:manage")
+	}
+	if userCanCreateAccessTokenScope(user, "config:write") {
+		t.Fatal("expected normal user to be blocked from config:write")
+	}
+	if userCanCreateAccessTokenScope(user, "project:write") {
+		t.Fatal("expected normal user to be blocked from project:write without project role context")
+	}
+	if !userCanCreateAccessTokenScope(user, "project:read,git:read") {
+		t.Fatal("expected normal user to create read scopes")
+	}
+}
+
+func TestOAuthStateTableNamesMatchMigrations(t *testing.T) {
+	if got := (model.GitOAuthState{}).TableName(); got != "git_oauth_states" {
+		t.Fatalf("git oauth state table = %q", got)
+	}
+	if got := (model.OIDCAuthState{}).TableName(); got != "oidc_auth_states" {
+		t.Fatalf("oidc auth state table = %q", got)
+	}
+}
+
+func TestRegistryResponseExposesCredentialSetOnly(t *testing.T) {
+	output := registryResponse(model.ArtifactRegistry{CredentialRef: "regc_secret"})
+	if !output.CredentialSet {
+		t.Fatal("expected credentialSet to be true")
 	}
 }
 
@@ -173,29 +373,194 @@ func TestGitWebhookCommitSHAReadsAfterField(t *testing.T) {
 }
 
 func TestPathEscapePathPreservesPathSegments(t *testing.T) {
-	escaped := pathEscapePath(".devops/app yaml.yml")
-	if escaped != ".devops/app%20yaml.yml" {
+	escaped := gitprovider.PathEscapePath("docs/app yaml.yml")
+	if escaped != "docs/app%20yaml.yml" {
 		t.Fatalf("escaped path = %q", escaped)
 	}
 }
 
 func TestFilterGitRepositoriesMatchesNameAndFullName(t *testing.T) {
-	repos := []gitRepository{
+	repos := []gitprovider.Repository{
 		{Name: "api", FullName: "liteyuki/api"},
 		{Name: "web", FullName: "liteyuki/web"},
 	}
-	filtered := filterGitRepositories(repos, "API")
+	filtered := gitprovider.FilterRepositories(repos, "API")
 	if len(filtered) != 1 || filtered[0].Name != "api" {
 		t.Fatalf("filtered = %#v", filtered)
 	}
 }
 
 func TestGitOAuthEndpointDefaultsGitHub(t *testing.T) {
-	endpoint, err := gitOAuthEndpoint(model.GitProvider{Type: "github"})
+	endpoint, err := gitprovider.OAuthEndpoint(model.GitProvider{Type: "github"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if endpoint.AuthURL != "https://github.com/login/oauth/authorize" {
 		t.Fatalf("auth url = %q", endpoint.AuthURL)
+	}
+}
+
+func TestSanitizeFrontendOrigin(t *testing.T) {
+	defaultOrigin := "http://127.0.0.1:8080"
+
+	if got := sanitizeFrontendOrigin("", defaultOrigin); got != defaultOrigin {
+		t.Fatalf("empty origin = %q", got)
+	}
+	if got := sanitizeFrontendOrigin("mailto://bad.example", defaultOrigin); got != defaultOrigin {
+		t.Fatalf("bad scheme origin = %q", got)
+	}
+	if got := sanitizeFrontendOrigin("http://127.0.0.1:5173", defaultOrigin); got != "http://127.0.0.1:5173" {
+		t.Fatalf("same host origin = %q", got)
+	}
+	if got := sanitizeFrontendOrigin("http://localhost:5173", defaultOrigin); got != "http://localhost:5173" {
+		t.Fatalf("loopback host origin = %q", got)
+	}
+	if got := sanitizeFrontendOrigin("http://evil.example", defaultOrigin); got != defaultOrigin {
+		t.Fatalf("different host origin = %q", got)
+	}
+}
+
+func TestBuildFrontendRedirect(t *testing.T) {
+	defaultOrigin := "http://127.0.0.1:8080"
+	redirectPath := "/code-repositories"
+	accountID := "gita_xxx"
+	target := buildFrontendRedirect(defaultOrigin, "http://127.0.0.1:5173", redirectPath, accountID)
+	if target != "http://127.0.0.1:5173/code-repositories?gitAccountId=gita_xxx" {
+		t.Fatalf("redirect = %q", target)
+	}
+
+	target = buildFrontendRedirect(defaultOrigin, "http://localhost:5173", "/projects?tab=apps", accountID)
+	if target != "http://localhost:5173/projects?tab=apps&gitAccountId=gita_xxx" {
+		t.Fatalf("redirect with query = %q", target)
+	}
+}
+
+func TestGitExternalBaseURLPrefersPublicEnv(t *testing.T) {
+	h := &Handlers{}
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/git/oauth/start", nil)
+
+	t.Setenv("PUBLIC_BASE_URL", "https://studio.example.com/")
+
+	if got := h.externalBaseURL(ctx); got != "https://studio.example.com" {
+		t.Fatalf("externalBaseURL = %q", got)
+	}
+}
+
+func TestGitExternalBaseURLReturnsEmptyWhenNotConfigured(t *testing.T) {
+	h := &Handlers{}
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/git/oauth/start", nil)
+
+	t.Setenv("PUBLIC_BASE_URL", "")
+
+	if got := h.externalBaseURL(ctx); got != "" {
+		t.Fatalf("externalBaseURL = %q", got)
+	}
+}
+
+func TestConfiguredAllowedOriginsUsesPublicBaseAndEnv(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("PUBLIC_BASE_URL", "https://studio.example.com/app")
+	t.Setenv("APP_CORS_ORIGINS", "https://admin.example.com, https://studio.example.com")
+
+	origins := configuredAllowedOrigins()
+	if !containsString(origins, "https://studio.example.com") {
+		t.Fatalf("expected PUBLIC_BASE_URL origin, got %#v", origins)
+	}
+	if !containsString(origins, "https://admin.example.com") {
+		t.Fatalf("expected APP_CORS_ORIGINS origin, got %#v", origins)
+	}
+	if containsString(origins, "http://localhost:5173") {
+		t.Fatalf("did not expect development origin in production, got %#v", origins)
+	}
+}
+
+func TestRequestOriginAllowedRejectsUntrustedOrigin(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/users/me", nil)
+	ctx.Request.Header.Set("Origin", "https://evil.example.com")
+
+	if requestOriginAllowed(ctx, []string{"https://studio.example.com"}) {
+		t.Fatal("expected untrusted origin to be rejected")
+	}
+
+	ctx.Request.Header.Set("Origin", "https://studio.example.com")
+	if !requestOriginAllowed(ctx, []string{"https://studio.example.com"}) {
+		t.Fatal("expected trusted origin to be accepted")
+	}
+}
+
+func TestRateLimiterBlocksAfterLimit(t *testing.T) {
+	limiter := newRateLimiter()
+	now := time.Date(2026, 6, 7, 0, 0, 0, 0, time.UTC)
+
+	if !limiter.allow("login:127.0.0.1", 2, time.Minute, now) {
+		t.Fatal("expected first attempt to pass")
+	}
+	if !limiter.allow("login:127.0.0.1", 2, time.Minute, now.Add(time.Second)) {
+		t.Fatal("expected second attempt to pass")
+	}
+	if limiter.allow("login:127.0.0.1", 2, time.Minute, now.Add(2*time.Second)) {
+		t.Fatal("expected third attempt to be blocked")
+	}
+	if !limiter.allow("login:127.0.0.1", 2, time.Minute, now.Add(2*time.Minute)) {
+		t.Fatal("expected attempts after window to pass")
+	}
+}
+
+func TestWriteErrorCodeHidesDetailInProduction(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	writeError(ctx, http.StatusBadRequest, "duplicate key value violates unique constraint users_email_key")
+
+	var body map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["code"] != "request.invalid" {
+		t.Fatalf("code = %q", body["code"])
+	}
+	if body["error"] == "duplicate key value violates unique constraint users_email_key" || body["detail"] != "" {
+		t.Fatalf("production response leaked detail: %#v", body)
+	}
+}
+
+func TestWriteErrorCodeIncludesDetailInDevelopment(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	writeError(ctx, http.StatusBadRequest, "validation detail")
+
+	var body map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["error"] != "validation detail" || body["detail"] != "validation detail" {
+		t.Fatalf("development response should include detail: %#v", body)
+	}
+}
+
+func TestPersonalGitAccountIsOnlyUsableByOwner(t *testing.T) {
+	h := &Handlers{}
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	account := model.GitAccount{
+		UserID:      "usr_owner",
+		Scope:       "project",
+		OwnerRef:    "prj_demo",
+		AccessScope: "personal",
+	}
+
+	if !h.canUseGitAccount(ctx, model.User{ID: "usr_owner", Role: "user"}, account) {
+		t.Fatal("expected owner to use personal Git account")
+	}
+	if h.canUseGitAccount(ctx, model.User{ID: "usr_other", Role: "user"}, account) {
+		t.Fatal("expected another project member to be blocked from personal Git account")
+	}
+	if h.canUseGitAccount(ctx, model.User{ID: "usr_admin", Role: "platform_admin"}, account) {
+		t.Fatal("expected platform admin to be blocked from using another user's personal Git account")
 	}
 }

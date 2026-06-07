@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS registry_credentials (
   password_ref text NOT NULL DEFAULT '',
   token_ref text NOT NULL DEFAULT '',
   scope text NOT NULL DEFAULT 'push-pull',
+  access_scope text NOT NULL DEFAULT 'personal',
   created_by text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),

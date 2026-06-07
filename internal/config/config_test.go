@@ -66,6 +66,48 @@ func TestEnvOverridesEnvFile(t *testing.T) {
 	}
 }
 
+func TestLoadBuildPrivateEgressCIDRs(t *testing.T) {
+	t.Setenv("BUILD_PRIVATE_EGRESS_CIDRS", "10.20.0.0/16, fd00::/8 ,,")
+
+	cfg := Load()
+	if len(cfg.BuildPrivateEgressCIDRs) != 2 {
+		t.Fatalf("BuildPrivateEgressCIDRs = %#v", cfg.BuildPrivateEgressCIDRs)
+	}
+	if cfg.BuildPrivateEgressCIDRs[0] != "10.20.0.0/16" || cfg.BuildPrivateEgressCIDRs[1] != "fd00::/8" {
+		t.Fatalf("BuildPrivateEgressCIDRs = %#v", cfg.BuildPrivateEgressCIDRs)
+	}
+}
+
+func TestLoadBuildBlockedEgressCIDRsIncludesMetadataDefault(t *testing.T) {
+	t.Setenv("BUILD_BLOCKED_EGRESS_CIDRS", "10.96.0.0/12")
+
+	cfg := Load()
+	if len(cfg.BuildBlockedEgressCIDRs) != 2 {
+		t.Fatalf("BuildBlockedEgressCIDRs = %#v", cfg.BuildBlockedEgressCIDRs)
+	}
+	if cfg.BuildBlockedEgressCIDRs[0] != "169.254.169.254/32" || cfg.BuildBlockedEgressCIDRs[1] != "10.96.0.0/12" {
+		t.Fatalf("BuildBlockedEgressCIDRs = %#v", cfg.BuildBlockedEgressCIDRs)
+	}
+}
+
+func TestLoadDeployRolloutTimeoutSeconds(t *testing.T) {
+	t.Setenv("DEPLOY_ROLLOUT_TIMEOUT_SECONDS", "120")
+
+	cfg := Load()
+	if cfg.DeployRolloutTimeoutSeconds != 120 {
+		t.Fatalf("DeployRolloutTimeoutSeconds = %d", cfg.DeployRolloutTimeoutSeconds)
+	}
+}
+
+func TestLoadCertManagerClusterIssuer(t *testing.T) {
+	t.Setenv("CERT_MANAGER_CLUSTER_ISSUER", "letsencrypt-staging")
+
+	cfg := Load()
+	if cfg.CertManagerClusterIssuer != "letsencrypt-staging" {
+		t.Fatalf("CertManagerClusterIssuer = %q", cfg.CertManagerClusterIssuer)
+	}
+}
+
 func TestLoadEnvFileLogsPathInDevelopment(t *testing.T) {
 	unsetEnv(t, "API_ADDR")
 	unsetEnv(t, "DATABASE_URL")

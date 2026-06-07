@@ -1,13 +1,17 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/security"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type configDefinition struct {
@@ -51,6 +55,46 @@ var configDefinitions = []configDefinition{
 		Type:        "string",
 		Public:      true,
 		Default:     "使用本地账号登录控制台",
+	},
+	{
+		Key:         "security.egress.domainAllowList",
+		Label:       "SSRF 域名特许白名单",
+		Description: "每行一个域名或通配符域名。命中后允许该域名解析到私网/保留地址，但仍会受显式 IP 黑名单约束。",
+		Type:        "textarea",
+		Public:      false,
+		Default:     "",
+	},
+	{
+		Key:         "security.egress.domainBlockList",
+		Label:       "SSRF 域名黑名单",
+		Description: "每行一个域名或通配符域名。命中后直接拒绝访问。",
+		Type:        "textarea",
+		Public:      false,
+		Default:     "",
+	},
+	{
+		Key:         "security.egress.ipAllowList",
+		Label:       "SSRF IP 白名单",
+		Description: "每行一个 IP 或 CIDR。用于允许直连或解析结果命中的私网/保留地址。",
+		Type:        "textarea",
+		Public:      false,
+		Default:     "",
+	},
+	{
+		Key:         "security.egress.ipBlockList",
+		Label:       "SSRF IP 黑名单",
+		Description: "每行一个 IP 或 CIDR。默认预置 IPv4/IPv6 私网、环回、链路本地、文档、多播和保留地址；保存后以用户编辑内容为准。",
+		Type:        "textarea",
+		Public:      false,
+		Default:     security.ReservedIPBlockListText(),
+	},
+	{
+		Key:         "security.egress.allowedPorts",
+		Label:       "SSRF 允许端口",
+		Description: "可选。留空表示不限制端口；填写后每行一个端口，只允许这些端口。",
+		Type:        "textarea",
+		Public:      false,
+		Default:     "",
 	},
 }
 
@@ -110,6 +154,19 @@ func (h *Handlers) GetPublicConfigs(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, h.configs.get(publicConfigKeys(input.Keys)))
 }
 
+func (h *Handlers) GetConfigs(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	if user.Role != "platform_admin" {
+		writeErrorKey(ctx, http.StatusForbidden, user.Language, "config.admin.required")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, h.configs.get(knownConfigKeys()))
+}
+
 func (h *Handlers) ListConfigDefinitions(ctx *gin.Context) {
 	if _, ok := h.currentUser(ctx); !ok {
 		return
@@ -133,12 +190,21 @@ func (h *Handlers) UpdateConfigs(ctx *gin.Context) {
 		return
 	}
 
-	for key, value := range input.Values {
+	for key, rawValue := range input.Values {
 		if !isKnownConfigKey(key) {
-			continue
+			writeError(ctx, http.StatusBadRequest, fmt.Sprintf("unknown config key: %s", key))
+			return
+		}
+		value, err := configValueToString(rawValue)
+		if err != nil {
+			writeError(ctx, http.StatusBadRequest, err.Error())
+			return
 		}
 		row := model.AppConfig{Key: key, Value: value, UpdatedAt: time.Now()}
-		if err := h.db.Save(&row).Error; err != nil {
+		if err := h.db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
+		}).Create(&row).Error; err != nil {
 			writeError(ctx, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -182,10 +248,29 @@ func isKnownConfigKey(key string) bool {
 	return false
 }
 
+func configValueToString(value any) (string, error) {
+	switch typed := value.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return typed, nil
+	case bool:
+		return fmt.Sprintf("%t", typed), nil
+	case float64:
+		return fmt.Sprintf("%v", typed), nil
+	default:
+		data, err := json.Marshal(typed)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+}
+
 type configKeysInput struct {
 	Keys []string `json:"keys"`
 }
 
 type updateConfigsInput struct {
-	Values map[string]string `json:"values"`
+	Values map[string]any `json:"values"`
 }

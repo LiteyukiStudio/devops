@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/app ./c
 
 FROM alpine:3.22
 
-RUN addgroup -S app && adduser -S app -G app
+RUN apk add --no-cache ca-certificates docker-cli git && addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
 
@@ -22,4 +22,3 @@ USER app
 EXPOSE 8080
 
 ENTRYPOINT ["/app/app"]
-

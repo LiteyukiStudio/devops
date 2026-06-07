@@ -29,8 +29,12 @@ services:
         TARGET: api
     environment:
       API_ADDR: :8080
+      APP_ENV: development
       DATABASE_URL: postgres://devops:devops@postgres:5432/devops?sslmode=disable
+      PUBLIC_BASE_URL: http://localhost:8088
+      APP_CORS_ORIGINS: http://localhost:8088
       REDIS_ADDR: redis:6379
+      BUILDER_TOKEN: dev-builder-token
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,6 +50,7 @@ services:
       args:
         TARGET: worker
     environment:
+      APP_ENV: development
       DATABASE_URL: postgres://devops:devops@postgres:5432/devops?sslmode=disable
       REDIS_ADDR: redis:6379
     depends_on:
@@ -53,6 +58,30 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TARGET: builder
+    environment:
+      APP_ENV: development
+      LITEYUKI_API_URL: http://api:8080
+      BUILDER_TOKEN: dev-builder-token
+      BUILDER_AGENT_NAME: local-docker-builder
+      BUILDER_EXECUTOR: docker
+      BUILDER_EXECUTOR_IMAGE: moby/buildkit:v0.24.0-rootless
+      BUILDER_MAX_CONCURRENCY: 1
+      BUILDER_WORKSPACE_ROOT: /builder-workspace
+      BUILDER_WORKSPACE_HOST_ROOT: ${PWD}/.local/builder-workspace
+      BUILDER_NPM_REGISTRY: https://registry.npmmirror.com
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.local/builder-workspace:/builder-workspace
+    depends_on:
+      - api
 
   web:
     build:
@@ -65,4 +94,3 @@ services:
 
 volumes:
   postgres-data:
-

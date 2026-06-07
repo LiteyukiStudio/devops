@@ -1,0 +1,19 @@
+package api
+
+import (
+	"context"
+
+	"github.com/LiteyukiStudio/devops/internal/model"
+	registryprovider "github.com/LiteyukiStudio/devops/internal/provider/registry"
+)
+
+func (h *Handlers) pingRegistry(parent context.Context, user model.User, registry model.ArtifactRegistry) registryTestResult {
+	credentialInput := h.registryCredentialInput(user, registry)
+	result := registryprovider.Ping(parent, registry.Endpoint, h.egressPolicyForUser(user), credentialInput)
+	return registryTestResult{
+		Success:    result.Success,
+		StatusCode: result.StatusCode,
+		Message:    result.Message,
+		Endpoint:   result.Endpoint,
+	}
+}

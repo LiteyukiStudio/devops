@@ -283,6 +283,11 @@ paths:
     get:
       tags: [Git]
       summary: List Git providers
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: Git provider list.
@@ -334,6 +339,11 @@ paths:
           schema:
             type: string
             default: /projects
+        - name: frontendOrigin
+          in: query
+          schema:
+            type: string
+            default: ""
       responses:
         "302":
           description: Redirect to Git OAuth provider.
@@ -365,6 +375,11 @@ paths:
     get:
       tags: [Git]
       summary: List current user Git accounts
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
       responses:
         "200":
           description: Git account list.
@@ -456,7 +471,7 @@ paths:
           required: true
           schema:
             type: string
-            examples: [Dockerfile, .devops/app.yaml]
+            examples: [Dockerfile, web/Dockerfile]
         - name: ref
           in: query
           schema:
@@ -596,9 +611,28 @@ paths:
     get:
       tags: [Projects]
       summary: List projects
+      description: Returns the legacy project array when pagination parameters are omitted. Returns a paginated object when page or pageSize is provided.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, name, slug]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
       responses:
         "200":
-          description: Project list.
+          description: Project list or paginated project list.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+                  - $ref: "#/components/schemas/PaginatedProjectList"
     post:
       tags: [Projects]
       summary: Create project
@@ -611,6 +645,14 @@ paths:
       responses:
         "201":
           description: Created project.
+
+  /api/v1/projects/pins:
+    get:
+      tags: [Projects]
+      summary: List current user's pinned projects
+      responses:
+        "200":
+          description: Pinned project list.
 
   /api/v1/projects/{projectId}:
     get:
@@ -643,6 +685,26 @@ paths:
       responses:
         "204":
           description: Deleted project.
+
+  /api/v1/projects/{projectId}/pin:
+    put:
+      tags: [Projects]
+      summary: Pin project for current user
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Updated pinned project.
+        "201":
+          description: Created pinned project.
+    delete:
+      tags: [Projects]
+      summary: Unpin project for current user
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Unpinned project.
 
   /api/v1/projects/{projectId}/registries/default:
     get:
@@ -727,22 +789,6 @@ paths:
       responses:
         "201":
           description: Created application.
-
-  /api/v1/projects/{projectId}/applications/parse-config:
-    post:
-      tags: [Applications]
-      summary: Parse .devops/app.yaml
-      parameters:
-        - $ref: "#/components/parameters/ProjectId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ParseApplicationConfigInput"
-      responses:
-        "200":
-          description: Parsed application config.
 
   /api/v1/projects/{projectId}/applications/{applicationId}:
     get:
@@ -844,6 +890,7 @@ paths:
     get:
       tags: [AccessTokens]
       summary: List access tokens
+      description: Returns only non-revoked access tokens.
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PageSize"
@@ -985,8 +1032,10 @@ components:
       type: object
       properties:
         name: { type: string }
-        scope: { type: string }
-        expiresInDays: { type: integer, minimum: 0 }
+        scope:
+          type: string
+          description: "Comma-separated scopes. Wildcard and unknown scopes are rejected. Normal users can create read scopes only."
+        expiresInDays: { type: integer, enum: [0, 7, 15, 30, 90], description: "0 means never expires." }
       required: [name, scope]
     ApplicationInput:
       type: object
@@ -1009,7 +1058,6 @@ components:
         namespace: { type: string }
         scope: { type: string, enum: [global, project, user] }
         ownerRef: { type: string }
-        credentialRef: { type: string }
         isDefault: { type: boolean }
         capabilities: { type: array, items: { type: string } }
       required: [name, provider, endpoint, scope]
@@ -1063,12 +1111,15 @@ components:
       type: object
       properties:
         providerId: { type: string }
+        scope: { type: string, enum: [global, project, user] }
+        ownerRef: { type: string }
         externalUserId: { type: string }
         username: { type: string }
         avatarUrl: { type: string }
-        accessTokenRef: { type: string }
-        refreshTokenRef: { type: string }
+        accessToken: { type: string, writeOnly: true }
+        refreshToken: { type: string, writeOnly: true }
         scopes: { type: array, items: { type: string } }
+        accessScope: { type: string, enum: [personal, provider] }
         status: { type: string, enum: [connected, expired, revoked] }
       required: [providerId, username]
     GitProviderInput:
@@ -1077,9 +1128,11 @@ components:
         type: { type: string, enum: [github, gitea, gitlab] }
         name: { type: string }
         baseUrl: { type: string }
+        scope: { type: string, enum: [global, project, user] }
+        ownerRef: { type: string }
         authType: { type: string, enum: [oauth, github-app, pat] }
         clientId: { type: string }
-        clientSecretRef: { type: string }
+        clientSecret: { type: string, writeOnly: true }
         enabled: { type: boolean }
       required: [name]
     InitializeAdminInput:
@@ -1096,11 +1149,6 @@ components:
         email: { type: string }
         password: { type: string }
       required: [email, password]
-    ParseApplicationConfigInput:
-      type: object
-      properties:
-        content: { type: string }
-      required: [content]
     ProjectInput:
       type: object
       properties:
@@ -1109,6 +1157,38 @@ components:
         description: { type: string }
         namespaceStrategy: { type: string, enum: [project] }
       required: [name, slug]
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        namespaceStrategy: { type: string, enum: [project] }
+        createdAt: { type: string, format: date-time }
+    PaginatedProjectList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        page: { type: integer }
+        pageSize: { type: integer }
+        sortBy: { type: string }
+        sortOrder: { type: string, enum: [asc, desc] }
+        total: { type: integer }
+        totalPages: { type: integer }
+    ProjectPin:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        namespaceStrategy: { type: string, enum: [project] }
+        createdAt: { type: string, format: date-time }
+        pinnedAt: { type: string, format: date-time }
     ProjectMemberInput:
       type: object
       properties:
@@ -1122,7 +1202,8 @@ components:
         username: { type: string }
         password: { type: string }
         token: { type: string }
-        scope: { type: string, enum: [pull, push-pull] }
+        scope: { type: string, enum: [pull, push, push-pull] }
+        accessScope: { type: string, enum: [personal, registry] }
     RepositoryBindingInput:
       type: object
       properties:
@@ -1133,18 +1214,25 @@ components:
         cloneUrl: { type: string }
         defaultBranch: { type: string }
         webhookStatus: { type: string, enum: [pending, created, disabled, failed] }
-        credentialRef: { type: string }
       required: [applicationId, gitAccountId, owner, repo]
     UpdateConfigsInput:
       type: object
       properties:
         values:
           type: object
-          additionalProperties: { type: string }
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: object
+              - type: array
       required: [values]
     UpdateCurrentUserInput:
       type: object
       properties:
+        name: { type: string }
+        avatarUrl: { type: string }
         language: { type: string, enum: [zh-CN, en-US] }
     UserInput:
       type: object

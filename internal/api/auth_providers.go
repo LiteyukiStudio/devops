@@ -8,6 +8,7 @@ import (
 
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -38,13 +39,17 @@ func (h *Handlers) CreateAuthProvider(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
+	providerID := id.New("ap")
+	if secret := strings.TrimSpace(input.ClientSecret); secret != "" {
+		input.ClientSecretRef = h.secrets.Store(secret, "", "auth_provider:"+providerID+":client_secret")
+		input.ClientSecret = ""
+	}
 
-	provider, ok := authProviderFromInput(input, "", "")
+	provider, ok := authProviderFromInput(input, providerID, "")
 	if !ok {
 		writeError(ctx, http.StatusBadRequest, "请输入有效的 OIDC Provider 配置")
 		return
 	}
-	provider.ID = id.New("ap")
 
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
 		if provider.IsDefault {
@@ -75,6 +80,10 @@ func (h *Handlers) UpdateAuthProvider(ctx *gin.Context) {
 	var input authProviderInput
 	if !bindJSON(ctx, &input) {
 		return
+	}
+	if secret := strings.TrimSpace(input.ClientSecret); secret != "" {
+		input.ClientSecretRef = h.secrets.Store(secret, "", "auth_provider:"+provider.ID+":client_secret")
+		input.ClientSecret = ""
 	}
 
 	next, ok := authProviderFromInput(input, provider.ID, provider.ClientSecretRef)
@@ -198,8 +207,8 @@ func authProviderFromInput(input authProviderInput, providerID string, existingS
 		providerType = "oidc"
 	}
 	clientSecretRef := strings.TrimSpace(input.ClientSecretRef)
-	if secret := strings.TrimSpace(input.ClientSecret); secret != "" {
-		clientSecretRef = storedSecretRef(secret)
+	if strings.TrimSpace(input.ClientSecret) != "" {
+		return model.AuthProvider{}, false
 	} else if clientSecretRef == "" {
 		clientSecretRef = existingSecretRef
 	}
@@ -240,8 +249,8 @@ func authProviderResponse(provider model.AuthProvider) authProviderOutput {
 		Enabled:         provider.Enabled,
 		IssuerURL:       provider.IssuerURL,
 		ClientID:        provider.ClientID,
-		ClientSecretRef: safeClientSecretRef(provider.ClientSecretRef),
-		ClientSecretSet: secretRefHasValue(provider.ClientSecretRef),
+		ClientSecretRef: secret.SafeClientSecretRef(provider.ClientSecretRef),
+		ClientSecretSet: secret.HasValue(provider.ClientSecretRef),
 		Scopes:          provider.Scopes,
 		GroupClaim:      provider.GroupClaim,
 		EmailClaim:      provider.EmailClaim,
