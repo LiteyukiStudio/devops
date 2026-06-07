@@ -29,12 +29,14 @@ coverage.out
 *.db
 *.sqlite
 *.sqlite3
+*.kubeconfig
 postgres-data/
 redis-data/
 
 # Frontend dependencies and build outputs
 node_modules/
 web/node_modules/
+tests/node_modules/
 web/dist/
 web/dist-ssr/
 web/.vite/
@@ -46,3 +48,5 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# workbuddy
+.workbuddy/

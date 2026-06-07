@@ -1,85 +1,81 @@
-# Liteyuki DevOps
+<p align="center">
+  <img src="web/public/liteyuki-logo.svg" width="132" alt="Liteyuki DevOps logo" />
+</p>
 
-面向个人开发者和小团队的 DevOps 应用交付平台。
+<h1 align="center">Liteyuki DevOps</h1>
 
-平台目标是把代码仓库、镜像站、构建、部署、网关和域名打通，让用户只需要维护代码、`Dockerfile` 和少量配置，就可以把应用部署成一个可访问的服务。
+<p align="center">
+  面向个人开发者和小团队的 DevOps 应用交付平台。
+</p>
+
+<p align="center">
+  <a href="docs/01-产品与一体化方案.md">产品方案</a>
+  ·
+  <a href="docs/03-产品原型.html">产品原型</a>
+  ·
+  <a href="TODO.md">开发计划</a>
+  ·
+  <a href="AGENTS.md">开发规范</a>
+</p>
+
+## 项目定位
+
+Liteyuki DevOps 将代码仓库、镜像站、构建、部署、网关和域名打通，让开发者只需要维护代码、`Dockerfile` 和少量配置，就能把应用交付成一个可访问的服务。
+
+第一阶段聚焦一条稳定闭环：
+
+```text
+绑定仓库
+  -> 平台构建镜像
+  -> 推送制品库
+  -> 部署到 Kubernetes / K3s
+  -> 配置 Ingress / Traefik
+  -> 分配域名
+  -> 展示状态与发布记录
+```
 
 ## 核心能力
 
-- 项目与应用管理
-- 本地账号与 OIDC 登录准入
-- Gitea / GitHub 仓库绑定
-- Git webhook 触发平台构建
-- Kubernetes Job + BuildKit rootless 构建镜像
-- Harbor / Gitea Registry / DockerHub 镜像站接入
-- Kubernetes / K3s 部署
-- Ingress / Traefik 网关与域名
-- 自定义域名与 HTTP Challenge 证书
-- 发布记录与回滚
-- 公开站点配置：title、logo、favicon 等元数据可由后台配置
-- 多主题：亮色、暗色、跟随系统
+| 模块 | 能力 |
+| --- | --- |
+| 项目与应用 | 项目空间、应用、成员和权限管理 |
+| 认证准入 | 本地账号、OIDC、邀请/导入、准入策略 |
+| 代码仓库 | Gitea / GitHub 账号授权、仓库绑定、Webhook |
+| 平台构建 | Kubernetes Job + BuildKit rootless 构建镜像 |
+| 镜像站 | Harbor / Gitea Registry / DockerHub 接入 |
+| 部署发布 | Kubernetes / K3s 部署、Release 记录、回滚 |
+| 网关域名 | Ingress / Traefik、自定义域名、HTTP Challenge 证书 |
+| 站点配置 | title、logo、favicon、登录页副标题等公开配置 |
+| 体验基础 | light / dark / system 主题、i18n、友好错误页 |
 
 ## 技术栈
 
-后端：
+| 领域 | 技术 |
+| --- | --- |
+| 后端 | Go, Gin, GORM, PostgreSQL, Redis, Asynq, client-go, OpenAPI |
+| 前端 | Vite, React, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query |
+| 表单与体验 | React Hook Form, Zod, i18next, react-i18next, Sonner |
+| 运维与构建 | Docker Compose, Kubernetes Job, BuildKit rootless, Traefik / Ingress |
+| Python 工具链 | uv |
 
-- Go
-- Gin
-- GORM
-- PostgreSQL
-- Redis + Asynq
-- client-go
-- OpenAPI
+## 快速开始
 
-前端：
-
-- Vite
-- React
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- TanStack Query
-- React Hook Form + Zod
-- i18next
-- Sonner toast
-- pnpm
-
-Python 工具链：
-
-- uv
-
-## Monorepo 结构
-
-- Go 后端位于仓库根目录。
-- 前端位于 `web/` 目录。
-- 本地数据库和队列使用 `docker-compose-dev.yaml` 启动 PostgreSQL 与 Redis。
-
-## 本地开发
-
-启动开发所需组件：
+启动开发依赖：
 
 ```bash
 docker compose -f docker-compose-dev.yaml up -d
 ```
 
-启动后端 API：
+准备本地环境变量：
+
+```bash
+cp .env.example .env.dev
+```
+
+启动 API：
 
 ```bash
 go run ./cmd/api
-```
-
-运行模式：
-
-- `APP_ENV=development`：启用开发默认管理员，并由后端下发登录页开发账号提示。
-- `APP_ENV=production`：禁用开发默认管理员；如果没有平台管理员，需要先访问 `/bootstrap` 初始化首个管理员。
-- 生产模式不会返回或显示开发默认账号、默认密码等调试提示。
-- 未设置 `APP_ENV` 时，`go run` 会按开发模式处理，普通二进制和容器默认按生产模式处理。
-
-使用本地 `.env.*` 配置文件启动：
-
-```bash
-cp .env.example .env.local
-ENV_FILE=.env.local go run ./cmd/api
 ```
 
 启动 worker：
@@ -88,18 +84,11 @@ ENV_FILE=.env.local go run ./cmd/api
 go run ./cmd/worker
 ```
 
-使用同一份本地配置启动 worker：
-
-```bash
-ENV_FILE=.env.local go run ./cmd/worker
-```
-
 启动前端：
 
 ```bash
-cd web
-pnpm install
-pnpm dev
+pnpm --dir web install
+pnpm --dir web dev
 ```
 
 开发环境前端请求 `/api/v1`，由 Vite proxy 反代到 `http://localhost:8080`。
@@ -131,23 +120,54 @@ worker
   -> postgres / redis
 ```
 
-各组件镜像：
+## 运行模式
 
-- `api`: 根目录 `Dockerfile`，`TARGET=api`。
-- `worker`: 根目录 `Dockerfile`，`TARGET=worker`。
-- `web`: `web/Dockerfile`，Nginx 承载静态资源并反代 `/api/`。
+| 模式 | 行为 |
+| --- | --- |
+| `APP_ENV=development` | 启用开发默认管理员，并由后端下发登录页开发账号提示 |
+| `APP_ENV=production` | 禁用开发默认管理员；没有平台管理员时需访问 `/bootstrap` 初始化 |
+| 未设置 `APP_ENV` | `go run` 按开发模式处理，普通二进制和容器默认按生产模式处理 |
 
-生产环境可以继续将 `web` 服务放到 Traefik/Ingress 后面。
+开发模式默认尝试读取 `.env.dev`。也可以通过 `ENV_FILE` 指定其它本地 `.env.*`：
+
+```bash
+ENV_FILE=.env.local go run ./cmd/api
+ENV_FILE=.env.local go run ./cmd/worker
+```
+
+生产环境必须配置稳定的 `SECRET_ENCRYPTION_KEY`，用于加密后台直接填写的 OIDC/Git Client Secret。
+
+## 目录地图
+
+```text
+cmd/api                 API 服务入口
+cmd/worker              异步任务 worker 入口
+internal/               后端领域模块、配置、模型和 API
+migrations/             PostgreSQL 数据库迁移
+openapi/                OpenAPI 定义
+web/                    Vite + React 前端
+web/public/             静态资源，包含 SVG logo / favicon
+docs/                   产品、原型、AI 能力和品牌说明
+```
+
+## 品牌资产
+
+- 主 Logo / Favicon：[`web/public/liteyuki-logo.svg`](web/public/liteyuki-logo.svg)
+- Mascot：[`web/public/brand/mascot-liteyuki-devops.png`](web/public/brand/mascot-liteyuki-devops.png)
+- 品牌说明：[`docs/05-品牌与Logo.md`](docs/05-品牌与Logo.md)
+
+前端默认公开配置、favicon 和 README 都引用同一个 SVG 源文件；后台仍可通过站点配置覆盖 `site.logoUrl` 和 `site.faviconUrl`。
 
 ## 文档
 
-阅读顺序：
+推荐阅读顺序：
 
 1. [产品与一体化方案](docs/01-产品与一体化方案.md)
-2. [项目技术栈要求](docs/02-项目技术栈要求.md)
-3. [产品原型](docs/03-产品原型.html)
-4. [AI 能力提案](docs/04-AI能力提案.md)
+2. [产品原型](docs/03-产品原型.html)
+3. [AI 能力提案](docs/04-AI能力提案.md)
+4. [品牌与 Logo](docs/05-品牌与Logo.md)
 5. [TODO](TODO.md)
+6. [AI 开发规范](AGENTS.md)
 
 ## 开发约定
 
@@ -157,3 +177,4 @@ worker
 - 平台构建主路径使用 `Kubernetes Job + BuildKit rootless`。
 - Gitea/GitHub Actions 仅作为可选 BuildProvider。
 - 部署由平台统一执行和记录。
+- 前端所有用户可见文本必须走 i18n，不在组件中硬编码文案。

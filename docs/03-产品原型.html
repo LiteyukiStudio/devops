@@ -24,8 +24,8 @@
       --line: #d8dee4;
       --text: #152027;
       --muted: #66737d;
-      --primary: #087f7a;
-      --primary-soft: #dff3ef;
+      --primary: #326ce5;
+      --primary-soft: #dceafe;
       --green: #147a3f;
       --amber: #9a5b05;
       --red: #b42318;
@@ -42,8 +42,8 @@
       --line: #2d383d;
       --text: #eef4f6;
       --muted: #9eabb1;
-      --primary: #2dd4bf;
-      --primary-soft: #123d39;
+      --primary: #60a5fa;
+      --primary-soft: #10243f;
       --green: #69d995;
       --amber: #e9af58;
       --red: #ff8a7c;
@@ -383,10 +383,10 @@
       <a href="#page-projects">02 项目与成员</a>
       <a href="#page-create-app">03 创建应用向导</a>
       <a href="#page-repository">04 仓库绑定</a>
-      <a href="#page-build">05 构建页面</a>
+      <a href="#page-build">05 应用构建 tab</a>
       <a href="#page-registry">06 镜像站配置</a>
-      <a href="#page-deploy">07 环境与部署</a>
-      <a href="#page-gateway">08 网关与域名</a>
+      <a href="#page-deploy">07 应用部署 tab</a>
+      <a href="#page-gateway">08 应用域名网关 tab</a>
       <a href="#page-secrets">09 配置与密钥</a>
       <a href="#page-tokens">10 Access Token</a>
       <a href="#page-quota">11 配额与用量</a>
@@ -407,18 +407,16 @@
 
       <section class="page-section" id="page-overview">
         <h2>01 总览与导航</h2>
-        <p>左侧为主导航，顶部为项目和环境上下文。总览展示应用、构建、发布、网关和异常状态。</p>
+        <p>左侧为主导航，项目空间可展开到项目，项目再展开到应用。构建、部署和域名网关收敛在应用详情页，集群作为独立资源页。</p>
         <div class="wireframe">
           <div class="wire-top"><span>总览截图</span><span>liteyuki-lab / dev</span></div>
           <div class="wire-body layout">
             <div class="side-panel">
               <div class="nav-item active">总览</div>
               <div class="nav-item">项目</div>
-              <div class="nav-item">应用</div>
-              <div class="nav-item">构建</div>
+              <div class="nav-item">应用详情</div>
               <div class="nav-item">镜像站</div>
-              <div class="nav-item">部署</div>
-              <div class="nav-item">网关域名</div>
+              <div class="nav-item">集群</div>
               <div class="nav-item">系统配置</div>
             </div>
             <div class="wire-grid">
@@ -465,7 +463,7 @@
               <div class="card"><strong>网关</strong><span>默认域名或自定义域名</span></div>
             </div>
             <div class="form-grid" style="margin-top:12px">
-              <div class="field"><strong>代码仓库应用</strong><span>webhook -> BuildRun -> Kubernetes Job -> image</span></div>
+              <div class="field"><strong>代码仓库应用</strong><span>webhook -> BuildRun -> Builder -> image</span></div>
               <div class="field"><strong>已有镜像应用</strong><span>选择镜像站或填写完整镜像地址，校验失败也允许保存。</span></div>
             </div>
           </div>
@@ -489,8 +487,8 @@
       </section>
 
       <section class="page-section" id="page-build">
-        <h2>05 构建页面</h2>
-        <p>主路径是平台创建一次性 Kubernetes Job，用 BuildKit rootless 构建镜像。用户可改默认资源参数。</p>
+        <h2>05 应用构建 tab</h2>
+        <p>构建入口位于应用详情页。主路径是平台 Builder Agent 领取 BuildJob，启动一次性 executor 容器，并用 BuildKit rootless 构建镜像。</p>
         <div class="wireframe">
           <div class="wire-top"><span>构建页面截图</span><span>BuildRun #1042</span></div>
           <div class="wire-body">
@@ -523,8 +521,8 @@ digest sha256:...</div>
       </section>
 
       <section class="page-section" id="page-deploy">
-        <h2>07 环境与部署</h2>
-        <p>MVP 默认单集群体验，但模型支持多集群。Project 默认一个 namespace，环境通过资源名和 labels 区分。</p>
+        <h2>07 应用部署 tab</h2>
+        <p>部署入口位于应用详情页。MVP 默认单集群体验，但模型支持多集群。Project 默认一个 namespace，环境通过资源名和 labels 区分。</p>
         <div class="wireframe">
           <div class="wire-top"><span>部署页面截图</span><span>dev / prod</span></div>
           <div class="wire-body">
@@ -541,8 +539,8 @@ digest sha256:...</div>
       </section>
 
       <section class="page-section" id="page-gateway">
-        <h2>08 网关与域名</h2>
-        <p>默认域名扁平化，自定义域名通过 CNAME 验证。HTTPS 使用 HTTP Challenge，用户也可以选择 HTTP-only。</p>
+        <h2>08 应用域名网关 tab</h2>
+        <p>域名网关入口位于应用详情页。默认域名扁平化，自定义域名通过 CNAME 验证。HTTPS 使用 HTTP Challenge，用户也可以选择 HTTP-only。</p>
         <div class="wireframe">
           <div class="wire-top"><span>网关域名截图</span><span>Ingress / Traefik</span></div>
           <div class="wire-body">
