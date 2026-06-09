@@ -21,7 +21,8 @@ interface ContentTabsProps {
 
 /**
  * 页面正文区域的二级内容切换容器。
- * 用于项目详情、设置页等同一页面内的 tab 分区；当前 tab 的新增、刷新、导出等操作应放在 tools，不要散落在嵌入子页的 PageHeader 里。
+ * 用于项目详情、设置页等同一页面内的 tab 分区。
+ * 当前 tab 的新增、刷新、导出、保存等全局按钮尽量提升到 tools，形成统一操作区，不要散落在嵌入子页或表单底部。
  */
 export function ContentTabs({
   children,

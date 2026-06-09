@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -69,7 +70,12 @@ func (h *Handlers) InitializeAdmin(ctx *gin.Context) {
 		Language: normalizeLanguage(input.Language),
 		Password: string(passwordHash),
 	}
-	if err := h.db.Create(&user).Error; err != nil {
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		return createDefaultUserProject(tx, user)
+	}); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -258,7 +264,12 @@ func (h *Handlers) CreateUser(ctx *gin.Context) {
 		Password: string(passwordHash),
 		Disabled: input.Disabled,
 	}
-	if err := h.db.Create(&user).Error; err != nil {
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		return createDefaultUserProject(tx, user)
+	}); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -421,6 +432,95 @@ func normalizeUserRole(role string) string {
 		return "platform_admin"
 	}
 	return "user"
+}
+
+func createDefaultUserProject(tx *gorm.DB, user model.User) error {
+	project := model.Project{
+		ID:                id.New("prj"),
+		Slug:              defaultUserProjectSlug(tx, user),
+		Name:              defaultUserProjectName(user),
+		Description:       defaultUserProjectDescription(user),
+		NamespaceStrategy: "project",
+	}
+	if err := tx.Create(&project).Error; err != nil {
+		return err
+	}
+	member := model.ProjectMember{
+		ID:        id.New("mem"),
+		ProjectID: project.ID,
+		UserID:    user.ID,
+		Role:      "owner",
+	}
+	return tx.Create(&member).Error
+}
+
+func defaultUserProjectName(user model.User) string {
+	name := fallback(strings.TrimSpace(user.Name), strings.TrimSpace(user.Email))
+	if normalizeLanguage(user.Language) == "en-US" {
+		return name + "'s Project Space"
+	}
+	return name + " 的项目空间"
+}
+
+func defaultUserProjectDescription(user model.User) string {
+	if normalizeLanguage(user.Language) == "en-US" {
+		return "Default project space created for the user."
+	}
+	return "为用户自动创建的默认项目空间。"
+}
+
+func defaultUserProjectSlug(tx *gorm.DB, user model.User) string {
+	base := dnsSafeProjectSlug(user.Name)
+	if base == "" {
+		base = dnsSafeProjectSlug(strings.Split(strings.TrimSpace(user.Email), "@")[0])
+	}
+	if base == "" {
+		base = "project"
+	}
+	for index := 0; ; index++ {
+		candidate := slugWithNumericSuffix(base, index)
+		var count int64
+		if err := tx.Model(&model.Project{}).Where("slug = ?", candidate).Count(&count).Error; err != nil || count == 0 {
+			return candidate
+		}
+	}
+}
+
+func dnsSafeProjectSlug(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var builder strings.Builder
+	for _, char := range value {
+		switch {
+		case char >= 'a' && char <= 'z':
+			builder.WriteRune(char)
+		case char >= '0' && char <= '9':
+			builder.WriteRune(char)
+		case char == '-':
+			builder.WriteRune(char)
+		case char == '_' || char == '.' || char == ' ':
+			builder.WriteByte('-')
+		}
+	}
+	return strings.Trim(builder.String(), "-")
+}
+
+func slugWithNumericSuffix(base string, index int) string {
+	const maxSlugLength = 48
+	suffix := ""
+	if index > 0 {
+		suffix = "-" + strconv.Itoa(index+1)
+	}
+	maxBaseLength := maxSlugLength - len(suffix)
+	if maxBaseLength < 1 {
+		maxBaseLength = 1
+	}
+	if len(base) > maxBaseLength {
+		base = strings.TrimRight(base[:maxBaseLength], "-")
+	}
+	if base == "" {
+		base = "project"
+	}
+	return base + suffix
 }
 
 func currentUserResponse(user model.User) gin.H {

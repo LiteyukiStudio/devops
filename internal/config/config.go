@@ -16,6 +16,7 @@ type Config struct {
 	APIAddr                     string
 	DatabaseURL                 string
 	RedisAddr                   string
+	BuilderToken                string
 	BuilderTaskLeaseSeconds     int64
 	BuilderPollIntervalSeconds  int64
 	BuilderExecutorImage        string
@@ -32,7 +33,8 @@ type Config struct {
 }
 
 type BuilderConfig struct {
-	RedisAddr                  string
+	BuilderAPIURL              string
+	BuilderToken               string
 	BuilderPollIntervalSeconds int64
 	BuilderExecutorImage       string
 	BuilderExecutor            string
@@ -43,6 +45,8 @@ type BuilderConfig struct {
 	BuilderWorkspaceRoot       string
 	BuilderWorkspaceHostRoot   string
 	BuilderNPMRegistry         string
+	BuilderCacheEnabled        bool
+	BuilderCacheTag            string
 }
 
 func Load() Config {
@@ -52,6 +56,7 @@ func Load() Config {
 		APIAddr:                     env("API_ADDR", ":8080"),
 		DatabaseURL:                 env("DATABASE_URL", "postgres://devops:devops@localhost:5432/devops?sslmode=disable"),
 		RedisAddr:                   env("REDIS_ADDR", "localhost:6379"),
+		BuilderToken:                env("BUILDER_TOKEN", ""),
 		BuilderTaskLeaseSeconds:     int64(envInt("BUILDER_TASK_LEASE_SECONDS", 300)),
 		BuilderPollIntervalSeconds:  int64(envInt("BUILDER_POLL_INTERVAL_SECONDS", 3)),
 		BuilderExecutorImage:        env("BUILDER_EXECUTOR_IMAGE", "moby/buildkit:v0.24.0-rootless"),
@@ -72,7 +77,8 @@ func LoadBuilder() BuilderConfig {
 	loadEnvFile()
 
 	return BuilderConfig{
-		RedisAddr:                  env("REDIS_ADDR", "localhost:6379"),
+		BuilderAPIURL:              env("BUILDER_API_URL", "http://localhost:8080"),
+		BuilderToken:               env("BUILDER_TOKEN", ""),
 		BuilderPollIntervalSeconds: int64(envInt("BUILDER_POLL_INTERVAL_SECONDS", 3)),
 		BuilderExecutorImage:       env("BUILDER_EXECUTOR_IMAGE", "moby/buildkit:v0.24.0-rootless"),
 		BuilderExecutor:            env("BUILDER_EXECUTOR", "docker"),
@@ -83,6 +89,8 @@ func LoadBuilder() BuilderConfig {
 		BuilderWorkspaceRoot:       env("BUILDER_WORKSPACE_ROOT", "/builder-workspace"),
 		BuilderWorkspaceHostRoot:   env("BUILDER_WORKSPACE_HOST_ROOT", ""),
 		BuilderNPMRegistry:         env("BUILDER_NPM_REGISTRY", ""),
+		BuilderCacheEnabled:        envBool("BUILDER_CACHE_ENABLED", false),
+		BuilderCacheTag:            env("BUILDER_CACHE_TAG", "buildcache"),
 	}
 }
 
@@ -156,6 +164,21 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func envBool(key string, fallback bool) bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }
 
 func envList(key string) []string {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -84,6 +85,45 @@ func TestOrderByClauseUsesWhitelist(t *testing.T) {
 	}
 }
 
+func TestNormalizedProjectOrderIDsDeduplicatesAndTrims(t *testing.T) {
+	got := normalizedProjectOrderIDs([]string{" prj_1 ", "", "prj_2", "prj_1"})
+	if len(got) != 2 || got[0] != "prj_1" || got[1] != "prj_2" {
+		t.Fatalf("ids = %#v", got)
+	}
+}
+
+func TestProjectPinResponseIncludesDashboardOrder(t *testing.T) {
+	project := model.Project{ID: "prj_1", Slug: "demo", Name: "Demo"}
+	pin := model.ProjectPin{ProjectID: "prj_1"}
+	response := projectPinResponseFrom(project, pin, 3)
+	if response.DashboardOrder != 3 {
+		t.Fatalf("dashboardOrder = %d", response.DashboardOrder)
+	}
+}
+
+func TestDefaultUserProjectNameUsesLanguage(t *testing.T) {
+	zh := defaultUserProjectName(model.User{Name: "轻雪", Language: "zh-CN"})
+	if zh != "轻雪 的项目空间" {
+		t.Fatalf("zh project name = %q", zh)
+	}
+
+	en := defaultUserProjectName(model.User{Name: "Liteyuki", Language: "en-US"})
+	if en != "Liteyuki's Project Space" {
+		t.Fatalf("en project name = %q", en)
+	}
+}
+
+func TestUserProjectSlugHelpersNormalizeAndLimitLength(t *testing.T) {
+	if slug := dnsSafeProjectSlug("Alice.Dev_Ops"); slug != "alice-dev-ops" {
+		t.Fatalf("normalized slug = %q", slug)
+	}
+
+	slug := slugWithNumericSuffix(strings.Repeat("a", 80), 1)
+	if len(slug) > 48 || !strings.HasSuffix(slug, "-2") {
+		t.Fatalf("suffixed slug = %q", slug)
+	}
+}
+
 func TestBuildImageRefOmitsDockerHubDomainAndRendersTagTemplate(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "dockerhub", Endpoint: "https://registry-1.docker.io", Namespace: "snowykami"}
 	project := model.Project{Slug: "demo"}
@@ -106,7 +146,7 @@ func TestBuildImageRefAddsNonDockerHubDomainPrefix(t *testing.T) {
 	application := model.Application{Slug: "api"}
 	run := model.BuildRun{
 		TargetRepository: buildTargetImageRepository(registry, project, application),
-		TargetTag:        "release/{branch}",
+		TargetTag:        "release/${{ github.ref_name }}",
 		SourceBranch:     "feature/login",
 	}
 
@@ -336,6 +376,62 @@ func TestRollbackReleaseFromTargetUsesPreviousSuccessfulRelease(t *testing.T) {
 	}
 }
 
+func TestDeploymentTargetMatchesBuildRunUsesTargetPatterns(t *testing.T) {
+	run := model.BuildRun{SourceBranch: "main", SourceTag: "v1.2.3"}
+	if !deploymentTargetMatchesBuildRun(model.DeploymentTarget{BranchPattern: "main", TagPattern: "v*"}, run) {
+		t.Fatal("expected target patterns to match build run")
+	}
+	if deploymentTargetMatchesBuildRun(model.DeploymentTarget{BranchPattern: "release-*"}, run) {
+		t.Fatal("expected unmatched target branch pattern to skip auto deploy")
+	}
+}
+
+func TestFlattenKubeconfigEmbedsCertificateFiles(t *testing.T) {
+	caFile := writeTempKubeconfigFile(t, "ca.crt", "ca-data")
+	certFile := writeTempKubeconfigFile(t, "client.crt", "cert-data")
+	keyFile := writeTempKubeconfigFile(t, "client.key", "key-data")
+	input := `
+apiVersion: v1
+kind: Config
+clusters:
+- name: local
+  cluster:
+    server: https://127.0.0.1:6443
+    certificate-authority: ` + caFile + `
+users:
+- name: local
+  user:
+    client-certificate: ` + certFile + `
+    client-key: ` + keyFile + `
+contexts:
+- name: local
+  context:
+    cluster: local
+    user: local
+current-context: local
+`
+
+	output, err := flattenKubeconfig(input)
+	if err != nil {
+		t.Fatalf("flattenKubeconfig returned error: %v", err)
+	}
+	if strings.Contains(output, caFile) || strings.Contains(output, certFile) || strings.Contains(output, keyFile) {
+		t.Fatalf("expected file paths to be removed, got %s", output)
+	}
+	if !strings.Contains(output, "certificate-authority-data") || !strings.Contains(output, "client-certificate-data") || !strings.Contains(output, "client-key-data") {
+		t.Fatalf("expected certificate data to be embedded, got %s", output)
+	}
+}
+
+func writeTempKubeconfigFile(t *testing.T, name string, content string) string {
+	t.Helper()
+	path := t.TempDir() + "/" + name
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	return path
+}
+
 type fakeBuildTaskEnqueuer struct {
 	deployPayload  tasks.DeployRunPayload
 	gatewayPayload tasks.GatewayApplyPayload
@@ -405,6 +501,25 @@ func TestVerifyGitWebhookSignatureSupportsGitHubAndGiteaHeaders(t *testing.T) {
 	headers.Set("X-Gitea-Signature", "bad")
 	if verifyGitWebhookSignature(headers, body, "secret") {
 		t.Fatal("expected invalid webhook signature to fail")
+	}
+}
+
+func TestGitUpstreamErrorStatusAndCodeMapsWebhookLocalhost(t *testing.T) {
+	status, code := gitUpstreamErrorStatusAndCode(&gitprovider.UpstreamError{
+		StatusCode: http.StatusUnprocessableEntity,
+		Message:    "Validation Failed",
+		Details: []gitprovider.UpstreamErrorDetail{{
+			Resource: "Hook",
+			Code:     "custom",
+			Field:    "url",
+			Message:  "url is not supported because it isn't reachable over the public Internet (localhost)",
+		}},
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", status, http.StatusBadRequest)
+	}
+	if code != "git.webhook_callback_unreachable" {
+		t.Fatalf("code = %q", code)
 	}
 }
 

@@ -11,29 +11,34 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
-import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
-import { MotionItem, MotionList } from '@/components/common/motion'
 import { PageHeader } from '@/components/common/page-header'
-import { PaginationController } from '@/components/common/pagination'
 import { StatusBadge } from '@/components/common/status-badge'
+import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { NativeSelect as Select } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
+import { PROJECT_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('projectSpaces.nameRequired')),
-  slug: z.string().min(1, i18next.t('projectSpaces.slugRequired')).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
+  slug: z.string().min(1, i18next.t('projectSpaces.slugRequired')).max(PROJECT_SLUG_MAX_LENGTH, i18next.t('projectSpaces.slugMaxLength', { count: PROJECT_SLUG_MAX_LENGTH })).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
   description: z.string().optional(),
 })
 
 type ProjectForm = z.infer<typeof schema>
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+const PROJECT_SORT_OPTIONS = ['lastUsed', 'useCount', 'createdAt', 'updatedAt', 'name'] as const
+const PROJECT_SORT_ORDERS = ['desc', 'asc'] as const
+
+type ProjectSortBy = typeof PROJECT_SORT_OPTIONS[number]
+type ProjectSortOrder = typeof PROJECT_SORT_ORDERS[number]
 
 export function ProjectsPage() {
   const { t } = useTranslation()
@@ -42,9 +47,11 @@ export function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [sortBy, setSortBy] = useState<ProjectSortBy>('lastUsed')
+  const [sortOrder, setSortOrder] = useState<ProjectSortOrder>('desc')
   const projects = useQuery({
-    queryKey: ['projects', 'page', page, pageSize],
-    queryFn: () => api.listProjectsPage({ page, pageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryKey: ['projects', 'page', page, pageSize, sortBy, sortOrder],
+    queryFn: () => api.listProjectsPage({ page, pageSize, sortBy, sortOrder }),
   })
   const projectItems = Array.isArray(projects.data) ? projects.data : projects.data?.items ?? []
   const projectTotal = Array.isArray(projects.data) ? projects.data.length : projects.data?.total ?? 0
@@ -94,30 +101,93 @@ export function ProjectsPage() {
     <div className="grid gap-6">
       <PageHeader
         actions={(
-          <Button
-            onClick={() => {
-              setEditingProject(null)
-              form.reset({ name: '', slug: '', description: '' })
-              setDialogOpen(true)
-            }}
-          >
-            <Plus size={16} />
-            {t('projectSpaces.createTitle')}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Select
+              aria-label={t('projectSpaces.sortBy')}
+              containerClassName="w-40"
+              value={sortBy}
+              onChange={(event) => {
+                setSortBy(event.target.value as ProjectSortBy)
+                setPage(1)
+              }}
+            >
+              {PROJECT_SORT_OPTIONS.map(option => (
+                <option key={option} value={option}>{t(`projectSpaces.sort.${option}`)}</option>
+              ))}
+            </Select>
+            <Select
+              aria-label={t('projectSpaces.sortOrder')}
+              containerClassName="w-32"
+              value={sortOrder}
+              onChange={(event) => {
+                setSortOrder(event.target.value as ProjectSortOrder)
+                setPage(1)
+              }}
+            >
+              {PROJECT_SORT_ORDERS.map(order => (
+                <option key={order} value={order}>{t(`projectSpaces.sortOrderOptions.${order}`)}</option>
+              ))}
+            </Select>
+            <Button
+              onClick={() => {
+                setEditingProject(null)
+                form.reset({ name: '', slug: '', description: '' })
+                setDialogOpen(true)
+              }}
+            >
+              <Plus size={16} />
+              {t('projectSpaces.createTitle')}
+            </Button>
+          </div>
         )}
         description={t('projectSpaces.description')}
         title={t('projectSpaces.title')}
       />
-      <div className="grid min-h-0 gap-4">
-        <div className="max-h-[calc(100vh-18rem)] min-h-0 overflow-y-auto pr-1">
-          <MotionList className="grid gap-3">
-            {projects.isError && <ErrorState title={t('projectSpaces.loadFailedTitle')} description={t('projectSpaces.loadFailedDescription')} />}
-            {projectItems.map(project => (
-              <MotionItem key={project.id}>
-                <ProjectRow
-                  deletePending={deleteProject.isPending}
-                  onDelete={() => deleteProject.mutate(project.id)}
-                  onEdit={() => {
+      {projects.isError && <ErrorState title={t('projectSpaces.loadFailedTitle')} description={t('projectSpaces.loadFailedDescription')} />}
+      <DataList
+        columns={[
+          {
+            key: 'name',
+            header: t('projectSpaces.title'),
+            className: 'min-w-64 px-4 py-3 align-middle',
+            render: project => <ProjectSummary project={project} />,
+          },
+          {
+            key: 'slug',
+            header: t('common.slug'),
+            className: 'w-[18%] px-4 py-3 align-middle text-muted-foreground',
+            render: project => <code className="rounded bg-background px-2 py-1 text-xs">{project.slug}</code>,
+          },
+          {
+            key: 'namespaceStrategy',
+            header: t('projectSpaces.namespaceStrategy'),
+            className: 'w-[16%] px-4 py-3 align-middle',
+            render: project => <StatusBadge>{project.namespaceStrategy}</StatusBadge>,
+          },
+          {
+            key: 'usage',
+            header: t('projectSpaces.usage'),
+            className: 'w-[20%] px-4 py-3 align-middle',
+            render: project => (
+              <div className="grid gap-1">
+                <span className="text-sm text-foreground">{project.lastUsedAt ? formatSmartDateTime(project.lastUsedAt, t) : t('projectSpaces.neverUsed')}</span>
+                <span className="text-xs text-muted-foreground">{t('projectSpaces.useCount', { count: project.useCount ?? 0 })}</span>
+              </div>
+            ),
+          },
+          {
+            key: 'actions',
+            header: t('common.actions'),
+            className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
+            render: project => (
+              <div className="flex justify-end gap-2">
+                <Link className="inline-flex h-9 items-center justify-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-muted" to={`/projects/${project.id}`}>
+                  {t('projectSpaces.openWorkspace')}
+                </Link>
+                <EditActionButton
+                  aria-label={t('projectSpaces.editAria')}
+                  label={t('edit')}
+                  onClick={() => {
                     setEditingProject(project)
                     form.reset({
                       name: project.name,
@@ -126,36 +196,44 @@ export function ProjectsPage() {
                     })
                     setDialogOpen(true)
                   }}
-                  project={project}
                 />
-              </MotionItem>
-            ))}
-            {projectItems.length === 0 && <EmptyState title={t('projectSpaces.emptyTitle')} description={t('projectSpaces.emptyDescription')} />}
-          </MotionList>
-        </div>
-        {projectTotal > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3 text-sm text-muted-foreground">
-            <span>
-              {t('pagination.pageInfo', {
-                page: projectPage,
-                totalPages: projectTotalPages,
-                total: projectTotal,
-              })}
-            </span>
-            <PaginationController
-              initialPage={projectPage}
-              pageSize={projectPageSize}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-              total={projectTotal}
-              onPageChange={setPage}
-              onPageSizeChange={(nextPageSize) => {
-                setPageSize(nextPageSize)
-                setPage(1)
-              }}
-            />
-          </div>
-        )}
-      </div>
+                <ConfirmDialog
+                  confirmText={t('projectSpaces.deleteConfirm')}
+                  description={t('projectSpaces.deleteDescription', { name: project.name })}
+                  pending={deleteProject.isPending}
+                  title={t('projectSpaces.deleteTitle')}
+                  onConfirm={() => deleteProject.mutate(project.id)}
+                >
+                  <Button aria-label={t('projectSpaces.deleteAria')} variant="ghost">
+                    <Trash2 size={16} />
+                  </Button>
+                </ConfirmDialog>
+              </div>
+            ),
+          },
+        ]}
+        emptyDescription={t('projectSpaces.emptyDescription')}
+        emptyTitle={t('projectSpaces.emptyTitle')}
+        items={projectItems}
+        pagination={{
+          page: projectPage,
+          pageSize: projectPageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          total: projectTotal,
+          totalPages: projectTotalPages,
+          pageInfoLabel: t('pagination.pageInfo', {
+            page: projectPage,
+            totalPages: projectTotalPages,
+            total: projectTotal,
+          }),
+          onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(1)
+          },
+        }}
+        rowKey={project => project.id}
+      />
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -185,8 +263,8 @@ export function ProjectsPage() {
             <Field error={form.formState.errors.name?.message} hint={t('projectSpaces.nameHint')} label={t('projectSpaces.name')} required>
               <Input {...form.register('name')} aria-invalid={Boolean(form.formState.errors.name)} placeholder={t('projectSpaces.namePlaceholder')} />
             </Field>
-            <Field error={form.formState.errors.slug?.message} hint={t('projectSpaces.slugHint')} label={t('projectSpaces.slug')} required>
-              <Input {...form.register('slug')} aria-invalid={Boolean(form.formState.errors.slug)} placeholder={t('projectSpaces.slugPlaceholder')} />
+            <Field error={form.formState.errors.slug?.message} hint={t('projectSpaces.slugHint', { count: PROJECT_SLUG_MAX_LENGTH })} label={t('projectSpaces.slug')} required>
+              <Input {...form.register('slug')} aria-invalid={Boolean(form.formState.errors.slug)} maxLength={PROJECT_SLUG_MAX_LENGTH} placeholder={t('projectSpaces.slugPlaceholder')} />
             </Field>
             <Field error={form.formState.errors.description?.message} hint={t('projectSpaces.descriptionHint')} label={t('projectSpaces.descriptionLabel')}>
               <Textarea {...form.register('description')} placeholder={t('projectSpaces.descriptionPlaceholder')} />
@@ -204,47 +282,21 @@ export function ProjectsPage() {
   )
 }
 
-function ProjectRow({ project, deletePending, onDelete, onEdit }: { project: Project, deletePending?: boolean, onDelete: () => void, onEdit: () => void }) {
+function ProjectSummary({ project }: { project: Project }) {
   const { t } = useTranslation()
   return (
-    <Card className="flex items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <FolderKanban size={18} />
-        </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Link className="truncate font-medium transition hover:text-primary" to={`/projects/${project.id}`}>
-              {project.name}
-            </Link>
-            <StatusBadge>{project.namespaceStrategy}</StatusBadge>
-          </div>
-          <p className="truncate text-sm text-muted-foreground">
-            {project.slug}
-            {' '}
-            ·
-            {' '}
-            {project.description || t('common.noDescription')}
-          </p>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Link className="inline-flex h-9 items-center justify-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-muted" to={`/projects/${project.id}`}>
-          {t('projectSpaces.openWorkspace')}
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <FolderKanban size={18} />
+      </span>
+      <div className="min-w-0">
+        <Link className="truncate font-medium transition hover:text-primary" to={`/projects/${project.id}`}>
+          {project.name}
         </Link>
-        <EditActionButton aria-label={t('projectSpaces.editAria')} label={t('edit')} onClick={onEdit} />
-        <ConfirmDialog
-          confirmText={t('projectSpaces.deleteConfirm')}
-          description={t('projectSpaces.deleteDescription', { name: project.name })}
-          pending={deletePending}
-          title={t('projectSpaces.deleteTitle')}
-          onConfirm={onDelete}
-        >
-          <Button aria-label={t('projectSpaces.deleteAria')} variant="ghost">
-            <Trash2 size={16} />
-          </Button>
-        </ConfirmDialog>
+        <p className="truncate text-sm text-muted-foreground">
+          {project.description || t('common.noDescription')}
+        </p>
       </div>
-    </Card>
+    </div>
   )
 }

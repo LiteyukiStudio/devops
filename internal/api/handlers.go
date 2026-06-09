@@ -3,13 +3,11 @@ package api
 import (
 	"context"
 
-	builderagent "github.com/LiteyukiStudio/devops/internal/builder"
 	"github.com/LiteyukiStudio/devops/internal/config"
 	"github.com/LiteyukiStudio/devops/internal/repository"
 	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +25,7 @@ type Handlers struct {
 	branchCache         *gitBranchCache
 	registrySearchCache *registrySearchCache
 	taskClient          taskEnqueuer
-	builderQueue        *redis.Client
+	builderToken        string
 }
 
 type taskEnqueuer interface {
@@ -44,8 +42,8 @@ func NewHandlers(db *gorm.DB) *Handlers {
 	handlers := &Handlers{db: db, configs: newConfigCache(db), mode: mode, rateLimiter: newRateLimiter(cfg.RedisAddr), oauthStates: newOAuthStateStore(cfg.RedisAddr), projects: repository.NewProjectRepository(db), branchCache: newGitBranchCache(), registrySearchCache: newRegistrySearchCache()}
 	if cfg.RedisAddr != "" {
 		handlers.taskClient = tasks.NewClient(cfg.RedisAddr)
-		handlers.builderQueue = builderagent.NewRedisClient(cfg.RedisAddr)
 	}
+	handlers.builderToken = cfg.BuilderToken
 	handlers.secrets = secret.NewStore(db, handlers.audit)
 	return handlers
 }

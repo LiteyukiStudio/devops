@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
@@ -18,8 +19,10 @@ func (h *Handlers) ListProjects(ctx *gin.Context) {
 	}
 
 	baseQuery := h.db.
-		Model(&model.Project{}).
+		Table("projects").
+		Select("projects.*, project_members.dashboard_order, project_members.last_used_at, project_members.use_count").
 		Joins("join project_members on project_members.project_id = projects.id").
+		Joins("left join project_pins on project_pins.project_id = projects.id and project_pins.user_id = project_members.user_id").
 		Where("project_members.user_id = ?", user.ID)
 	baseQuery = applySearch(ctx, baseQuery, "projects.name", "projects.slug")
 
@@ -33,11 +36,7 @@ func (h *Handlers) ListProjects(ctx *gin.Context) {
 		}
 
 		var projects []model.Project
-		if err := baseQuery.Session(&gorm.Session{}).Order(orderByClause(pagination, map[string]string{
-			"createdAt": "projects.created_at",
-			"name":      "projects.name",
-			"slug":      "projects.slug",
-		}, "projects.created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&projects).Error; err != nil {
+		if err := baseQuery.Session(&gorm.Session{}).Order(projectListOrderClause(pagination.SortBy, pagination.SortOrder)).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&projects).Error; err != nil {
 			writeError(ctx, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -47,7 +46,7 @@ func (h *Handlers) ListProjects(ctx *gin.Context) {
 
 	var projects []model.Project
 	err := baseQuery.
-		Order("projects.created_at desc").
+		Order("coalesce(project_members.last_used_at, projects.created_at) desc, projects.created_at desc").
 		Find(&projects).Error
 	if err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
@@ -67,6 +66,10 @@ func (h *Handlers) CreateProject(ctx *gin.Context) {
 		return
 	}
 	input.Slug = strings.TrimSpace(input.Slug)
+	if len(input.Slug) > projectSlugMaxLength {
+		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("项目空间标识最多 %d 个字符", projectSlugMaxLength))
+		return
+	}
 	if !h.ensureProjectSlugAvailable(ctx, input.Slug, "") {
 		return
 	}
@@ -96,10 +99,11 @@ func (h *Handlers) CreateProject(ctx *gin.Context) {
 }
 
 func (h *Handlers) GetProject(ctx *gin.Context) {
-	project, ok := h.findProjectForCurrentUser(ctx)
+	user, project, ok := h.projectAndCurrentUser(ctx)
 	if !ok {
 		return
 	}
+	h.recordProjectUsage(user.ID, project.ID)
 	ctx.JSON(http.StatusOK, project)
 }
 
@@ -114,6 +118,10 @@ func (h *Handlers) UpdateProject(ctx *gin.Context) {
 		return
 	}
 	input.Slug = strings.TrimSpace(input.Slug)
+	if len(input.Slug) > projectSlugMaxLength {
+		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("项目空间标识最多 %d 个字符", projectSlugMaxLength))
+		return
+	}
 	if !h.ensureProjectSlugAvailable(ctx, input.Slug, project.ID) {
 		return
 	}
@@ -155,11 +163,11 @@ func (h *Handlers) ListProjectPins(ctx *gin.Context) {
 
 	var rows []projectPinResponse
 	err := h.db.Table("project_pins").
-		Select("projects.id, projects.slug, projects.name, projects.description, projects.namespace_strategy, projects.created_at, project_pins.pinned_at").
+		Select("projects.id, projects.slug, projects.name, projects.description, projects.namespace_strategy, projects.created_at, project_members.dashboard_order, project_members.last_used_at, project_members.use_count, project_pins.pinned_at").
 		Joins("join projects on projects.id = project_pins.project_id and projects.deleted_at is null").
 		Joins("join project_members on project_members.project_id = projects.id and project_members.user_id = project_pins.user_id").
 		Where("project_pins.user_id = ?", user.ID).
-		Order("project_pins.pinned_at desc").
+		Order("project_members.use_count desc, coalesce(project_members.last_used_at, projects.created_at) desc, project_pins.pinned_at desc").
 		Scan(&rows).Error
 	if err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
@@ -183,7 +191,7 @@ func (h *Handlers) PinProject(ctx *gin.Context) {
 			writeError(ctx, http.StatusInternalServerError, err.Error())
 			return
 		}
-		ctx.JSON(http.StatusOK, projectPinResponseFrom(project, pin.PinnedAt))
+		ctx.JSON(http.StatusOK, projectPinResponseFrom(project, pin, h.projectDashboardOrder(user.ID, project.ID)))
 		return
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -201,7 +209,7 @@ func (h *Handlers) PinProject(ctx *gin.Context) {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusCreated, projectPinResponseFrom(project, pin.PinnedAt))
+	ctx.JSON(http.StatusCreated, projectPinResponseFrom(project, pin, h.projectDashboardOrder(user.ID, project.ID)))
 }
 
 func (h *Handlers) UnpinProject(ctx *gin.Context) {
@@ -215,6 +223,51 @@ func (h *Handlers) UnpinProject(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) UpdateProjectOrder(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	var input projectOrderInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	projectIDs := normalizedProjectOrderIDs(input.ProjectIDs)
+	if len(projectIDs) == 0 {
+		writeError(ctx, http.StatusBadRequest, "项目空间排序不能为空")
+		return
+	}
+	if len(projectIDs) > 8 {
+		writeError(ctx, http.StatusBadRequest, "看板最多展示 8 个项目空间")
+		return
+	}
+
+	var accessibleCount int64
+	if err := h.db.Model(&model.ProjectMember{}).Where("user_id = ? and project_id in ?", user.ID, projectIDs).Count(&accessibleCount).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if accessibleCount != int64(len(projectIDs)) {
+		writeError(ctx, http.StatusForbidden, "你没有访问部分项目空间的权限")
+		return
+	}
+
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		for index, projectID := range projectIDs {
+			if err := tx.Model(&model.ProjectMember{}).
+				Where("user_id = ? and project_id = ?", user.ID, projectID).
+				Update("dashboard_order", index+1).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"projectIds": projectIDs})
 }
 
 func (h *Handlers) ensureProjectSlugAvailable(ctx *gin.Context, slug string, excludeProjectID string) bool {
@@ -459,17 +512,24 @@ type projectInput struct {
 	NamespaceStrategy string `json:"namespaceStrategy"`
 }
 
-type projectPinResponse struct {
-	ID                string    `json:"id"`
-	Slug              string    `json:"slug"`
-	Name              string    `json:"name"`
-	Description       string    `json:"description"`
-	NamespaceStrategy string    `json:"namespaceStrategy"`
-	CreatedAt         time.Time `json:"createdAt"`
-	PinnedAt          time.Time `json:"pinnedAt"`
+type projectOrderInput struct {
+	ProjectIDs []string `json:"projectIds" binding:"required"`
 }
 
-func projectPinResponseFrom(project model.Project, pinnedAt time.Time) projectPinResponse {
+type projectPinResponse struct {
+	ID                string     `json:"id"`
+	Slug              string     `json:"slug"`
+	Name              string     `json:"name"`
+	Description       string     `json:"description"`
+	NamespaceStrategy string     `json:"namespaceStrategy"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	DashboardOrder    int        `json:"dashboardOrder"`
+	LastUsedAt        *time.Time `json:"lastUsedAt"`
+	UseCount          int        `json:"useCount"`
+	PinnedAt          time.Time  `json:"pinnedAt"`
+}
+
+func projectPinResponseFrom(project model.Project, pin model.ProjectPin, dashboardOrder int) projectPinResponse {
 	return projectPinResponse{
 		ID:                project.ID,
 		Slug:              project.Slug,
@@ -477,8 +537,65 @@ func projectPinResponseFrom(project model.Project, pinnedAt time.Time) projectPi
 		Description:       project.Description,
 		NamespaceStrategy: project.NamespaceStrategy,
 		CreatedAt:         project.CreatedAt,
-		PinnedAt:          pinnedAt,
+		DashboardOrder:    dashboardOrder,
+		LastUsedAt:        project.LastUsedAt,
+		UseCount:          project.UseCount,
+		PinnedAt:          pin.PinnedAt,
 	}
+}
+
+func projectListOrderClause(sortBy string, sortOrder string) string {
+	order := "desc"
+	if sortOrder == "asc" {
+		order = "asc"
+	}
+
+	switch sortBy {
+	case "useCount":
+		return "case when project_pins.id is null then 1 else 0 end asc, project_members.use_count " + order + ", coalesce(project_members.last_used_at, projects.created_at) desc, projects.created_at desc"
+	case "createdAt":
+		return "projects.created_at " + order + ", projects.id asc"
+	case "updatedAt":
+		return "projects.updated_at " + order + ", projects.id asc"
+	case "name":
+		return "projects.name " + order + ", projects.id asc"
+	case "slug":
+		return "projects.slug " + order + ", projects.id asc"
+	default:
+		return "coalesce(project_members.last_used_at, projects.created_at) " + order + ", projects.created_at desc"
+	}
+}
+
+func (h *Handlers) recordProjectUsage(userID string, projectID string) {
+	now := time.Now()
+	_ = h.db.Model(&model.ProjectMember{}).
+		Where("user_id = ? and project_id = ?", userID, projectID).
+		Updates(map[string]any{
+			"last_used_at": now,
+			"use_count":    gorm.Expr("use_count + 1"),
+		}).Error
+}
+
+func (h *Handlers) projectDashboardOrder(userID string, projectID string) int {
+	var member model.ProjectMember
+	if err := h.db.Select("dashboard_order").First(&member, "user_id = ? and project_id = ?", userID, projectID).Error; err != nil {
+		return 0
+	}
+	return member.DashboardOrder
+}
+
+func normalizedProjectOrderIDs(values []string) []string {
+	seen := map[string]bool{}
+	output := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		output = append(output, value)
+	}
+	return output
 }
 
 type projectMemberInput struct {

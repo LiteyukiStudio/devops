@@ -17,7 +17,8 @@ func main() {
 	defer stop()
 
 	agent := builder.New(builder.Options{
-		RedisAddr:         cfg.RedisAddr,
+		APIURL:            cfg.BuilderAPIURL,
+		Token:             cfg.BuilderToken,
 		Name:              cfg.BuilderAgentName,
 		Executor:          cfg.BuilderExecutor,
 		ExecutorImage:     cfg.BuilderExecutorImage,
@@ -28,6 +29,8 @@ func main() {
 		WorkspaceRoot:     cfg.BuilderWorkspaceRoot,
 		WorkspaceHostRoot: cfg.BuilderWorkspaceHostRoot,
 		NPMRegistry:       cfg.BuilderNPMRegistry,
+		CacheEnabled:      cfg.BuilderCacheEnabled,
+		CacheTag:          cfg.BuilderCacheTag,
 	})
 	if err := agent.Run(ctx); err != nil && ctx.Err() == nil {
 		log.Fatalf("run builder: %v", err)

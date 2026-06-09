@@ -114,6 +114,10 @@ export function PaginationController({
       <PaginationLink
         aria-current={page === currentPage ? 'page' : undefined}
         aria-label={t('pagination.goToPage', { page })}
+        className={cn(
+          'h-9 min-w-9 rounded-md px-3 text-sm',
+          page === effectivePage && 'border-primary/25 bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary',
+        )}
         isActive={page === effectivePage}
         tabIndex={disabled ? -1 : 0}
         onClick={(event) => {
@@ -130,13 +134,14 @@ export function PaginationController({
   const nextDisabled = disabled || effectivePage === totalPages
 
   return (
-    <div className={cn('flex flex-wrap items-center justify-end gap-3', className)} {...rest}>
+    <div className={cn('flex flex-wrap items-center justify-center gap-3', className)} {...rest}>
       {onPageSizeChange && (
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{t('pagination.pageSize')}</span>
+        <label className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+          <span className="whitespace-nowrap">{t('pagination.pageSize')}</span>
           <NativeSelect
             aria-label={t('pagination.pageSizeAria')}
-            className="h-8 w-[84px] bg-surface px-2 text-sm"
+            className="h-9 bg-surface px-3 text-sm"
+            containerClassName="w-[84px]"
             disabled={disabled}
             value={effectivePageSize}
             onChange={(event) => {
@@ -155,15 +160,16 @@ export function PaginationController({
         </label>
       )}
       <Pagination className="mx-0 w-auto">
-        <PaginationContent className="select-none">
+        <PaginationContent className="select-none gap-2">
           <PaginationItem>
             <PaginationPrevious
               aria-disabled={previousDisabled}
+              className={cn('h-9 whitespace-nowrap text-sm text-foreground/70 hover:text-primary', previousDisabled && 'pointer-events-none text-muted-foreground opacity-60')}
               tabIndex={previousDisabled ? -1 : 0}
               onClick={(event) => {
+                event.preventDefault()
                 if (previousDisabled)
                   return
-                event.preventDefault()
                 handleSetPage(effectivePage - 1)
               }}
             />
@@ -198,11 +204,12 @@ export function PaginationController({
           <PaginationItem>
             <PaginationNext
               aria-disabled={nextDisabled}
+              className={cn('h-9 whitespace-nowrap text-sm text-foreground/70 hover:text-primary', nextDisabled && 'pointer-events-none text-muted-foreground opacity-60')}
               tabIndex={nextDisabled ? -1 : 0}
               onClick={(event) => {
+                event.preventDefault()
                 if (nextDisabled)
                   return
-                event.preventDefault()
                 handleSetPage(effectivePage + 1)
               }}
             />

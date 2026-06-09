@@ -5,6 +5,7 @@ import { ApplicationConfigPage } from './pages/applications/ApplicationConfigPag
 import { BootstrapPage } from './pages/bootstrap/BootstrapPage'
 import { ClustersPage } from './pages/clusters/ClustersPage'
 import { CodeRepositoriesPage } from './pages/code-repositories/CodeRepositoriesPage'
+import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { LoginPage } from './pages/login/LoginPage'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { ProjectWorkspacePage } from './pages/projects/ProjectWorkspacePage'
@@ -21,7 +22,8 @@ export default function App() {
         <Route path="/bootstrap" element={<BootstrapPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="/projects" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="/projects/:projectId/members" element={<ProjectRootRedirect />} />
@@ -31,9 +33,6 @@ export default function App() {
           <Route path="/code-repositories" element={<CodeRepositoriesPage />} />
           <Route path="/registries" element={<RegistriesPage />} />
           <Route path="/clusters" element={<ClustersPage />} />
-          <Route path="/builds" element={<Navigate to="/projects" replace />} />
-          <Route path="/deployments" element={<Navigate to="/projects" replace />} />
-          <Route path="/gateway-routes" element={<Navigate to="/projects" replace />} />
           <Route path="/access-tokens" element={<Navigate to="/settings/account" replace />} />
           <Route path="/settings/security" element={<Navigate to="/settings/account" replace />} />
           <Route path="/settings/account" element={<AccountPage />} />

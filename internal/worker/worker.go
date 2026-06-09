@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	builderagent "github.com/LiteyukiStudio/devops/internal/builder"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	dnsprovider "github.com/LiteyukiStudio/devops/internal/provider/dns"
@@ -18,10 +17,10 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Runner struct {
@@ -32,6 +31,11 @@ type Runner struct {
 	dnsResolver                 dnsprovider.Resolver
 	namespaceFactory            func(kubeconfig string) (kubeprovider.NamespaceManager, error)
 }
+
+const (
+	hookPhasePreDeployment  = "preDeployment"
+	hookPhasePostDeployment = "postDeployment"
+)
 
 type Options struct {
 	DeployRolloutTimeoutSeconds int64
@@ -61,11 +65,10 @@ func Run(redisAddr string, db *gorm.DB, options Options) error {
 	mux.HandleFunc(tasks.TypeDeployRun, runner.withTaskEvents(runner.handleDeployRun))
 	mux.HandleFunc(tasks.TypeGatewayApply, runner.withTaskEvents(runner.handleGatewayApply))
 	mux.HandleFunc(tasks.TypeGitAccountRefresh, runner.withTaskEvents(runner.handleGitAccountRefresh))
-	mux.HandleFunc(tasks.TypeSyncStatus, runner.withTaskEvents(logTask))
+	mux.HandleFunc(tasks.TypeSyncStatus, runner.withTaskEvents(runner.handleSyncStatus))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go runner.consumeBuilderEvents(ctx, redisAddr)
 	go runner.syncBuilderAgentStatus(ctx)
 
 	return server.Run(mux)
@@ -123,145 +126,15 @@ func (r *Runner) recordTaskEvent(envelope tasks.TaskEnvelope, status string, mes
 	}).Error
 }
 
-func (r *Runner) consumeBuilderEvents(ctx context.Context, redisAddr string) {
-	client := builderagent.NewRedisClient(redisAddr)
-	defer func() {
-		if err := client.Close(); err != nil {
-			log.Printf("builder event redis close failed: %v", err)
-		}
-	}()
-	if err := ensureRedisGroup(ctx, client, builderagent.RedisEventStream, builderagent.RedisEventGroup); err != nil {
-		log.Printf("builder event group init failed: %v", err)
-		return
-	}
-	consumer := "worker-" + id.New("bev")
-	for {
-		streams, err := client.XReadGroup(ctx, &redis.XReadGroupArgs{
-			Group:    builderagent.RedisEventGroup,
-			Consumer: consumer,
-			Streams:  []string{builderagent.RedisEventStream, ">"},
-			Count:    8,
-			Block:    5 * time.Second,
-		}).Result()
-		if errors.Is(err, redis.Nil) {
-			continue
-		}
-		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			log.Printf("builder event read failed: %v", err)
-			time.Sleep(2 * time.Second)
-			continue
-		}
-		for _, stream := range streams {
-			for _, message := range stream.Messages {
-				if err := r.handleBuilderEvent(message); err != nil {
-					log.Printf("builder event handle failed: id=%s err=%v", message.ID, err)
-					continue
-				}
-				if err := client.XAck(ctx, builderagent.RedisEventStream, builderagent.RedisEventGroup, message.ID).Err(); err != nil {
-					log.Printf("builder event ack failed: id=%s err=%v", message.ID, err)
-				}
-				if err := client.XDel(ctx, builderagent.RedisEventStream, message.ID).Err(); err != nil {
-					log.Printf("builder event delete failed: id=%s err=%v", message.ID, err)
-				}
-			}
-		}
-	}
-}
-
-func ensureRedisGroup(ctx context.Context, client *redis.Client, stream string, group string) error {
-	err := client.XGroupCreateMkStream(ctx, stream, group, "0").Err()
-	if err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
-		return err
-	}
-	return nil
-}
-
-func (r *Runner) handleBuilderEvent(message redis.XMessage) error {
-	eventType, _ := message.Values["type"].(string)
-	agentID, _ := message.Values["agentId"].(string)
-	jobID, _ := message.Values["jobId"].(string)
-	payload, _ := message.Values["payload"].(string)
-	switch strings.TrimSpace(eventType) {
-	case "heartbeat":
-		var raw struct {
-			Heartbeat builderagent.Heartbeat `json:"heartbeat"`
-		}
-		if err := json.Unmarshal([]byte(payload), &raw); err != nil {
-			return err
-		}
-		return r.recordBuilderHeartbeat(raw.Heartbeat)
-	case "claimed":
-		var raw struct {
-			BuildRunID string `json:"buildRunId"`
-			ProjectID  string `json:"projectId"`
-		}
-		if err := json.Unmarshal([]byte(payload), &raw); err != nil {
-			return err
-		}
-		return r.markBuilderJobClaimed(jobID, agentID, raw.BuildRunID, raw.ProjectID)
-	case "log":
-		var raw struct {
-			Content string `json:"content"`
-		}
-		if err := json.Unmarshal([]byte(payload), &raw); err != nil {
-			return err
-		}
-		return r.appendBuilderLog(jobID, agentID, raw.Content)
-	case "complete":
-		var raw struct {
-			Result builderagent.Result `json:"result"`
-		}
-		if err := json.Unmarshal([]byte(payload), &raw); err != nil {
-			return err
-		}
-		return r.completeBuilderJob(jobID, agentID, raw.Result)
-	case "fail":
-		var raw struct {
-			Message string `json:"message"`
-		}
-		if err := json.Unmarshal([]byte(payload), &raw); err != nil {
-			return err
-		}
-		return r.failBuilderJob(jobID, agentID, raw.Message)
-	default:
-		return fmt.Errorf("unknown builder event type: %s", eventType)
-	}
-}
-
-func (r *Runner) recordBuilderHeartbeat(heartbeat builderagent.Heartbeat) error {
-	agentID := strings.TrimSpace(heartbeat.AgentID)
-	if agentID == "" {
-		return errors.New("builder agent id is required")
-	}
-	now := time.Now()
-	agent := model.BuilderAgent{
-		ID:                 agentID,
-		Name:               fallbackString(strings.TrimSpace(heartbeat.Name), agentID),
-		Labels:             strings.Join(normalizeWorkerStringList(heartbeat.Labels), ","),
-		Scopes:             strings.Join(normalizeWorkerStringList(heartbeat.Scopes), ","),
-		Executor:           fallbackString(strings.TrimSpace(heartbeat.Executor), "docker"),
-		Status:             "online",
-		MaxConcurrency:     fallbackWorkerInt(heartbeat.MaxConcurrency, 1),
-		CurrentConcurrency: heartbeat.CurrentConcurrency,
-		LastHeartbeatAt:    &now,
-	}
-	return r.db.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{
-			"name", "labels", "scopes", "executor", "status", "max_concurrency", "current_concurrency", "last_heartbeat_at", "updated_at",
-		}),
-	}).Create(&agent).Error
-}
-
 func (r *Runner) syncBuilderAgentStatus(ctx context.Context) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {
 		if err := r.markStaleBuilderAgentsOffline(); err != nil {
 			log.Printf("builder agent status sync failed: %v", err)
+		}
+		if err := r.markExpiredBuildJobsLost(); err != nil {
+			log.Printf("build job lease sync failed: %v", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -284,199 +157,125 @@ func (r *Runner) markStaleBuilderAgentsOffline() error {
 		}).Error
 }
 
-func (r *Runner) markBuilderJobClaimed(jobID string, agentID string, buildRunID string, projectID string) error {
-	now := time.Now()
-	leaseUntil := now.Add(5 * time.Minute)
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		var job model.BuildJob
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&job, "id = ?", jobID).Error; err != nil {
-			return err
-		}
-		if job.Status != "queued" && job.BuilderID != agentID {
-			return fmt.Errorf("build job %s is already claimed by %s", job.ID, job.BuilderID)
-		}
-		if projectID == "" {
-			projectID = job.ProjectID
-		}
-		if buildRunID == "" {
-			buildRunID = job.BuildRunID
-		}
-		if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-			"status":      "running",
-			"builder_id":  agentID,
-			"lease_until": &leaseUntil,
-			"log_ref":     "builder:" + agentID + "/" + job.ID,
-			"message":     "builder task claimed",
-			"attempts":    job.Attempts + 1,
-			"started_at":  nullableWorkerStartTime(job.StartedAt, now),
-			"finished_at": nil,
-		}).Error; err != nil {
-			return err
-		}
-		runUpdates := map[string]any{"status": "running"}
-		var run model.BuildRun
-		if err := tx.First(&run, "id = ? and project_id = ?", buildRunID, projectID).Error; err != nil {
-			return err
-		}
-		if run.StartedAt == nil {
-			runUpdates["started_at"] = &now
-		}
-		return tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(runUpdates).Error
-	})
-}
-
-func (r *Runner) appendBuilderLog(jobID string, agentID string, content string) error {
-	content = trimWorkerBuildLogContent(content)
-	if content == "" {
+func (r *Runner) markExpiredBuildJobsLost() error {
+	if r.db == nil {
 		return nil
 	}
-	var job model.BuildJob
-	if err := r.db.First(&job, "id = ? and builder_id = ?", jobID, agentID).Error; err != nil {
-		return err
-	}
-	var existing model.BuildLog
-	err := r.db.First(&existing, "build_job_id = ?", job.ID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return r.db.Create(&model.BuildLog{
-			ID:         id.New("blog"),
-			BuildRunID: job.BuildRunID,
-			BuildJobID: job.ID,
-			ProjectID:  job.ProjectID,
-			Content:    content,
-		}).Error
-	}
-	if err != nil {
-		return err
-	}
-	existing.Content = trimWorkerBuildLogContent(existing.Content + "\n" + content)
-	return r.db.Save(&existing).Error
-}
-
-func (r *Runner) completeBuilderJob(jobID string, agentID string, result builderagent.Result) error {
-	var job model.BuildJob
-	if err := r.db.First(&job, "id = ? and builder_id = ?", jobID, agentID).Error; err != nil {
-		return err
-	}
-	var run model.BuildRun
-	if err := r.db.First(&run, "id = ? and project_id = ?", job.BuildRunID, job.ProjectID).Error; err != nil {
-		return err
-	}
-	finishedAt := time.Now()
-	imageRef := fallbackString(strings.TrimSpace(result.ImageRef), run.ImageRef)
-	imageDigest := strings.TrimSpace(result.ImageDigest)
-	sourceCommit := fallbackString(strings.TrimSpace(result.SourceCommit), run.SourceCommit)
+	now := time.Now()
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-			"status":      "succeeded",
-			"message":     fallbackString(strings.TrimSpace(result.Message), "builder task succeeded"),
-			"lease_until": nil,
-			"finished_at": &finishedAt,
-		}).Error; err != nil {
+		var jobs []model.BuildJob
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("status = ? and lease_until is not null and lease_until < ?", "running", now).
+			Order("lease_until asc").
+			Limit(50).
+			Find(&jobs).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(map[string]any{
-			"status":        "succeeded",
-			"image_ref":     imageRef,
-			"image_digest":  imageDigest,
-			"source_commit": sourceCommit,
-			"finished_at":   &finishedAt,
-		}).Error; err != nil {
-			return err
-		}
-		if imageRef != "" {
-			image := containerImageFromWorkerBuildRun(run, imageRef, imageDigest, sourceCommit)
-			if image.ID != "" {
-				return tx.Create(&image).Error
+		for _, job := range jobs {
+			finishedAt := now
+			if err := tx.Model(&model.BuildJob{}).
+				Where("id = ? and status = ?", job.ID, "running").
+				Updates(expiredBuildJobUpdates(finishedAt)).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&model.BuildRun{}).
+				Where("id = ? and project_id = ? and status = ?", job.BuildRunID, job.ProjectID, "running").
+				Updates(map[string]any{
+					"status":      "lost",
+					"finished_at": &finishedAt,
+				}).Error; err != nil {
+				return err
 			}
 		}
 		return nil
 	})
 }
 
-func (r *Runner) failBuilderJob(jobID string, agentID string, message string) error {
-	var job model.BuildJob
-	if err := r.db.First(&job, "id = ? and builder_id = ?", jobID, agentID).Error; err != nil {
+func (r *Runner) handleSyncStatus(ctx context.Context, task *asynq.Task) error {
+	log.Printf("received task type=%s payload=%s", task.Type(), string(task.Payload()))
+	return r.syncReleaseRuntimeStatus(ctx)
+}
+
+func (r *Runner) syncReleaseRuntimeStatus(ctx context.Context) error {
+	if r.db == nil {
+		return nil
+	}
+	var releases []model.Release
+	if err := r.db.
+		Where("status in ?", []string{"pending", "running", "succeeded"}).
+		Order("created_at desc").
+		Limit(200).
+		Find(&releases).Error; err != nil {
 		return err
 	}
-	finishedAt := time.Now()
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-			"status":      "failed",
-			"message":     fallbackString(strings.TrimSpace(message), "builder task failed"),
-			"lease_until": nil,
-			"finished_at": &finishedAt,
-		}).Error; err != nil {
-			return err
+	for _, release := range releases {
+		if err := r.syncReleaseRuntimeSnapshot(ctx, release); err != nil {
+			log.Printf("release runtime status sync skipped release=%s: %v", release.ID, err)
 		}
-		return tx.Model(&model.BuildRun{}).Where("id = ?", job.BuildRunID).Updates(map[string]any{
-			"status":      "failed",
-			"finished_at": &finishedAt,
+	}
+	return nil
+}
+
+func (r *Runner) syncReleaseRuntimeSnapshot(ctx context.Context, release model.Release) error {
+	var project model.Project
+	if err := r.db.First(&project, "id = ?", release.ProjectID).Error; err != nil {
+		return err
+	}
+	var application model.Application
+	if err := r.db.First(&application, "id = ? and project_id = ?", release.ApplicationID, release.ProjectID).Error; err != nil {
+		return err
+	}
+	var environment model.Environment
+	if err := r.db.First(&environment, "id = ? and project_id = ?", release.EnvironmentID, release.ProjectID).Error; err != nil {
+		return err
+	}
+	manager, err := r.kubernetesManager(environment)
+	if err != nil {
+		return err
+	}
+	deploymentTarget := r.releaseDeploymentTarget(release)
+	namespace := deploymentNamespace(project, environment)
+	resourceName := applicationResourceName(deploymentTarget)
+	snapshot, err := manager.GetDeploymentSnapshot(ctx, namespace, resourceName)
+	if err != nil {
+		if isKubernetesNotFound(err) {
+			message := fmt.Sprintf("deployment_missing: Kubernetes Deployment %s/%s not found", namespace, resourceName)
+			return r.markReleaseRuntimeDrift(release, message)
+		}
+		return err
+	}
+	if snapshot.Phase == kubeprovider.DeploymentFailed {
+		return r.markReleaseRuntimeDrift(release, firstNonEmpty(snapshot.Message, "Deployment runtime check failed"))
+	}
+	if release.Status == "pending" || release.Status == "running" {
+		if snapshot.Phase == kubeprovider.DeploymentSucceeded {
+			r.appendReleaseLog(release, firstNonEmpty(snapshot.Message, "Deployment rollout completed"))
+			return r.finishDeployRelease(release, "succeeded", firstNonEmpty(snapshot.Message, "Deployment rollout completed"))
+		}
+		return r.db.Model(&model.Release{}).Where("id = ?", release.ID).Updates(map[string]any{
+			"status":  "running",
+			"message": firstNonEmpty(snapshot.Message, release.Message),
 		}).Error
-	})
+	}
+	return nil
 }
 
-func nullableWorkerStartTime(existing *time.Time, now time.Time) any {
-	if existing != nil {
-		return existing
+func (r *Runner) markReleaseRuntimeDrift(release model.Release, message string) error {
+	finishedAt := time.Now()
+	if err := r.db.Model(&model.Release{}).Where("id = ?", release.ID).Updates(releaseFinishUpdates("failed", message, finishedAt)).Error; err != nil {
+		return err
 	}
-	return &now
+	r.appendReleaseLog(release, "运行态漂移: "+message)
+	return nil
 }
 
-func fallbackString(value string, fallback string) string {
-	if strings.TrimSpace(value) != "" {
-		return value
-	}
-	return fallback
-}
-
-func fallbackWorkerInt(value int, fallback int) int {
-	if value != 0 {
-		return value
-	}
-	return fallback
-}
-
-func normalizeWorkerStringList(values []string) []string {
-	seen := map[string]bool{}
-	output := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" || seen[value] {
-			continue
-		}
-		seen[value] = true
-		output = append(output, value)
-	}
-	return output
-}
-
-func trimWorkerBuildLogContent(content string) string {
-	const maxLogBytes = 2 * 1024 * 1024
-	content = strings.TrimRight(content, "\n")
-	if len(content) <= maxLogBytes {
-		return content
-	}
-	return content[len(content)-maxLogBytes:]
-}
-
-func containerImageFromWorkerBuildRun(run model.BuildRun, imageRef string, digest string, sourceCommit string) model.ContainerImage {
-	if strings.TrimSpace(run.TargetRegistryID) == "" || strings.TrimSpace(run.TargetRepository) == "" {
-		return model.ContainerImage{}
-	}
-	return model.ContainerImage{
-		ID:            id.New("img"),
-		ProjectID:     run.ProjectID,
-		ApplicationID: run.ApplicationID,
-		RegistryID:    run.TargetRegistryID,
-		Repository:    strings.Trim(strings.TrimSpace(run.TargetRepository), "/"),
-		Tag:           fallbackString(strings.TrimSpace(run.TargetTag), "latest"),
-		Digest:        strings.TrimSpace(digest),
-		ImageRef:      strings.TrimSpace(imageRef),
-		SourceType:    "build",
-		BuildRunID:    run.ID,
-		SourceCommit:  strings.TrimSpace(sourceCommit),
-		ScanStatus:    "unknown",
-		CreatedBy:     run.CreatedBy,
+func expiredBuildJobUpdates(finishedAt time.Time) map[string]any {
+	return map[string]any{
+		"status":      "lost",
+		"message":     "lease_expired",
+		"lease_token": "",
+		"lease_until": nil,
+		"finished_at": &finishedAt,
 	}
 }
 
@@ -558,7 +357,7 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) error
 	}
 
 	namespace := deploymentNamespace(project, environment)
-	if err := r.ensureProjectNamespace(ctx, namespace, project); err != nil {
+	if err := r.ensureProjectNamespace(ctx, namespace, project, environment); err != nil {
 		_ = r.db.Model(&route).Updates(map[string]any{"status": "failed"}).Error
 		return err
 	}
@@ -600,6 +399,7 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 	if err := r.db.First(&environment, "id = ? and project_id = ?", release.EnvironmentID, payload.ProjectID).Error; err != nil {
 		return err
 	}
+	deploymentTarget := r.releaseDeploymentTarget(release)
 
 	now := time.Now()
 	if release.StartedAt == nil {
@@ -607,16 +407,34 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 			return err
 		}
 	}
+	r.appendReleaseLog(release, fmt.Sprintf("开始部署 release=%s application=%s environment=%s image=%s", release.ID, application.Slug, environment.Slug, release.ImageRef))
 
 	namespace := deploymentNamespace(project, environment)
-	if err := r.ensureProjectNamespace(ctx, namespace, project); err != nil {
+	r.appendReleaseLog(release, fmt.Sprintf("确保命名空间 %s 存在", namespace))
+	if err := r.ensureProjectNamespace(ctx, namespace, project, environment); err != nil {
 		finishedAt := time.Now()
 		_ = r.db.Model(&release).Updates(map[string]any{"status": "failed", "message": err.Error(), "finished_at": &finishedAt}).Error
+		r.appendReleaseLog(release, "命名空间准备失败: "+err.Error())
 		return err
 	}
-	if err := r.applyApplicationResources(ctx, release, project, application, environment, namespace); err != nil {
+	r.appendReleaseLog(release, "下发 ConfigMap/Secret")
+	if err := r.applyApplicationRuntimeConfig(ctx, release, project, application, environment, deploymentTarget, namespace); err != nil {
 		finishedAt := time.Now()
 		_ = r.db.Model(&release).Updates(map[string]any{"status": "failed", "message": err.Error(), "finished_at": &finishedAt}).Error
+		r.appendReleaseLog(release, "运行配置下发失败: "+err.Error())
+		return err
+	}
+	if err := r.runDeploymentHooks(ctx, hookPhasePreDeployment, release, project, application, environment, deploymentTarget, namespace); err != nil {
+		finishedAt := time.Now()
+		_ = r.db.Model(&release).Updates(map[string]any{"status": "failed", "message": err.Error(), "finished_at": &finishedAt}).Error
+		r.appendReleaseLog(release, "preDeployment Hook 失败: "+err.Error())
+		return err
+	}
+	r.appendReleaseLog(release, "下发 Deployment/Service/ConfigMap/Secret")
+	if err := r.applyApplicationResources(ctx, release, project, application, environment, deploymentTarget, namespace); err != nil {
+		finishedAt := time.Now()
+		_ = r.db.Model(&release).Updates(map[string]any{"status": "failed", "message": err.Error(), "finished_at": &finishedAt}).Error
+		r.appendReleaseLog(release, "资源下发失败: "+err.Error())
 		return err
 	}
 	if err := r.db.Model(&release).Updates(map[string]any{
@@ -625,10 +443,19 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 	}).Error; err != nil {
 		return err
 	}
-	message, err := r.waitForDeploymentRollout(ctx, release, application, environment, namespace)
+	r.appendReleaseLog(release, "等待 Deployment rollout 完成")
+	message, err := r.waitForDeploymentRollout(ctx, release, application, environment, deploymentTarget, namespace)
 	if err != nil {
 		finishedAt := time.Now()
 		_ = r.db.Model(&release).Updates(releaseFinishUpdates("failed", err.Error(), finishedAt)).Error
+		r.appendReleaseLog(release, "部署失败: "+err.Error())
+		return err
+	}
+	r.appendReleaseLog(release, firstNonEmpty(message, "Deployment rollout completed"))
+	if err := r.runDeploymentHooks(ctx, hookPhasePostDeployment, release, project, application, environment, deploymentTarget, namespace); err != nil {
+		finishedAt := time.Now()
+		_ = r.db.Model(&release).Updates(releaseFinishUpdates("failed", err.Error(), finishedAt)).Error
+		r.appendReleaseLog(release, "postDeployment Hook 失败: "+err.Error())
 		return err
 	}
 	return r.finishDeployRelease(release, "succeeded", firstNonEmpty(message, "Deployment rollout completed"))
@@ -724,24 +551,31 @@ func (r *Runner) auditGitAccountRefresh(account model.GitAccount, success bool, 
 	return r.db.Create(&entry).Error
 }
 
-func (r *Runner) ensureProjectNamespace(ctx context.Context, namespace string, project model.Project) error {
-	manager, err := r.kubernetesManager()
+func (r *Runner) ensureProjectNamespace(ctx context.Context, namespace string, project model.Project, environment model.Environment) error {
+	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return err
 	}
-	return manager.EnsureNamespace(ctx, namespace, map[string]string{
-		"app.kubernetes.io/managed-by": "liteyuki-devops",
-		"liteyuki.devops/scope":        "project",
-		"liteyuki.devops/project-id":   project.ID,
-	})
+	return manager.EnsureNamespace(ctx, namespace, kubeprovider.ProjectNamespaceLabels(project.ID))
 }
 
 func (r *Runner) applyGatewayIngress(ctx context.Context, route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string) error {
-	manager, err := r.kubernetesManager()
+	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return err
 	}
-	return manager.ApplyGatewayIngress(ctx, gatewayIngressSpec(route, project, application, environment, namespace))
+	return manager.ApplyGatewayIngress(ctx, gatewayIngressSpec(route, project, application, environment, namespace, r.gatewayServiceName(route, application, environment)))
+}
+
+func (r *Runner) gatewayServiceName(route model.GatewayRoute, application model.Application, environment model.Environment) string {
+	var target model.DeploymentTarget
+	err := r.db.Where("project_id = ? and application_id = ? and environment_id = ? and enabled = ?", route.ProjectID, application.ID, environment.ID, true).
+		Order("created_at asc").
+		First(&target).Error
+	if err == nil {
+		return applicationResourceName(target)
+	}
+	return dnsLabel(application.Slug)
 }
 
 func (r *Runner) gatewayDNSStatus(ctx context.Context, route model.GatewayRoute) string {
@@ -755,7 +589,7 @@ func (r *Runner) applyGatewayCertificate(ctx context.Context, route model.Gatewa
 	if strings.TrimSpace(route.TLSMode) != "http-challenge" {
 		return "", nil
 	}
-	manager, err := r.kubernetesManager()
+	manager, err := r.kubernetesManager(model.Environment{})
 	if err != nil {
 		return "", err
 	}
@@ -770,24 +604,36 @@ func (r *Runner) applyGatewayCertificate(ctx context.Context, route model.Gatewa
 	return snapshot.Phase, nil
 }
 
-func (r *Runner) applyApplicationResources(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, namespace string) error {
-	manager, err := r.kubernetesManager()
+func (r *Runner) applyApplicationResources(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) error {
+	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return err
 	}
-	spec, err := applicationResourcesSpec(release, project, application, environment, namespace, r.deployRolloutTimeoutSeconds)
+	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {
 		return err
 	}
 	return manager.ApplyApplicationResources(ctx, spec)
 }
 
-func (r *Runner) waitForDeploymentRollout(ctx context.Context, release model.Release, application model.Application, environment model.Environment, namespace string) (string, error) {
-	manager, err := r.kubernetesManager()
+func (r *Runner) applyApplicationRuntimeConfig(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) error {
+	manager, err := r.kubernetesManager(environment)
+	if err != nil {
+		return err
+	}
+	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, namespace, r.deployRolloutTimeoutSeconds)
+	if err != nil {
+		return err
+	}
+	return manager.ApplyApplicationRuntimeConfig(ctx, spec)
+}
+
+func (r *Runner) waitForDeploymentRollout(ctx context.Context, release model.Release, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) (string, error) {
+	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return "", err
 	}
-	resourceName := applicationResourceName(application, environment)
+	resourceName := applicationResourceName(deploymentTarget)
 	timeout := time.Duration(r.deployRolloutTimeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
@@ -805,6 +651,7 @@ func (r *Runner) waitForDeploymentRollout(ctx context.Context, release model.Rel
 		}
 		if snapshot.Message != "" {
 			_ = r.db.Model(&model.Release{}).Where("id = ?", release.ID).Update("message", snapshot.Message).Error
+			r.appendReleaseLog(release, snapshot.Message)
 		}
 
 		switch snapshot.Phase {
@@ -822,6 +669,195 @@ func (r *Runner) waitForDeploymentRollout(ctx context.Context, release model.Rel
 	}
 }
 
+func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) error {
+	var configs []model.ProjectHookConfig
+	if err := r.db.Where("project_id = ? and phase = ?", project.ID, phase).
+		Order("run_order asc, created_at asc").
+		Find(&configs).Error; err != nil {
+		return err
+	}
+	if len(configs) == 0 {
+		return nil
+	}
+	manager, err := r.kubernetesManager(environment)
+	if err != nil {
+		return err
+	}
+	resourceName := applicationResourceName(deploymentTarget)
+	buildContext := r.releaseBuildContext(release)
+	for _, config := range configs {
+		hookRun := model.HookRun{
+			ID:                 id.New("hrun"),
+			ProjectID:          project.ID,
+			HookConfigID:       config.ID,
+			ReleaseID:          release.ID,
+			ApplicationID:      application.ID,
+			ModuleID:           release.ModuleID,
+			EnvironmentID:      environment.ID,
+			DeploymentTargetID: deploymentTarget.ID,
+			Name:               config.Name,
+			Phase:              config.Phase,
+			Status:             "running",
+			ScriptSnapshot:     config.Script,
+			Shell:              config.Shell,
+			ImageRef:           release.ImageRef,
+			TimeoutSeconds:     config.TimeoutSeconds,
+			FailurePolicy:      config.FailurePolicy,
+			StartedAt:          timePtr(time.Now()),
+		}
+		if err := r.db.Create(&hookRun).Error; err != nil {
+			return err
+		}
+		r.appendReleaseLog(release, fmt.Sprintf("执行 %s Hook: %s", phase, config.Name))
+		result, err := manager.RunHookJob(ctx, kubeprovider.HookJobSpec{
+			Name:               hookJobName(hookRun),
+			Namespace:          namespace,
+			ProjectID:          project.ID,
+			ApplicationID:      application.ID,
+			ModuleID:           release.ModuleID,
+			BuildRunID:         release.BuildRunID,
+			EnvironmentID:      environment.ID,
+			DeploymentTargetID: deploymentTarget.ID,
+			ReleaseID:          release.ID,
+			HookRunID:          hookRun.ID,
+			Phase:              phase,
+			Image:              release.ImageRef,
+			GitBranch:          buildContext.GitBranch,
+			GitTag:             buildContext.GitTag,
+			GitRefName:         buildContext.GitRefName,
+			GitRefType:         buildContext.GitRefType,
+			GitRef:             buildContext.GitRef,
+			GitSHA:             buildContext.GitSHA,
+			GitShortSHA:        buildContext.GitShortSHA,
+			Shell:              config.Shell,
+			Script:             config.Script,
+			TimeoutSeconds:     int32(normalizePositive(config.TimeoutSeconds, 300)),
+			ConfigMapName:      resourceName + "-config",
+			SecretName:         resourceName + "-secret",
+		})
+		if err != nil {
+			result = kubeprovider.HookJobResult{Succeeded: false, ExitCode: 1, Message: err.Error()}
+		}
+		r.appendHookRunLog(hookRun, result.Logs)
+		status := "succeeded"
+		if !result.Succeeded {
+			status = "failed"
+		}
+		finishedAt := time.Now()
+		if updateErr := r.db.Model(&model.HookRun{}).Where("id = ?", hookRun.ID).Updates(map[string]any{
+			"status":      status,
+			"exit_code":   result.ExitCode,
+			"message":     result.Message,
+			"finished_at": &finishedAt,
+		}).Error; updateErr != nil {
+			return updateErr
+		}
+		if result.Logs != "" {
+			r.appendReleaseLog(release, result.Logs)
+		}
+		if !result.Succeeded && config.FailurePolicy != "ignore" {
+			return errors.New(firstNonEmpty(result.Message, phase+" hook failed"))
+		}
+	}
+	return nil
+}
+
+func (r *Runner) appendReleaseLog(release model.Release, content string) {
+	if r.db == nil {
+		return
+	}
+	content = trimReleaseLogContent(content)
+	if content == "" {
+		return
+	}
+	var existing model.ReleaseLog
+	err := r.db.First(&existing, "release_id = ? and project_id = ?", release.ID, release.ProjectID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		_ = r.db.Create(&model.ReleaseLog{
+			ID:        id.New("rlog"),
+			ReleaseID: release.ID,
+			ProjectID: release.ProjectID,
+			Content:   content,
+		}).Error
+		return
+	}
+	if err != nil {
+		return
+	}
+	existing.Content = trimReleaseLogContent(existing.Content + "\n" + content)
+	_ = r.db.Save(&existing).Error
+}
+
+func (r *Runner) appendHookRunLog(run model.HookRun, content string) {
+	if r.db == nil {
+		return
+	}
+	content = trimReleaseLogContent(content)
+	if content == "" {
+		return
+	}
+	var existing model.HookRunLog
+	err := r.db.First(&existing, "hook_run_id = ? and project_id = ?", run.ID, run.ProjectID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		_ = r.db.Create(&model.HookRunLog{
+			ID:        id.New("hlog"),
+			HookRunID: run.ID,
+			ProjectID: run.ProjectID,
+			Content:   content,
+		}).Error
+		return
+	}
+	if err != nil {
+		return
+	}
+	existing.Content = trimReleaseLogContent(existing.Content + "\n" + content)
+	_ = r.db.Save(&existing).Error
+}
+
+func (r *Runner) releaseBuildContext(release model.Release) deploymentHookBuildContext {
+	var run model.BuildRun
+	if strings.TrimSpace(release.BuildRunID) == "" || r.db.First(&run, "id = ? and project_id = ?", release.BuildRunID, release.ProjectID).Error != nil {
+		return deploymentHookBuildContext{}
+	}
+	refName := firstNonEmpty(run.SourceTag, run.SourceBranch)
+	refType := "branch"
+	refValue := ""
+	if strings.TrimSpace(run.SourceTag) != "" {
+		refType = "tag"
+		refValue = "refs/tags/" + strings.TrimSpace(run.SourceTag)
+	} else if strings.TrimSpace(run.SourceBranch) != "" {
+		refValue = "refs/heads/" + strings.TrimSpace(run.SourceBranch)
+	}
+	return deploymentHookBuildContext{
+		GitBranch:   run.SourceBranch,
+		GitTag:      run.SourceTag,
+		GitRefName:  refName,
+		GitRefType:  refType,
+		GitRef:      refValue,
+		GitSHA:      run.SourceCommit,
+		GitShortSHA: shortCommit(run.SourceCommit),
+	}
+}
+
+type deploymentHookBuildContext struct {
+	GitBranch   string
+	GitTag      string
+	GitRefName  string
+	GitRefType  string
+	GitRef      string
+	GitSHA      string
+	GitShortSHA string
+}
+
+func trimReleaseLogContent(content string) string {
+	content = strings.TrimSpace(content)
+	const maxLogBytes = 1024 * 1024
+	if len(content) <= maxLogBytes {
+		return content
+	}
+	return content[len(content)-maxLogBytes:]
+}
+
 func (r *Runner) finishDeployRelease(release model.Release, status string, message string) error {
 	finishedAt := time.Now()
 	return r.db.Model(&model.Release{}).Where("id = ?", release.ID).Updates(releaseFinishUpdates(status, message, finishedAt)).Error
@@ -835,14 +871,22 @@ func releaseFinishUpdates(status string, message string, finishedAt time.Time) m
 	}
 }
 
-func (r *Runner) kubernetesManager() (kubeprovider.NamespaceManager, error) {
+func (r *Runner) kubernetesManager(environment model.Environment) (kubeprovider.NamespaceManager, error) {
 	var cluster model.RuntimeCluster
-	err := r.db.Where("scope = ? and is_default = ? and type in ?", "global", true, []string{"kubernetes", "k3s"}).First(&cluster).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = r.db.Where("scope = ? and type in ?", "global", []string{"kubernetes", "k3s"}).Order("created_at asc").First(&cluster).Error
-	}
-	if err != nil {
-		return nil, fmt.Errorf("runtime cluster not found: %w", err)
+	if clusterID := strings.TrimSpace(environment.ClusterID); clusterID != "" {
+		query, args := environmentClusterLookup(clusterID)
+		err := r.db.First(&cluster, append([]any{query}, args...)...).Error
+		if err != nil {
+			return nil, fmt.Errorf("runtime cluster %s not found: %w", clusterID, err)
+		}
+	} else {
+		err := r.db.Where("scope = ? and is_default = ? and type in ?", "global", true, []string{"kubernetes", "k3s"}).First(&cluster).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = r.db.Where("scope = ? and type in ?", "global", []string{"kubernetes", "k3s"}).Order("created_at asc").First(&cluster).Error
+		}
+		if err != nil {
+			return nil, fmt.Errorf("runtime cluster not found: %w", err)
+		}
 	}
 
 	kubeconfig := r.secrets.Resolve(cluster.KubeconfigRef)
@@ -852,24 +896,95 @@ func (r *Runner) kubernetesManager() (kubeprovider.NamespaceManager, error) {
 
 	manager, err := r.namespaceFactory(kubeconfig)
 	if err != nil {
-		return nil, err
+		return nil, runtimeClusterKubeconfigError(err)
 	}
 	return manager, nil
 }
 
-func projectNamespace(project model.Project) string {
-	return dnsLabel("project-" + project.Slug)
+func runtimeClusterKubeconfigError(err error) error {
+	if err == nil {
+		return nil
+	}
+	message := err.Error()
+	if strings.Contains(message, "unable to read client-cert") ||
+		strings.Contains(message, "unable to read client-key") ||
+		strings.Contains(message, "unable to read certificate-authority") {
+		return fmt.Errorf("运行集群 kubeconfig 引用了当前 Worker 无法读取的本地证书文件，请在集群页面重新保存已内联证书的 kubeconfig 后再部署: %w", err)
+	}
+	return fmt.Errorf("运行集群 kubeconfig 无效，无法创建 Kubernetes 客户端: %w", err)
 }
 
-func deploymentNamespace(project model.Project, environment model.Environment) string {
-	if namespace := strings.TrimSpace(environment.Namespace); namespace != "" {
-		return dnsLabel(namespace)
-	}
+func isKubernetesNotFound(err error) bool {
+	return apierrors.IsNotFound(err)
+}
+
+func environmentClusterLookup(clusterID string) (string, []any) {
+	return "id = ? and type in ?", []any{strings.TrimSpace(clusterID), []string{"kubernetes", "k3s"}}
+}
+
+func projectNamespace(project model.Project) string {
+	return idResourceName("ns", project.ID)
+}
+
+func deploymentNamespace(project model.Project, _ model.Environment) string {
 	return projectNamespace(project)
 }
 
-func applicationResourceName(application model.Application, environment model.Environment) string {
-	return dnsLabel(application.Slug + "-" + environment.Slug)
+func (r *Runner) releaseDeploymentTarget(release model.Release) model.DeploymentTarget {
+	var target model.DeploymentTarget
+	if strings.TrimSpace(release.ModuleID) != "" {
+		if err := r.db.First(&target, "project_id = ? and application_id = ? and environment_id = ? and module_id = ?", release.ProjectID, release.ApplicationID, release.EnvironmentID, release.ModuleID).Error; err == nil {
+			return target
+		}
+	}
+	return model.DeploymentTarget{}
+}
+
+func applicationResourceName(deploymentTarget model.DeploymentTarget) string {
+	return idResourceName("dplt", deploymentTarget.ID)
+}
+
+func hookJobName(run model.HookRun) string {
+	return idResourceName("hook", run.ID)
+}
+
+func normalizePositive(value int, fallbackValue int) int {
+	if value > 0 {
+		return value
+	}
+	return fallbackValue
+}
+
+func shortCommit(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) <= 12 {
+		return value
+	}
+	return value[:12]
+}
+
+func timePtr(value time.Time) *time.Time {
+	return &value
+}
+
+func idResourceName(prefix string, value string) string {
+	suffix := shortID(value)
+	if suffix == "" {
+		return dnsLabel(prefix)
+	}
+	return dnsLabel(prefix + "-" + suffix)
+}
+
+func shortID(value string) string {
+	value = strings.TrimSpace(value)
+	if index := strings.Index(value, "_"); index >= 0 {
+		value = value[index+1:]
+	}
+	value = dnsLabelOptionalSegment(value)
+	if len(value) > 10 {
+		return value[:10]
+	}
+	return value
 }
 
 func gatewayIngressName(route model.GatewayRoute) string {
@@ -883,7 +998,7 @@ func gatewayTLSSecretName(route model.GatewayRoute) string {
 	return dnsLabel("tls-" + route.Host)
 }
 
-func gatewayIngressSpec(route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string) kubeprovider.GatewayIngressSpec {
+func gatewayIngressSpec(route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string, serviceName string) kubeprovider.GatewayIngressSpec {
 	servicePort := route.ServicePort
 	if servicePort <= 0 {
 		servicePort = application.ServicePort
@@ -895,10 +1010,12 @@ func gatewayIngressSpec(route model.GatewayRoute, project model.Project, applica
 		Name:          gatewayIngressName(route),
 		Namespace:     namespace,
 		ProjectID:     project.ID,
+		ApplicationID: application.ID,
+		EnvironmentID: environment.ID,
 		RouteID:       route.ID,
 		Host:          strings.TrimSpace(route.Host),
 		Path:          route.Path,
-		ServiceName:   applicationResourceName(application, environment),
+		ServiceName:   firstNonEmpty(serviceName, dnsLabel(application.Slug)),
 		ServicePort:   int32(servicePort),
 		TLSSecretName: gatewayTLSSecretName(route),
 	}
@@ -916,7 +1033,7 @@ func gatewayCertificateSpec(route model.GatewayRoute, project model.Project, nam
 	}
 }
 
-func applicationResourcesSpec(release model.Release, project model.Project, application model.Application, environment model.Environment, namespace string, rolloutTimeoutSeconds int64) (kubeprovider.ApplicationResourcesSpec, error) {
+func applicationResourcesSpec(release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string, rolloutTimeoutSeconds int64) (kubeprovider.ApplicationResourcesSpec, error) {
 	configData, err := mergeKeyValueMaps(environment.EnvVars, environment.ConfigRefs)
 	if err != nil {
 		return kubeprovider.ApplicationResourcesSpec{}, err
@@ -934,11 +1051,13 @@ func applicationResourcesSpec(release model.Release, project model.Project, appl
 		replicas = 1
 	}
 	return kubeprovider.ApplicationResourcesSpec{
-		Name:                  applicationResourceName(application, environment),
+		Name:                  applicationResourceName(deploymentTarget),
 		Namespace:             namespace,
 		ProjectID:             project.ID,
 		ApplicationID:         application.ID,
 		EnvironmentID:         environment.ID,
+		DeploymentTargetID:    deploymentTarget.ID,
+		ReleaseID:             release.ID,
 		Image:                 strings.TrimSpace(release.ImageRef),
 		Replicas:              int32(replicas),
 		ServicePort:           int32(servicePort),
@@ -1033,19 +1152,7 @@ func buildResourceName(buildRunID, prefix string) string {
 }
 
 func dnsLabel(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	var builder strings.Builder
-	for _, char := range value {
-		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '-' {
-			builder.WriteRune(char)
-			continue
-		}
-		builder.WriteByte('-')
-	}
-	label := strings.Trim(builder.String(), "-")
-	if label == "" {
-		label = "liteyuki"
-	}
+	label := dnsLabelOptionalSegment(value)
 	if len(label) > 63 {
 		label = strings.TrimRight(label[:63], "-")
 	}
@@ -1053,6 +1160,24 @@ func dnsLabel(value string) string {
 		return "liteyuki"
 	}
 	return label
+}
+
+func dnsLabelOptionalSegment(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var builder strings.Builder
+	previousDash := false
+	for _, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') {
+			builder.WriteRune(char)
+			previousDash = false
+			continue
+		}
+		if !previousDash {
+			builder.WriteByte('-')
+			previousDash = true
+		}
+	}
+	return strings.Trim(builder.String(), "-")
 }
 
 func firstNonEmpty(values ...string) string {

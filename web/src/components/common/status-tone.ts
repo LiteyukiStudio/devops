@@ -15,8 +15,10 @@ export function statusToneFor(value: string): StatusTone {
     case 'verified':
       return 'success'
     case 'failed':
+    case 'lost':
     case 'missing-credential':
     case 'revoked':
+    case 'timeout':
     case 'unhealthy':
       return 'danger'
     case 'expired':

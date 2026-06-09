@@ -96,6 +96,23 @@ pnpm --dir web dev
 
 开发环境前端请求 `/api/v1`，由 Vite proxy 反代到 `http://localhost:8080`。
 
+### 本地 minikube 部署联调
+
+当 API / worker 运行在 Docker Compose 容器中时，集群 kubeconfig 不要使用宿主机专用的 `https://127.0.0.1:<port>` 和外链证书文件路径。推荐为本地 minikube 预留统一域名：
+
+- 宿主机 `/etc/hosts`：`127.0.0.1 dev.minikube.local`
+- Docker Compose 容器：`docker-compose*.yaml` 已将 `dev.minikube.local` 解析到宿主机网关
+- minikube apiserver 证书：启动 profile 时需要把 `dev.minikube.local` 加入 apiserver SAN
+
+示例：
+
+```bash
+minikube -p liteyuki-devops start --apiserver-names=dev.minikube.local
+kubectl config view --raw --minify --flatten > /tmp/liteyuki-devops.kubeconfig
+```
+
+然后将导出的 kubeconfig 中的 server 改为 `https://dev.minikube.local:<apiserver-port>`，再保存到平台运行集群配置。`--flatten` 必须保留，用于把 `certificate-authority-data`、`client-certificate-data` 和 `client-key-data` 内联到 kubeconfig，避免 worker 容器读取不到宿主机证书文件。
+
 ### 推荐开发拓扑
 
 日常前后端开发最频繁，推荐宿主机运行 Vite 和 API，开发 compose 负责启动 PostgreSQL / Redis / worker / builder：
@@ -108,7 +125,7 @@ flowchart LR
   API --> Redis[("Redis\nlocalhost:6379")]
   Worker["worker container"] --> PG
   Worker --> Redis
-  Builder["builder container"] -->|claim task / push events| Redis
+  Builder["builder container"] -->|HTTP polling / logs / result| API
   Builder --> Docker["Docker / BuildKit"]
   Worker --> K8s["Kubernetes / K3s\n按需联调"]
 ```
@@ -119,9 +136,9 @@ flowchart LR
 docker compose -f docker-compose-dev.yaml up -d --build
 ```
 
-Builder 默认通过 Redis stream 连接平台任务队列和事件流，适合联调构建任务、日志回写和镜像推送。API 和前端改动频繁时仍在宿主机运行，避免每次都重建完整容器栈。
+Builder 默认通过 HTTP 轮询平台 API 领取构建任务，并通过同一条 HTTP 通道回写日志、进度和结果。API 和前端改动频繁时仍在宿主机运行，避免每次都重建完整容器栈。
 
-开发 compose 直接声明容器必需变量，不读取宿主机 `.env.development`；builder 不读取数据库和 API 配置，只保留 Redis 连接和 agent 身份。容器内连接地址直接写在 `docker-compose-dev.yaml` 里，避免 `.env.development` 中给宿主机 `go run` 使用的 `localhost` 地址在容器内失效。
+开发 compose 直接声明容器必需变量，不读取宿主机 `.env.development`；builder 不读取数据库配置，只保留平台 API 地址、Builder token 和 agent 身份。容器内连接地址直接写在 `docker-compose-dev.yaml` 里，避免 `.env.development` 中给宿主机 `go run` 使用的 `localhost` 地址在容器内失效。宿主机 API 也必须配置相同的 `BUILDER_TOKEN`，否则 Builder 会被拒绝接入。
 
 ### Compose 场景
 
@@ -171,15 +188,16 @@ worker
   -> postgres / redis
 
 builder
-  -> redis stream
+  -> api :8080
   -> docker socket
   -> executor container
 ```
 
-Builder 仅使用 Redis transport。builder 写入 heartbeat / claimed / log / complete / fail 事件，worker 消费事件并落库。`BUILDER_AGENT_NAME` 是 builder agent 的唯一标识，同名 agent 会更新同一条 `builder_agents` 记录；API 创建构建时按应用构建标签、builder scope 和在线状态选择一个 builder，再投递到该 builder 的专属 Redis stream。
+Builder 仅使用 HTTP transport。builder 通过 `BUILDER_API_URL` 连接平台 API，使用 `BUILDER_TOKEN` 鉴权；轮询 claim 时上报 agent 身份、scope、能力标签和 executor 信息。平台从数据库构建队列中按应用构建标签和 builder scope 分配任务；builder 回写 heartbeat / logs / progress / complete / fail，API 直接落库。
 
 ```env
-REDIS_ADDR=localhost:6379
+BUILDER_API_URL=http://localhost:8080
+BUILDER_TOKEN=dev-builder-token
 BUILDER_AGENT_NAME=local-builder
 BUILDER_SCOPES=global,project:proj_123,user:usr_123
 BUILDER_LABELS=docker,arm64

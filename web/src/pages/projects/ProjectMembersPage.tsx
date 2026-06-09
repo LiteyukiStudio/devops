@@ -12,14 +12,12 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { EmptyState } from '@/components/common/empty-state'
+import { DataList } from '@/components/common/data-list'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
-import { MotionItem, MotionList } from '@/components/common/motion'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
@@ -120,48 +118,64 @@ export function ProjectMembersPage({ embedded = false, projectId: projectIdProp,
         />
       )}
 
-      <div className="grid gap-4">
-        <MotionList className="grid gap-3">
-          {members.isError && <ErrorState title={t('projectMembers.loadFailedTitle')} description={t('projectMembers.loadFailedDescription')} />}
-          {members.data?.length === 0 && <EmptyState title={t('projectMembers.emptyTitle')} description={t('projectMembers.emptyDescription')} />}
-          {(members.data ?? []).map(member => (
-            <MotionItem key={member.id}>
-              <Card className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-medium">{member.name}</p>
-                    <StatusBadge>{roleLabels[member.role]}</StatusBadge>
-                  </div>
-                  <p className="truncate text-sm text-muted-foreground">{member.email}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Select
-                    className="w-32"
-                    value={member.role}
-                    onChange={event => updateMember.mutate({ memberId: member.id, role: event.target.value as ProjectMember['role'] })}
-                  >
-                    <option value="viewer">{t('projectMembers.roleViewer')}</option>
-                    <option value="developer">{t('projectMembers.roleDeveloper')}</option>
-                    <option value="admin">{t('projectMembers.roleAdmin')}</option>
-                    <option value="owner">{t('projectMembers.roleOwner')}</option>
-                  </Select>
-                  <ConfirmDialog
-                    confirmText={t('projectMembers.removeConfirm')}
-                    description={t('projectMembers.removeDescription', { email: member.email })}
-                    pending={deleteMember.isPending}
-                    title={t('projectMembers.removeTitle')}
-                    onConfirm={() => deleteMember.mutate(member.id)}
-                  >
-                    <Button aria-label={t('projectMembers.removeAria')} variant="ghost">
-                      <Trash2 size={16} />
-                    </Button>
-                  </ConfirmDialog>
-                </div>
-              </Card>
-            </MotionItem>
-          ))}
-        </MotionList>
-      </div>
+      {members.isError && <ErrorState title={t('projectMembers.loadFailedTitle')} description={t('projectMembers.loadFailedDescription')} />}
+      <DataList
+        columns={[
+          {
+            key: 'member',
+            header: t('projectMembers.title'),
+            className: 'min-w-64 px-4 py-3 align-middle',
+            render: member => (
+              <div className="min-w-0">
+                <p className="truncate font-medium">{member.name}</p>
+                <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+              </div>
+            ),
+          },
+          {
+            key: 'role',
+            header: t('projectMembers.role'),
+            className: 'w-[18%] px-4 py-3 align-middle',
+            render: member => <StatusBadge>{roleLabels[member.role]}</StatusBadge>,
+          },
+          {
+            key: 'actions',
+            header: t('common.actions'),
+            className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
+            render: member => (
+              <div className="flex justify-end gap-2">
+                <Select
+                  aria-label={t('projectMembers.role')}
+                  className="h-9"
+                  containerClassName="w-36"
+                  value={member.role}
+                  onChange={event => updateMember.mutate({ memberId: member.id, role: event.target.value as ProjectMember['role'] })}
+                >
+                  <option value="viewer">{t('projectMembers.roleViewer')}</option>
+                  <option value="developer">{t('projectMembers.roleDeveloper')}</option>
+                  <option value="admin">{t('projectMembers.roleAdmin')}</option>
+                  <option value="owner">{t('projectMembers.roleOwner')}</option>
+                </Select>
+                <ConfirmDialog
+                  confirmText={t('projectMembers.removeConfirm')}
+                  description={t('projectMembers.removeDescription', { email: member.email })}
+                  pending={deleteMember.isPending}
+                  title={t('projectMembers.removeTitle')}
+                  onConfirm={() => deleteMember.mutate(member.id)}
+                >
+                  <Button aria-label={t('projectMembers.removeAria')} variant="ghost">
+                    <Trash2 size={16} />
+                  </Button>
+                </ConfirmDialog>
+              </div>
+            ),
+          },
+        ]}
+        emptyDescription={t('projectMembers.emptyDescription')}
+        emptyTitle={t('projectMembers.emptyTitle')}
+        items={members.data ?? []}
+        rowKey={member => member.id}
+      />
 
       <Dialog
         open={dialogOpen}

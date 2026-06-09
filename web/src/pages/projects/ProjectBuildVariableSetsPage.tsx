@@ -1,0 +1,222 @@
+import type { Ref } from 'react'
+import type { BuildVariableSet } from '@/api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, Trash2 } from 'lucide-react'
+import { useImperativeHandle, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { api } from '@/api/client'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DataList } from '@/components/common/data-list'
+import { EditActionButton } from '@/components/common/edit-action-button'
+import { ErrorState } from '@/components/common/error-state'
+import { FormField as Field } from '@/components/common/form-field'
+import { StatusValueBadge } from '@/components/common/status-badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { buildVariableCount, buildVariableRecordToRows, buildVariableRowsToRecord, secretStateToRows } from '@/lib/build-variables'
+
+interface KeyValueRow {
+  id: string
+  key: string
+  value: string
+  existing?: boolean
+}
+
+interface VariableSetForm {
+  name: string
+  variables: KeyValueRow[]
+  secrets: KeyValueRow[]
+  enabled: boolean
+}
+
+export interface ProjectBuildVariableSetsPageHandle {
+  openCreateDialog: () => void
+}
+
+const emptyRow = (): KeyValueRow => ({ id: crypto.randomUUID(), key: '', value: '' })
+const variableSetDefaults: VariableSetForm = { enabled: true, name: '', secrets: [emptyRow()], variables: [emptyRow()] }
+
+export function ProjectBuildVariableSetsPage({ projectId, ref }: { projectId: string, ref?: Ref<ProjectBuildVariableSetsPageHandle> }) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingSet, setEditingSet] = useState<BuildVariableSet | null>(null)
+  const [setToDelete, setSetToDelete] = useState<BuildVariableSet | null>(null)
+  const form = useForm<VariableSetForm>({ defaultValues: variableSetDefaults, mode: 'onChange' })
+  const variableSets = useQuery({ queryKey: ['build-variable-sets', projectId], queryFn: () => api.listBuildVariableSets(projectId), enabled: Boolean(projectId) })
+
+  const saveVariableSet = useMutation({
+    mutationFn: (values: VariableSetForm) => {
+      const payload = {
+        enabled: values.enabled,
+        name: values.name,
+        ownerRef: projectId,
+        scope: 'project' as const,
+        secrets: buildVariableRowsToRecord(values.secrets),
+        variables: buildVariableRowsToRecord(values.variables),
+      }
+      return editingSet ? api.updateBuildVariableSet(editingSet.id, payload) : api.createBuildVariableSet(payload)
+    },
+    onSuccess: () => {
+      toast.success(t(editingSet ? 'buildsPage.variableSetUpdated' : 'buildsPage.variableSetCreated'))
+      setDialogOpen(false)
+      setEditingSet(null)
+      form.reset(variableSetDefaults)
+      queryClient.invalidateQueries({ queryKey: ['build-variable-sets', projectId] })
+    },
+    onError: error => toast.error(error.message),
+  })
+  const deleteVariableSet = useMutation({
+    mutationFn: api.deleteBuildVariableSet,
+    onSuccess: () => {
+      toast.success(t('buildsPage.variableSetDeleted'))
+      setSetToDelete(null)
+      queryClient.invalidateQueries({ queryKey: ['build-variable-sets', projectId] })
+    },
+    onError: error => toast.error(error.message),
+  })
+
+  function openDialog(set?: BuildVariableSet) {
+    setEditingSet(set ?? null)
+    form.reset(set
+      ? { enabled: set.enabled, name: set.name, secrets: secretStateToRows(set.secrets), variables: buildVariableRecordToRows(set.variables) }
+      : variableSetDefaults)
+    setDialogOpen(true)
+  }
+
+  useImperativeHandle(ref, () => ({
+    openCreateDialog: () => {
+      setEditingSet(null)
+      form.reset(variableSetDefaults)
+      setDialogOpen(true)
+    },
+  }), [form])
+
+  if (variableSets.isError) {
+    return (
+      <ErrorState
+        description={t('buildsPage.variableSetLoadFailedDescription')}
+        title={t('buildsPage.variableSetLoadFailedTitle')}
+      />
+    )
+  }
+
+  return (
+    <Card className="min-w-0 overflow-hidden p-0">
+      <div className="border-b border-border px-4 py-4">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold">{t('buildsPage.variablesAndSecrets')}</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('buildsPage.projectVariableSetDescription')}</p>
+        </div>
+      </div>
+      <DataList
+        columns={[
+          { key: 'name', header: t('common.name'), className: 'min-w-40 px-4 py-3 align-middle', render: item => <span className="block truncate whitespace-nowrap" title={item.name}>{item.name}</span> },
+          { key: 'variables', header: t('buildsPage.variables'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => t('buildsPage.variableCount', { count: buildVariableCount(item.variables) }) },
+          { key: 'secrets', header: t('buildsPage.secrets'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => t('buildsPage.secretCount', { count: Object.keys(item.secrets ?? {}).length }) },
+          { key: 'enabled', header: t('common.status'), className: 'w-28 whitespace-nowrap px-4 py-3 align-middle', render: item => <StatusValueBadge value={item.enabled ? 'enabled' : 'disabled'} /> },
+          { key: 'actions', header: t('common.actions'), className: 'w-[1%] whitespace-nowrap px-4 py-3 text-right align-middle', render: item => (
+            <div className="flex justify-end gap-2">
+              <EditActionButton label={t('common.edit')} onClick={() => openDialog(item)} />
+              <Button size="sm" variant="ghost" onClick={() => setSetToDelete(item)}>
+                <Trash2 className="size-4" />
+                {t('common.delete')}
+              </Button>
+            </div>
+          ) },
+        ]}
+        emptyTitle={t('buildsPage.emptyVariableSets')}
+        items={variableSets.data ?? []}
+        rowKey={item => item.id}
+        variant="plain"
+      />
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingSet ? t('buildsPage.editVariableSet') : t('buildsPage.createVariableSet')}</DialogTitle>
+            <DialogDescription>{t('buildsPage.variableSetDialogDescription')}</DialogDescription>
+          </DialogHeader>
+          <form className="grid gap-4" onSubmit={form.handleSubmit(values => saveVariableSet.mutate(values))}>
+            <Field label={t('common.name')} required><Input {...form.register('name', { required: true })} /></Field>
+            <KeyValueRowsEditor
+              rows={form.watch('variables')}
+              title={t('buildsPage.variables')}
+              valuePlaceholder={t('buildsPage.variableValuePlaceholder')}
+              onChange={rows => form.setValue('variables', rows, { shouldDirty: true, shouldValidate: true })}
+            />
+            <KeyValueRowsEditor
+              secret
+              rows={form.watch('secrets')}
+              title={t('buildsPage.secrets')}
+              valuePlaceholder={editingSet ? t('buildsPage.secretKeepPlaceholder') : t('buildsPage.secretValuePlaceholder')}
+              onChange={rows => form.setValue('secrets', rows, { shouldDirty: true, shouldValidate: true })}
+            />
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input className="size-4 accent-primary" type="checkbox" {...form.register('enabled')} />
+              {t('common.enabled')}
+            </label>
+            <DialogFooter><Button disabled={!form.formState.isValid || saveVariableSet.isPending} type="submit">{t('common.save')}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        cancelText={t('common.cancel')}
+        confirmText={t('common.delete')}
+        description={t('buildsPage.deleteVariableSetDescription')}
+        open={Boolean(setToDelete)}
+        title={t('buildsPage.deleteVariableSetTitle')}
+        onConfirm={() => setToDelete && deleteVariableSet.mutate(setToDelete.id)}
+        onOpenChange={open => !open && setSetToDelete(null)}
+      />
+    </Card>
+  )
+}
+
+function KeyValueRowsEditor({ onChange, rows, secret = false, title, valuePlaceholder }: {
+  rows: KeyValueRow[]
+  secret?: boolean
+  title: string
+  valuePlaceholder: string
+  onChange: (rows: KeyValueRow[]) => void
+}) {
+  const { t } = useTranslation()
+  const updateRow = (rowId: string, patch: Partial<KeyValueRow>) => {
+    onChange(rows.map(row => row.id === rowId ? { ...row, ...patch } : row))
+  }
+  const removeRow = (rowId: string) => {
+    const nextRows = rows.filter(row => row.id !== rowId)
+    onChange(nextRows.length ? nextRows : [emptyRow()])
+  }
+  return (
+    <div className="grid gap-2 rounded-lg border border-border p-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium">{title}</h3>
+        <Button size="sm" type="button" variant="secondary" onClick={() => onChange([...rows, emptyRow()])}>
+          <Plus className="size-4" />
+          {t('buildsPage.addKeyValueRow')}
+        </Button>
+      </div>
+      <div className="grid gap-2">
+        {rows.map(row => (
+          <div key={row.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+            <Input placeholder={t('buildsPage.variableKeyPlaceholder')} value={row.key} onChange={event => updateRow(row.id, { key: event.target.value })} />
+            <Input
+              placeholder={row.existing && secret ? t('buildsPage.secretConfiguredPlaceholder') : valuePlaceholder}
+              type={secret ? 'password' : 'text'}
+              value={row.value}
+              onChange={event => updateRow(row.id, { value: event.target.value })}
+            />
+            <Button aria-label={t('common.delete')} size="icon" type="button" variant="ghost" onClick={() => removeRow(row.id)}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      {secret && <p className="text-xs leading-5 text-muted-foreground">{t('buildsPage.secretEditHint')}</p>}
+    </div>
+  )
+}

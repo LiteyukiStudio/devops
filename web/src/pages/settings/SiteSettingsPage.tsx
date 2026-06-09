@@ -27,6 +27,7 @@ export function SiteSettingsPage() {
     enabled: keys.length > 0,
   })
   const siteDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('site.')), [definitions.data])
+  const gatewayDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('gateway.')), [definitions.data])
   const securityDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('security.')), [definitions.data])
   const resolvedValues = useMemo(() => {
     const nextValues: Record<string, string> = {}
@@ -62,6 +63,7 @@ export function SiteSettingsPage() {
         <ContentTabs
           tabs={[
             { value: 'brand', label: t('settings.siteConfigTitle') },
+            { value: 'gateway', label: t('settings.gatewayConfigTitle') },
             { value: 'security', label: t('settings.securityEgressTitle') },
           ]}
           tools={(
@@ -76,6 +78,11 @@ export function SiteSettingsPage() {
           <TabsContent value="brand">
             <Card className="max-w-3xl p-4">
               <ConfigSection definitions={siteDefinitions} form={form} />
+            </Card>
+          </TabsContent>
+          <TabsContent value="gateway">
+            <Card className="max-w-3xl p-4">
+              <ConfigSection definitions={gatewayDefinitions} form={form} />
             </Card>
           </TabsContent>
           <TabsContent value="security">

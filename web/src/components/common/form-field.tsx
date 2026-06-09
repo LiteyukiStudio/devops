@@ -23,7 +23,7 @@ export function FormField({
   children: ReactNode
 }) {
   return (
-    <Field className="group gap-1.5" data-invalid={Boolean(error)}>
+    <Field className="group min-w-0 gap-1.5" data-invalid={Boolean(error)}>
       <div className="flex min-w-0 items-center justify-between gap-3">
         <FieldLabel className="min-w-0 gap-1.5">
           <span className="truncate">
@@ -36,6 +36,7 @@ export function FormField({
                 <button
                   aria-label={`${label}${i18next.t('common.helpSuffix')}`}
                   className="inline-flex shrink-0 text-muted-foreground outline-none hover:text-primary focus:text-primary"
+                  tabIndex={-1}
                   type="button"
                 >
                   <CircleHelp className="size-3.5 transition" />

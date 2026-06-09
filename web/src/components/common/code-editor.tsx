@@ -14,6 +14,7 @@ export function CodeEditor({
   value,
   onChange,
   language = 'text',
+  height,
   minHeight = '14rem',
   placeholder,
   readOnly,
@@ -23,6 +24,7 @@ export function CodeEditor({
   value: string
   onChange: (value: string) => void
   language?: CodeEditorLanguage
+  height?: string
   minHeight?: string
   placeholder?: string
   readOnly?: boolean
@@ -43,8 +45,7 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        'min-w-0 max-w-full overflow-hidden rounded-md border border-input bg-surface shadow-xs transition-[border-color,box-shadow]',
-        '[&_.cm-content]:min-w-0 [&_.cm-editor]:max-w-full [&_.cm-scroller]:max-w-full [&_.cm-scroller]:overflow-auto',
+        'liteyuki-code-editor min-w-0 max-w-full overflow-hidden rounded-md border border-input bg-surface shadow-xs transition-[border-color,box-shadow]',
         'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
         ariaInvalid && 'border-destructive ring-destructive/20 dark:ring-destructive/40',
         className,
@@ -64,10 +65,11 @@ export function CodeEditor({
         }}
         editable={!readOnly}
         extensions={extensions}
-        height="auto"
-        minHeight={minHeight}
+        height={height ?? 'auto'}
+        minHeight={height ? undefined : minHeight}
         placeholder={placeholder}
         readOnly={readOnly}
+        style={{ maxWidth: '100%', minWidth: 0, width: '100%' }}
         theme={dark ? 'dark' : 'light'}
         value={value}
         onChange={onChange}

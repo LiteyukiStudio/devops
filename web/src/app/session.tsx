@@ -80,6 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const updateLanguageMutation = useMutation({
     mutationFn: api.updateCurrentUser,
     onSuccess: (result) => {
+      localStorage.setItem('liteyuki-language', result.language)
       i18n.changeLanguage(result.language)
       setCurrentUser(queryClient, result)
       setRecentLoginUsers(cacheRecentLoginUser(result))
@@ -89,6 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const updateProfileMutation = useMutation({
     mutationFn: api.updateCurrentUser,
     onSuccess: (result) => {
+      localStorage.setItem('liteyuki-language', result.language)
       i18n.changeLanguage(result.language)
       setCurrentUser(queryClient, result)
       setRecentLoginUsers(cacheRecentLoginUser(result))
@@ -144,6 +146,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 }
 
 function setCurrentUser(queryClient: ReturnType<typeof useQueryClient>, user: CurrentUser) {
+  localStorage.setItem('liteyuki-language', user.language)
   queryClient.setQueryData(currentUserQueryKey, user)
 }
 

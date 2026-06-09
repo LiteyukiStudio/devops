@@ -27,6 +27,8 @@ services:
       dockerfile: Dockerfile
       args:
         TARGET: api
+    extra_hosts:
+      - "dev.minikube.local:host-gateway"
     environment:
       API_ADDR: :8080
       APP_ENV: development
@@ -34,6 +36,7 @@ services:
       PUBLIC_BASE_URL: http://localhost:8088
       APP_CORS_ORIGINS: http://localhost:8088
       REDIS_ADDR: redis:6379
+      BUILDER_TOKEN: ${BUILDER_TOKEN:-dev-builder-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,6 +51,8 @@ services:
       dockerfile: Dockerfile
       args:
         TARGET: worker
+    extra_hosts:
+      - "dev.minikube.local:host-gateway"
     environment:
       APP_ENV: development
       DATABASE_URL: postgres://devops:devops@postgres:5432/devops?sslmode=disable
@@ -66,7 +71,8 @@ services:
         TARGET: builder
     environment:
       APP_ENV: development
-      REDIS_ADDR: redis:6379
+      BUILDER_API_URL: http://api:8080
+      BUILDER_TOKEN: ${BUILDER_TOKEN:-dev-builder-token}
       BUILDER_AGENT_NAME: local-docker-builder
       BUILDER_SCOPES: ${BUILDER_SCOPES:-}
       BUILDER_LABELS: ${BUILDER_LABELS:-}
@@ -76,8 +82,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./.local/builder-workspace:/builder-workspace
     depends_on:
-      redis:
-        condition: service_healthy
+      - api
 
   web:
     build:

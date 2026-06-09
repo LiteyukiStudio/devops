@@ -14,6 +14,8 @@ type GatewayIngressSpec struct {
 	Name          string
 	Namespace     string
 	ProjectID     string
+	ApplicationID string
+	EnvironmentID string
 	RouteID       string
 	Host          string
 	Path          string
@@ -31,11 +33,7 @@ func (c *Client) ApplyGatewayIngress(ctx context.Context, spec GatewayIngressSpe
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      spec.Name,
 			Namespace: spec.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "liteyuki-devops",
-				"liteyuki.devops/project-id":   spec.ProjectID,
-				"liteyuki.devops/route-id":     spec.RouteID,
-			},
+			Labels:    gatewayLabels(spec),
 		},
 		Spec: networkingv1.IngressSpec{
 			Rules: []networkingv1.IngressRule{{
@@ -67,6 +65,16 @@ func (c *Client) ApplyGatewayIngress(ctx context.Context, spec GatewayIngressSpe
 	existing.Spec = ingress.Spec
 	_, err = c.client.NetworkingV1().Ingresses(spec.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
 	return err
+}
+
+func gatewayLabels(spec GatewayIngressSpec) map[string]string {
+	labels := baseManagedLabels(spec.ServiceName)
+	setLabel(labels, ProjectIDLabel, spec.ProjectID)
+	setLabel(labels, ApplicationIDLabel, spec.ApplicationID)
+	setLabel(labels, EnvironmentIDLabel, spec.EnvironmentID)
+	setLabel(labels, GatewayRouteIDLabel, spec.RouteID)
+	setLabel(labels, legacyGatewayRouteIDLabel, spec.RouteID)
+	return labels
 }
 
 func validateGatewayIngressSpec(spec GatewayIngressSpec) error {

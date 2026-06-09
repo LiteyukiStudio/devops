@@ -9,8 +9,13 @@ const resources = {
   'en-US': { translation: enUS },
 }
 
+function detectBrowserLanguage() {
+  const languages = [localStorage.getItem('liteyuki-language'), ...navigator.languages, navigator.language].filter(Boolean)
+  return languages.some(language => language?.toLowerCase().startsWith('en')) ? 'en-US' : 'zh-CN'
+}
+
 i18next.use(initReactI18next).init({
-  lng: 'zh-CN',
+  lng: detectBrowserLanguage(),
   fallbackLng: 'zh-CN',
   interpolation: {
     escapeValue: false,

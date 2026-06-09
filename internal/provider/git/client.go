@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -40,6 +41,7 @@ type Repository struct {
 	CloneURL      string `json:"cloneUrl"`
 	DefaultBranch string `json:"defaultBranch"`
 	Private       bool   `json:"private"`
+	Source        string `json:"source"`
 }
 
 type Branch struct {
@@ -76,6 +78,54 @@ type WebhookCreateResult struct {
 	Secret string `json:"-"`
 }
 
+type UpstreamError struct {
+	StatusCode       int
+	Message          string
+	DocumentationURL string
+	Details          []UpstreamErrorDetail
+}
+
+type UpstreamErrorDetail struct {
+	Resource string `json:"resource"`
+	Code     string `json:"code"`
+	Field    string `json:"field"`
+	Message  string `json:"message"`
+}
+
+func (e *UpstreamError) Error() string {
+	if e == nil {
+		return "git api returned an upstream error"
+	}
+	parts := []string{fmt.Sprintf("git api returned %d", e.StatusCode)}
+	if strings.TrimSpace(e.Message) != "" {
+		parts = append(parts, strings.TrimSpace(e.Message))
+	}
+	for _, detail := range e.Details {
+		detailParts := []string{}
+		if strings.TrimSpace(detail.Resource) != "" {
+			detailParts = append(detailParts, strings.TrimSpace(detail.Resource))
+		}
+		if strings.TrimSpace(detail.Field) != "" {
+			detailParts = append(detailParts, strings.TrimSpace(detail.Field))
+		}
+		if strings.TrimSpace(detail.Code) != "" {
+			detailParts = append(detailParts, strings.TrimSpace(detail.Code))
+		}
+		if len(detailParts) > 0 {
+			parts = append(parts, strings.Join(detailParts, "."))
+		}
+	}
+	return strings.Join(parts, ": ")
+}
+
+func AsUpstreamError(err error) (*UpstreamError, bool) {
+	var upstreamErr *UpstreamError
+	if errors.As(err, &upstreamErr) {
+		return upstreamErr, true
+	}
+	return nil, false
+}
+
 func NewClient(provider model.GitProvider, token string) Client {
 	return NewClientWithPolicy(provider, token, security.PublicEgressPolicy())
 }
@@ -99,14 +149,43 @@ func (c Client) ListRepositories(ctx context.Context, search string, page, pageS
 			"page":        strconv.Itoa(page),
 			"per_page":    strconv.Itoa(pageSize),
 		}), &repos)
-		return FilterRepositories(githubRepositories(repos), search), err
+		return FilterRepositories(withRepositorySource(githubRepositories(repos), "accessible"), search), err
 	case "gitea":
 		var repos []giteaRepositoryResponse
 		err := c.getJSON(ctx, c.apiURL("/user/repos", map[string]string{
 			"page":  strconv.Itoa(page),
 			"limit": strconv.Itoa(pageSize),
 		}), &repos)
-		return FilterRepositories(giteaRepositories(repos), search), err
+		return FilterRepositories(withRepositorySource(giteaRepositories(repos), "accessible"), search), err
+	default:
+		return nil, fmt.Errorf("git provider type %q is not supported", c.provider.Type)
+	}
+}
+
+func (c Client) SearchPublicRepositories(ctx context.Context, search string, page, pageSize int) ([]Repository, error) {
+	search = strings.TrimSpace(search)
+	if search == "" {
+		return nil, nil
+	}
+	switch c.provider.Type {
+	case "github":
+		var response githubRepositorySearchResponse
+		err := c.getJSON(ctx, c.apiURL("/search/repositories", map[string]string{
+			"q":        search,
+			"sort":     "updated",
+			"order":    "desc",
+			"page":     strconv.Itoa(page),
+			"per_page": strconv.Itoa(pageSize),
+		}), &response)
+		return withRepositorySource(githubRepositories(response.Items), "public"), err
+	case "gitea":
+		var response giteaRepositorySearchResponse
+		err := c.getJSON(ctx, c.apiURL("/repos/search", map[string]string{
+			"q":     search,
+			"page":  strconv.Itoa(page),
+			"limit": strconv.Itoa(pageSize),
+		}), &response)
+		return withRepositorySource(giteaRepositories(response.Data), "public"), err
 	default:
 		return nil, fmt.Errorf("git provider type %q is not supported", c.provider.Type)
 	}
@@ -480,12 +559,32 @@ func decodeGitResponse(resp *http.Response, output any) error {
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("git api returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return decodeUpstreamError(resp.StatusCode, body)
 	}
 	if output == nil || len(body) == 0 {
 		return nil
 	}
 	return json.Unmarshal(body, output)
+}
+
+func decodeUpstreamError(statusCode int, body []byte) error {
+	var response struct {
+		Message          string                `json:"message"`
+		DocumentationURL string                `json:"documentation_url"`
+		Errors           []UpstreamErrorDetail `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &response); err == nil && (strings.TrimSpace(response.Message) != "" || len(response.Errors) > 0) {
+		return &UpstreamError{
+			StatusCode:       statusCode,
+			Message:          strings.TrimSpace(response.Message),
+			DocumentationURL: strings.TrimSpace(response.DocumentationURL),
+			Details:          response.Errors,
+		}
+	}
+	return &UpstreamError{
+		StatusCode: statusCode,
+		Message:    http.StatusText(statusCode),
+	}
 }
 
 func FilterRepositories(repos []Repository, search string) []Repository {
@@ -530,6 +629,13 @@ func giteaRepositories(repos []giteaRepositoryResponse) []Repository {
 		})
 	}
 	return output
+}
+
+func withRepositorySource(repos []Repository, source string) []Repository {
+	for index := range repos {
+		repos[index].Source = source
+	}
+	return repos
 }
 
 func pathEscape(value string) string {
@@ -626,6 +732,10 @@ type githubRepositoryResponse struct {
 	} `json:"owner"`
 }
 
+type githubRepositorySearchResponse struct {
+	Items []githubRepositoryResponse `json:"items"`
+}
+
 type giteaRepositoryResponse struct {
 	Name          string `json:"name"`
 	FullName      string `json:"full_name"`
@@ -635,6 +745,10 @@ type giteaRepositoryResponse struct {
 	Owner         struct {
 		UserName string `json:"username"`
 	} `json:"owner"`
+}
+
+type giteaRepositorySearchResponse struct {
+	Data []giteaRepositoryResponse `json:"data"`
 }
 
 type gitBranchResponse struct {

@@ -20,15 +20,7 @@ func Render(value string, ctx Context) string {
 		"${{ github.ref_name }}": refName,
 		"${{ github.ref_type }}": refType(ctx),
 		"${{ github.ref }}":      githubRef(ctx),
-		"${{ github.head_ref }}": strings.TrimSpace(ctx.SourceBranch),
-		"${{ github.base_ref }}": "",
-		"{sha}":                  strings.TrimSpace(ctx.SourceCommit),
-		"{commit}":               strings.TrimSpace(ctx.SourceCommit),
 		"{short_sha}":            shortSHA,
-		"{commit_short}":         shortSHA,
-		"{branch}":               strings.TrimSpace(ctx.SourceBranch),
-		"{tag}":                  strings.TrimSpace(ctx.SourceTag),
-		"{ref_name}":             refName,
 	}
 	for key, replacement := range replacements {
 		output = strings.ReplaceAll(output, key, replacement)

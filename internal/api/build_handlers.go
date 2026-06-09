@@ -1,19 +1,22 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"math/rand/v2"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
-	builderagent "github.com/LiteyukiStudio/devops/internal/builder"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+var errBuildRunNotCancelable = errors.New("build run is not cancelable")
 
 func (h *Handlers) ListBuildProviders(ctx *gin.Context) {
 	user, ok := h.currentUser(ctx)
@@ -156,6 +159,7 @@ func (h *Handlers) UpdateBuildProvider(ctx *gin.Context) {
 		return
 	}
 	existing.Name = next.Name
+	existing.Slug = next.Slug
 	existing.Type = next.Type
 	existing.Scope = next.Scope
 	existing.OwnerRef = next.OwnerRef
@@ -223,7 +227,7 @@ func (h *Handlers) ListBuildVariableSets(ctx *gin.Context) {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, sets)
+	ctx.JSON(http.StatusOK, buildVariableSetResponses(sets))
 }
 
 func (h *Handlers) CreateBuildVariableSet(ctx *gin.Context) {
@@ -235,17 +239,17 @@ func (h *Handlers) CreateBuildVariableSet(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	set, ok := h.buildVariableSetFromInput(ctx, user, input, "")
+	setID := id.New("bvs")
+	set, ok := h.buildVariableSetFromInput(ctx, user, input, setID, nil)
 	if !ok {
 		return
 	}
-	set.ID = id.New("bvs")
 	set.CreatedBy = user.ID
 	if err := h.db.Create(&set).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusCreated, set)
+	ctx.JSON(http.StatusCreated, buildVariableSetResponseFor(set))
 }
 
 func (h *Handlers) UpdateBuildVariableSet(ctx *gin.Context) {
@@ -258,14 +262,14 @@ func (h *Handlers) UpdateBuildVariableSet(ctx *gin.Context) {
 		writeError(ctx, http.StatusNotFound, "build variable set not found")
 		return
 	}
-	if !h.canManageScopedResource(ctx, user, existing.Scope, existing.OwnerRef, "无权维护该构建变量集") {
+	if !h.canManageScopedResource(ctx, user, existing.Scope, existing.OwnerRef, "无权维护该变量和密钥") {
 		return
 	}
 	var input buildVariableSetInput
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	next, ok := h.buildVariableSetFromInput(ctx, user, input, existing.ID)
+	next, ok := h.buildVariableSetFromInput(ctx, user, input, existing.ID, decodeSecretRefs(existing.SecretRefs))
 	if !ok {
 		return
 	}
@@ -273,12 +277,13 @@ func (h *Handlers) UpdateBuildVariableSet(ctx *gin.Context) {
 	existing.Scope = next.Scope
 	existing.OwnerRef = next.OwnerRef
 	existing.Variables = next.Variables
+	existing.SecretRefs = next.SecretRefs
 	existing.Enabled = next.Enabled
 	if err := h.db.Save(&existing).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, existing)
+	ctx.JSON(http.StatusOK, buildVariableSetResponseFor(existing))
 }
 
 func (h *Handlers) DeleteBuildVariableSet(ctx *gin.Context) {
@@ -291,7 +296,7 @@ func (h *Handlers) DeleteBuildVariableSet(ctx *gin.Context) {
 		writeError(ctx, http.StatusNotFound, "build variable set not found")
 		return
 	}
-	if !h.canManageScopedResource(ctx, user, set.Scope, set.OwnerRef, "无权维护该构建变量集") {
+	if !h.canManageScopedResource(ctx, user, set.Scope, set.OwnerRef, "无权维护该变量和密钥") {
 		return
 	}
 	if err := h.db.Delete(&set).Error; err != nil {
@@ -307,7 +312,25 @@ func (h *Handlers) ListBuildRuns(ctx *gin.Context) {
 	}
 	pagination := paginationFromQuery(ctx)
 	query := h.db.Where("project_id = ?", ctx.Param("projectId"))
-	query = applySearch(ctx, query, "id", "source_commit", "target_repository", "image_ref")
+	if applicationID := strings.TrimSpace(ctx.Query("applicationId")); applicationID != "" {
+		query = query.Where("application_id = ?", applicationID)
+	}
+	if moduleID := strings.TrimSpace(ctx.Query("moduleId")); moduleID != "" {
+		query = query.Where("module_id = ?", moduleID)
+	}
+	if status := strings.TrimSpace(ctx.Query("status")); status != "" && buildRunStatusAllowed(status) {
+		query = query.Where("status = ?", status)
+	}
+	if triggerType := strings.TrimSpace(ctx.Query("triggerType")); triggerType != "" && buildRunTriggerAllowed(triggerType) {
+		query = query.Where("trigger_type = ?", triggerType)
+	}
+	if branch := strings.TrimSpace(ctx.Query("sourceBranch")); branch != "" {
+		query = query.Where("source_branch = ?", branch)
+	}
+	if actor := strings.TrimSpace(ctx.Query("createdBy")); actor != "" {
+		query = query.Where("created_by = ?", actor)
+	}
+	query = applySearch(ctx, query, "id", "status", "trigger_type", "source_branch", "source_tag", "source_commit", "target_repository", "image_ref", "created_by")
 	var runs []model.BuildRun
 	if ctx.Query("page") == "" && ctx.Query("pageSize") == "" {
 		if err := query.Order("created_at desc").Find(&runs).Error; err != nil {
@@ -326,6 +349,9 @@ func (h *Handlers) ListBuildRuns(ctx *gin.Context) {
 		"createdAt":    "created_at",
 		"status":       "status",
 		"sourceCommit": "source_commit",
+		"sourceBranch": "source_branch",
+		"triggerType":  "trigger_type",
+		"createdBy":    "created_by",
 	}, "created_at")
 	if err := query.Order(orderBy).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&runs).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
@@ -345,6 +371,28 @@ func (h *Handlers) GetBuildRun(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, run)
 }
 
+func buildRunStatusAllowed(status string) bool {
+	switch status {
+	case "queued", "running", "succeeded", "failed", "canceled", "lost", "timeout":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildRunCancelable(status string) bool {
+	return status == "queued" || status == "running"
+}
+
+func buildRunTriggerAllowed(triggerType string) bool {
+	switch triggerType {
+	case "manual", "webhook", "push", "tag", "api", "retry":
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *Handlers) TriggerBuildRun(ctx *gin.Context) {
 	user, _, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
 	if !ok {
@@ -354,7 +402,7 @@ func (h *Handlers) TriggerBuildRun(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	run := h.buildRunFromInput(ctx.Param("projectId"), user.ID, input)
+	run := h.buildRunFromInput(ctx.Param("projectId"), user, input)
 	run.ID = id.New("bldr")
 	run.Status = "queued"
 	run.TriggerType = fallback(strings.TrimSpace(input.TriggerType), "manual")
@@ -374,6 +422,7 @@ func (h *Handlers) RetryBuildRun(ctx *gin.Context) {
 		ID:                  id.New("bldr"),
 		ProjectID:           previous.ProjectID,
 		ApplicationID:       previous.ApplicationID,
+		ModuleID:            previous.ModuleID,
 		BuildProviderID:     previous.BuildProviderID,
 		BuildVariableSetIDs: previous.BuildVariableSetIDs,
 		Status:              "queued",
@@ -389,34 +438,87 @@ func (h *Handlers) RetryBuildRun(ctx *gin.Context) {
 		TargetTag:           previous.TargetTag,
 		CacheConfig:         previous.CacheConfig,
 		CreatedBy:           user.ID,
+		TriggeredByName:     buildRunActorName(user),
+		TriggeredByEmail:    strings.TrimSpace(user.Email),
+		SourceAuthorName:    previous.SourceAuthorName,
+		SourceAuthorEmail:   previous.SourceAuthorEmail,
 	}
 	h.createQueuedBuildRun(ctx, user, run, "", http.StatusCreated)
+}
+
+func (h *Handlers) CancelBuildRun(ctx *gin.Context) {
+	user, _, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
+	if !ok {
+		return
+	}
+	run, ok := h.findBuildRun(ctx)
+	if !ok {
+		return
+	}
+	if !buildRunCancelable(run.Status) {
+		writeError(ctx, http.StatusConflict, "只有排队中或运行中的构建可以终止")
+		return
+	}
+
+	finishedAt := time.Now()
+	var jobs []model.BuildJob
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		var lockedRun model.BuildRun
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&lockedRun, "id = ? and project_id = ?", run.ID, run.ProjectID).Error; err != nil {
+			return err
+		}
+		if !buildRunCancelable(lockedRun.Status) {
+			return errBuildRunNotCancelable
+		}
+		if err := tx.Where("build_run_id = ? and project_id = ? and status in ?", lockedRun.ID, lockedRun.ProjectID, []string{"queued", "running"}).Find(&jobs).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.BuildJob{}).
+			Where("build_run_id = ? and project_id = ? and status in ?", lockedRun.ID, lockedRun.ProjectID, []string{"queued", "running"}).
+			Updates(map[string]any{
+				"status":      "canceled",
+				"message":     "canceled by user",
+				"lease_until": nil,
+				"finished_at": &finishedAt,
+			}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&model.BuildRun{}).
+			Where("id = ?", lockedRun.ID).
+			Updates(map[string]any{
+				"status":      "canceled",
+				"finished_at": &finishedAt,
+			}).Error
+	}); err != nil {
+		if errors.Is(err, errBuildRunNotCancelable) {
+			writeError(ctx, http.StatusConflict, "只有排队中或运行中的构建可以终止")
+			return
+		}
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.audit(user.ID, "build_run.cancel", run.ID, true, "")
+	if err := h.db.First(&run, "id = ? and project_id = ?", run.ID, run.ProjectID).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, run)
 }
 
 func (h *Handlers) createQueuedBuildRun(ctx *gin.Context, user model.User, run model.BuildRun, targetImageRef string, statusCode int) {
 	if !h.validateBuildRunRequest(ctx, user, &run) {
 		return
 	}
-	builder, ok := h.selectBuilderForRun(ctx, user, run)
-	if !ok {
-		return
-	}
+	_ = targetImageRef
 	job := model.BuildJob{
 		ID:         id.New("bldj"),
 		BuildRunID: run.ID,
 		ProjectID:  run.ProjectID,
 		Type:       "build",
 		Status:     "queued",
-		BuilderID:  builder.ID,
 	}
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		if targetImageRef != "" {
-			if err := tx.Model(&model.Application{}).
-				Where("id = ? and project_id = ?", run.ApplicationID, run.ProjectID).
-				Update("target_image_ref", targetImageRef).Error; err != nil {
-				return err
-			}
-		}
 		if err := tx.Create(&run).Error; err != nil {
 			return err
 		}
@@ -425,51 +527,7 @@ func (h *Handlers) createQueuedBuildRun(ctx *gin.Context, user model.User, run m
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.enqueueRedisBuilderTask(ctx.Request.Context(), run, job, builder.ID); err != nil {
-		writeError(ctx, http.StatusInternalServerError, err.Error())
-		return
-	}
 	ctx.JSON(statusCode, run)
-}
-
-func (h *Handlers) enqueueRedisBuilderTask(ctx context.Context, run model.BuildRun, job model.BuildJob, builderID string) error {
-	if h.builderQueue == nil {
-		return errors.New("redis builder queue is not configured")
-	}
-	payload, err := h.builderPayloadForRun(h.db, run, job)
-	if err != nil {
-		return err
-	}
-	return builderagent.EnqueueRedisTask(ctx, h.builderQueue, builderagent.Task{
-		JobID:         payload.JobID,
-		TargetBuilder: builderID,
-		BuildRunID:    payload.BuildRunID,
-		ProjectID:     payload.ProjectID,
-		ApplicationID: payload.ApplicationID,
-		Repository: builderagent.RepositoryPayload{
-			CloneURL:     payload.Repository.CloneURL,
-			Owner:        payload.Repository.Owner,
-			Repo:         payload.Repository.Repo,
-			SourceBranch: payload.Repository.SourceBranch,
-			SourceTag:    payload.Repository.SourceTag,
-			SourceCommit: payload.Repository.SourceCommit,
-			AccessToken:  payload.Repository.AccessToken,
-		},
-		Build: builderagent.BuildPayload{
-			DockerfilePath: payload.Build.DockerfilePath,
-			BuildContext:   payload.Build.BuildContext,
-			BuildDirectory: payload.Build.BuildDirectory,
-			Env:            payload.Build.Env,
-		},
-		Registry: builderagent.RegistryPayload{
-			Endpoint:         payload.Registry.Endpoint,
-			Username:         payload.Registry.Username,
-			Password:         payload.Registry.Password,
-			ImageRef:         payload.Registry.ImageRef,
-			ImageNamePrefix:  payload.Registry.ImageNamePrefix,
-			ImageTagTemplate: payload.Registry.ImageTagTemplate,
-		},
-	})
 }
 
 func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, run *model.BuildRun) bool {
@@ -483,20 +541,30 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 		writeError(ctx, http.StatusBadRequest, "应用不存在")
 		return false
 	}
-	run.DockerfilePath = fallback(strings.TrimSpace(app.DockerfilePath), "Dockerfile")
-	run.BuildContext = fallback(strings.TrimSpace(app.BuildContext), ".")
-	run.BuildDirectory = ""
-	run.BuildLabels = strings.Join(normalizeBuildSelectorList(strings.Split(app.BuildLabels, ",")), ",")
-	if app.SourceType == "repository" {
-		var count int64
-		if err := h.db.Model(&model.RepositoryBinding{}).Where("project_id = ? and application_id = ?", run.ProjectID, run.ApplicationID).Count(&count).Error; err != nil {
-			writeError(ctx, http.StatusInternalServerError, err.Error())
+	config, ok := h.moduleForRun(ctx, app, run.ModuleID)
+	if !ok {
+		return false
+	}
+	run.ModuleID = config.ID
+	if strings.TrimSpace(run.BuildProviderID) == "" {
+		run.BuildProviderID = strings.TrimSpace(config.BuildProviderID)
+	}
+	if strings.TrimSpace(run.BuildVariableSetIDs) == "" {
+		run.BuildVariableSetIDs = strings.TrimSpace(config.BuildVariableSetIDs)
+	}
+	run.DockerfilePath = fallback(strings.TrimSpace(config.DockerfilePath), "Dockerfile")
+	run.BuildContext = fallback(strings.TrimSpace(config.BuildContext), ".")
+	run.BuildDirectory = strings.TrimSpace(config.BuildDirectory)
+	run.BuildLabels = strings.Join(normalizeBuildSelectorList(strings.Split(config.BuildLabels, ",")), ",")
+	if strings.TrimSpace(config.RepositoryBindingID) != "" {
+		var binding model.RepositoryBinding
+		if err := h.db.First(&binding, "id = ? and project_id = ? and application_id = ?", config.RepositoryBindingID, run.ProjectID, run.ApplicationID).Error; err != nil {
+			writeError(ctx, http.StatusBadRequest, "模块配置绑定的代码仓库不存在")
 			return false
 		}
-		if count == 0 {
-			writeError(ctx, http.StatusBadRequest, "应用未绑定代码仓库")
-			return false
-		}
+	} else {
+		writeError(ctx, http.StatusBadRequest, "模块配置未绑定代码仓库")
+		return false
 	}
 	if strings.TrimSpace(run.BuildProviderID) != "" {
 		var provider model.BuildProvider
@@ -504,6 +572,9 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 			writeError(ctx, http.StatusBadRequest, "构建提供方不可用")
 			return false
 		}
+	}
+	if strings.TrimSpace(run.TargetRegistryID) == "" {
+		run.TargetRegistryID = strings.TrimSpace(config.TargetRegistryID)
 	}
 	if strings.TrimSpace(run.TargetRegistryID) == "" {
 		writeError(ctx, http.StatusBadRequest, "目标镜像站不能为空")
@@ -515,7 +586,11 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 		return false
 	}
 	if strings.TrimSpace(run.TargetRepository) == "" {
-		repository, tag := splitTargetImageRef(fallback(strings.TrimSpace(app.TargetImageRef), buildTargetImageRepository(registry, project, app)))
+		run.TargetRepository = strings.Trim(strings.TrimSpace(config.TargetRepository), "/")
+		run.TargetTag = strings.TrimSpace(config.TargetTag)
+	}
+	if strings.TrimSpace(run.TargetRepository) == "" {
+		repository, tag := splitTargetImageRef(buildTargetImageRepository(registry, project, app))
 		run.TargetRepository = repository
 		run.TargetTag = tag
 	}
@@ -532,31 +607,19 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 	return true
 }
 
-func (h *Handlers) selectBuilderForRun(ctx *gin.Context, user model.User, run model.BuildRun) (model.BuilderAgent, bool) {
-	requiredLabels := normalizeBuildSelectorList(strings.Split(run.BuildLabels, ","))
-	var builders []model.BuilderAgent
-	if err := h.db.Where("status = ?", "online").Find(&builders).Error; err != nil {
-		writeError(ctx, http.StatusInternalServerError, err.Error())
-		return model.BuilderAgent{}, false
+func (h *Handlers) moduleForRun(ctx *gin.Context, app model.Application, moduleID string) (model.ApplicationModule, bool) {
+	var config model.ApplicationModule
+	query := h.db.Where("project_id = ? and application_id = ? and enabled = ?", app.ProjectID, app.ID, true)
+	if strings.TrimSpace(moduleID) != "" {
+		query = query.Where("id = ?", strings.TrimSpace(moduleID))
+	} else {
+		query = query.Order("created_at asc")
 	}
-	candidates := make([]model.BuilderAgent, 0, len(builders))
-	for _, builder := range builders {
-		if builder.MaxConcurrency > 0 && builder.CurrentConcurrency >= builder.MaxConcurrency {
-			continue
-		}
-		if !builderHasLabels(builder.Labels, requiredLabels) {
-			continue
-		}
-		if !builderAllowsRun(builder.Scopes, run.ProjectID, user.ID) {
-			continue
-		}
-		candidates = append(candidates, builder)
+	if err := query.First(&config).Error; err != nil {
+		writeError(ctx, http.StatusBadRequest, "模块配置不存在或不可用")
+		return config, false
 	}
-	if len(candidates) == 0 {
-		writeError(ctx, http.StatusBadRequest, "没有可用 Builder，请检查 Builder 是否在线、标签是否匹配、scope 是否允许当前项目或用户")
-		return model.BuilderAgent{}, false
-	}
-	return candidates[rand.IntN(len(candidates))], true
+	return config, true
 }
 
 func (h *Handlers) usableRegistryCredentialExists(userID string, registry model.ArtifactRegistry) bool {
@@ -637,6 +700,109 @@ func (h *Handlers) GetBuildJobLogs(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, log)
 }
 
+func (h *Handlers) StreamBuildJobLogs(ctx *gin.Context) {
+	if _, ok := h.findProjectForCurrentUser(ctx); !ok {
+		return
+	}
+	var job model.BuildJob
+	if err := h.db.First(&job, "id = ? and project_id = ?", ctx.Param("jobId"), ctx.Param("projectId")).Error; err != nil {
+		writeError(ctx, http.StatusNotFound, "build job not found")
+		return
+	}
+	offset := buildLogStreamOffset(ctx)
+	writer := ctx.Writer
+	writer.Header().Set("Content-Type", "text/event-stream")
+	writer.Header().Set("Cache-Control", "no-cache")
+	writer.Header().Set("Connection", "keep-alive")
+	writer.Header().Set("X-Accel-Buffering", "no")
+	writer.WriteHeader(http.StatusOK)
+	flushSSE(writer)
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		nextOffset, sent, err := h.writeBuildLogStreamChunk(ctx, job, offset)
+		if err != nil {
+			writeSSE(writer, "error", strconv.Itoa(offset), map[string]string{"code": "build.logs.stream_error"})
+			flushSSE(writer)
+			return
+		}
+		offset = nextOffset
+		if buildJobTerminal(job.Status) {
+			writeSSE(writer, "done", strconv.Itoa(offset), map[string]string{"status": job.Status})
+			flushSSE(writer)
+			return
+		}
+		if sent {
+			flushSSE(writer)
+		}
+		select {
+		case <-ctx.Request.Context().Done():
+			return
+		case <-ticker.C:
+			if err := h.db.Select("status").First(&job, "id = ? and project_id = ?", job.ID, job.ProjectID).Error; err != nil {
+				return
+			}
+		}
+	}
+}
+
+func (h *Handlers) writeBuildLogStreamChunk(ctx *gin.Context, job model.BuildJob, offset int) (int, bool, error) {
+	var log model.BuildLog
+	if err := h.db.First(&log, "build_job_id = ? and project_id = ?", job.ID, job.ProjectID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return offset, false, nil
+		}
+		return offset, false, err
+	}
+	content := log.Content
+	if offset < 0 || offset > len(content) {
+		offset = len(content)
+	}
+	if len(content) == offset {
+		return offset, false, nil
+	}
+	nextOffset := len(content)
+	writeSSE(ctx.Writer, "chunk", strconv.Itoa(nextOffset), map[string]any{
+		"content": content[offset:],
+		"offset":  nextOffset,
+	})
+	return nextOffset, true, nil
+}
+
+func buildLogStreamOffset(ctx *gin.Context) int {
+	value := strings.TrimSpace(ctx.Query("after"))
+	if value == "" {
+		value = strings.TrimSpace(ctx.GetHeader("Last-Event-ID"))
+	}
+	offset, err := strconv.Atoi(value)
+	if err != nil || offset < 0 {
+		return 0
+	}
+	return offset
+}
+
+func buildJobTerminal(status string) bool {
+	return status == "succeeded" || status == "failed" || status == "canceled" || status == "lost" || status == "timeout"
+}
+
+func writeSSE(writer http.ResponseWriter, event string, idValue string, data any) {
+	payload, _ := json.Marshal(data)
+	if idValue != "" {
+		_, _ = fmt.Fprintf(writer, "id: %s\n", idValue)
+	}
+	if event != "" {
+		_, _ = fmt.Fprintf(writer, "event: %s\n", event)
+	}
+	_, _ = fmt.Fprintf(writer, "data: %s\n\n", payload)
+}
+
+func flushSSE(writer http.ResponseWriter) {
+	if flusher, ok := writer.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 func (h *Handlers) findBuildRun(ctx *gin.Context) (model.BuildRun, bool) {
 	var run model.BuildRun
 	if err := h.db.First(&run, "id = ? and project_id = ?", ctx.Param("runId"), ctx.Param("projectId")).Error; err != nil {
@@ -656,8 +822,14 @@ func (h *Handlers) buildProviderFromInput(ctx *gin.Context, user model.User, inp
 		writeError(ctx, http.StatusBadRequest, "请输入构建提供者名称")
 		return model.BuildProvider{}, false
 	}
+	slug := dnsSafeSegment(input.Slug)
+	if slug == "" {
+		writeError(ctx, http.StatusBadRequest, "请输入构建提供者唯一标识")
+		return model.BuildProvider{}, false
+	}
 	return model.BuildProvider{
 		ID:       providerID,
+		Slug:     slug,
 		Name:     name,
 		Type:     normalizeBuildProviderType(input.Type),
 		Scope:    scope,
@@ -667,22 +839,26 @@ func (h *Handlers) buildProviderFromInput(ctx *gin.Context, user model.User, inp
 	}, true
 }
 
-func (h *Handlers) buildVariableSetFromInput(ctx *gin.Context, user model.User, input buildVariableSetInput, setID string) (model.BuildVariableSet, bool) {
-	scope, ownerRef, ok := h.normalizeScopedOwner(ctx, user, input.Scope, input.OwnerRef, "只有平台管理员可以维护全局构建变量集")
+func (h *Handlers) buildVariableSetFromInput(ctx *gin.Context, user model.User, input buildVariableSetInput, setID string, existingSecretRefs map[string]string) (model.BuildVariableSet, bool) {
+	scope, ownerRef, ok := h.normalizeScopedOwner(ctx, user, input.Scope, input.OwnerRef, "只有平台管理员可以维护全局变量和密钥")
 	if !ok {
 		return model.BuildVariableSet{}, false
 	}
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
-		writeError(ctx, http.StatusBadRequest, "请输入构建变量集名称")
+		writeError(ctx, http.StatusBadRequest, "请输入变量和密钥名称")
 		return model.BuildVariableSet{}, false
 	}
 	variables, ok := normalizeBuildVariables(ctx, input.Variables)
 	if !ok {
 		return model.BuildVariableSet{}, false
 	}
-	if len(variables) == 0 {
-		writeError(ctx, http.StatusBadRequest, "请至少配置一个构建变量")
+	secretRefs, ok := h.buildVariableSecretRefsFromInput(ctx, user, setID, input.Secrets, existingSecretRefs)
+	if !ok {
+		return model.BuildVariableSet{}, false
+	}
+	if len(variables) == 0 && len(secretRefs) == 0 {
+		writeError(ctx, http.StatusBadRequest, "请至少配置一个构建变量或密钥")
 		return model.BuildVariableSet{}, false
 	}
 	content, err := json.Marshal(variables)
@@ -690,17 +866,50 @@ func (h *Handlers) buildVariableSetFromInput(ctx *gin.Context, user model.User, 
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return model.BuildVariableSet{}, false
 	}
+	secretContent, err := json.Marshal(secretRefs)
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return model.BuildVariableSet{}, false
+	}
 	return model.BuildVariableSet{
-		ID:        setID,
-		Name:      name,
-		Scope:     scope,
-		OwnerRef:  ownerRef,
-		Variables: string(content),
-		Enabled:   input.Enabled,
+		ID:         setID,
+		Name:       name,
+		Scope:      scope,
+		OwnerRef:   ownerRef,
+		Variables:  string(content),
+		SecretRefs: string(secretContent),
+		Enabled:    input.Enabled,
 	}, true
 }
 
-func (h *Handlers) buildRunFromInput(projectID, userID string, input buildRunInput) model.BuildRun {
+func (h *Handlers) buildVariableSecretRefsFromInput(ctx *gin.Context, user model.User, setID string, input map[string]string, existing map[string]string) (map[string]string, bool) {
+	output := make(map[string]string)
+	for key, value := range input {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" && value == "" {
+			continue
+		}
+		if !isBuildEnvKey(key) {
+			writeError(ctx, http.StatusBadRequest, "构建密钥名只能使用字母、数字和下划线，且不能以数字开头")
+			return nil, false
+		}
+		if value == "" {
+			if existingRef := strings.TrimSpace(existing[key]); existingRef != "" {
+				output[key] = existingRef
+			}
+			continue
+		}
+		if len(value) > 8192 {
+			writeError(ctx, http.StatusBadRequest, "构建密钥值过长")
+			return nil, false
+		}
+		output[key] = h.secrets.Store(value, user.ID, "build_variable_set:"+setID+":"+key)
+	}
+	return output, true
+}
+
+func (h *Handlers) buildRunFromInput(projectID string, user model.User, input buildRunInput) model.BuildRun {
 	targetRepository, targetTag := splitTargetImageRef(input.TargetImageRef)
 	if targetRepository == "" {
 		targetRepository = strings.Trim(strings.TrimSpace(input.TargetRepository), "/")
@@ -709,7 +918,8 @@ func (h *Handlers) buildRunFromInput(projectID, userID string, input buildRunInp
 	return model.BuildRun{
 		ProjectID:           projectID,
 		ApplicationID:       strings.TrimSpace(input.ApplicationID),
-		BuildProviderID:     strings.TrimSpace(input.BuildProviderID),
+		ModuleID:            strings.TrimSpace(input.ModuleID),
+		BuildProviderID:     "",
 		BuildVariableSetIDs: encodeBuildVariableSetIDs(input.BuildVariableSetIDs),
 		SourceBranch:        strings.TrimSpace(input.SourceBranch),
 		SourceTag:           strings.TrimSpace(input.SourceTag),
@@ -722,8 +932,14 @@ func (h *Handlers) buildRunFromInput(projectID, userID string, input buildRunInp
 		TargetTag:           fallback(targetTag, "latest"),
 		ImageRef:            "",
 		CacheConfig:         strings.TrimSpace(input.CacheConfig),
-		CreatedBy:           userID,
+		CreatedBy:           user.ID,
+		TriggeredByName:     buildRunActorName(user),
+		TriggeredByEmail:    strings.TrimSpace(user.Email),
 	}
+}
+
+func buildRunActorName(user model.User) string {
+	return fallback(strings.TrimSpace(user.Name), strings.TrimSpace(user.Email))
 }
 
 func splitTargetImageRef(value string) (string, string) {
@@ -892,6 +1108,17 @@ func (h *Handlers) buildVariablesForRun(ctx *gin.Context, user model.User, proje
 func (h *Handlers) buildVariablesForRunByIDs(db *gorm.DB, user model.User, projectID string, setIDs []string) (map[string]string, error) {
 	output := make(map[string]string)
 	seen := make(map[string]bool)
+	var defaultSets []model.BuildVariableSet
+	if err := db.Where("scope = ? and owner_ref = ? and enabled = ?", "project", projectID, true).Order("created_at asc").Find(&defaultSets).Error; err != nil {
+		return nil, err
+	}
+	for _, set := range defaultSets {
+		if !buildVariableSetAccessible(user, projectID, set) {
+			continue
+		}
+		applyBuildVariableSetValues(output, set, h.secrets.Resolve)
+		seen[set.ID] = true
+	}
 	for _, setID := range normalizeStringList(setIDs) {
 		if seen[setID] {
 			continue
@@ -899,22 +1126,41 @@ func (h *Handlers) buildVariablesForRunByIDs(db *gorm.DB, user model.User, proje
 		seen[setID] = true
 		var set model.BuildVariableSet
 		if err := db.First(&set, "id = ? and enabled = ?", setID, true).Error; err != nil {
-			return nil, errors.New("构建变量集不可用")
+			return nil, errors.New("变量和密钥不可用")
 		}
 		if !buildVariableSetAccessible(user, projectID, set) {
-			return nil, errors.New("无权使用该构建变量集")
+			return nil, errors.New("无权使用该变量和密钥")
 		}
-		var values map[string]string
-		if err := json.Unmarshal([]byte(fallback(set.Variables, "{}")), &values); err != nil {
-			return nil, err
-		}
+		applyBuildVariableSetValues(output, set, h.secrets.Resolve)
+	}
+	return output, nil
+}
+
+func applyBuildVariableSetValues(output map[string]string, set model.BuildVariableSet, resolveSecret func(string) string) {
+	var values map[string]string
+	if err := json.Unmarshal([]byte(fallback(set.Variables, "{}")), &values); err == nil {
 		for key, value := range values {
 			if isBuildEnvKey(key) {
 				output[key] = value
 			}
 		}
 	}
-	return output, nil
+	for key, ref := range decodeSecretRefs(set.SecretRefs) {
+		if !isBuildEnvKey(key) {
+			continue
+		}
+		if secretValue := resolveSecret(ref); secretValue != "" {
+			output[key] = secretValue
+		}
+	}
+}
+
+func decodeSecretRefs(raw string) map[string]string {
+	refs := map[string]string{}
+	if err := json.Unmarshal([]byte(fallback(raw, "{}")), &refs); err != nil {
+		return map[string]string{}
+	}
+	return refs
 }
 
 func buildVariableSetAccessible(user model.User, projectID string, set model.BuildVariableSet) bool {
@@ -932,6 +1178,7 @@ func buildVariableSetAccessible(user model.User, projectID string, set model.Bui
 
 type buildProviderInput struct {
 	Name     string `json:"name" binding:"required"`
+	Slug     string `json:"slug" binding:"required"`
 	Type     string `json:"type"`
 	Scope    string `json:"scope"`
 	OwnerRef string `json:"ownerRef"`
@@ -944,11 +1191,53 @@ type buildVariableSetInput struct {
 	Scope     string            `json:"scope"`
 	OwnerRef  string            `json:"ownerRef"`
 	Variables map[string]string `json:"variables"`
+	Secrets   map[string]string `json:"secrets"`
 	Enabled   bool              `json:"enabled"`
+}
+
+type buildVariableSetResponse struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Scope     string          `json:"scope"`
+	OwnerRef  string          `json:"ownerRef"`
+	Variables string          `json:"variables"`
+	Secrets   map[string]bool `json:"secrets"`
+	Enabled   bool            `json:"enabled"`
+	CreatedBy string          `json:"createdBy"`
+	CreatedAt time.Time       `json:"createdAt"`
+}
+
+func buildVariableSetResponses(sets []model.BuildVariableSet) []buildVariableSetResponse {
+	output := make([]buildVariableSetResponse, 0, len(sets))
+	for _, set := range sets {
+		output = append(output, buildVariableSetResponseFor(set))
+	}
+	return output
+}
+
+func buildVariableSetResponseFor(set model.BuildVariableSet) buildVariableSetResponse {
+	secrets := map[string]bool{}
+	for key, ref := range decodeSecretRefs(set.SecretRefs) {
+		if isBuildEnvKey(key) && strings.TrimSpace(ref) != "" {
+			secrets[key] = true
+		}
+	}
+	return buildVariableSetResponse{
+		ID:        set.ID,
+		Name:      set.Name,
+		Scope:     set.Scope,
+		OwnerRef:  set.OwnerRef,
+		Variables: set.Variables,
+		Secrets:   secrets,
+		Enabled:   set.Enabled,
+		CreatedBy: set.CreatedBy,
+		CreatedAt: set.CreatedAt,
+	}
 }
 
 type buildRunInput struct {
 	ApplicationID       string   `json:"applicationId"`
+	ModuleID            string   `json:"moduleId"`
 	BuildProviderID     string   `json:"buildProviderId"`
 	BuildVariableSetIDs []string `json:"buildVariableSetIds"`
 	TriggerType         string   `json:"triggerType"`

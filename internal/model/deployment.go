@@ -50,6 +50,7 @@ type Release struct {
 	ProjectID      string         `gorm:"index;not null" json:"projectId"`
 	ApplicationID  string         `gorm:"index;not null" json:"applicationId"`
 	EnvironmentID  string         `gorm:"index;not null" json:"environmentId"`
+	ModuleID       string         `gorm:"index" json:"moduleId"`
 	BuildRunID     string         `gorm:"index" json:"buildRunId"`
 	ImageRef       string         `gorm:"not null" json:"imageRef"`
 	Type           string         `gorm:"not null;default:deploy" json:"type"`
@@ -63,4 +64,31 @@ type Release struct {
 	CreatedAt      time.Time      `json:"createdAt"`
 	UpdatedAt      time.Time      `json:"updatedAt"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type DeploymentTarget struct {
+	ID              string         `gorm:"primaryKey" json:"id"`
+	ProjectID       string         `gorm:"index;not null" json:"projectId"`
+	ApplicationID   string         `gorm:"index;not null" json:"applicationId"`
+	EnvironmentID   string         `gorm:"index;not null" json:"environmentId"`
+	ModuleID        string         `gorm:"index;not null;default:''" json:"moduleId"`
+	Name            string         `gorm:"not null" json:"name"`
+	AutoDeploy      bool           `gorm:"not null;default:false" json:"autoDeploy"`
+	BranchPattern   string         `json:"branchPattern"`
+	TagPattern      string         `json:"tagPattern"`
+	RequireApproval bool           `gorm:"not null;default:false" json:"requireApproval"`
+	Enabled         bool           `gorm:"not null;default:true" json:"enabled"`
+	CreatedBy       string         `gorm:"index" json:"createdBy"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type ReleaseLog struct {
+	ID        string    `gorm:"primaryKey" json:"id"`
+	ReleaseID string    `gorm:"uniqueIndex;not null" json:"releaseId"`
+	ProjectID string    `gorm:"index;not null" json:"projectId"`
+	Content   string    `gorm:"type:text" json:"content"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }

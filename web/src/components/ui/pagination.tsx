@@ -38,11 +38,12 @@ function PaginationPrevious({ className, ...props }: ComponentProps<typeof Pagin
   return (
     <PaginationLink
       aria-label={i18next.t('pagination.previousAria')}
-      className={cn('gap-1 px-2.5 sm:pl-2.5', className)}
+      className={cn('gap-2 px-2.5 sm:pl-2.5', className)}
       size="default"
       {...props}
     >
       <ChevronLeftIcon />
+      <span>{i18next.t('pagination.previous')}</span>
     </PaginationLink>
   )
 }
@@ -55,6 +56,7 @@ function PaginationNext({ className, ...props }: ComponentProps<typeof Paginatio
       size="default"
       {...props}
     >
+      <span>{i18next.t('pagination.next')}</span>
       <ChevronRightIcon />
     </PaginationLink>
   )

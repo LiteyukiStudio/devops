@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
 	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
@@ -207,20 +208,114 @@ func (h *Handlers) findApplicationByID(ctx *gin.Context, applicationID string) (
 }
 
 func (h *Handlers) syncApplicationRepositoryURL(binding model.RepositoryBinding) {
-	_ = h.db.Model(&model.Application{}).
-		Where("id = ? and project_id = ?", binding.ApplicationID, binding.ProjectID).
-		Updates(map[string]any{
-			"source_type":    "repository",
-			"git_account_id": binding.GitAccountID,
-			"repository_url": binding.CloneURL,
-		}).Error
+	_ = binding
 }
 
 func writeGitUpstreamError(ctx *gin.Context, err error) {
 	if err != nil {
-		fmt.Printf("git upstream error: %v\n", err)
+		fmt.Printf("git upstream error: %s\n", gitUpstreamLogMessage(err))
 	}
-	writeError(ctx, http.StatusBadGateway, "Git 上游接口调用失败，请检查凭据权限或稍后重试")
+	status, code := gitUpstreamErrorStatusAndCode(err)
+	writeErrorKey(ctx, status, requestLanguage(ctx), code)
+}
+
+func gitUpstreamErrorStatusAndCode(err error) (int, string) {
+	upstreamErr, ok := gitprovider.AsUpstreamError(err)
+	if !ok {
+		return http.StatusBadGateway, "git.upstream_failed"
+	}
+	if isWebhookCallbackUnreachable(upstreamErr) {
+		return http.StatusBadRequest, "git.webhook_callback_unreachable"
+	}
+	if isWebhookCallbackInvalid(upstreamErr) {
+		return http.StatusBadRequest, "git.webhook_callback_invalid"
+	}
+	if upstreamContains(upstreamErr, "hook already exists", "hook exists") {
+		return http.StatusConflict, "git.webhook_already_exists"
+	}
+	if upstreamContains(upstreamErr, "endpoint has been spammed", "abuse", "rate limit") {
+		return http.StatusTooManyRequests, "git.webhook_rate_limited"
+	}
+	switch upstreamErr.StatusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return http.StatusForbidden, "git.permission_denied"
+	case http.StatusNotFound:
+		return http.StatusNotFound, "git.repository_not_found"
+	case http.StatusUnprocessableEntity:
+		return http.StatusBadRequest, "git.validation_failed"
+	default:
+		return http.StatusBadGateway, "git.upstream_failed"
+	}
+}
+
+func isWebhookCallbackUnreachable(err *gitprovider.UpstreamError) bool {
+	if !upstreamHasHookURLDetail(err) {
+		return false
+	}
+	return upstreamContains(err, "localhost", "127.0.0.1", "::1", "public internet", "not reachable", "host is not supported")
+}
+
+func isWebhookCallbackInvalid(err *gitprovider.UpstreamError) bool {
+	if !upstreamHasHookURLDetail(err) {
+		return false
+	}
+	return upstreamContains(err, "invalid", "protocol", "http", "https", "url")
+}
+
+func upstreamHasHookURLDetail(err *gitprovider.UpstreamError) bool {
+	for _, detail := range err.Details {
+		if strings.EqualFold(strings.TrimSpace(detail.Resource), "Hook") && strings.EqualFold(strings.TrimSpace(detail.Field), "url") {
+			return true
+		}
+	}
+	return false
+}
+
+func upstreamContains(err *gitprovider.UpstreamError, needles ...string) bool {
+	haystackParts := []string{err.Message}
+	for _, detail := range err.Details {
+		haystackParts = append(haystackParts, detail.Resource, detail.Code, detail.Field, detail.Message)
+	}
+	haystack := strings.ToLower(strings.Join(haystackParts, " "))
+	for _, needle := range needles {
+		if strings.Contains(haystack, strings.ToLower(needle)) {
+			return true
+		}
+	}
+	return false
+}
+
+func gitUpstreamLogMessage(err error) string {
+	upstreamErr, ok := gitprovider.AsUpstreamError(err)
+	if !ok {
+		if err == nil {
+			return "unknown"
+		}
+		return fmt.Sprintf("%T", err)
+	}
+	parts := []string{fmt.Sprintf("status=%d", upstreamErr.StatusCode)}
+	if strings.TrimSpace(upstreamErr.Message) != "" {
+		parts = append(parts, "message="+strings.TrimSpace(upstreamErr.Message))
+	}
+	for _, detail := range upstreamErr.Details {
+		fields := []string{}
+		if strings.TrimSpace(detail.Resource) != "" {
+			fields = append(fields, "resource="+strings.TrimSpace(detail.Resource))
+		}
+		if strings.TrimSpace(detail.Field) != "" {
+			fields = append(fields, "field="+strings.TrimSpace(detail.Field))
+		}
+		if strings.TrimSpace(detail.Code) != "" {
+			fields = append(fields, "code="+strings.TrimSpace(detail.Code))
+		}
+		if strings.TrimSpace(detail.Message) != "" {
+			fields = append(fields, "message="+strings.TrimSpace(detail.Message))
+		}
+		if len(fields) > 0 {
+			parts = append(parts, strings.Join(fields, " "))
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 func normalizeGitProviderType(value string) string {
@@ -477,21 +572,23 @@ type gitAccountInput struct {
 }
 
 type repositoryBindingInput struct {
-	ApplicationID string `json:"applicationId" binding:"required"`
-	GitAccountID  string `json:"gitAccountId" binding:"required"`
-	Owner         string `json:"owner" binding:"required"`
-	Repo          string `json:"repo" binding:"required"`
-	CloneURL      string `json:"cloneUrl"`
-	DefaultBranch string `json:"defaultBranch"`
-	WebhookStatus string `json:"webhookStatus"`
+	ApplicationID        string `json:"applicationId" binding:"required"`
+	GitAccountID         string `json:"gitAccountId" binding:"required"`
+	Owner                string `json:"owner" binding:"required"`
+	Repo                 string `json:"repo" binding:"required"`
+	CloneURL             string `json:"cloneUrl"`
+	DefaultBranch        string `json:"defaultBranch"`
+	WebhookStatus        string `json:"webhookStatus"`
+	AutoConfigureWebhook *bool  `json:"autoConfigureWebhook"`
 }
 
 type repositoryBindingResponse struct {
 	model.RepositoryBinding
-	ProviderName      string `json:"providerName"`
-	ProviderType      string `json:"providerType"`
-	AccountUsername   string `json:"accountUsername"`
-	AccountOwnerEmail string `json:"accountOwnerEmail"`
-	AccountOwnerName  string `json:"accountOwnerName"`
-	ApplicationName   string `json:"applicationName"`
+	WebhookCallbackURL string `json:"webhookCallbackUrl"`
+	ProviderName       string `json:"providerName"`
+	ProviderType       string `json:"providerType"`
+	AccountUsername    string `json:"accountUsername"`
+	AccountOwnerEmail  string `json:"accountOwnerEmail"`
+	AccountOwnerName   string `json:"accountOwnerName"`
+	ApplicationName    string `json:"applicationName"`
 }

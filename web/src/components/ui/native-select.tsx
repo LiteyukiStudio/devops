@@ -4,9 +4,13 @@ import { ChevronDown } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
+interface NativeSelectProps extends ComponentProps<'select'> {
+  containerClassName?: string
+}
+
+function NativeSelect({ className, containerClassName, ...props }: NativeSelectProps) {
   return (
-    <div className="relative w-full min-w-0">
+    <div className={cn('relative min-w-0', containerClassName ?? 'w-full')}>
       <select
         data-slot="native-select"
         className={cn(

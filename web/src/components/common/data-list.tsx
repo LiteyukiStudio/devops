@@ -115,7 +115,7 @@ export function DataList<T>({
       )}
       <div className="min-h-0 flex-1 overflow-auto">
         {items.length === 0
-          ? <EmptyState title={emptyTitle} description={emptyDescription} />
+          ? <EmptyState description={emptyDescription} title={emptyTitle} variant="plain" />
           : (
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">

@@ -1,15 +1,20 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
+	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 )
+
+var errGitClientResponseWritten = errors.New("git client response written")
 
 func (h *Handlers) ListGitRepositories(ctx *gin.Context) {
 	client, ok := h.gitClientForCurrentUserAccount(ctx, ctx.Param("accountId"))
@@ -26,7 +31,19 @@ func (h *Handlers) ListGitRepositories(ctx *gin.Context) {
 		writeGitUpstreamError(ctx, err)
 		return
 	}
+	if len(repos) == 0 && boolQuery(ctx, "includePublic") && strings.TrimSpace(ctx.Query("search")) != "" {
+		repos, err = client.SearchPublicRepositories(ctx.Request.Context(), ctx.Query("search"), page, pageSize)
+		if err != nil {
+			writeGitUpstreamError(ctx, err)
+			return
+		}
+	}
 	ctx.JSON(http.StatusOK, gin.H{"items": repos, "page": page, "pageSize": pageSize})
+}
+
+func boolQuery(ctx *gin.Context, key string) bool {
+	value := strings.ToLower(strings.TrimSpace(ctx.Query(key)))
+	return value == "true" || value == "1" || value == "yes"
 }
 
 func (h *Handlers) ListGitBranches(ctx *gin.Context) {
@@ -128,6 +145,7 @@ func (h *Handlers) ListRepositoryBindings(ctx *gin.Context) {
 	}
 	for index := range bindings {
 		bindings[index].CredentialRef = ""
+		bindings[index].WebhookCallbackURL = h.gitWebhookURL(ctx, bindings[index].ID)
 	}
 	ctx.JSON(http.StatusOK, bindings)
 }
@@ -154,6 +172,9 @@ func (h *Handlers) CreateRepositoryBinding(ctx *gin.Context) {
 	if err := h.db.Create(&binding).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
+	}
+	if shouldAutoConfigureWebhook(input) && binding.WebhookStatus != "disabled" {
+		h.tryConfigureRepositoryWebhook(ctx, user, &binding)
 	}
 	h.syncApplicationRepositoryURL(binding)
 	binding.CredentialRef = ""
@@ -184,6 +205,8 @@ func (h *Handlers) UpdateRepositoryBinding(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	webhookTargetChanged := repositoryBindingWebhookTargetChanged(existing, binding)
+	wasWebhookCreated := existing.WebhookStatus == "created"
 	existing.ApplicationID = binding.ApplicationID
 	existing.GitProviderID = binding.GitProviderID
 	existing.GitAccountID = binding.GitAccountID
@@ -192,11 +215,24 @@ func (h *Handlers) UpdateRepositoryBinding(ctx *gin.Context) {
 	existing.CloneURL = binding.CloneURL
 	existing.DefaultBranch = binding.DefaultBranch
 	existing.WebhookStatus = binding.WebhookStatus
+	if webhookTargetChanged {
+		existing.WebhookID = ""
+		existing.WebhookSecret = ""
+		existing.LastEvent = ""
+		existing.LastCommitSHA = ""
+		existing.LastWebhookAt = nil
+		if existing.WebhookStatus == "created" {
+			existing.WebhookStatus = "pending"
+		}
+	}
 	existing.CredentialRef = ""
 
 	if err := h.db.Save(&existing).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
+	}
+	if shouldAutoConfigureWebhook(input) && (webhookTargetChanged || !wasWebhookCreated) && existing.WebhookStatus != "created" && existing.WebhookStatus != "disabled" {
+		h.tryConfigureRepositoryWebhook(ctx, user, &existing)
 	}
 	h.syncApplicationRepositoryURL(existing)
 	existing.CredentialRef = ""
@@ -221,6 +257,14 @@ func (h *Handlers) DeleteRepositoryBinding(ctx *gin.Context) {
 }
 
 func (h *Handlers) CreateRepositoryWebhook(ctx *gin.Context) {
+	h.configureRepositoryWebhookFromRequest(ctx)
+}
+
+func (h *Handlers) ReconfigureRepositoryWebhook(ctx *gin.Context) {
+	h.configureRepositoryWebhookFromRequest(ctx)
+}
+
+func (h *Handlers) configureRepositoryWebhookFromRequest(ctx *gin.Context) {
 	user, ok := h.currentUser(ctx)
 	if !ok {
 		return
@@ -233,31 +277,13 @@ func (h *Handlers) CreateRepositoryWebhook(ctx *gin.Context) {
 		writeError(ctx, http.StatusNotFound, "repository binding not found")
 		return
 	}
-	account, ok := h.findGitAccountForUser(ctx, user.ID, binding.GitAccountID)
-	if !ok {
-		return
-	}
-	provider, ok := h.findEnabledGitProvider(ctx, binding.GitProviderID)
-	if !ok {
-		return
-	}
-	client := gitprovider.NewClientWithPolicy(provider, h.secrets.Resolve(account.AccessTokenRef), h.egressPolicyForUser(user))
-	secret := randomHex(32)
-	result, err := client.CreateWebhook(ctx.Request.Context(), binding.Owner, binding.Repo, h.gitWebhookURL(ctx, binding.ID), secret)
-	if err != nil {
-		binding.WebhookStatus = "failed"
-		_ = h.db.Save(&binding).Error
+	if err := h.configureRepositoryWebhook(ctx, user, &binding, true); err != nil {
+		if errors.Is(err, errGitClientResponseWritten) {
+			return
+		}
 		writeGitUpstreamError(ctx, err)
 		return
 	}
-	binding.WebhookStatus = "created"
-	binding.WebhookID = result.ID
-	binding.WebhookSecret = h.secrets.Store(secret, user.ID, "repository_binding:"+binding.ID+":webhook")
-	if err := h.db.Save(&binding).Error; err != nil {
-		writeError(ctx, http.StatusBadRequest, err.Error())
-		return
-	}
-	h.audit(user.ID, "git_webhook.create", binding.ID, true, binding.WebhookID)
 	ctx.JSON(http.StatusOK, binding)
 }
 
@@ -330,6 +356,109 @@ func (h *Handlers) repositoryBindingFromInput(ctx *gin.Context, userID string, i
 		WebhookStatus: normalizeWebhookStatus(input.WebhookStatus),
 		CredentialRef: "",
 	}, true
+}
+
+func shouldAutoConfigureWebhook(input repositoryBindingInput) bool {
+	return input.AutoConfigureWebhook == nil || *input.AutoConfigureWebhook
+}
+
+func repositoryBindingWebhookTargetChanged(current, next model.RepositoryBinding) bool {
+	return current.GitProviderID != next.GitProviderID ||
+		current.GitAccountID != next.GitAccountID ||
+		current.Owner != next.Owner ||
+		current.Repo != next.Repo
+}
+
+func (h *Handlers) tryConfigureRepositoryWebhook(ctx *gin.Context, user model.User, binding *model.RepositoryBinding) {
+	_ = h.configureRepositoryWebhook(ctx, user, binding, false)
+}
+
+func (h *Handlers) configureRepositoryWebhook(ctx *gin.Context, user model.User, binding *model.RepositoryBinding, writeClientErrors bool) error {
+	client, err := h.gitClientForUserBinding(ctx, user, *binding, writeClientErrors)
+	if err != nil {
+		binding.WebhookStatus = "failed"
+		_ = h.db.Save(binding).Error
+		h.audit(user.ID, "git_webhook.create", binding.ID, false, "git client unavailable")
+		return err
+	}
+	secret := randomHex(32)
+	result, err := client.CreateWebhook(ctx.Request.Context(), binding.Owner, binding.Repo, h.gitWebhookURL(ctx, binding.ID), secret)
+	if err != nil {
+		binding.WebhookStatus = "failed"
+		_ = h.db.Save(binding).Error
+		h.audit(user.ID, "git_webhook.create", binding.ID, false, "upstream create failed")
+		return err
+	}
+	binding.WebhookStatus = "created"
+	binding.WebhookID = result.ID
+	binding.WebhookSecret = h.secrets.Store(secret, user.ID, "repository_binding:"+binding.ID+":webhook")
+	if binding.WebhookSecret == "" {
+		binding.WebhookStatus = "failed"
+		_ = h.db.Save(binding).Error
+		h.audit(user.ID, "git_webhook.create", binding.ID, false, "secret store failed")
+		return fmt.Errorf("webhook secret store failed")
+	}
+	if err := h.db.Save(binding).Error; err != nil {
+		h.audit(user.ID, "git_webhook.create", binding.ID, false, "save failed")
+		return err
+	}
+	h.audit(user.ID, "git_webhook.create", binding.ID, true, binding.WebhookID)
+	return nil
+}
+
+func (h *Handlers) gitClientForUserBinding(ctx *gin.Context, user model.User, binding model.RepositoryBinding, writeClientErrors bool) (gitprovider.Client, error) {
+	if writeClientErrors {
+		account, ok := h.findGitAccountForUser(ctx, user.ID, binding.GitAccountID)
+		if !ok {
+			return gitprovider.Client{}, fmt.Errorf("%w: git account unavailable", errGitClientResponseWritten)
+		}
+		provider, ok := h.findEnabledGitProvider(ctx, binding.GitProviderID)
+		if !ok {
+			return gitprovider.Client{}, fmt.Errorf("%w: git provider unavailable", errGitClientResponseWritten)
+		}
+		if account.ProviderID != provider.ID {
+			writeError(ctx, http.StatusBadRequest, "Git 凭据与 Provider 不匹配")
+			return gitprovider.Client{}, fmt.Errorf("%w: git provider mismatch", errGitClientResponseWritten)
+		}
+		if gitAccountNeedsRefresh(account) {
+			account, ok = h.refreshGitAccountForUser(ctx, user, account, provider)
+			if !ok {
+				return gitprovider.Client{}, fmt.Errorf("%w: git account refresh failed", errGitClientResponseWritten)
+			}
+		}
+		token := h.secrets.Resolve(account.AccessTokenRef)
+		if token == "" {
+			writeError(ctx, http.StatusBadRequest, "git account has no access token")
+			return gitprovider.Client{}, fmt.Errorf("%w: git account has no access token", errGitClientResponseWritten)
+		}
+		return gitprovider.NewClientWithPolicy(provider, token, h.egressPolicyForUser(user)), nil
+	}
+
+	var account model.GitAccount
+	if err := h.db.First(&account, "id = ?", strings.TrimSpace(binding.GitAccountID)).Error; err != nil {
+		return gitprovider.Client{}, fmt.Errorf("git account unavailable: %w", err)
+	}
+	if !service.CanUseGitAccount(user, account, h.projects.UserHasProject) {
+		return gitprovider.Client{}, fmt.Errorf("git account forbidden")
+	}
+	if account.Status != "connected" {
+		return gitprovider.Client{}, fmt.Errorf("git account is not connected")
+	}
+	var provider model.GitProvider
+	if err := h.db.First(&provider, "id = ? and enabled = ?", strings.TrimSpace(binding.GitProviderID), true).Error; err != nil {
+		return gitprovider.Client{}, fmt.Errorf("git provider unavailable: %w", err)
+	}
+	if account.ProviderID != provider.ID {
+		return gitprovider.Client{}, fmt.Errorf("git provider mismatch")
+	}
+	if !service.CanUseGitProvider(user, provider, h.projects.UserHasProject) {
+		return gitprovider.Client{}, fmt.Errorf("git provider forbidden")
+	}
+	token := h.secrets.Resolve(account.AccessTokenRef)
+	if token == "" {
+		return gitprovider.Client{}, fmt.Errorf("git account has no access token")
+	}
+	return gitprovider.NewClientWithPolicy(provider, token, h.egressPolicyForUser(user)), nil
 }
 
 func (h *Handlers) gitClientForCurrentUserAccount(ctx *gin.Context, accountID string) (gitprovider.Client, bool) {

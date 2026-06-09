@@ -14,6 +14,8 @@ func TestApplyGatewayIngressCreatesIngress(t *testing.T) {
 		Name:          "api-dev",
 		Namespace:     "project-demo",
 		ProjectID:     "prj_demo",
+		ApplicationID: "app_api",
+		EnvironmentID: "env_dev",
 		RouteID:       "gwr_api",
 		Host:          "api.example.com",
 		Path:          "api",
@@ -39,6 +41,20 @@ func TestApplyGatewayIngressCreatesIngress(t *testing.T) {
 	}
 	if len(ingress.Spec.TLS) != 1 || ingress.Spec.TLS[0].SecretName != spec.TLSSecretName {
 		t.Fatalf("tls = %#v", ingress.Spec.TLS)
+	}
+	expectedLabels := map[string]string{
+		ManagedByLabel:            ManagedByValue,
+		ApplicationNameKey:        spec.ServiceName,
+		ProjectIDLabel:            spec.ProjectID,
+		ApplicationIDLabel:        spec.ApplicationID,
+		EnvironmentIDLabel:        spec.EnvironmentID,
+		GatewayRouteIDLabel:       spec.RouteID,
+		legacyGatewayRouteIDLabel: spec.RouteID,
+	}
+	for key, value := range expectedLabels {
+		if ingress.Labels[key] != value {
+			t.Fatalf("label %s = %q, want %q in %#v", key, ingress.Labels[key], value, ingress.Labels)
+		}
 	}
 }
 

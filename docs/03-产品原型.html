@@ -386,7 +386,7 @@
       <a href="#page-build">05 应用构建 tab</a>
       <a href="#page-registry">06 镜像站配置</a>
       <a href="#page-deploy">07 应用部署 tab</a>
-      <a href="#page-gateway">08 应用域名网关 tab</a>
+      <a href="#page-gateway">08 应用访问 tab</a>
       <a href="#page-secrets">09 配置与密钥</a>
       <a href="#page-tokens">10 Access Token</a>
       <a href="#page-quota">11 配额与用量</a>
@@ -407,7 +407,7 @@
 
       <section class="page-section" id="page-overview">
         <h2>01 总览与导航</h2>
-        <p>左侧为主导航，项目空间可展开到项目，项目再展开到应用。构建、部署和域名网关收敛在应用详情页，集群作为独立资源页。</p>
+        <p>左侧为主导航，项目空间可展开到项目，项目再展开到应用。构建、部署和访问收敛在应用详情页，集群作为独立资源页。</p>
         <div class="wireframe">
           <div class="wire-top"><span>总览截图</span><span>liteyuki-lab / dev</span></div>
           <div class="wire-body layout">
@@ -465,6 +465,8 @@
             <div class="form-grid" style="margin-top:12px">
               <div class="field"><strong>代码仓库应用</strong><span>webhook -> BuildRun -> Builder -> image</span></div>
               <div class="field"><strong>已有镜像应用</strong><span>选择镜像站或填写完整镜像地址，校验失败也允许保存。</span></div>
+              <div class="field"><strong>目标镜像模板变量</strong><span>应用配置页宽屏在表单右侧展示变量、含义和示例；窄屏自动落到表单下方。</span></div>
+              <div class="field"><strong>Webhook 配置</strong><span>在应用配置表单内展示状态、回调地址、最近事件，并提供重新配置入口。</span></div>
             </div>
           </div>
         </div>
@@ -472,7 +474,7 @@
 
       <section class="page-section" id="page-repository">
         <h2>04 仓库绑定</h2>
-        <p>跳转授权代码账户，支持多 Git 账户。绑定后平台创建 webhook，并用 webhook secret 校验事件。</p>
+        <p>跳转授权代码账户，支持多 Git 账户。绑定保存时默认由平台自动创建 webhook，失败不阻塞保存，并用 webhook secret 校验事件。</p>
         <div class="wireframe">
           <div class="wire-top"><span>仓库绑定截图</span><span>Gitea / GitHub</span></div>
           <div class="wire-body">
@@ -480,7 +482,7 @@
               <div class="field"><strong>Git Provider</strong><span>Gitea / GitHub / 后续 GitLab</span></div>
               <div class="field"><strong>Git Account</strong><span>sfkm、company-bot、deploy-bot</span></div>
               <div class="field"><strong>Repository</strong><span>owner/repo + 默认分支</span></div>
-              <div class="field"><strong>Webhook</strong><span>push/tag 事件，签名校验</span></div>
+              <div class="field"><strong>Webhook</strong><span>默认自动配置，失败可手动重试</span></div>
             </div>
           </div>
         </div>
@@ -509,7 +511,7 @@ digest sha256:...</div>
 
       <section class="page-section" id="page-registry">
         <h2>06 镜像站配置</h2>
-        <p>支持全局、项目、用户三个范围。workflow/构建编辑时选择推送目标，部署时选择拉取来源。</p>
+        <p>支持全局、项目、用户三个范围。模块配置中选择推送目标，部署时选择拉取来源。</p>
         <div class="wireframe">
           <div class="wire-top"><span>镜像站截图</span><span>Harbor / Gitea Registry / DockerHub</span></div>
           <div class="wire-body rows">
@@ -539,8 +541,8 @@ digest sha256:...</div>
       </section>
 
       <section class="page-section" id="page-gateway">
-        <h2>08 应用域名网关 tab</h2>
-        <p>域名网关入口位于应用详情页。默认域名扁平化，自定义域名通过 CNAME 验证。HTTPS 使用 HTTP Challenge，用户也可以选择 HTTP-only。</p>
+        <h2>08 应用访问 tab</h2>
+        <p>访问入口位于应用详情页。默认域名扁平化，自定义域名通过 CNAME 验证。HTTPS 使用 HTTP Challenge，用户也可以选择 HTTP-only。</p>
         <div class="wireframe">
           <div class="wire-top"><span>网关域名截图</span><span>Ingress / Traefik</span></div>
           <div class="wire-body">

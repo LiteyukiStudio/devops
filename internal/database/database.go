@@ -18,6 +18,9 @@ func Open(databaseURL string) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
+	if err := cleanupLegacySchema(db); err != nil {
+		return err
+	}
 	return db.AutoMigrate(
 		&model.User{},
 		&model.UserSession{},
@@ -28,6 +31,9 @@ func Migrate(db *gorm.DB) error {
 		&model.Project{},
 		&model.ProjectMember{},
 		&model.ProjectPin{},
+		&model.ProjectHookConfig{},
+		&model.HookRun{},
+		&model.HookRunLog{},
 		&model.AccessToken{},
 		&model.AuditLog{},
 		&model.WorkerTaskEvent{},
@@ -40,6 +46,8 @@ func Migrate(db *gorm.DB) error {
 		&model.RegistryCredential{},
 		&model.ContainerImage{},
 		&model.BuildProvider{},
+		&model.ApplicationModule{},
+		&model.ApplicationModuleHookBinding{},
 		&model.BuildVariableSet{},
 		&model.BuildRun{},
 		&model.BuildJob{},
@@ -48,7 +56,16 @@ func Migrate(db *gorm.DB) error {
 		&model.RuntimeCluster{},
 		&model.Environment{},
 		&model.Release{},
+		&model.ReleaseLog{},
+		&model.DeploymentTarget{},
 		&model.GatewayRoute{},
 		&model.AppConfig{},
 	)
+}
+
+func cleanupLegacySchema(db *gorm.DB) error {
+	if err := db.Exec("ALTER TABLE deployment_targets DROP COLUMN IF EXISTS build_config_id").Error; err != nil {
+		return fmt.Errorf("drop legacy deployment_targets.build_config_id: %w", err)
+	}
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/LiteyukiStudio/devops/internal/id"
@@ -120,14 +121,14 @@ func (h *Handlers) CheckGatewayDomain(ctx *gin.Context) {
 	if _, ok := h.findProjectForCurrentUser(ctx); !ok {
 		return
 	}
-	host := strings.ToLower(strings.TrimSpace(ctx.Query("host")))
+	host := h.normalizeGatewayHost(strings.TrimSpace(ctx.Query("host")))
 	if host == "" {
 		writeError(ctx, http.StatusBadRequest, "请输入域名")
 		return
 	}
 	var count int64
 	if err := h.db.Model(&model.GatewayRoute{}).
-		Where("host = ? and project_id <> ?", host, ctx.Param("projectId")).
+		Where("host = ?", host).
 		Count(&count).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -157,7 +158,7 @@ func (h *Handlers) enqueueGatewayApply(ctx context.Context, route model.GatewayR
 }
 
 func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project, userID string, input gatewayRouteInput, routeID string) (model.GatewayRoute, bool) {
-	host := strings.ToLower(strings.TrimSpace(input.Host))
+	host := h.normalizeGatewayHost(input.Host)
 	if host == "" {
 		host = h.defaultGatewayHost(project, input.Stage, input.ApplicationSlug)
 	}
@@ -165,13 +166,7 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		writeError(ctx, http.StatusBadRequest, "请输入域名或选择应用")
 		return model.GatewayRoute{}, false
 	}
-	var count int64
-	query := h.db.Model(&model.GatewayRoute{}).Where("host = ? and id <> ?", host, routeID)
-	if err := query.Count(&count).Error; err != nil {
-		writeError(ctx, http.StatusInternalServerError, err.Error())
-		return model.GatewayRoute{}, false
-	}
-	if count > 0 {
+	if h.gatewayHostExists(host, routeID) {
 		writeError(ctx, http.StatusBadRequest, "域名已被占用")
 		return model.GatewayRoute{}, false
 	}
@@ -201,23 +196,78 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 }
 
 func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationSlug string) string {
-	rootDomain := strings.TrimSpace(h.configValue("gateway.rootDomain"))
+	rootDomain := h.gatewayRootDomain()
 	if rootDomain == "" {
-		rootDomain = "apps.local"
-	}
-	appSlug := strings.Trim(strings.ToLower(strings.TrimSpace(applicationSlug)), "-")
-	if appSlug == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s-%s.%s.%s", appSlug, project.Slug, normalizeStage(stage), strings.TrimPrefix(rootDomain, "."))
+	appSlug := gatewayHostSegment(applicationSlug)
+	projectSlug := gatewayHostSegment(project.Slug)
+	stageSlug := gatewayHostSegment(normalizeStage(stage))
+	if appSlug == "" || projectSlug == "" {
+		return ""
+	}
+	base := strings.Trim(fmt.Sprintf("%s-%s-%s", projectSlug, appSlug, stageSlug), "-")
+	for index := 0; index < 100; index++ {
+		prefix := base
+		if index > 0 {
+			prefix = fmt.Sprintf("%s-%d", base, index+1)
+		}
+		host := fmt.Sprintf("%s.%s", prefix, rootDomain)
+		if !h.gatewayHostExists(host, "") {
+			return host
+		}
+	}
+	return fmt.Sprintf("%s-%s.%s", base, id.New("gw"), rootDomain)
 }
 
 func (h *Handlers) gatewayCNAMETarget(project model.Project) string {
-	rootDomain := strings.TrimSpace(h.configValue("gateway.rootDomain"))
+	rootDomain := h.gatewayRootDomain()
+	if rootDomain == "" {
+		return ""
+	}
+	return fmt.Sprintf("*.%s", rootDomain)
+}
+
+func (h *Handlers) normalizeGatewayHost(value string) string {
+	host := strings.Trim(strings.ToLower(strings.TrimSpace(value)), ".")
+	if host == "" {
+		return ""
+	}
+	rootDomain := h.gatewayRootDomain()
+	if rootDomain != "" && !strings.Contains(host, ".") {
+		prefix := gatewayHostSegment(host)
+		if prefix == "" {
+			return ""
+		}
+		return fmt.Sprintf("%s.%s", prefix, rootDomain)
+	}
+	return host
+}
+
+func (h *Handlers) gatewayRootDomain() string {
+	rootDomain := strings.Trim(strings.ToLower(strings.TrimSpace(h.configValue("gateway.rootDomain"))), ".")
 	if rootDomain == "" {
 		rootDomain = "apps.local"
 	}
-	return fmt.Sprintf("*.%s.%s", project.Slug, strings.TrimPrefix(rootDomain, "."))
+	return rootDomain
+}
+
+func (h *Handlers) gatewayHostExists(host, routeID string) bool {
+	if strings.TrimSpace(host) == "" {
+		return false
+	}
+	var count int64
+	query := h.db.Model(&model.GatewayRoute{}).Where("host = ? and id <> ?", host, routeID)
+	return query.Count(&count).Error == nil && count > 0
+}
+
+var gatewayHostSegmentPattern = regexp.MustCompile(`[^a-z0-9-]+`)
+
+func gatewayHostSegment(value string) string {
+	segment := strings.Trim(strings.ToLower(strings.TrimSpace(value)), "-")
+	segment = gatewayHostSegmentPattern.ReplaceAllString(segment, "-")
+	segment = strings.Join(strings.FieldsFunc(segment, func(char rune) bool { return char == '-' }), "-")
+	return strings.Trim(segment, "-")
 }
 
 func (h *Handlers) configValue(key string) string {

@@ -1,8 +1,8 @@
-import type { GitAccount, GitProvider, GitRepository, RepositoryBinding } from '@/api/client'
+import type { GitAccount, GitProvider, RepositoryBinding } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { GitBranch, LinkIcon, Plus, Search, Trash2 } from 'lucide-react'
+import { GitBranch, LinkIcon, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -11,16 +11,15 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
-import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
-import { MotionItem, MotionList } from '@/components/common/motion'
+import { GitRepositoryPicker } from '@/components/common/git-repository-picker'
 import { PageHeader } from '@/components/common/page-header'
 import { SearchSelect } from '@/components/common/search-select'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
@@ -33,6 +32,7 @@ const bindingSchema = z.object({
   cloneUrl: z.string().optional(),
   defaultBranch: z.string().optional(),
   webhookStatus: z.enum(['pending', 'created', 'disabled', 'failed']),
+  autoConfigureWebhook: z.boolean().default(true),
 })
 
 type BindingFormInput = z.input<typeof bindingSchema>
@@ -46,7 +46,6 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingBinding, setEditingBinding] = useState<RepositoryBinding | null>(null)
   const [bindingToDelete, setBindingToDelete] = useState<RepositoryBinding | null>(null)
-  const [repoSearch, setRepoSearch] = useState('')
   const [branchSearch, setBranchSearch] = useState('')
   const providers = useQuery({ queryKey: ['git-providers'], queryFn: () => api.listGitProviders() })
   const accounts = useQuery({ queryKey: ['git-accounts'], queryFn: () => api.listGitAccounts() })
@@ -72,16 +71,12 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
       cloneUrl: '',
       defaultBranch: 'main',
       webhookStatus: 'pending',
+      autoConfigureWebhook: true,
     },
   })
   const selectedAccountId = form.watch('gitAccountId')
   const selectedOwner = form.watch('owner')
   const selectedRepo = form.watch('repo')
-  const repositories = useQuery({
-    queryKey: ['git-repositories', selectedAccountId, repoSearch],
-    queryFn: () => api.listGitRepositories(selectedAccountId || '', { page: 1, pageSize: 50, search: repoSearch }),
-    enabled: Boolean(selectedAccountId),
-  })
   const branches = useQuery({
     queryKey: ['git-branches', selectedAccountId, selectedOwner, selectedRepo, branchSearch],
     queryFn: () => api.listGitBranches(selectedAccountId || '', selectedOwner || '', selectedRepo || '', { search: branchSearch, limit: 50 }),
@@ -97,6 +92,7 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
       cloneUrl: payload.cloneUrl ?? '',
       defaultBranch: payload.defaultBranch ?? 'main',
       webhookStatus: payload.webhookStatus,
+      autoConfigureWebhook: payload.autoConfigureWebhook,
     }),
     onSuccess: () => {
       toast.success(t('repositories.bindingSaved'))
@@ -120,6 +116,7 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
         cloneUrl: payload.cloneUrl ?? '',
         defaultBranch: payload.defaultBranch ?? 'main',
         webhookStatus: payload.webhookStatus,
+        autoConfigureWebhook: payload.autoConfigureWebhook,
       })
     },
     onSuccess: () => {
@@ -152,14 +149,6 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
     onError: error => toast.error(error.message),
   })
 
-  const selectRepository = (repository: GitRepository) => {
-    form.setValue('owner', repository.owner, { shouldDirty: true, shouldValidate: true })
-    form.setValue('repo', repository.name, { shouldDirty: true, shouldValidate: true })
-    form.setValue('cloneUrl', repository.cloneUrl, { shouldDirty: true, shouldValidate: true })
-    form.setValue('defaultBranch', repository.defaultBranch || 'main', { shouldDirty: true, shouldValidate: true })
-    setBranchSearch('')
-  }
-
   function resetBindingForm(binding?: RepositoryBinding | null) {
     form.reset({
       applicationId: binding?.applicationId ?? '',
@@ -169,8 +158,8 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
       cloneUrl: binding?.cloneUrl ?? '',
       defaultBranch: binding?.defaultBranch ?? 'main',
       webhookStatus: binding?.webhookStatus ?? 'pending',
+      autoConfigureWebhook: true,
     })
-    setRepoSearch(binding ? `${binding.owner}/${binding.repo}` : '')
     setBranchSearch('')
   }
 
@@ -208,22 +197,50 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
         <ErrorState title={t('repositories.loadFailedTitle')} description={t('repositories.loadFailedDescription')} />
       )}
 
-      <MotionList className="grid gap-3">
-        {(bindings.data ?? []).map(binding => (
-          <MotionItem key={binding.id}>
-            <BindingRow
-              accounts={accounts.data ?? []}
-              binding={binding}
-              providers={providers.data ?? []}
-              webhookPending={createWebhook.isPending}
-              onDelete={() => setBindingToDelete(binding)}
-              onEdit={() => openEditDialog(binding)}
-              onCreateWebhook={() => createWebhook.mutate(binding.id)}
-            />
-          </MotionItem>
-        ))}
-        {bindings.data?.length === 0 && <EmptyState title={t('repositories.emptyTitle')} description={t('repositories.emptyDescription')} />}
-      </MotionList>
+      <DataList
+        columns={[
+          {
+            key: 'repo',
+            header: t('repositories.repositorySearch'),
+            render: binding => (
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <GitBranch size={18} />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{`${binding.owner}/${binding.repo}`}</div>
+                  <p className="truncate text-sm text-muted-foreground">{binding.cloneUrl}</p>
+                </div>
+              </div>
+            ),
+          },
+          { key: 'application', header: t('repositories.application'), render: binding => binding.applicationName ?? binding.applicationId },
+          { key: 'branch', header: t('repositories.defaultBranch'), render: binding => <StatusBadge>{binding.defaultBranch}</StatusBadge> },
+          { key: 'provider', header: t('codeRepositoriesView.provider'), render: binding => providerBindingLabel(binding, providers.data ?? [], accounts.data ?? []) },
+          { key: 'webhook', header: t('repositories.webhookStatus'), render: binding => <StatusValueBadge value={binding.webhookStatus} /> },
+          {
+            key: 'actions',
+            header: t('common.actions'),
+            className: 'text-right whitespace-nowrap',
+            render: binding => (
+              <div className="flex justify-end gap-2">
+                <Button disabled={createWebhook.isPending || binding.webhookStatus === 'created'} type="button" variant="secondary" onClick={() => createWebhook.mutate(binding.id)}>
+                  <LinkIcon size={16} />
+                  {t('repositories.createWebhook')}
+                </Button>
+                <EditActionButton aria-label={t('repositories.editAria')} label={t('edit')} onClick={() => openEditDialog(binding)} />
+                <Button aria-label={t('repositories.deleteAria')} variant="ghost" onClick={() => setBindingToDelete(binding)}>
+                  <Trash2 size={16} />
+                </Button>
+              </div>
+            ),
+          },
+        ]}
+        emptyTitle={t('repositories.emptyTitle')}
+        emptyDescription={t('repositories.emptyDescription')}
+        items={bindings.data ?? []}
+        rowKey={binding => binding.id}
+      />
 
       <ConfirmDialog
         confirmText={t('repositories.deleteConfirm')}
@@ -262,46 +279,33 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
             <div className="flex justify-end">
               <Link className="text-sm text-primary hover:underline" to="/code-repositories">{t('repositories.manageCodeRepositories')}</Link>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field error={form.formState.errors.applicationId?.message} label={t('repositories.application')} required>
-                <Select {...form.register('applicationId')} aria-invalid={Boolean(form.formState.errors.applicationId)}>
-                  <option value="">{t('repositories.selectApplication')}</option>
-                  {(applications.data ?? []).map(application => (
-                    <option key={application.id} value={application.id}>{application.name}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field error={form.formState.errors.gitAccountId?.message} label={t('repositories.gitAccount')} required>
-                <Select {...form.register('gitAccountId')} aria-invalid={Boolean(form.formState.errors.gitAccountId)}>
-                  <option value="">{t('repositories.selectAccount')}</option>
-                  {(accounts.data ?? []).map(account => (
-                    <option key={account.id} value={account.id}>
-                      {accountLabel(account, providers.data ?? [], t)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <Field hint={t('repositories.repositorySearchHint')} label={t('repositories.repositorySearch')}>
-              <div className="flex gap-2">
-                <Input value={repoSearch} placeholder={t('repositories.repositorySearchPlaceholder')} onChange={event => setRepoSearch(event.target.value)} />
-                <Button disabled={!selectedAccountId || repositories.isFetching} type="button" variant="secondary" onClick={() => repositories.refetch()}>
-                  <Search size={16} />
-                  {t('repositories.search')}
-                </Button>
-              </div>
-            </Field>
-            {selectedAccountId && (
-              <div className="grid max-h-56 gap-2 overflow-y-auto rounded-md border border-border p-2">
-                {(repositories.data?.items ?? []).map(repository => (
-                  <button key={repository.fullName} className="rounded-md px-3 py-2 text-left hover:bg-muted" type="button" onClick={() => selectRepository(repository)}>
-                    <span className="block text-sm font-medium">{repository.fullName}</span>
-                    <span className="block text-xs text-muted-foreground">{repository.cloneUrl}</span>
-                  </button>
+            <Field error={form.formState.errors.applicationId?.message} label={t('repositories.application')} required>
+              <Select {...form.register('applicationId')} aria-invalid={Boolean(form.formState.errors.applicationId)}>
+                <option value="">{t('repositories.selectApplication')}</option>
+                {(applications.data ?? []).map(application => (
+                  <option key={application.id} value={application.id}>{application.name}</option>
                 ))}
-                {repositories.data?.items.length === 0 && <EmptyState title={t('repositories.noRepositoriesTitle')} description={t('repositories.noRepositoriesDescription')} />}
-              </div>
-            )}
+              </Select>
+            </Field>
+            <GitRepositoryPicker
+              accounts={accounts.data ?? []}
+              providers={providers.data ?? []}
+              value={{
+                gitAccountId: form.watch('gitAccountId') || '',
+                owner: form.watch('owner') || '',
+                repo: form.watch('repo') || '',
+                cloneUrl: form.watch('cloneUrl') || '',
+                defaultBranch: form.watch('defaultBranch') || 'main',
+              }}
+              onChange={(next) => {
+                form.setValue('gitAccountId', next.gitAccountId, { shouldDirty: true, shouldValidate: true })
+                form.setValue('owner', next.owner, { shouldDirty: true, shouldValidate: true })
+                form.setValue('repo', next.repo, { shouldDirty: true, shouldValidate: true })
+                form.setValue('cloneUrl', next.cloneUrl, { shouldDirty: true, shouldValidate: true })
+                form.setValue('defaultBranch', next.defaultBranch || 'main', { shouldDirty: true, shouldValidate: true })
+                setBranchSearch('')
+              }}
+            />
             <div className="grid gap-3 md:grid-cols-3">
               <Field error={form.formState.errors.owner?.message} label={t('repositories.owner')} required><Input {...form.register('owner')} aria-invalid={Boolean(form.formState.errors.owner)} placeholder={t('repositories.ownerPlaceholder')} /></Field>
               <Field error={form.formState.errors.repo?.message} label={t('repositories.repo')} required><Input {...form.register('repo')} aria-invalid={Boolean(form.formState.errors.repo)} placeholder={t('repositories.repoPlaceholder')} /></Field>
@@ -322,14 +326,13 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <Field error={form.formState.errors.cloneUrl?.message} label={t('repositories.cloneUrl')}><Input {...form.register('cloneUrl')} aria-invalid={Boolean(form.formState.errors.cloneUrl)} placeholder={t('repositories.cloneUrlPlaceholder')} /></Field>
-              <Field error={form.formState.errors.webhookStatus?.message} label={t('repositories.webhookStatus')} required>
-                <Select {...form.register('webhookStatus')} aria-invalid={Boolean(form.formState.errors.webhookStatus)}>
-                  <option value="pending">{t('common.pending')}</option>
-                  <option value="created">{t('common.createdStatus')}</option>
-                  <option value="disabled">{t('common.disabled')}</option>
-                  <option value="failed">{t('common.failed')}</option>
-                </Select>
-              </Field>
+              <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
+                <input className="mt-1 size-4 accent-primary" type="checkbox" {...form.register('autoConfigureWebhook')} />
+                <span className="grid gap-1 text-sm">
+                  <span className="font-medium text-foreground">{t('repositories.autoConfigureWebhook')}</span>
+                  <span className="text-xs leading-5 text-muted-foreground">{t('repositories.autoConfigureWebhookHint')}</span>
+                </span>
+              </label>
             </div>
             <DialogFooter>
               <Button disabled={createBinding.isPending || updateBinding.isPending || (accounts.data ?? []).length === 0 || !form.formState.isValid} type="submit">
@@ -344,77 +347,18 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
   )
 }
 
-function BindingRow({
-  accounts,
-  binding,
-  providers,
-  webhookPending,
-  onCreateWebhook,
-  onDelete,
-  onEdit,
-}: {
-  accounts: GitAccount[]
-  binding: RepositoryBinding
-  providers: GitProvider[]
-  webhookPending: boolean
-  onCreateWebhook: () => void
-  onDelete: () => void
-  onEdit: () => void
-}) {
-  const { t } = useTranslation()
+function providerBindingLabel(binding: RepositoryBinding, providers: GitProvider[], accounts: GitAccount[]) {
   const provider = providers.find(item => item.id === binding.gitProviderId)
   const account = accounts.find(item => item.id === binding.gitAccountId)
 
   return (
-    <Card className="flex items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <GitBranch size={18} />
-        </span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate font-medium">
-              {binding.owner}
-              /
-              {binding.repo}
-            </h3>
-            <StatusBadge>{binding.defaultBranch}</StatusBadge>
-            <StatusValueBadge value={binding.webhookStatus} />
-          </div>
-          <p className="truncate text-sm text-muted-foreground">
-            {binding.applicationName ?? binding.applicationId}
-            {' · '}
-            {provider?.name ?? binding.providerName ?? binding.gitProviderId}
-            {' · '}
-            {account?.username ?? binding.accountUsername ?? binding.gitAccountId}
-            {binding.accountOwnerEmail && (
-              <>
-                {' · '}
-                {binding.accountOwnerName || binding.accountOwnerEmail}
-              </>
-            )}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">{binding.cloneUrl}</p>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Button disabled={webhookPending || binding.webhookStatus === 'created'} type="button" variant="secondary" onClick={onCreateWebhook}>
-          <LinkIcon size={16} />
-          {t('repositories.createWebhook')}
-        </Button>
-        <EditActionButton aria-label={t('repositories.editAria')} onClick={onEdit} label={t('edit')} />
-        <Button aria-label={t('repositories.deleteAria')} variant="ghost" onClick={onDelete}>
-          <Trash2 size={16} />
-        </Button>
-      </div>
-    </Card>
+    <span className="block max-w-64 truncate text-sm text-muted-foreground">
+      {provider?.name ?? binding.providerName ?? binding.gitProviderId}
+      {' · '}
+      {account?.username ?? binding.accountUsername ?? binding.gitAccountId}
+      {binding.accountOwnerEmail ? ` · ${binding.accountOwnerName || binding.accountOwnerEmail}` : ''}
+    </span>
   )
-}
-
-function accountLabel(account: GitAccount, providers: GitProvider[], t: (key: string) => string) {
-  const provider = providers.find(item => item.id === account.providerId)
-  const scope = account.accessScope === 'provider' ? t('codeRepositoriesView.providerScope') : t('codeRepositoriesView.personalScope')
-  return `${provider?.name ?? account.providerId} / ${account.username} (${scope})`
 }
 
 function branchOptions(branches: Array<{ name: string }>, current?: string) {

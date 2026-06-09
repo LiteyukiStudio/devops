@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -35,6 +36,7 @@ func (h *Handlers) BuilderHeartbeat(ctx *gin.Context) {
 		ID:                 agentID,
 		Name:               fallback(strings.TrimSpace(input.Name), agentID),
 		Labels:             strings.Join(normalizeStringList(input.Labels), ","),
+		Scopes:             strings.Join(normalizeStringList(input.Scopes), ","),
 		Executor:           fallback(strings.TrimSpace(input.Executor), "docker"),
 		Status:             "online",
 		MaxConcurrency:     fallbackInt(input.MaxConcurrency, 1),
@@ -44,7 +46,7 @@ func (h *Handlers) BuilderHeartbeat(ctx *gin.Context) {
 	if err := h.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"name", "labels", "executor", "status", "max_concurrency", "current_concurrency", "last_heartbeat_at", "updated_at",
+			"name", "labels", "scopes", "executor", "status", "max_concurrency", "current_concurrency", "last_heartbeat_at", "updated_at",
 		}),
 	}).Create(&agent).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
@@ -61,12 +63,17 @@ func (h *Handlers) ClaimBuilderTask(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	agentID := strings.TrimSpace(input.AgentID)
+	heartbeat := heartbeatFromClaimInput(input)
+	agentID := strings.TrimSpace(heartbeat.AgentID)
 	if agentID == "" {
 		writeError(ctx, http.StatusBadRequest, "builder agent id is required")
 		return
 	}
-	task, ok, err := h.claimBuildTask(agentID)
+	if err := h.recordBuilderHeartbeat(heartbeat); err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	task, ok, err := h.claimBuildTask(heartbeat)
 	if err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -82,7 +89,7 @@ func (h *Handlers) AppendBuilderTaskLogs(ctx *gin.Context) {
 	if !h.authorizeBuilder(ctx) {
 		return
 	}
-	job, ok := h.builderJobForAgent(ctx)
+	job, ok := h.builderRunningJobForAgentLease(ctx)
 	if !ok {
 		return
 	}
@@ -97,11 +104,92 @@ func (h *Handlers) AppendBuilderTaskLogs(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
+func (h *Handlers) ProgressBuilderTask(ctx *gin.Context) {
+	if !h.authorizeBuilder(ctx) {
+		return
+	}
+	job, ok := h.builderRunningJobForAgentLease(ctx)
+	if !ok {
+		return
+	}
+	var input builderProgressInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	progress := normalizeBuilderProgressKey(input.Key)
+	if progress == "" {
+		ctx.Status(http.StatusNoContent)
+		return
+	}
+	if err := h.db.Model(&model.BuildJob{}).
+		Where("id = ? and builder_id = ? and lease_token = ? and status = ?", job.ID, job.BuilderID, job.LeaseToken, "running").
+		Update("message", progress).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) RenewBuilderTask(ctx *gin.Context) {
+	if !h.authorizeBuilder(ctx) {
+		return
+	}
+	job, ok := h.builderRunningJobForAgentLease(ctx)
+	if !ok {
+		return
+	}
+	var input builderRenewInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	now := time.Now()
+	leaseUntil := now.Add(time.Duration(config.Load().BuilderTaskLeaseSeconds) * time.Second)
+	updates := map[string]any{
+		"lease_until":       &leaseUntil,
+		"last_heartbeat_at": &now,
+	}
+	if strings.TrimSpace(input.ExecutorID) != "" {
+		updates["executor_id"] = strings.TrimSpace(input.ExecutorID)
+	}
+	if strings.TrimSpace(input.ExecutorName) != "" {
+		updates["executor_name"] = strings.TrimSpace(input.ExecutorName)
+	}
+	if err := h.db.Model(&model.BuildJob{}).
+		Where("id = ? and builder_id = ? and lease_token = ? and status = ?", job.ID, job.BuilderID, job.LeaseToken, "running").
+		Updates(updates).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"leaseUntil": leaseUntil})
+}
+
+var builderProgressKeys = map[string]bool{
+	"claimed":              true,
+	"clone_repository":     true,
+	"load_dockerfile":      true,
+	"pull_image_metadata":  true,
+	"pull_base_image":      true,
+	"upload_build_context": true,
+	"run_command":          true,
+	"export_image":         true,
+	"push_image_layers":    true,
+	"push_image_manifest":  true,
+	"registry_auth":        true,
+}
+
+func normalizeBuilderProgressKey(progress string) string {
+	progress = strings.TrimSpace(progress)
+	if builderProgressKeys[progress] {
+		return progress
+	}
+	return ""
+}
+
 func (h *Handlers) CompleteBuilderTask(ctx *gin.Context) {
 	if !h.authorizeBuilder(ctx) {
 		return
 	}
-	job, ok := h.builderJobForAgent(ctx)
+	job, ok := h.builderRunningJobForAgentLease(ctx)
 	if !ok {
 		return
 	}
@@ -109,30 +197,50 @@ func (h *Handlers) CompleteBuilderTask(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	var run model.BuildRun
-	if err := h.db.First(&run, "id = ? and project_id = ?", job.BuildRunID, job.ProjectID).Error; err != nil {
-		writeError(ctx, http.StatusNotFound, "build run not found")
-		return
-	}
 	finishedAt := time.Now()
-	imageRef := fallback(strings.TrimSpace(input.ImageRef), run.ImageRef)
 	imageDigest := strings.TrimSpace(input.ImageDigest)
-	sourceCommit := fallback(strings.TrimSpace(input.SourceCommit), run.SourceCommit)
+	var completedRun model.BuildRun
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		var lockedJob model.BuildJob
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&lockedJob, "id = ? and builder_id = ? and lease_token = ?", job.ID, job.BuilderID, job.LeaseToken).Error; err != nil {
+			return err
+		}
+		var run model.BuildRun
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&run, "id = ? and project_id = ?", lockedJob.BuildRunID, lockedJob.ProjectID).Error; err != nil {
+			return err
+		}
+		if lockedJob.Status != "running" || run.Status == "canceled" {
+			return nil
+		}
+		imageRef := fallback(strings.TrimSpace(input.ImageRef), run.ImageRef)
+		sourceCommit := fallback(strings.TrimSpace(input.SourceCommit), run.SourceCommit)
+		sourceAuthorName := fallback(strings.TrimSpace(input.SourceAuthorName), run.SourceAuthorName)
+		sourceAuthorEmail := fallback(strings.TrimSpace(input.SourceAuthorEmail), run.SourceAuthorEmail)
+		run.Status = "succeeded"
+		run.ImageRef = imageRef
+		run.ImageDigest = imageDigest
+		run.SourceCommit = sourceCommit
+		run.SourceAuthorName = sourceAuthorName
+		run.SourceAuthorEmail = sourceAuthorEmail
+		run.FinishedAt = &finishedAt
 		if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-			"status":      "succeeded",
-			"message":     fallback(strings.TrimSpace(input.Message), "builder task succeeded"),
-			"lease_until": nil,
-			"finished_at": &finishedAt,
+			"status":            "succeeded",
+			"message":           fallback(strings.TrimSpace(input.Message), "builder task succeeded"),
+			"lease_token":       "",
+			"lease_until":       nil,
+			"last_heartbeat_at": &finishedAt,
+			"finished_at":       &finishedAt,
 		}).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(map[string]any{
-			"status":        "succeeded",
-			"image_ref":     imageRef,
-			"image_digest":  imageDigest,
-			"source_commit": sourceCommit,
-			"finished_at":   &finishedAt,
+			"status":              "succeeded",
+			"image_ref":           imageRef,
+			"image_digest":        imageDigest,
+			"source_commit":       sourceCommit,
+			"source_author_name":  sourceAuthorName,
+			"source_author_email": sourceAuthorEmail,
+			"finished_at":         &finishedAt,
 		}).Error; err != nil {
 			return err
 		}
@@ -144,10 +252,14 @@ func (h *Handlers) CompleteBuilderTask(ctx *gin.Context) {
 				}
 			}
 		}
+		completedRun = run
 		return nil
 	}); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if completedRun.ID != "" {
+		h.enqueueAutoDeploymentsForBuildRun(ctx.Request.Context(), completedRun)
 	}
 	ctx.Status(http.StatusNoContent)
 }
@@ -156,7 +268,7 @@ func (h *Handlers) FailBuilderTask(ctx *gin.Context) {
 	if !h.authorizeBuilder(ctx) {
 		return
 	}
-	job, ok := h.builderJobForAgent(ctx)
+	job, ok := h.builderRunningJobForAgentLease(ctx)
 	if !ok {
 		return
 	}
@@ -167,15 +279,28 @@ func (h *Handlers) FailBuilderTask(ctx *gin.Context) {
 	finishedAt := time.Now()
 	message := fallback(strings.TrimSpace(input.Message), "builder task failed")
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-			"status":      "failed",
-			"message":     message,
-			"lease_until": nil,
-			"finished_at": &finishedAt,
+		var lockedJob model.BuildJob
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&lockedJob, "id = ? and builder_id = ? and lease_token = ?", job.ID, job.BuilderID, job.LeaseToken).Error; err != nil {
+			return err
+		}
+		var run model.BuildRun
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&run, "id = ? and project_id = ?", lockedJob.BuildRunID, lockedJob.ProjectID).Error; err != nil {
+			return err
+		}
+		if lockedJob.Status != "running" || run.Status == "canceled" {
+			return nil
+		}
+		if err := tx.Model(&model.BuildJob{}).Where("id = ?", lockedJob.ID).Updates(map[string]any{
+			"status":            "failed",
+			"message":           message,
+			"lease_token":       "",
+			"lease_until":       nil,
+			"last_heartbeat_at": &finishedAt,
+			"finished_at":       &finishedAt,
 		}).Error; err != nil {
 			return err
 		}
-		return tx.Model(&model.BuildRun{}).Where("id = ?", job.BuildRunID).Updates(map[string]any{
+		return tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(map[string]any{
 			"status":      "failed",
 			"finished_at": &finishedAt,
 		}).Error
@@ -186,66 +311,191 @@ func (h *Handlers) FailBuilderTask(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-func (h *Handlers) authorizeBuilder(ctx *gin.Context) bool {
-	writeError(ctx, http.StatusNotFound, "http builder transport is disabled")
-	return false
+func (h *Handlers) GetBuilderTaskCancelled(ctx *gin.Context) {
+	if !h.authorizeBuilder(ctx) {
+		return
+	}
+	job, ok := h.builderJobForAgent(ctx)
+	if !ok {
+		return
+	}
+	if !builderLeaseTokenMatches(ctx, job) {
+		writeError(ctx, http.StatusConflict, "builder task lease is no longer active")
+		return
+	}
+	var run model.BuildRun
+	if err := h.db.First(&run, "id = ? and project_id = ?", job.BuildRunID, job.ProjectID).Error; err != nil {
+		writeError(ctx, http.StatusNotFound, "build run not found")
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"cancelled": job.Status == "canceled" || run.Status == "canceled"})
 }
 
-func (h *Handlers) claimBuildTask(agentID string) (builderTaskResponse, bool, error) {
+func (h *Handlers) AppendBuilderHookRunLogs(ctx *gin.Context) {
+	if !h.authorizeBuilder(ctx) {
+		return
+	}
+	hookRun, ok := h.builderHookRunForAgent(ctx)
+	if !ok {
+		return
+	}
+	var input builderLogsInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	if err := h.appendHookRunLog(hookRun, input.Content); err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) CompleteBuilderHookRun(ctx *gin.Context) {
+	if !h.authorizeBuilder(ctx) {
+		return
+	}
+	hookRun, ok := h.builderHookRunForAgent(ctx)
+	if !ok {
+		return
+	}
+	var input builderHookCompleteInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	status := "succeeded"
+	if !input.Succeeded {
+		status = "failed"
+	}
+	finishedAt := time.Now()
+	if err := h.db.Model(&model.HookRun{}).Where("id = ?", hookRun.ID).Updates(map[string]any{
+		"status":      status,
+		"exit_code":   input.ExitCode,
+		"message":     strings.TrimSpace(input.Message),
+		"finished_at": &finishedAt,
+	}).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) authorizeBuilder(ctx *gin.Context) bool {
+	expected := strings.TrimSpace(h.builderToken)
+	if expected == "" {
+		writeError(ctx, http.StatusServiceUnavailable, "builder token is not configured")
+		return false
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(ctx.GetHeader("Authorization"), "Bearer "))
+	if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
+		writeError(ctx, http.StatusUnauthorized, "invalid builder token")
+		return false
+	}
+	return true
+}
+
+func (h *Handlers) builderHookRunForAgent(ctx *gin.Context) (model.HookRun, bool) {
+	runID := strings.TrimSpace(ctx.Param("runId"))
+	if runID == "" {
+		writeError(ctx, http.StatusBadRequest, "hook run id is required")
+		return model.HookRun{}, false
+	}
+	var hookRun model.HookRun
+	if err := h.db.First(&hookRun, "id = ?", runID).Error; err != nil {
+		writeError(ctx, http.StatusNotFound, "hook run not found")
+		return model.HookRun{}, false
+	}
+	var job model.BuildJob
+	if err := h.db.First(&job, "id = ? and project_id = ? and status = ?", hookRun.BuildJobID, hookRun.ProjectID, "running").Error; err != nil {
+		writeError(ctx, http.StatusConflict, "hook run build job is not running")
+		return model.HookRun{}, false
+	}
+	leaseToken := strings.TrimSpace(ctx.Query("leaseToken"))
+	if leaseToken == "" || leaseToken != job.LeaseToken {
+		writeError(ctx, http.StatusConflict, "builder task lease is no longer active")
+		return model.HookRun{}, false
+	}
+	return hookRun, true
+}
+
+func (h *Handlers) claimBuildTask(heartbeat builderHeartbeatInput) (builderTaskResponse, bool, error) {
 	now := time.Now()
 	leaseUntil := now.Add(time.Duration(config.Load().BuilderTaskLeaseSeconds) * time.Second)
+	leaseToken := id.New("blse")
 	var response builderTaskResponse
+	agentID := strings.TrimSpace(heartbeat.AgentID)
+	labels := strings.Join(normalizeStringList(heartbeat.Labels), ",")
+	scopes := strings.Join(normalizeStringList(heartbeat.Scopes), ",")
 	err := h.db.Transaction(func(tx *gorm.DB) error {
-		var job model.BuildJob
+		var jobs []model.BuildJob
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Where("(status = ? or (status = ? and lease_until is not null and lease_until < ?))", "queued", "running", now).
+			Where("status = ?", "queued").
 			Order("created_at asc").
-			First(&job).Error
+			Limit(20).
+			Find(&jobs).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		var run model.BuildRun
-		if err := tx.First(&run, "id = ? and project_id = ?", job.BuildRunID, job.ProjectID).Error; err != nil {
-			return err
-		}
-		payload, err := h.builderPayloadForRun(tx, run, job)
-		if err != nil {
-			finishedAt := time.Now()
-			if updateErr := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-				"status":      "failed",
-				"message":     err.Error(),
-				"finished_at": &finishedAt,
-			}).Error; updateErr != nil {
-				return updateErr
+		for _, job := range jobs {
+			var run model.BuildRun
+			if err := tx.First(&run, "id = ? and project_id = ?", job.BuildRunID, job.ProjectID).Error; err != nil {
+				return err
 			}
-			return tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(map[string]any{
-				"status":      "failed",
-				"finished_at": &finishedAt,
-			}).Error
+			if job.Status == "canceled" || run.Status == "canceled" {
+				continue
+			}
+			if !builderHasLabels(labels, normalizeBuildSelectorList(strings.Split(run.BuildLabels, ","))) {
+				continue
+			}
+			if !builderAllowsRun(scopes, run.ProjectID, run.CreatedBy) {
+				continue
+			}
+			if h.buildRunBlockedByConfigConcurrency(tx, run, job.ID, now) {
+				continue
+			}
+			payload, err := h.builderPayloadForRun(tx, run, job)
+			if err != nil {
+				finishedAt := time.Now()
+				if updateErr := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
+					"status":      "failed",
+					"message":     err.Error(),
+					"finished_at": &finishedAt,
+				}).Error; updateErr != nil {
+					return updateErr
+				}
+				return tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(map[string]any{
+					"status":      "failed",
+					"finished_at": &finishedAt,
+				}).Error
+			}
+			if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
+				"status":            "running",
+				"builder_id":        agentID,
+				"lease_token":       leaseToken,
+				"lease_until":       &leaseUntil,
+				"last_heartbeat_at": &now,
+				"log_ref":           "builder:" + agentID + "/" + job.ID,
+				"message":           "claimed",
+				"attempts":          job.Attempts + 1,
+				"started_at":        nullableStartTime(job.StartedAt, now),
+				"finished_at":       nil,
+			}).Error; err != nil {
+				return err
+			}
+			runUpdates := map[string]any{"status": "running"}
+			if run.StartedAt == nil {
+				runUpdates["started_at"] = &now
+			}
+			if err := tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(runUpdates).Error; err != nil {
+				return err
+			}
+			response = payload
+			response.LeaseToken = leaseToken
+			response.LeaseUntil = leaseUntil
+			return nil
 		}
-		if err := tx.Model(&model.BuildJob{}).Where("id = ?", job.ID).Updates(map[string]any{
-			"status":      "running",
-			"builder_id":  agentID,
-			"lease_until": &leaseUntil,
-			"log_ref":     "builder:" + agentID + "/" + job.ID,
-			"message":     "builder task claimed",
-			"attempts":    job.Attempts + 1,
-			"started_at":  nullableStartTime(job.StartedAt, now),
-			"finished_at": nil,
-		}).Error; err != nil {
-			return err
-		}
-		runUpdates := map[string]any{"status": "running"}
-		if run.StartedAt == nil {
-			runUpdates["started_at"] = &now
-		}
-		if err := tx.Model(&model.BuildRun{}).Where("id = ?", run.ID).Updates(runUpdates).Error; err != nil {
-			return err
-		}
-		response = payload
 		return nil
 	})
 	if err != nil {
@@ -254,9 +504,84 @@ func (h *Handlers) claimBuildTask(agentID string) (builderTaskResponse, bool, er
 	return response, response.JobID != "", nil
 }
 
+func (h *Handlers) buildRunBlockedByConfigConcurrency(tx *gorm.DB, run model.BuildRun, jobID string, now time.Time) bool {
+	if strings.TrimSpace(run.ModuleID) == "" {
+		return false
+	}
+	var config model.ApplicationModule
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&config, "id = ? and project_id = ? and application_id = ?", run.ModuleID, run.ProjectID, run.ApplicationID).Error; err != nil {
+		return false
+	}
+	if strings.TrimSpace(config.ConcurrencyPolicy) == "parallel" {
+		return false
+	}
+	var count int64
+	err := tx.Model(&model.BuildRun{}).
+		Joins("join build_jobs on build_jobs.build_run_id = build_runs.id").
+		Where("build_runs.project_id = ? and build_runs.application_id = ? and build_runs.module_id = ? and build_runs.status = ? and build_runs.id <> ? and build_jobs.id <> ? and build_jobs.status = ? and (build_jobs.lease_until is null or build_jobs.lease_until >= ?)",
+			run.ProjectID,
+			run.ApplicationID,
+			run.ModuleID,
+			"running",
+			run.ID,
+			jobID,
+			"running",
+			now,
+		).
+		Count(&count).Error
+	return err == nil && count > 0
+}
+
+func (h *Handlers) recordBuilderHeartbeat(input builderHeartbeatInput) error {
+	agentID := strings.TrimSpace(input.AgentID)
+	if agentID == "" {
+		return errors.New("builder agent id is required")
+	}
+	now := time.Now()
+	agent := model.BuilderAgent{
+		ID:                 agentID,
+		Name:               fallback(strings.TrimSpace(input.Name), agentID),
+		Labels:             strings.Join(normalizeStringList(input.Labels), ","),
+		Scopes:             strings.Join(normalizeStringList(input.Scopes), ","),
+		Executor:           fallback(strings.TrimSpace(input.Executor), "docker"),
+		Status:             "online",
+		MaxConcurrency:     fallbackInt(input.MaxConcurrency, 1),
+		CurrentConcurrency: input.CurrentConcurrency,
+		LastHeartbeatAt:    &now,
+	}
+	return h.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"name", "labels", "scopes", "executor", "status", "max_concurrency", "current_concurrency", "last_heartbeat_at", "updated_at",
+		}),
+	}).Create(&agent).Error
+}
+
+func heartbeatFromClaimInput(input builderClaimInput) builderHeartbeatInput {
+	return builderHeartbeatInput{
+		AgentID:            input.AgentID,
+		Name:               input.Name,
+		Labels:             input.Labels,
+		Scopes:             input.Scopes,
+		Executor:           input.Executor,
+		MaxConcurrency:     input.MaxConcurrency,
+		CurrentConcurrency: input.CurrentConcurrency,
+	}
+}
+
 func (h *Handlers) builderPayloadForRun(tx *gorm.DB, run model.BuildRun, job model.BuildJob) (builderTaskResponse, error) {
 	var binding model.RepositoryBinding
-	if err := tx.First(&binding, "project_id = ? and application_id = ?", run.ProjectID, run.ApplicationID).Error; err != nil {
+	bindingQuery := tx.Where("project_id = ? and application_id = ?", run.ProjectID, run.ApplicationID)
+	if strings.TrimSpace(run.ModuleID) != "" {
+		var config model.ApplicationModule
+		if err := tx.First(&config, "id = ? and project_id = ? and application_id = ?", run.ModuleID, run.ProjectID, run.ApplicationID).Error; err != nil {
+			return builderTaskResponse{}, fmt.Errorf("module not found: %w", err)
+		}
+		if strings.TrimSpace(config.RepositoryBindingID) != "" {
+			bindingQuery = bindingQuery.Where("id = ?", config.RepositoryBindingID)
+		}
+	}
+	if err := bindingQuery.First(&binding).Error; err != nil {
 		return builderTaskResponse{}, fmt.Errorf("repository binding not found: %w", err)
 	}
 	var gitAccount model.GitAccount
@@ -305,11 +630,16 @@ func (h *Handlers) builderPayloadForRun(tx *gorm.DB, run model.BuildRun, job mod
 	if err != nil {
 		return builderTaskResponse{}, fmt.Errorf("build variables are unavailable: %w", err)
 	}
+	hooks, err := h.builderHookPayloadsForRun(tx, run, job)
+	if err != nil {
+		return builderTaskResponse{}, err
+	}
 	return builderTaskResponse{
 		JobID:         job.ID,
 		BuildRunID:    run.ID,
 		ProjectID:     run.ProjectID,
 		ApplicationID: run.ApplicationID,
+		ModuleID:      run.ModuleID,
 		Repository: builderRepositoryPayload{
 			CloneURL:     binding.CloneURL,
 			Owner:        binding.Owner,
@@ -324,6 +654,7 @@ func (h *Handlers) builderPayloadForRun(tx *gorm.DB, run model.BuildRun, job mod
 			BuildContext:   fallback(run.BuildContext, "."),
 			BuildDirectory: run.BuildDirectory,
 			Env:            buildEnv,
+			Hooks:          hooks,
 		},
 		Registry: builderRegistryPayload{
 			Endpoint:         registryAuthEndpointForBuilder(registry.Endpoint),
@@ -341,6 +672,77 @@ func repositoryBindingLooksPublic(binding model.RepositoryBinding) bool {
 	return strings.HasPrefix(cloneURL, "https://github.com/") ||
 		strings.HasPrefix(cloneURL, "https://gitea.com/") ||
 		strings.HasPrefix(cloneURL, "https://gitlab.com/")
+}
+
+func (h *Handlers) builderHookPayloadsForRun(tx *gorm.DB, run model.BuildRun, job model.BuildJob) ([]builderHookPayload, error) {
+	if strings.TrimSpace(run.ModuleID) == "" {
+		return nil, nil
+	}
+	var module model.ApplicationModule
+	if err := tx.First(&module, "id = ? and project_id = ? and application_id = ?", run.ModuleID, run.ProjectID, run.ApplicationID).Error; err != nil {
+		return nil, err
+	}
+	if !module.BuildHooksEnabled {
+		return nil, nil
+	}
+	var bindings []model.ApplicationModuleHookBinding
+	if err := tx.Where("project_id = ? and application_id = ? and module_id = ?", run.ProjectID, run.ApplicationID, run.ModuleID).
+		Order("run_order asc, created_at asc").
+		Find(&bindings).Error; err != nil {
+		return nil, err
+	}
+	if len(bindings) == 0 {
+		return nil, nil
+	}
+	hookIDs := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		hookIDs = append(hookIDs, binding.HookConfigID)
+	}
+	var configs []model.ProjectHookConfig
+	if err := tx.Where("project_id = ? and id in ? and phase in ?", run.ProjectID, hookIDs, []string{hookPhasePreBuild, hookPhasePostBuild}).
+		Find(&configs).Error; err != nil {
+		return nil, err
+	}
+	configsByID := make(map[string]model.ProjectHookConfig, len(configs))
+	for _, config := range configs {
+		configsByID[config.ID] = config
+	}
+	hooks := make([]builderHookPayload, 0, len(configs))
+	for _, binding := range bindings {
+		config, ok := configsByID[binding.HookConfigID]
+		if !ok {
+			continue
+		}
+		runRecord := model.HookRun{
+			ID:             id.New("hrun"),
+			ProjectID:      run.ProjectID,
+			HookConfigID:   config.ID,
+			BuildRunID:     run.ID,
+			BuildJobID:     job.ID,
+			ApplicationID:  run.ApplicationID,
+			ModuleID:       run.ModuleID,
+			Name:           config.Name,
+			Phase:          config.Phase,
+			Status:         "queued",
+			ScriptSnapshot: config.Script,
+			Shell:          config.Shell,
+			TimeoutSeconds: config.TimeoutSeconds,
+			FailurePolicy:  config.FailurePolicy,
+		}
+		if err := tx.Create(&runRecord).Error; err != nil {
+			return nil, err
+		}
+		hooks = append(hooks, builderHookPayload{
+			ID:             runRecord.ID,
+			Name:           runRecord.Name,
+			Phase:          runRecord.Phase,
+			Script:         runRecord.ScriptSnapshot,
+			Shell:          runRecord.Shell,
+			TimeoutSeconds: runRecord.TimeoutSeconds,
+			FailurePolicy:  runRecord.FailurePolicy,
+		})
+	}
+	return hooks, nil
 }
 
 func (h *Handlers) registryCredentialForBuild(actorID string, registry model.ArtifactRegistry) (model.RegistryCredential, error) {
@@ -379,6 +781,27 @@ func (h *Handlers) builderJobForAgent(ctx *gin.Context) (model.BuildJob, bool) {
 		return job, false
 	}
 	return job, true
+}
+
+func (h *Handlers) builderRunningJobForAgentLease(ctx *gin.Context) (model.BuildJob, bool) {
+	job, ok := h.builderJobForAgent(ctx)
+	if !ok {
+		return job, false
+	}
+	if !builderLeaseTokenMatches(ctx, job) {
+		writeError(ctx, http.StatusConflict, "builder task lease is no longer active")
+		return job, false
+	}
+	if job.Status != "running" {
+		writeError(ctx, http.StatusConflict, "builder task is not running")
+		return job, false
+	}
+	return job, true
+}
+
+func builderLeaseTokenMatches(ctx *gin.Context, job model.BuildJob) bool {
+	token := strings.TrimSpace(ctx.Query("leaseToken"))
+	return token != "" && token == strings.TrimSpace(job.LeaseToken)
 }
 
 func (h *Handlers) appendBuildLog(job model.BuildJob, content string) error {
@@ -587,36 +1010,62 @@ type builderHeartbeatInput struct {
 	AgentID            string   `json:"agentId"`
 	Name               string   `json:"name"`
 	Labels             []string `json:"labels"`
+	Scopes             []string `json:"scopes"`
 	Executor           string   `json:"executor"`
 	MaxConcurrency     int      `json:"maxConcurrency"`
 	CurrentConcurrency int      `json:"currentConcurrency"`
 }
 
 type builderClaimInput struct {
-	AgentID string   `json:"agentId"`
-	Labels  []string `json:"labels"`
+	AgentID            string   `json:"agentId"`
+	Name               string   `json:"name"`
+	Labels             []string `json:"labels"`
+	Scopes             []string `json:"scopes"`
+	Executor           string   `json:"executor"`
+	MaxConcurrency     int      `json:"maxConcurrency"`
+	CurrentConcurrency int      `json:"currentConcurrency"`
 }
 
 type builderLogsInput struct {
 	Content string `json:"content"`
 }
 
+type builderProgressInput struct {
+	Key string `json:"key"`
+}
+
+type builderRenewInput struct {
+	ExecutorID   string `json:"executorId"`
+	ExecutorName string `json:"executorName"`
+}
+
 type builderCompleteInput struct {
-	ImageRef     string `json:"imageRef"`
-	ImageDigest  string `json:"imageDigest"`
-	SourceCommit string `json:"sourceCommit"`
-	Message      string `json:"message"`
+	ImageRef          string `json:"imageRef"`
+	ImageDigest       string `json:"imageDigest"`
+	SourceCommit      string `json:"sourceCommit"`
+	SourceAuthorName  string `json:"sourceAuthorName"`
+	SourceAuthorEmail string `json:"sourceAuthorEmail"`
+	Message           string `json:"message"`
 }
 
 type builderFailInput struct {
 	Message string `json:"message"`
 }
 
+type builderHookCompleteInput struct {
+	Succeeded bool   `json:"succeeded"`
+	ExitCode  int    `json:"exitCode"`
+	Message   string `json:"message"`
+}
+
 type builderTaskResponse struct {
 	JobID         string                   `json:"jobId"`
+	LeaseToken    string                   `json:"leaseToken"`
+	LeaseUntil    time.Time                `json:"leaseUntil"`
 	BuildRunID    string                   `json:"buildRunId"`
 	ProjectID     string                   `json:"projectId"`
 	ApplicationID string                   `json:"applicationId"`
+	ModuleID      string                   `json:"moduleId"`
 	Repository    builderRepositoryPayload `json:"repository"`
 	Build         builderBuildPayload      `json:"build"`
 	Registry      builderRegistryPayload   `json:"registry"`
@@ -633,10 +1082,21 @@ type builderRepositoryPayload struct {
 }
 
 type builderBuildPayload struct {
-	DockerfilePath string            `json:"dockerfilePath"`
-	BuildContext   string            `json:"buildContext"`
-	BuildDirectory string            `json:"buildDirectory"`
-	Env            map[string]string `json:"env"`
+	DockerfilePath string               `json:"dockerfilePath"`
+	BuildContext   string               `json:"buildContext"`
+	BuildDirectory string               `json:"buildDirectory"`
+	Env            map[string]string    `json:"env"`
+	Hooks          []builderHookPayload `json:"hooks"`
+}
+
+type builderHookPayload struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Phase          string `json:"phase"`
+	Script         string `json:"script"`
+	Shell          string `json:"shell"`
+	TimeoutSeconds int    `json:"timeoutSeconds"`
+	FailurePolicy  string `json:"failurePolicy"`
 }
 
 type builderRegistryPayload struct {

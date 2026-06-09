@@ -13,15 +13,13 @@ import { api, apiBaseOrigin, gitOAuthStartUrl } from '@/api/client'
 import { useSession } from '@/app/session-context'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
+import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
-import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
-import { MotionItem, MotionList } from '@/components/common/motion'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
@@ -531,40 +529,56 @@ function ProvidersPanel({
 }) {
   const { t } = useTranslation()
   return (
-    <MotionList className="grid gap-3">
-      {providers.map(provider => (
-        <MotionItem key={provider.id}>
-          <Card className="flex items-center justify-between gap-4">
+    <DataList
+      columns={[
+        {
+          key: 'name',
+          header: t('common.name'),
+          render: provider => (
             <div className="flex min-w-0 items-center gap-3">
               <GitProviderIcon baseUrl={provider.baseUrl} type={provider.type} />
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate font-medium">{provider.name}</h3>
-                  <StatusBadge>{provider.type}</StatusBadge>
-                  <StatusBadge>{provider.authType}</StatusBadge>
-                  <StatusValueBadge value={provider.enabled ? 'enabled' : 'disabled'} />
-                  <StatusBadge>{provider.scope}</StatusBadge>
-                  {provider.scope === 'project' && provider.ownerRef && (
-                    <StatusBadge>{projectMap[provider.ownerRef] ?? provider.ownerRef}</StatusBadge>
-                  )}
-                </div>
+                <div className="truncate font-medium">{provider.name}</div>
                 <p className="truncate text-sm text-muted-foreground">{provider.baseUrl}</p>
-                <p className="truncate text-xs text-muted-foreground">{provider.clientSecretSet ? t('codeRepositoriesView.secretSet') : t('codeRepositoriesView.secretNotSet')}</p>
               </div>
             </div>
-            {canManage && (
-              <div className="flex shrink-0 items-center gap-2">
-                <EditActionButton aria-label={t('edit')} label={t('edit')} onClick={() => onEdit(provider)} />
-                <Button aria-label={t('codeRepositoriesView.deleteProviderAria')} variant="ghost" onClick={() => onDelete(provider)}>
-                  <Trash2 size={16} />
-                </Button>
-              </div>
-            )}
-          </Card>
-        </MotionItem>
-      ))}
-      {providers.length === 0 && <EmptyState title={t('codeRepositoriesView.noProvidersTitle')} description={t('codeRepositoriesView.noProvidersDescription')} />}
-    </MotionList>
+          ),
+        },
+        { key: 'type', header: t('common.type'), render: provider => <StatusBadge>{provider.type}</StatusBadge> },
+        { key: 'auth', header: t('codeRepositoriesView.authType'), render: provider => <StatusBadge>{provider.authType}</StatusBadge> },
+        {
+          key: 'scope',
+          header: t('common.scope'),
+          render: provider => (
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge>{provider.scope}</StatusBadge>
+              {provider.scope === 'project' && provider.ownerRef && <StatusBadge>{projectMap[provider.ownerRef] ?? provider.ownerRef}</StatusBadge>}
+            </div>
+          ),
+        },
+        { key: 'secret', header: t('codeRepositoriesView.clientSecret'), render: provider => provider.clientSecretSet ? t('codeRepositoriesView.secretSet') : t('codeRepositoriesView.secretNotSet') },
+        { key: 'status', header: t('common.status'), render: provider => <StatusValueBadge value={provider.enabled ? 'enabled' : 'disabled'} /> },
+        {
+          key: 'actions',
+          header: t('common.actions'),
+          className: 'text-right whitespace-nowrap',
+          render: provider => canManage
+            ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  <EditActionButton aria-label={t('edit')} label={t('edit')} onClick={() => onEdit(provider)} />
+                  <Button aria-label={t('codeRepositoriesView.deleteProviderAria')} variant="ghost" onClick={() => onDelete(provider)}>
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              )
+            : <span className="text-xs text-muted-foreground">{t('common.viewOnly')}</span>,
+        },
+      ]}
+      emptyTitle={t('codeRepositoriesView.noProvidersTitle')}
+      emptyDescription={t('codeRepositoriesView.noProvidersDescription')}
+      items={providers}
+      rowKey={provider => provider.id}
+    />
   )
 }
 
@@ -607,32 +621,51 @@ function CredentialsPanel({
           </AlertDescription>
         </Alert>
       )}
-      <MotionList className="grid gap-3">
-        {credentials.map(credential => (
-          <MotionItem key={credential.id}>
-            <Card className="flex items-center justify-between gap-4">
+      <DataList
+        columns={[
+          {
+            key: 'name',
+            header: t('codeRepositoriesView.username'),
+            render: credential => (
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><KeyRound size={18} /></span>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate font-medium">{credential.username}</h3>
-                    <ProviderNameBadge provider={providers.find(provider => provider.id === credential.providerId)} providerId={credential.providerId} />
-                    <StatusBadge>{credential.accessScope === 'provider' ? t('codeRepositoriesView.providerScope') : t('codeRepositoriesView.personalScope')}</StatusBadge>
-                    <StatusBadge>{credential.scope}</StatusBadge>
-                    {credential.scope === 'project' && credential.ownerRef && (
-                      <StatusBadge>{projectMap[credential.ownerRef] ?? credential.ownerRef}</StatusBadge>
-                    )}
-                    <StatusValueBadge value={credential.status} />
-                  </div>
+                  <div className="truncate font-medium">{credential.username}</div>
                   <p className="truncate text-sm text-muted-foreground">{credential.scopes || t('codeRepositoriesView.noScopes')}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {credential.accessTokenSet ? t('codeRepositoriesView.accessTokenSet') : t('codeRepositoriesView.accessTokenNotSet')}
-                    {' · '}
-                    {credential.refreshTokenSet ? t('codeRepositoriesView.refreshTokenSet') : t('codeRepositoriesView.refreshTokenNotSet')}
-                  </p>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+            ),
+          },
+          { key: 'provider', header: t('codeRepositoriesView.provider'), render: credential => <ProviderNameBadge provider={providers.find(provider => provider.id === credential.providerId)} providerId={credential.providerId} /> },
+          {
+            key: 'scope',
+            header: t('common.scope'),
+            render: credential => (
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge>{credential.accessScope === 'provider' ? t('codeRepositoriesView.providerScope') : t('codeRepositoriesView.personalScope')}</StatusBadge>
+                <StatusBadge>{credential.scope}</StatusBadge>
+                {credential.scope === 'project' && credential.ownerRef && <StatusBadge>{projectMap[credential.ownerRef] ?? credential.ownerRef}</StatusBadge>}
+              </div>
+            ),
+          },
+          {
+            key: 'tokens',
+            header: t('codeRepositoriesView.accessToken'),
+            render: credential => (
+              <span className="text-sm text-muted-foreground">
+                {credential.accessTokenSet ? t('codeRepositoriesView.accessTokenSet') : t('codeRepositoriesView.accessTokenNotSet')}
+                {' · '}
+                {credential.refreshTokenSet ? t('codeRepositoriesView.refreshTokenSet') : t('codeRepositoriesView.refreshTokenNotSet')}
+              </span>
+            ),
+          },
+          { key: 'status', header: t('common.status'), render: credential => <StatusValueBadge value={credential.status} /> },
+          {
+            key: 'actions',
+            header: t('common.actions'),
+            className: 'text-right whitespace-nowrap',
+            render: credential => (
+              <div className="flex justify-end gap-2">
                 <Button disabled={refreshPending || !credential.refreshTokenSet} type="button" variant="secondary" onClick={() => onRefresh(credential)}>
                   <RefreshCw size={16} />
                   {t('codeRepositoriesView.refreshCredential')}
@@ -641,11 +674,14 @@ function CredentialsPanel({
                   <Trash2 size={16} />
                 </Button>
               </div>
-            </Card>
-          </MotionItem>
-        ))}
-        {credentials.length === 0 && <EmptyState title={t('codeRepositoriesView.noCredentialsTitle')} description={t('codeRepositoriesView.noCredentialsDescription')} />}
-      </MotionList>
+            ),
+          },
+        ]}
+        emptyTitle={t('codeRepositoriesView.noCredentialsTitle')}
+        emptyDescription={t('codeRepositoriesView.noCredentialsDescription')}
+        items={credentials}
+        rowKey={credential => credential.id}
+      />
     </div>
   )
 }

@@ -161,7 +161,7 @@ function IdentityBindingsPanel() {
       <Card>
         <h2 className="mb-4 text-base font-semibold">{t('settings.boundIdentities')}</h2>
         {identities.isError && <ErrorState title={t('settings.identityLoadFailedTitle')} description={t('settings.identityLoadFailedDescription')} />}
-        {identities.data?.length === 0 && <EmptyState title={t('settings.noIdentitiesTitle')} description={t('settings.noIdentitiesDescription')} />}
+        {identities.data?.length === 0 && <EmptyState description={t('settings.noIdentitiesDescription')} title={t('settings.noIdentitiesTitle')} variant="plain" />}
         <MotionList className="grid gap-3">
           {(identities.data ?? []).map(identity => (
             <MotionItem key={identity.id}>
