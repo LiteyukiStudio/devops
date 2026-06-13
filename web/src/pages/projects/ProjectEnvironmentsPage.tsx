@@ -1,6 +1,6 @@
 import type { Environment, RuntimeCluster } from '@/api/client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2 } from 'lucide-react'
+import { ChevronDown, Trash2 } from 'lucide-react'
 import { useImperativeHandle, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -20,14 +20,25 @@ export interface ProjectEnvironmentsPageHandle {
   openCreateDialog: () => void
 }
 
-type EnvironmentForm = Omit<Environment, 'id' | 'projectId' | 'createdBy' | 'createdAt'>
+type ResourceUnit = 'm' | 'core' | 'Mi' | 'Gi'
+type EnvironmentPayload = Omit<Environment, 'id' | 'projectId' | 'createdBy' | 'createdAt'>
+type EnvironmentForm = EnvironmentPayload & {
+  cpuAmount: string
+  cpuUnit: Extract<ResourceUnit, 'core' | 'm'>
+  memoryAmount: string
+  memoryUnit: Extract<ResourceUnit, 'Gi' | 'Mi'>
+}
 
 const environmentDefaults: EnvironmentForm = {
   clusterId: '',
   configRefs: '',
   cpuRequest: '100m',
+  cpuAmount: '100',
+  cpuUnit: 'm',
   envVars: '{}',
   memoryRequest: '128Mi',
+  memoryAmount: '128',
+  memoryUnit: 'Mi',
   name: '',
   namespace: '',
   replicas: 1,
@@ -52,7 +63,10 @@ export function ProjectEnvironmentsPage({ projectId, ref }: { projectId: string,
   }))
 
   const saveEnvironment = useMutation({
-    mutationFn: (values: EnvironmentForm) => editingEnvironment ? api.updateEnvironment(projectId, editingEnvironment.id, values) : api.createEnvironment(projectId, values),
+    mutationFn: (values: EnvironmentForm) => {
+      const payload = environmentPayload(values)
+      return editingEnvironment ? api.updateEnvironment(projectId, editingEnvironment.id, payload) : api.createEnvironment(projectId, payload)
+    },
     onSuccess: () => {
       toast.success(t(editingEnvironment ? 'deploymentsPage.environmentUpdated' : 'deploymentsPage.environmentCreated'))
       setDialogOpen(false)
@@ -75,7 +89,7 @@ export function ProjectEnvironmentsPage({ projectId, ref }: { projectId: string,
 
   function openDialog(environment?: Environment) {
     setEditingEnvironment(environment ?? null)
-    form.reset(environment ?? environmentDefaults)
+    form.reset(environment ? environmentFormFromEnvironment(environment) : environmentDefaults)
     setDialogOpen(true)
   }
 
@@ -129,8 +143,29 @@ export function ProjectEnvironmentsPage({ projectId, ref }: { projectId: string,
             </Field>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label={t('deploymentsPage.replicas')}><Input {...form.register('replicas', { valueAsNumber: true })} min={1} type="number" /></Field>
-              <Field label={t('deploymentsPage.cpuRequest')}><Input {...form.register('cpuRequest')} /></Field>
-              <Field label={t('deploymentsPage.memoryRequest')}><Input {...form.register('memoryRequest')} /></Field>
+              <Field label={t('deploymentsPage.cpuRequest')}>
+                <ResourceQuantityInput
+                  amount={form.watch('cpuAmount')}
+                  unitLabels={{
+                    core: t('deploymentsPage.cpuUnits.core'),
+                    m: t('deploymentsPage.cpuUnits.m'),
+                  }}
+                  unit={form.watch('cpuUnit')}
+                  units={['m', 'core']}
+                  onAmountChange={value => form.setValue('cpuAmount', value, { shouldDirty: true, shouldValidate: true })}
+                  onUnitChange={value => form.setValue('cpuUnit', value as EnvironmentForm['cpuUnit'], { shouldDirty: true, shouldValidate: true })}
+                />
+              </Field>
+              <Field label={t('deploymentsPage.memoryRequest')}>
+                <ResourceQuantityInput
+                  amount={form.watch('memoryAmount')}
+                  unitLabels={{ Gi: 'Gi', Mi: 'Mi' }}
+                  unit={form.watch('memoryUnit')}
+                  units={['Mi', 'Gi']}
+                  onAmountChange={value => form.setValue('memoryAmount', value, { shouldDirty: true, shouldValidate: true })}
+                  onUnitChange={value => form.setValue('memoryUnit', value as EnvironmentForm['memoryUnit'], { shouldDirty: true, shouldValidate: true })}
+                />
+              </Field>
             </div>
             <DialogFooter><Button disabled={!projectId || !form.formState.isValid || saveEnvironment.isPending} type="submit">{t('common.save')}</Button></DialogFooter>
           </form>
@@ -162,4 +197,102 @@ function clusterOptionLabel(cluster: RuntimeCluster, t: (key: string, options?: 
   if (cluster.isDefault)
     return t('deploymentsPage.clusterDefaultOption', { name: cluster.name })
   return cluster.name
+}
+
+function ResourceQuantityInput({ amount, onAmountChange, onUnitChange, unit, unitLabels, units }: {
+  amount: string
+  unit: ResourceUnit
+  units: ResourceUnit[]
+  unitLabels: Partial<Record<ResourceUnit, string>>
+  onAmountChange: (value: string) => void
+  onUnitChange: (value: ResourceUnit) => void
+}) {
+  return (
+    <div className="flex h-9 overflow-hidden rounded-full border border-input bg-background shadow-xs transition focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <Input
+        className="h-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-4 shadow-none focus-visible:ring-0"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={normalizeResourceAmount(amount)}
+        onChange={event => onAmountChange(normalizeResourceAmount(event.target.value))}
+      />
+      <div className="my-1 w-px bg-border" />
+      <div className="relative h-full shrink-0">
+        <select
+          className="h-full appearance-none bg-transparent px-3 pr-8 text-sm text-muted-foreground outline-none"
+          value={unit}
+          onChange={event => onUnitChange(event.target.value as ResourceUnit)}
+        >
+          {units.map(item => <option key={item} value={item}>{unitLabels[item] ?? item}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      </div>
+    </div>
+  )
+}
+
+function environmentFormFromEnvironment(environment: Environment): EnvironmentForm {
+  const cpu = parseResourceQuantity(environment.cpuRequest, ['m', 'core'])
+  const memory = parseResourceQuantity(environment.memoryRequest, ['Mi', 'Gi'])
+  return {
+    clusterId: environment.clusterId,
+    configRefs: environment.configRefs,
+    cpuRequest: environment.cpuRequest,
+    cpuAmount: cpu.amount,
+    cpuUnit: cpu.unit === 'core' ? 'core' : 'm',
+    envVars: environment.envVars,
+    memoryRequest: environment.memoryRequest,
+    memoryAmount: memory.amount,
+    memoryUnit: memory.unit === 'Gi' ? 'Gi' : 'Mi',
+    name: environment.name,
+    namespace: environment.namespace,
+    replicas: environment.replicas,
+    secretRefs: environment.secretRefs,
+    slug: environment.slug,
+    stage: environment.stage,
+  }
+}
+
+function environmentPayload(values: EnvironmentForm): EnvironmentPayload {
+  const {
+    cpuAmount,
+    cpuUnit,
+    memoryAmount,
+    memoryUnit,
+    ...payload
+  } = values
+  return {
+    ...payload,
+    cpuRequest: formatResourceQuantity(cpuAmount, cpuUnit),
+    memoryRequest: formatResourceQuantity(memoryAmount, memoryUnit),
+  }
+}
+
+function parseResourceQuantity(value: string, units: ResourceUnit[]) {
+  const normalized = String(value || '').trim()
+  const fallbackUnit = units[0] ?? 'm'
+  if (!normalized)
+    return { amount: '', unit: fallbackUnit }
+  if (normalized.endsWith('m') && units.includes('m'))
+    return { amount: normalizeResourceAmount(normalized.slice(0, -1)) || '0', unit: 'm' as ResourceUnit }
+  if (normalized.endsWith('Mi') && units.includes('Mi'))
+    return { amount: normalizeResourceAmount(normalized.slice(0, -2)) || '0', unit: 'Mi' as ResourceUnit }
+  if (normalized.endsWith('Gi') && units.includes('Gi'))
+    return { amount: normalizeResourceAmount(normalized.slice(0, -2)) || '0', unit: 'Gi' as ResourceUnit }
+  if (units.includes('core'))
+    return { amount: normalizeResourceAmount(normalized), unit: 'core' as ResourceUnit }
+  return { amount: normalizeResourceAmount(normalized), unit: fallbackUnit }
+}
+
+function formatResourceQuantity(amount: string, unit: ResourceUnit) {
+  const normalized = normalizeResourceAmount(amount)
+  if (!normalized)
+    return ''
+  if (unit === 'core')
+    return normalized
+  return `${normalized}${unit}`
+}
+
+function normalizeResourceAmount(value: string) {
+  return value.replace(/\D/g, '')
 }

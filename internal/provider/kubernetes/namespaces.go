@@ -29,11 +29,14 @@ type NamespaceManager interface {
 	ApplyGatewayIngress(ctx context.Context, spec GatewayIngressSpec) error
 	ApplyCertificate(ctx context.Context, spec CertificateSpec) error
 	GetCertificateSnapshot(ctx context.Context, namespace, name string) (CertificateSnapshot, error)
+	ListManagedResources(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error)
+	DeleteManagedResource(ctx context.Context, kind string, namespace string, name string) error
 }
 
 type Client struct {
-	client  clientset.Interface
-	dynamic dynamic.Interface
+	client     clientset.Interface
+	dynamic    dynamic.Interface
+	restConfig *rest.Config
 }
 
 func NewClientFromKubeconfig(kubeconfig string) (*Client, error) {
@@ -53,7 +56,7 @@ func NewClientForConfig(config *rest.Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{client: client, dynamic: dynamicClient}, nil
+	return &Client{client: client, dynamic: dynamicClient, restConfig: rest.CopyConfig(config)}, nil
 }
 
 func NewClientForInterface(client clientset.Interface) *Client {

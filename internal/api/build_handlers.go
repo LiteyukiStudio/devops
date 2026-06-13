@@ -315,8 +315,8 @@ func (h *Handlers) ListBuildRuns(ctx *gin.Context) {
 	if applicationID := strings.TrimSpace(ctx.Query("applicationId")); applicationID != "" {
 		query = query.Where("application_id = ?", applicationID)
 	}
-	if moduleID := strings.TrimSpace(ctx.Query("moduleId")); moduleID != "" {
-		query = query.Where("module_id = ?", moduleID)
+	if targetID := strings.TrimSpace(ctx.Query("deploymentTargetId")); targetID != "" {
+		query = query.Where("deployment_target_id = ?", targetID)
 	}
 	if status := strings.TrimSpace(ctx.Query("status")); status != "" && buildRunStatusAllowed(status) {
 		query = query.Where("status = ?", status)
@@ -384,6 +384,10 @@ func buildRunCancelable(status string) bool {
 	return status == "queued" || status == "running"
 }
 
+func buildRunTerminal(status string) bool {
+	return status == "succeeded" || status == "failed" || status == "canceled" || status == "lost" || status == "timeout"
+}
+
 func buildRunTriggerAllowed(triggerType string) bool {
 	switch triggerType {
 	case "manual", "webhook", "push", "tag", "api", "retry":
@@ -422,7 +426,7 @@ func (h *Handlers) RetryBuildRun(ctx *gin.Context) {
 		ID:                  id.New("bldr"),
 		ProjectID:           previous.ProjectID,
 		ApplicationID:       previous.ApplicationID,
-		ModuleID:            previous.ModuleID,
+		DeploymentTargetID:  previous.DeploymentTargetID,
 		BuildProviderID:     previous.BuildProviderID,
 		BuildVariableSetIDs: previous.BuildVariableSetIDs,
 		Status:              "queued",
@@ -506,6 +510,51 @@ func (h *Handlers) CancelBuildRun(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, run)
 }
 
+func (h *Handlers) DeleteBuildRun(ctx *gin.Context) {
+	user, _, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
+	if !ok {
+		return
+	}
+	run, ok := h.findBuildRun(ctx)
+	if !ok {
+		return
+	}
+	if !buildRunTerminal(run.Status) {
+		writeError(ctx, http.StatusConflict, "只有已结束的构建记录可以删除")
+		return
+	}
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		var hookRuns []model.HookRun
+		if err := tx.Where("build_run_id = ? and project_id = ?", run.ID, run.ProjectID).Find(&hookRuns).Error; err != nil {
+			return err
+		}
+		hookRunIDs := make([]string, 0, len(hookRuns))
+		for _, hookRun := range hookRuns {
+			hookRunIDs = append(hookRunIDs, hookRun.ID)
+		}
+		if len(hookRunIDs) > 0 {
+			if err := tx.Where("hook_run_id in ? and project_id = ?", hookRunIDs, run.ProjectID).Delete(&model.HookRunLog{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id in ? and project_id = ?", hookRunIDs, run.ProjectID).Delete(&model.HookRun{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("build_run_id = ? and project_id = ?", run.ID, run.ProjectID).Delete(&model.BuildLog{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("build_run_id = ? and project_id = ?", run.ID, run.ProjectID).Delete(&model.BuildJob{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&run).Error
+	}); err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	h.audit(user.ID, "build_run.delete", run.ID, true, "")
+	ctx.Status(http.StatusNoContent)
+}
+
 func (h *Handlers) createQueuedBuildRun(ctx *gin.Context, user model.User, run model.BuildRun, targetImageRef string, statusCode int) {
 	if !h.validateBuildRunRequest(ctx, user, &run) {
 		return
@@ -541,11 +590,19 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 		writeError(ctx, http.StatusBadRequest, "应用不存在")
 		return false
 	}
-	config, ok := h.moduleForRun(ctx, app, run.ModuleID)
+	if !applicationCanMutate(app) {
+		writeErrorCode(ctx, http.StatusConflict, "application.delete_in_progress", "应用正在删除中，不能触发构建")
+		return false
+	}
+	config, ok := h.deploymentTargetForRun(ctx, app, run.DeploymentTargetID)
 	if !ok {
 		return false
 	}
-	run.ModuleID = config.ID
+	run.DeploymentTargetID = config.ID
+	if normalizeDeploymentSourceType(config.SourceType) != "repository" {
+		writeError(ctx, http.StatusBadRequest, "镜像直部署配置不能触发构建")
+		return false
+	}
 	if strings.TrimSpace(run.BuildProviderID) == "" {
 		run.BuildProviderID = strings.TrimSpace(config.BuildProviderID)
 	}
@@ -559,11 +616,11 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 	if strings.TrimSpace(config.RepositoryBindingID) != "" {
 		var binding model.RepositoryBinding
 		if err := h.db.First(&binding, "id = ? and project_id = ? and application_id = ?", config.RepositoryBindingID, run.ProjectID, run.ApplicationID).Error; err != nil {
-			writeError(ctx, http.StatusBadRequest, "模块配置绑定的代码仓库不存在")
+			writeError(ctx, http.StatusBadRequest, "部署配置绑定的代码仓库不存在")
 			return false
 		}
 	} else {
-		writeError(ctx, http.StatusBadRequest, "模块配置未绑定代码仓库")
+		writeError(ctx, http.StatusBadRequest, "部署配置未绑定代码仓库")
 		return false
 	}
 	if strings.TrimSpace(run.BuildProviderID) != "" {
@@ -607,16 +664,16 @@ func (h *Handlers) validateBuildRunRequest(ctx *gin.Context, user model.User, ru
 	return true
 }
 
-func (h *Handlers) moduleForRun(ctx *gin.Context, app model.Application, moduleID string) (model.ApplicationModule, bool) {
-	var config model.ApplicationModule
+func (h *Handlers) deploymentTargetForRun(ctx *gin.Context, app model.Application, targetID string) (model.DeploymentTarget, bool) {
+	var config model.DeploymentTarget
 	query := h.db.Where("project_id = ? and application_id = ? and enabled = ?", app.ProjectID, app.ID, true)
-	if strings.TrimSpace(moduleID) != "" {
-		query = query.Where("id = ?", strings.TrimSpace(moduleID))
+	if strings.TrimSpace(targetID) != "" {
+		query = query.Where("id = ?", strings.TrimSpace(targetID))
 	} else {
 		query = query.Order("created_at asc")
 	}
 	if err := query.First(&config).Error; err != nil {
-		writeError(ctx, http.StatusBadRequest, "模块配置不存在或不可用")
+		writeError(ctx, http.StatusBadRequest, "部署配置不存在或不可用")
 		return config, false
 	}
 	return config, true
@@ -918,7 +975,7 @@ func (h *Handlers) buildRunFromInput(projectID string, user model.User, input bu
 	return model.BuildRun{
 		ProjectID:           projectID,
 		ApplicationID:       strings.TrimSpace(input.ApplicationID),
-		ModuleID:            strings.TrimSpace(input.ModuleID),
+		DeploymentTargetID:  strings.TrimSpace(input.DeploymentTargetID),
 		BuildProviderID:     "",
 		BuildVariableSetIDs: encodeBuildVariableSetIDs(input.BuildVariableSetIDs),
 		SourceBranch:        strings.TrimSpace(input.SourceBranch),
@@ -1237,7 +1294,7 @@ func buildVariableSetResponseFor(set model.BuildVariableSet) buildVariableSetRes
 
 type buildRunInput struct {
 	ApplicationID       string   `json:"applicationId"`
-	ModuleID            string   `json:"moduleId"`
+	DeploymentTargetID  string   `json:"deploymentTargetId"`
 	BuildProviderID     string   `json:"buildProviderId"`
 	BuildVariableSetIDs []string `json:"buildVariableSetIds"`
 	TriggerType         string   `json:"triggerType"`

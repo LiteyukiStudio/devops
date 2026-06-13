@@ -24,9 +24,22 @@ import (
 var executorRunScript string
 
 const (
+	hookPhasePrePull   = "prePull"
+	hookPhasePostPull  = "postPull"
 	hookPhasePreBuild  = "preBuild"
 	hookPhasePostBuild = "postBuild"
+	hookPhasePrePush   = "prePush"
+	hookPhasePostPush  = "postPush"
 )
+
+var buildHookPhases = []string{
+	hookPhasePrePull,
+	hookPhasePostPull,
+	hookPhasePreBuild,
+	hookPhasePostBuild,
+	hookPhasePrePush,
+	hookPhasePostPush,
+}
 
 type Options struct {
 	APIURL            string
@@ -314,7 +327,7 @@ func (a *Agent) executeDockerTask(ctx context.Context, task Task, onLog func(str
 		"-e", "SOURCE_COMMIT=" + task.Repository.SourceCommit,
 		"-e", "LITEYUKI_PROJECT_ID=" + task.ProjectID,
 		"-e", "LITEYUKI_APPLICATION_ID=" + task.ApplicationID,
-		"-e", "LITEYUKI_MODULE_ID=" + task.ModuleID,
+		"-e", "LITEYUKI_DEPLOYMENT_TARGET_ID=" + task.DeploymentTargetID,
 		"-e", "LITEYUKI_BUILD_RUN_ID=" + task.BuildRunID,
 		"-e", "LITEYUKI_BUILD_JOB_ID=" + task.JobID,
 		"-e", "DOCKERFILE_PATH=" + task.Build.DockerfilePath,
@@ -329,8 +342,12 @@ func (a *Agent) executeDockerTask(ctx context.Context, task Task, onLog func(str
 		"-e", "IMAGE_REF=" + task.Registry.ImageRef,
 		"-e", "IMAGE_NAME_PREFIX=" + task.Registry.ImageNamePrefix,
 		"-e", "IMAGE_TAG_TEMPLATE=" + task.Registry.ImageTagTemplate,
+		"-e", "PRE_PULL_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePrePull], ","),
+		"-e", "POST_PULL_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePostPull], ","),
 		"-e", "PRE_BUILD_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePreBuild], ","),
 		"-e", "POST_BUILD_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePostBuild], ","),
+		"-e", "PRE_PUSH_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePrePush], ","),
+		"-e", "POST_PUSH_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePostPush], ","),
 	}
 	buildEnv := normalizedBuildEnv(task.Build.Env)
 	if strings.TrimSpace(a.options.NPMRegistry) != "" {
@@ -406,9 +423,9 @@ func (a *Agent) executorVolumeWorkspace(workspace string) string {
 }
 
 func writeHookScripts(workspace string, hooks []HookPayload) (map[string][]string, error) {
-	output := map[string][]string{
-		hookPhasePreBuild:  {},
-		hookPhasePostBuild: {},
+	output := make(map[string][]string, len(buildHookPhases))
+	for _, phase := range buildHookPhases {
+		output[phase] = []string{}
 	}
 	if len(hooks) == 0 {
 		return output, nil
@@ -423,7 +440,7 @@ func writeHookScripts(workspace string, hooks []HookPayload) (map[string][]strin
 			continue
 		}
 		phase := strings.TrimSpace(hook.Phase)
-		if phase != hookPhasePreBuild && phase != hookPhasePostBuild {
+		if !isBuildHookPhase(phase) {
 			continue
 		}
 		if err := os.WriteFile(filepath.Join(hookDir, hookID+".sh"), []byte(hook.Script), 0o700); err != nil {
@@ -435,6 +452,15 @@ func writeHookScripts(workspace string, hooks []HookPayload) (map[string][]strin
 		output[phase] = append(output[phase], hookID)
 	}
 	return output, nil
+}
+
+func isBuildHookPhase(phase string) bool {
+	for _, item := range buildHookPhases {
+		if phase == item {
+			return true
+		}
+	}
+	return false
 }
 
 func hookMetadataEnv(hook HookPayload) string {
@@ -978,18 +1004,18 @@ func buildkitProgressKey(name string) string {
 }
 
 type Task struct {
-	StreamID      string            `json:"-"`
-	JobID         string            `json:"jobId"`
-	LeaseToken    string            `json:"leaseToken"`
-	LeaseUntil    time.Time         `json:"leaseUntil"`
-	TargetBuilder string            `json:"targetBuilder"`
-	BuildRunID    string            `json:"buildRunId"`
-	ProjectID     string            `json:"projectId"`
-	ApplicationID string            `json:"applicationId"`
-	ModuleID      string            `json:"moduleId"`
-	Repository    RepositoryPayload `json:"repository"`
-	Build         BuildPayload      `json:"build"`
-	Registry      RegistryPayload   `json:"registry"`
+	StreamID           string            `json:"-"`
+	JobID              string            `json:"jobId"`
+	LeaseToken         string            `json:"leaseToken"`
+	LeaseUntil         time.Time         `json:"leaseUntil"`
+	TargetBuilder      string            `json:"targetBuilder"`
+	BuildRunID         string            `json:"buildRunId"`
+	ProjectID          string            `json:"projectId"`
+	ApplicationID      string            `json:"applicationId"`
+	DeploymentTargetID string            `json:"deploymentTargetId"`
+	Repository         RepositoryPayload `json:"repository"`
+	Build              BuildPayload      `json:"build"`
+	Registry           RegistryPayload   `json:"registry"`
 }
 
 type RepositoryPayload struct {

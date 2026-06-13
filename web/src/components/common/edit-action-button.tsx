@@ -10,9 +10,9 @@ type EditActionButtonProps = Omit<ComponentProps<typeof Button>, 'children'> & {
  * 列表行和详情区的统一编辑按钮。
  * 用于资源行内的“编辑”动作，保持图标、尺寸和语义一致；批量操作或主按钮请直接使用 Button。
  */
-export function EditActionButton({ label, ...props }: EditActionButtonProps) {
+export function EditActionButton({ label, variant = 'ghost', ...props }: EditActionButtonProps) {
   return (
-    <Button variant="secondary" {...props}>
+    <Button variant={variant} {...props}>
       <Pencil size={16} />
       {label}
     </Button>

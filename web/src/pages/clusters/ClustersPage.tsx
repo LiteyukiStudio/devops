@@ -1,6 +1,6 @@
-import type { ClusterResource, RuntimeCluster } from '@/api/client'
+import type { ClusterResource, ClusterResourceEvent, CurrentUser, RuntimeCluster } from '@/api/client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCcw, Trash2 } from 'lucide-react'
+import { Copy, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -15,11 +15,13 @@ import { EditActionButton } from '@/components/common/edit-action-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { FormField as Field } from '@/components/common/form-field'
 import { StatusValueBadge } from '@/components/common/status-badge'
+import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type ClusterForm = Omit<RuntimeCluster, 'id' | 'createdBy' | 'createdAt' | 'kubeconfigSet' | 'lastCheckedAt'> & { kubeconfig?: string }
 
@@ -42,7 +44,11 @@ export function ClustersPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCluster, setEditingCluster] = useState<RuntimeCluster | null>(null)
   const [clusterToDelete, setClusterToDelete] = useState<RuntimeCluster | null>(null)
+  const [resourceToDelete, setResourceToDelete] = useState<ClusterResource | null>(null)
+  const [resourcesToDelete, setResourcesToDelete] = useState<ClusterResource[]>([])
+  const [eventResource, setEventResource] = useState<ClusterResource | null>(null)
   const [selectedResourceClusterId, setSelectedResourceClusterId] = useState('')
+  const [selectedResourceKeys, setSelectedResourceKeys] = useState<string[]>([])
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
   const clusters = useQuery({ queryKey: ['runtime-clusters'], queryFn: () => api.listRuntimeClusters() })
   const projectMap = useMemo(() => Object.fromEntries((projects.data ?? []).map(project => [project.id, project])), [projects.data])
@@ -54,6 +60,22 @@ export function ClustersPage() {
     queryKey: ['runtime-cluster-resources', selectedResourceCluster?.id, resourceKind],
     queryFn: () => api.listRuntimeClusterResources(selectedResourceCluster?.id ?? '', { kind: resourceKind }),
     enabled: activeTab !== 'clusters' && Boolean(selectedResourceCluster?.id),
+  })
+  const activeResourceItems = useMemo(() => activeTab === 'clusters' ? [] : clusterResources.data ?? [], [activeTab, clusterResources.data])
+  const activeResourceKeySet = useMemo(() => new Set(activeResourceItems.map(item => item.id)), [activeResourceItems])
+  const visibleSelectedResourceKeys = useMemo(() => selectedResourceKeys.filter(key => activeResourceKeySet.has(key)), [activeResourceKeySet, selectedResourceKeys])
+  const selectedDeletableResources = useMemo(() => {
+    const selectedKeys = new Set(visibleSelectedResourceKeys)
+    return activeResourceItems.filter(item => selectedKeys.has(item.id) && canDeleteClusterResource(user, item))
+  }, [activeResourceItems, user, visibleSelectedResourceKeys])
+  const resourceEvents = useQuery({
+    queryKey: ['runtime-cluster-resource-events', selectedResourceCluster?.id, eventResource?.kind, eventResource?.namespace, eventResource?.name],
+    queryFn: () => api.listRuntimeClusterResourceEvents(selectedResourceCluster?.id ?? '', {
+      kind: eventResource?.kind ?? '',
+      namespace: eventResource?.namespace,
+      name: eventResource?.name ?? '',
+    }),
+    enabled: Boolean(selectedResourceCluster?.id && eventResource),
   })
   const form = useForm<ClusterForm>({ defaultValues: clusterDefaults, mode: 'onChange' })
   const scope = form.watch('scope')
@@ -93,6 +115,39 @@ export function ClustersPage() {
     },
     onError: error => toast.error(error.message),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['runtime-clusters'] }),
+  })
+  const deleteResource = useMutation({
+    mutationFn: (resource: ClusterResource) => api.deleteRuntimeClusterResource(effectiveResourceClusterId, {
+      kind: resource.kind,
+      namespace: resource.namespace,
+      name: resource.name,
+    }),
+    onSuccess: () => {
+      toast.success(t('clustersPage.resourceDeleted'))
+      setResourceToDelete(null)
+      queryClient.invalidateQueries({ queryKey: ['runtime-cluster-resources', selectedResourceCluster?.id, resourceKind] })
+    },
+    onError: error => toast.error(error.message),
+  })
+  const deleteResources = useMutation({
+    mutationFn: async (resources: ClusterResource[]) => {
+      for (const resource of resources) {
+        await api.deleteRuntimeClusterResource(effectiveResourceClusterId, {
+          kind: resource.kind,
+          namespace: resource.namespace,
+          name: resource.name,
+        })
+      }
+    },
+    onSuccess: (_, resources) => {
+      toast.success(t('clustersPage.resourcesDeleted', { count: resources.length }))
+      setResourcesToDelete([])
+      setSelectedResourceKeys([])
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['runtime-cluster-resources', selectedResourceCluster?.id, resourceKind] })
+    },
+    onError: error => toast.error(error.message),
   })
 
   function openDialog(cluster?: RuntimeCluster) {
@@ -140,7 +195,10 @@ export function ClustersPage() {
                       containerClassName="w-52 max-w-full"
                       disabled={manageableClusters.length === 0}
                       value={effectiveResourceClusterId}
-                      onChange={event => setSelectedResourceClusterId(event.target.value)}
+                      onChange={(event) => {
+                        setSelectedResourceClusterId(event.target.value)
+                        setSelectedResourceKeys([])
+                      }}
                     >
                       {manageableClusters.length > 0
                         ? manageableClusters.map(cluster => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)
@@ -150,12 +208,28 @@ export function ClustersPage() {
                       <RefreshCcw className="size-4" />
                       {t('common.refresh')}
                     </Button>
+                    {visibleSelectedResourceKeys.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {t('clustersPage.selectedResources', { count: selectedDeletableResources.length })}
+                      </span>
+                    )}
+                    <Button
+                      disabled={selectedDeletableResources.length === 0 || deleteResources.isPending}
+                      variant="destructive"
+                      onClick={() => setResourcesToDelete(selectedDeletableResources)}
+                    >
+                      <Trash2 className="size-4" />
+                      {t('clustersPage.deleteSelectedResources')}
+                    </Button>
                   </>
                 )}
           </div>
         )}
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={(value) => {
+          setActiveTab(value)
+          setSelectedResourceKeys([])
+        }}
       >
         <TabsContent value="clusters">
           <DataList
@@ -191,7 +265,12 @@ export function ClustersPage() {
               items={activeTab === tab ? clusterResources.data ?? [] : []}
               loading={activeTab === tab && clusterResources.isFetching}
               selectedCluster={selectedResourceCluster}
+              selectedResourceKeys={activeTab === tab ? selectedResourceKeys : []}
               tab={tab}
+              user={user}
+              onDeleteResource={setResourceToDelete}
+              onOpenEvents={setEventResource}
+              onSelectionChange={setSelectedResourceKeys}
             />
           </TabsContent>
         ))}
@@ -264,17 +343,62 @@ export function ClustersPage() {
       </Dialog>
 
       <ConfirmDialog cancelText={t('common.cancel')} confirmText={t('common.delete')} description={t('deploymentsPage.deleteClusterDescription')} open={Boolean(clusterToDelete)} title={t('deploymentsPage.deleteClusterTitle')} onConfirm={() => clusterToDelete && deleteCluster.mutate(clusterToDelete.id)} onOpenChange={open => !open && setClusterToDelete(null)} />
+      <ConfirmDialog
+        cancelText={t('common.cancel')}
+        confirmText={t('common.delete')}
+        description={t('clustersPage.deleteResourceDescription', { kind: resourceToDelete?.kind ?? '', namespace: resourceToDelete?.namespace || '-', name: resourceToDelete?.name ?? '' })}
+        open={Boolean(resourceToDelete)}
+        pending={deleteResource.isPending}
+        title={t('clustersPage.deleteResourceTitle')}
+        onConfirm={() => resourceToDelete && deleteResource.mutate(resourceToDelete)}
+        onOpenChange={open => !open && setResourceToDelete(null)}
+      />
+      <ConfirmDialog
+        cancelText={t('common.cancel')}
+        confirmText={t('common.delete')}
+        description={t('clustersPage.deleteResourcesDescription', { count: resourcesToDelete.length })}
+        open={resourcesToDelete.length > 0}
+        pending={deleteResources.isPending}
+        title={t('clustersPage.deleteResourcesTitle')}
+        onConfirm={() => {
+          if (resourcesToDelete.length > 0) {
+            deleteResources.mutate(resourcesToDelete)
+          }
+        }}
+        onOpenChange={open => !open && setResourcesToDelete([])}
+      />
+      <Dialog open={Boolean(eventResource)} onOpenChange={open => !open && setEventResource(null)}>
+        <DialogContent className="flex max-h-[min(88vh,42rem)] w-[min(92vw,56rem)] max-w-[92vw] min-w-0 flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border p-5 pb-4">
+            <DialogTitle>{t('clustersPage.resourceEventsTitle')}</DialogTitle>
+            <DialogDescription>
+              {eventResource ? t('clustersPage.resourceEventsDescription', { kind: eventResource.kind, namespace: eventResource.namespace || '-', name: eventResource.name }) : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <ClusterResourceEventsList events={resourceEvents.data ?? []} loading={resourceEvents.isFetching} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function ClusterResourcesPanel({ items, loading, selectedCluster, tab }: {
+function ClusterResourcesPanel({ items, loading, selectedCluster, selectedResourceKeys, tab, user, onDeleteResource, onOpenEvents, onSelectionChange }: {
   items: ClusterResource[]
   loading: boolean
   selectedCluster?: RuntimeCluster
+  selectedResourceKeys: string[]
   tab: string
+  user?: CurrentUser
+  onDeleteResource: (resource: ClusterResource) => void
+  onOpenEvents: (resource: ClusterResource) => void
+  onSelectionChange: (keys: string[]) => void
 }) {
   const { t } = useTranslation()
+  const itemKeys = new Set(items.map(item => item.id))
+  const visibleSelectedResourceKeys = selectedResourceKeys.filter(key => itemKeys.has(key))
+  const selectedResources = items.filter(item => visibleSelectedResourceKeys.includes(item.id) && canDeleteClusterResource(user, item))
   if (!selectedCluster) {
     return (
       <EmptyState
@@ -286,23 +410,136 @@ function ClusterResourcesPanel({ items, loading, selectedCluster, tab }: {
   return (
     <DataList
       columns={[
-        { key: 'kind', header: t('clustersPage.resourceKind'), render: item => item.kind },
-        { key: 'name', header: t('common.name'), render: item => <span className="font-mono text-sm">{item.name}</span> },
-        { key: 'namespace', header: t('deploymentsPage.namespace'), render: item => item.namespace || '-' },
-        { key: 'status', header: t('common.status'), render: item => <StatusValueBadge value={normalizeClusterResourceStatus(item.status)} /> },
-        { key: 'summary', header: t('clustersPage.resourceSummary'), render: item => item.summary || '-' },
-        { key: 'owner', header: t('clustersPage.resourceOwner'), render: item => clusterResourceOwner(item) },
+        { key: 'kind', header: t('clustersPage.resourceKind'), className: 'w-32 whitespace-nowrap', render: item => item.kind },
+        { key: 'name', header: t('common.name'), className: 'min-w-56 whitespace-nowrap', render: item => <TruncatedResourceText className="max-w-72 font-mono text-sm" value={clusterResourceName(item, tab === 'namespaces')} /> },
+        ...(tab === 'namespaces'
+          ? []
+          : [{ key: 'namespace', header: t('deploymentsPage.namespace'), className: 'w-44 whitespace-nowrap', render: (item: ClusterResource) => <TruncatedResourceText className="max-w-44 font-mono text-sm" value={item.namespace || '-'} /> }]),
+        { key: 'status', header: t('common.status'), className: 'w-28 whitespace-nowrap', render: item => <StatusValueBadge value={normalizeClusterResourceStatus(item.status)} /> },
+        { key: 'owner', header: t('clustersPage.resourceOwner'), className: 'min-w-56', render: item => <TruncatedResourceText className="max-w-72 text-sm" value={clusterResourceOwner(item)} /> },
+        { key: 'summary', header: t('clustersPage.resourceSummary'), className: 'min-w-64', render: item => <TruncatedResourceText className="max-w-80 text-sm text-muted-foreground" value={item.summary || '-'} /> },
+        {
+          key: 'actions',
+          header: t('common.actions'),
+          className: 'w-40 whitespace-nowrap text-right',
+          render: item => (
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => onOpenEvents(item)}>
+                <ScrollText className="size-4" />
+                {t('clustersPage.viewEvents')}
+              </Button>
+              {canDeleteClusterResource(user, item) && (
+                <Button size="sm" variant="ghost" onClick={() => onDeleteResource(item)}>
+                  <Trash2 className="size-4" />
+                  {t('common.delete')}
+                </Button>
+              )}
+            </div>
+          ),
+        },
       ]}
       emptyDescription={loading ? t('common.loading') : t('clustersPage.resourceEmptyDescription')}
       emptyTitle={loading ? t('common.loading') : t(`clustersPage.${tab}EmptyTitle`)}
       items={items}
       rowKey={item => item.id}
+      selection={{
+        isRowSelectable: item => canDeleteClusterResource(user, item),
+        selectAllLabel: t('clustersPage.selectAllResources'),
+        selectedKeys: visibleSelectedResourceKeys,
+        selectedLabel: t('clustersPage.selectedResources', { count: selectedResources.length }),
+        selectRowLabel: item => t('clustersPage.selectResource', { name: clusterResourceDisplayName(item) }),
+        onSelectionChange,
+      }}
     />
   )
 }
 
+function TruncatedResourceText({ className = 'max-w-56', value }: { className?: string, value: string }) {
+  const { t } = useTranslation()
+  const content = value || '-'
+  const copyValue = () => {
+    if (!content || content === '-')
+      return
+    navigator.clipboard.writeText(content)
+      .then(() => toast.success(t('common.copied')))
+      .catch(error => toast.error(error.message))
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={`block truncate ${className}`} title={content}>
+          {content}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="flex max-w-96 items-start gap-2 break-all leading-5" side="top">
+        <button
+          aria-label={t('common.copy')}
+          className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition hover:bg-background/15 hover:text-background"
+          type="button"
+          onClick={copyValue}
+        >
+          <Copy className="size-3.5" />
+        </button>
+        <span>{content}</span>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function clusterResourceDisplayName(item: ClusterResource) {
+  if (item.namespace?.trim())
+    return `${item.namespace}/${item.name}`
+  return item.name
+}
+
+function clusterResourceName(item: ClusterResource, includeNamespace: boolean) {
+  if (includeNamespace)
+    return clusterResourceDisplayName(item)
+  return item.name
+}
+
+function ClusterResourceEventsList({ events, loading }: { events: ClusterResourceEvent[], loading: boolean }) {
+  const { t } = useTranslation()
+  if (loading) {
+    return (
+      <EmptyState
+        title={t('common.loading')}
+        description={t('clustersPage.resourceEventsLoading')}
+      />
+    )
+  }
+  if (events.length === 0) {
+    return (
+      <EmptyState
+        title={t('clustersPage.resourceEventsEmptyTitle')}
+        description={t('clustersPage.resourceEventsEmptyDescription')}
+      />
+    )
+  }
+  return (
+    <div className="grid gap-3">
+      {events.map(event => (
+        <div key={event.id} className="rounded-md border border-border bg-surface-subtle p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusValueBadge value={event.type || 'normal'} />
+            <span className="font-medium text-foreground">{event.reason || t('common.none')}</span>
+            <span className="text-xs text-muted-foreground">{formatSmartDateTime(event.lastSeen, t)}</span>
+            {event.count > 1 && <span className="text-xs text-muted-foreground">{t('clustersPage.resourceEventCount', { count: event.count })}</span>}
+          </div>
+          <p className="mt-2 break-words text-sm text-foreground">{event.message || '-'}</p>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {event.source || t('common.none')}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function clusterResourceOwner(item: ClusterResource) {
-  return [item.projectId, item.applicationId, item.environmentId].filter(Boolean).join(' / ') || '-'
+  const project = item.projectName?.trim() || item.projectId?.trim()
+  const application = item.applicationName?.trim() || item.applicationId?.trim()
+  return [project, application].filter(Boolean).join(' / ') || '-'
 }
 
 function normalizeClusterResourceStatus(status: string) {
@@ -312,6 +549,10 @@ function normalizeClusterResourceStatus(status: string) {
   if (value === 'failed' || value === 'pending')
     return value
   return status || 'unknown'
+}
+
+function canDeleteClusterResource(user: CurrentUser | undefined, item: ClusterResource) {
+  return user?.role === 'platform_admin' || Boolean(item.projectId?.trim())
 }
 
 function canManageCluster(cluster: RuntimeCluster, userID?: string, role?: string) {

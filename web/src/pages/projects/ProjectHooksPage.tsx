@@ -28,8 +28,6 @@ export interface ProjectHooksPageHandle {
 const hookDefaults: HookForm = {
   failurePolicy: 'fail',
   name: '',
-  phase: 'preDeployment',
-  runOrder: 0,
   script: '',
   shell: 'sh',
   timeoutSeconds: 300,
@@ -71,8 +69,6 @@ export function ProjectHooksPage({ projectId, ref }: { projectId: string, ref?: 
       form.reset({
         failurePolicy: hook.failurePolicy,
         name: hook.name,
-        phase: hook.phase,
-        runOrder: hook.runOrder,
         script: hook.script,
         shell: hook.shell,
         timeoutSeconds: hook.timeoutSeconds,
@@ -102,8 +98,7 @@ export function ProjectHooksPage({ projectId, ref }: { projectId: string, ref?: 
   }
 
   const hookItems = [...(hooks.data ?? [])].sort((left, right) => {
-    const phaseOrder: Record<ProjectHookConfig['phase'], number> = { preBuild: 1, postBuild: 2, preDeployment: 3, postDeployment: 4 }
-    return phaseOrder[left.phase] - phaseOrder[right.phase] || left.createdAt.localeCompare(right.createdAt)
+    return left.createdAt.localeCompare(right.createdAt)
   })
 
   return (
@@ -119,7 +114,6 @@ export function ProjectHooksPage({ projectId, ref }: { projectId: string, ref?: 
             <DataList
               columns={[
                 { key: 'name', header: t('common.name'), className: 'w-52 px-4 py-3 align-middle', render: item => <span className="block max-w-44 truncate" title={item.name}>{item.name}</span> },
-                { key: 'phase', header: t('projectHooks.phase'), className: 'w-40 px-4 py-3 align-middle', render: item => t(`projectHooks.phases.${item.phase}`) },
                 { key: 'shell', header: t('projectHooks.shell'), className: 'w-24 px-4 py-3 align-middle', render: item => t(`projectHooks.shells.${item.shell}`) },
                 { key: 'failurePolicy', header: t('projectHooks.failurePolicy'), className: 'w-32 px-4 py-3 align-middle', render: item => t(`projectHooks.failurePolicies.${item.failurePolicy}`) },
                 { key: 'timeout', header: t('projectHooks.timeoutSeconds'), className: 'w-24 px-4 py-3 align-middle', render: item => `${item.timeoutSeconds}s` },
@@ -149,22 +143,14 @@ export function ProjectHooksPage({ projectId, ref }: { projectId: string, ref?: 
           <form className="grid gap-4" onSubmit={form.handleSubmit(values => saveHook.mutate(values))}>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label={t('common.name')} required><Input {...form.register('name', { required: true })} /></Field>
-              <Field label={t('projectHooks.phase')} required>
-                <Select {...form.register('phase', { required: true })}>
-                  <option value="preBuild">{t('projectHooks.phases.preBuild')}</option>
-                  <option value="postBuild">{t('projectHooks.phases.postBuild')}</option>
-                  <option value="preDeployment">{t('projectHooks.phases.preDeployment')}</option>
-                  <option value="postDeployment">{t('projectHooks.phases.postDeployment')}</option>
-                </Select>
-              </Field>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
               <Field label={t('projectHooks.shell')}>
                 <Select {...form.register('shell')}>
                   <option value="sh">{t('projectHooks.shells.sh')}</option>
                   <option value="bash">{t('projectHooks.shells.bash')}</option>
                 </Select>
               </Field>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
               <Field label={t('projectHooks.failurePolicy')}>
                 <Select {...form.register('failurePolicy')}>
                   <option value="fail">{t('projectHooks.failurePolicies.fail')}</option>

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Container, FolderKanban, GitBranch, LayoutDashboard, Link2, Server, Settings, ShieldCheck, Users } from 'lucide-react'
+import { Container, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, Server, Settings, ShieldCheck, Users } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import { SidebarUserPanel } from '@/components/common/sidebar-user-panel'
 import { ThemeModeSegmented } from '@/components/common/theme-mode-segmented'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +28,11 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+
+interface TopbarCrumb {
+  label: string
+  to: string
+}
 
 const navSections = [
   {
@@ -56,7 +62,6 @@ const navSections = [
 const pageMetaRules = [
   { match: (pathname: string) => pathname === '/dashboard', titleKey: 'dashboard', descriptionKey: 'dashboardPage.description' },
   { match: (pathname: string) => /^\/projects\/[^/]+\/apps\/[^/]+$/.test(pathname), titleKey: 'apps.detailTitle', descriptionKey: 'apps.detailDescription' },
-  { match: (pathname: string) => /^\/projects\/[^/]+\/repositories$/.test(pathname), titleKey: 'repositories.title', descriptionKey: 'repositories.description' },
   { match: (pathname: string) => /^\/projects\/[^/]+\/members$/.test(pathname), titleKey: 'projectMembers.title', descriptionKey: 'projectMembers.description' },
   { match: (pathname: string) => /^\/projects\/[^/]+\/apps$/.test(pathname), titleKey: 'apps.title', descriptionKey: 'apps.description' },
   { match: (pathname: string) => /^\/projects\/[^/]+$/.test(pathname), titleKey: 'projectSpaces.workspaceTitle', descriptionKey: 'projectSpaces.workspaceDescription' },
@@ -83,6 +88,7 @@ export function AppLayout() {
   const { isLoading: sessionLoading, isLoggingOut, logout, user } = useSession()
   const configs = usePublicConfig()
   const location = useLocation()
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects, enabled: Boolean(user) })
   const projectRouteMatch = location.pathname.match(/^\/projects\/([^/]+)/)
   const appRouteMatch = location.pathname.match(/^\/projects\/([^/]+)\/apps\/([^/]+)$/)
@@ -101,19 +107,120 @@ export function AppLayout() {
     const projectWorkspaceMatch = location.pathname.match(/^\/projects\/([^/]+)$/)
     const project = currentProject.data ?? (projectRouteMatch ? projects.data?.find(project => project.id === projectRouteMatch[1]) : undefined)
     const application = appRouteMatch ? currentApplication.data : undefined
+    let title = rule?.titleKey ? t(rule.titleKey) : configs['site.title'] || t('appName')
+    let titlePrefix = ''
+    const titleCrumbs: TopbarCrumb[] = []
+    if (projectWorkspaceMatch && project) {
+      title = t('projectSpaces.detailTopbarTitle', { name: project.name })
+      titlePrefix = t('projectSpaces.topbarPrefix')
+      titleCrumbs.push({ label: project.name, to: `/projects/${project.id}` })
+    }
+    if (application) {
+      title = t('apps.detailTopbarTitle', { name: application.name, projectName: project?.name ?? t('projectSpaces.title') })
+      titlePrefix = t('apps.applicationTopbarPrefix')
+      if (project)
+        titleCrumbs.push({ label: project.name, to: `/projects/${project.id}` })
+      titleCrumbs.push({ label: application.name, to: `/projects/${application.projectId}/apps/${application.id}` })
+    }
     return {
       description: projectWorkspaceMatch && project ? project.description || t('common.noDescription') : rule?.descriptionKey ? t(rule.descriptionKey) : t('common.noDescription'),
-      title: application
-        ? t('apps.detailTopbarTitle', { name: application.name, projectName: project?.name ?? t('projectSpaces.title') })
-        : projectWorkspaceMatch && project
-          ? t('projectSpaces.detailTopbarTitle', { name: project.name })
-          : rule?.titleKey ? t(rule.titleKey) : configs['site.title'] || t('appName'),
+      title,
+      titleCrumbs,
+      titlePrefix,
     }
   }, [appRouteMatch, configs, currentApplication.data, currentProject.data, location.pathname, projectRouteMatch, projects.data, t])
   useDocumentTitle(pageMeta.title)
   const pageMotionKey = /^\/projects\/[^/]+$/.test(location.pathname) ? '/projects/:projectId' : location.pathname
   const handleLogout = () => {
     logout().catch(error => toast.error(error.message))
+  }
+
+  const renderSidebarContent = (onNavigate?: () => void) => {
+    if (!user)
+      return null
+
+    return (
+      <>
+        <SidebarHeader>
+          <Link
+            aria-label={configs['site.title'] || t('appName')}
+            className="flex h-16 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-5"
+            to="/projects"
+          >
+            <img
+              alt=""
+              className="size-10 shrink-0 rounded-xl object-contain"
+              src={configs['site.logoUrl'] || '/liteyuki-logo.svg'}
+            />
+            <span className="min-w-0 flex-1 truncate font-semibold">{configs['site.title'] || t('appName')}</span>
+          </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          {navSections.map((section, index) => {
+            const items = section.items.filter(item => !item.permission || user.permissions.includes(item.permission))
+            if (items.length === 0)
+              return null
+
+            return (
+              <SidebarGroup key={section.titleKey} className={index > 0 ? 'mt-4' : undefined}>
+                {index > 0 && <Separator className="mb-4" />}
+                <SidebarGroupLabel>{section.titleKey === 'DevOps' ? section.titleKey : t(section.titleKey)}</SidebarGroupLabel>
+                <SidebarMenu>
+                  {section.titleKey === 'DevOps' && (
+                    <SidebarMenuItem>
+                      <NavLink
+                        className={({ isActive }) => sidebarMenuButtonClassName(isActive)}
+                        title={t('dashboard')}
+                        to="/dashboard"
+                        onClick={onNavigate}
+                      >
+                        <LayoutDashboard className="size-[17px] shrink-0" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t('dashboard')}</span>
+                      </NavLink>
+                    </SidebarMenuItem>
+                  )}
+                  {section.titleKey === 'DevOps' && (
+                    <SidebarMenuItem>
+                      <NavLink
+                        className={({ isActive }) => sidebarMenuButtonClassName(isActive || location.pathname.startsWith('/projects/'))}
+                        title={t('projects')}
+                        to="/projects"
+                        onClick={onNavigate}
+                      >
+                        <FolderKanban className="size-[17px] shrink-0" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t('projects')}</span>
+                      </NavLink>
+                    </SidebarMenuItem>
+                  )}
+                  {items.map(item => (
+                    <SidebarMenuItem key={item.to}>
+                      <NavLink
+                        className={({ isActive }) => sidebarMenuButtonClassName(isActive)}
+                        title={t(item.labelKey)}
+                        to={item.to}
+                        onClick={onNavigate}
+                      >
+                        <item.icon className="size-[17px] shrink-0" />
+                        <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t(item.labelKey)}</span>
+                      </NavLink>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
+            )
+          })}
+        </SidebarContent>
+        <SidebarFooter>
+          <ThemeModeSegmented mode={mode} setMode={setMode} />
+          <SidebarUserPanel
+            logoutLabel={t('logout')}
+            logoutPending={isLoggingOut}
+            user={user}
+            onLogout={handleLogout}
+          />
+        </SidebarFooter>
+      </>
+    )
   }
 
   useEffect(() => {
@@ -138,96 +245,32 @@ export function AppLayout() {
     <div className="h-dvh overflow-hidden bg-background text-foreground">
       <div className="flex h-full w-full min-w-0 overflow-hidden">
         <Sidebar>
-          <SidebarHeader>
-            <Link
-              aria-label={configs['site.title'] || t('appName')}
-              className="flex h-16 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-5"
-              to="/projects"
-            >
-              <img
-                alt=""
-                className="size-10 shrink-0 rounded-xl object-contain"
-                src={configs['site.logoUrl'] || '/liteyuki-logo.svg'}
-              />
-              <span className="min-w-0 flex-1 truncate font-semibold">{configs['site.title'] || t('appName')}</span>
-            </Link>
-          </SidebarHeader>
-          <SidebarContent>
-            {navSections.map((section, index) => {
-              const items = section.items.filter(item => !item.permission || user.permissions.includes(item.permission))
-              if (items.length === 0)
-                return null
-
-              return (
-                <SidebarGroup key={section.titleKey} className={index > 0 ? 'mt-4' : undefined}>
-                  {index > 0 && <Separator className="mb-4" />}
-                  <SidebarGroupLabel>{section.titleKey === 'DevOps' ? section.titleKey : t(section.titleKey)}</SidebarGroupLabel>
-                  <SidebarMenu>
-                    {section.titleKey === 'DevOps' && (
-                      <SidebarMenuItem>
-                        <NavLink
-                          className={({ isActive }) => sidebarMenuButtonClassName(isActive)}
-                          title={t('dashboard')}
-                          to="/dashboard"
-                        >
-                          <LayoutDashboard className="size-[17px] shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t('dashboard')}</span>
-                        </NavLink>
-                      </SidebarMenuItem>
-                    )}
-                    {section.titleKey === 'DevOps' && (
-                      <SidebarMenuItem>
-                        <NavLink
-                          className={({ isActive }) => sidebarMenuButtonClassName(isActive || location.pathname.startsWith('/projects/'))}
-                          title={t('projects')}
-                          to="/projects"
-                        >
-                          <FolderKanban className="size-[17px] shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t('projects')}</span>
-                        </NavLink>
-                      </SidebarMenuItem>
-                    )}
-                    {items.map(item => (
-                      <SidebarMenuItem key={item.to}>
-                        <NavLink
-                          className={({ isActive }) => sidebarMenuButtonClassName(isActive)}
-                          title={t(item.labelKey)}
-                          to={item.to}
-                        >
-                          <item.icon className="size-[17px] shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t(item.labelKey)}</span>
-                        </NavLink>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroup>
-              )
-            })}
-          </SidebarContent>
-          <SidebarFooter>
-            <ThemeModeSegmented mode={mode} setMode={setMode} />
-            <SidebarUserPanel
-              logoutLabel={t('logout')}
-              logoutPending={isLoggingOut}
-              user={user}
-              onLogout={handleLogout}
-            />
-          </SidebarFooter>
+          {renderSidebarContent()}
         </Sidebar>
+        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+          <SheetContent className="w-72 max-w-[86vw] gap-0 overflow-hidden bg-surface p-0 sm:max-w-80" side="left">
+            <SheetTitle className="sr-only">{configs['site.title'] || t('appName')}</SheetTitle>
+            {renderSidebarContent(() => setMobileSidebarOpen(false))}
+          </SheetContent>
+        </Sheet>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="z-10 flex min-h-20 shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur lg:px-5 xl:px-6">
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-semibold tracking-normal">{pageMeta.title}</h1>
-              <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{pageMeta.description}</p>
-            </div>
-            <div className="flex items-center gap-2 lg:hidden">
-              <Button aria-label={t('logout')} disabled={isLoggingOut} variant="ghost" onClick={handleLogout}>
-                {t('logout')}
-              </Button>
+          <header className="z-10 flex min-h-16 shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-2 backdrop-blur md:min-h-20 md:py-3 lg:px-5 xl:px-6">
+            <Button
+              aria-label={t('nav.openSidebar')}
+              className="mr-2 shrink-0 lg:hidden"
+              size="icon"
+              variant="ghost"
+              onClick={() => setMobileSidebarOpen(true)}
+            >
+              <Menu className="size-5" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <TopbarTitle crumbs={pageMeta.titleCrumbs} prefix={pageMeta.titlePrefix} title={pageMeta.title} />
+              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:text-sm">{pageMeta.description}</p>
             </div>
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 lg:px-5 xl:px-6">
+          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-4 lg:px-5 lg:pb-5 xl:px-6">
             <AnimatePresence mode="wait">
               <PageMotion key={pageMotionKey}>
                 <Outlet />
@@ -238,5 +281,24 @@ export function AppLayout() {
       </div>
       <DebugFloatingPanel />
     </div>
+  )
+}
+
+function TopbarTitle({ crumbs, prefix, title }: { crumbs: TopbarCrumb[], prefix: string, title: string }) {
+  if (crumbs.length === 0)
+    return <h1 className="truncate text-lg font-semibold tracking-normal md:text-xl">{title}</h1>
+
+  return (
+    <h1 className="flex min-w-0 items-center gap-1.5 text-lg font-semibold tracking-normal md:text-xl">
+      <span className="shrink-0">{prefix}</span>
+      {crumbs.map((crumb, index) => (
+        <span key={crumb.to} className="flex min-w-0 items-center gap-1.5">
+          {index > 0 && <span className="shrink-0 text-muted-foreground">/</span>}
+          <Link className="min-w-0 truncate rounded-sm outline-none transition-colors hover:text-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-ring" title={crumb.label} to={crumb.to}>
+            {crumb.label}
+          </Link>
+        </span>
+      ))}
+    </h1>
   )
 }

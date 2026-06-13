@@ -44,12 +44,10 @@ type ProjectHookConfig struct {
 	ID             string         `gorm:"primaryKey" json:"id"`
 	ProjectID      string         `gorm:"index;not null" json:"projectId"`
 	Name           string         `gorm:"not null" json:"name"`
-	Phase          string         `gorm:"index;not null" json:"phase"`
 	Script         string         `gorm:"type:text;not null" json:"script"`
 	Shell          string         `gorm:"not null;default:sh" json:"shell"`
 	TimeoutSeconds int            `gorm:"not null;default:300" json:"timeoutSeconds"`
 	FailurePolicy  string         `gorm:"not null;default:fail" json:"failurePolicy"`
-	RunOrder       int            `gorm:"not null;default:0" json:"runOrder"`
 	CreatedBy      string         `gorm:"index" json:"createdBy"`
 	CreatedAt      time.Time      `json:"createdAt"`
 	UpdatedAt      time.Time      `json:"updatedAt"`
@@ -64,7 +62,6 @@ type HookRun struct {
 	BuildJobID         string     `gorm:"index" json:"buildJobId"`
 	ReleaseID          string     `gorm:"index" json:"releaseId"`
 	ApplicationID      string     `gorm:"index" json:"applicationId"`
-	ModuleID           string     `gorm:"index" json:"moduleId"`
 	EnvironmentID      string     `gorm:"index" json:"environmentId"`
 	DeploymentTargetID string     `gorm:"index" json:"deploymentTargetId"`
 	Name               string     `gorm:"not null" json:"name"`

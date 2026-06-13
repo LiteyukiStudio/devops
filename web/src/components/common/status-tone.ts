@@ -15,6 +15,12 @@ export function statusToneFor(value: string): StatusTone {
     case 'verified':
       return 'success'
     case 'failed':
+    case 'crash-loop-back-off':
+    case 'create-container-config-error':
+    case 'create-container-error':
+    case 'delete_failed':
+    case 'err-image-pull':
+    case 'image-pull-back-off':
     case 'lost':
     case 'missing-credential':
     case 'revoked':
@@ -22,15 +28,22 @@ export function statusToneFor(value: string): StatusTone {
     case 'unhealthy':
       return 'danger'
     case 'expired':
+    case 'checking':
+    case 'container-creating':
     case 'pending':
+    case 'progressing':
     case 'queued':
+    case 'deleting':
     case 'running':
     case 'scanning':
+    case 'not-ready':
       return 'warning'
     case 'createdstatus':
       return 'success'
     case 'disabled':
     case 'canceled':
+    case 'not-configured':
+    case 'not-found':
     case 'unknown':
       return 'neutral'
     default:

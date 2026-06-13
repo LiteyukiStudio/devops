@@ -346,7 +346,7 @@ export function CodeRepositoriesPage() {
             <DialogDescription>{t('codeRepositoriesView.providerDialogDescription')}</DialogDescription>
           </DialogHeader>
           <form className="grid gap-3" onSubmit={providerForm.handleSubmit(values => saveProvider.mutate(values))}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={providerForm.formState.errors.name?.message} hint={t('codeRepositoriesView.providerNameHint')} label={t('codeRepositoriesView.name')} required><Input {...providerForm.register('name')} aria-invalid={Boolean(providerForm.formState.errors.name)} placeholder={t('codeRepositoriesView.providerNamePlaceholder')} /></Field>
               <Field error={providerForm.formState.errors.type?.message} hint={t('codeRepositoriesView.providerTypeHint')} label={t('codeRepositoriesView.type')} required>
                 <div className="flex gap-2">
@@ -390,7 +390,7 @@ export function CodeRepositoriesPage() {
                 </Select>
               </Field>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={providerForm.formState.errors.authType?.message} hint={t('codeRepositoriesView.authTypeHint')} label={t('codeRepositoriesView.authType')} required>
                 <Select {...providerForm.register('authType')} aria-invalid={Boolean(providerForm.formState.errors.authType)}>
                   <option value="oauth">{t('codeRepositoriesView.oauth')}</option>
@@ -458,7 +458,7 @@ export function CodeRepositoriesPage() {
                 </Select>
               </Field>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={credentialForm.formState.errors.username?.message} hint={t('codeRepositoriesView.usernameHint')} label={t('codeRepositoriesView.username')} required><Input {...credentialForm.register('username')} aria-invalid={Boolean(credentialForm.formState.errors.username)} placeholder={t('codeRepositoriesView.usernamePlaceholder')} /></Field>
               <Field error={credentialForm.formState.errors.accessScope?.message} hint={t('codeRepositoriesView.accessScopeHint')} label={t('codeRepositoriesView.accessScope')} required>
                 <Select {...credentialForm.register('accessScope')} aria-invalid={Boolean(credentialForm.formState.errors.accessScope)}>
@@ -470,7 +470,7 @@ export function CodeRepositoriesPage() {
             <Field error={credentialForm.formState.errors.accessToken?.message} hint={t('codeRepositoriesView.accessTokenHint')} label={t('codeRepositoriesView.accessToken')}>
               <Input {...credentialForm.register('accessToken')} aria-invalid={Boolean(credentialForm.formState.errors.accessToken)} type="password" />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={credentialForm.formState.errors.scopesText?.message} hint={t('codeRepositoriesView.scopesHint')} label={t('codeRepositoriesView.scopes')}>
                 <Input {...credentialForm.register('scopesText')} aria-invalid={Boolean(credentialForm.formState.errors.scopesText)} />
               </Field>
@@ -666,7 +666,7 @@ function CredentialsPanel({
             className: 'text-right whitespace-nowrap',
             render: credential => (
               <div className="flex justify-end gap-2">
-                <Button disabled={refreshPending || !credential.refreshTokenSet} type="button" variant="secondary" onClick={() => onRefresh(credential)}>
+                <Button disabled={refreshPending || !credential.refreshTokenSet} type="button" variant="ghost" onClick={() => onRefresh(credential)}>
                   <RefreshCw size={16} />
                   {t('codeRepositoriesView.refreshCredential')}
                 </Button>

@@ -13,6 +13,7 @@ import (
 const (
 	TypeDeployRun         = "deploy:run"
 	TypeGatewayApply      = "gateway:apply"
+	TypeApplicationDelete = "application:delete"
 	TypeGitAccountRefresh = "git:accounts:refresh"
 	TypeSyncStatus        = "sync:status"
 
@@ -32,6 +33,14 @@ type GatewayApplyPayload struct {
 	GatewayRouteID string       `json:"gatewayRouteId"`
 	ProjectID      string       `json:"projectId"`
 	ActorID        string       `json:"actorId"`
+}
+
+type ApplicationDeletePayload struct {
+	Envelope      TaskEnvelope `json:"envelope"`
+	ApplicationID string       `json:"applicationId"`
+	ProjectID     string       `json:"projectId"`
+	ActorID       string       `json:"actorId"`
+	DeleteData    bool         `json:"deleteData"`
 }
 
 type GitAccountRefreshPayload struct {
@@ -90,6 +99,15 @@ func (c *Client) EnqueueGatewayApply(ctx context.Context, payload GatewayApplyPa
 	return c.enqueueWithPolicy(ctx, task, PolicyForType(TypeGatewayApply))
 }
 
+func (c *Client) EnqueueApplicationDelete(ctx context.Context, payload ApplicationDeletePayload) (*asynq.TaskInfo, error) {
+	task, err := NewApplicationDeleteTask(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.enqueueWithPolicy(ctx, task, PolicyForType(TypeApplicationDelete))
+}
+
 func (c *Client) EnqueueGitAccountRefresh(ctx context.Context, payload GitAccountRefreshPayload) (*asynq.TaskInfo, error) {
 	task, err := NewGitAccountRefreshTask(payload)
 	if err != nil {
@@ -117,6 +135,8 @@ func PolicyForType(taskType string) EnqueuePolicy {
 		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 30 * time.Minute, Retention: 24 * time.Hour, Unique: 30 * time.Minute}
 	case TypeGatewayApply:
 		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 10 * time.Minute, Retention: 24 * time.Hour, Unique: 10 * time.Minute}
+	case TypeApplicationDelete:
+		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 15 * time.Minute, Retention: 24 * time.Hour, Unique: 10 * time.Minute}
 	case TypeGitAccountRefresh:
 		return EnqueuePolicy{Queue: QueueLight, MaxRetry: 2, Timeout: 10 * time.Minute, Retention: 24 * time.Hour, Unique: 5 * time.Minute}
 	default:
@@ -154,6 +174,22 @@ func NewGatewayApplyTask(payload GatewayApplyPayload) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TypeGatewayApply, data), nil
+}
+
+func NewApplicationDeleteTask(payload ApplicationDeletePayload) (*asynq.Task, error) {
+	if strings.TrimSpace(payload.ApplicationID) == "" {
+		return nil, errors.New("application id is required")
+	}
+	if strings.TrimSpace(payload.ProjectID) == "" {
+		return nil, errors.New("project id is required")
+	}
+
+	payload.Envelope = ensureEnvelope(payload.Envelope, TypeApplicationDelete, payload.ActorID, payload.ProjectID, payload.ApplicationID)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeApplicationDelete, data), nil
 }
 
 func NewGitAccountRefreshTask(payload GitAccountRefreshPayload) (*asynq.Task, error) {

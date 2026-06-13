@@ -32,6 +32,7 @@ coverage.out
 *.kubeconfig
 postgres-data/
 redis-data/
+.local/
 
 # Frontend dependencies and build outputs
 node_modules/

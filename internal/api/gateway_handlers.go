@@ -76,6 +76,7 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 	}
 	route.ApplicationID = next.ApplicationID
 	route.EnvironmentID = next.EnvironmentID
+	route.DeploymentTargetID = next.DeploymentTargetID
 	route.Host = next.Host
 	route.Path = next.Path
 	route.ServicePort = next.ServicePort
@@ -158,12 +159,16 @@ func (h *Handlers) enqueueGatewayApply(ctx context.Context, route model.GatewayR
 }
 
 func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project, userID string, input gatewayRouteInput, routeID string) (model.GatewayRoute, bool) {
+	target, application, environment, ok := h.gatewayRouteTargetContext(ctx, project.ID, input)
+	if !ok {
+		return model.GatewayRoute{}, false
+	}
 	host := h.normalizeGatewayHost(input.Host)
 	if host == "" {
-		host = h.defaultGatewayHost(project, input.Stage, input.ApplicationSlug)
+		host = h.defaultGatewayHost(project, environment.Stage, application.Slug)
 	}
 	if host == "" {
-		writeError(ctx, http.StatusBadRequest, "请输入域名或选择应用")
+		writeError(ctx, http.StatusBadRequest, "请输入域名或选择部署配置")
 		return model.GatewayRoute{}, false
 	}
 	if h.gatewayHostExists(host, routeID) {
@@ -177,22 +182,50 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		certStatus = fallback(strings.TrimSpace(input.CertificateStatus), "pending")
 	}
 	return model.GatewayRoute{
-		ID:                routeID,
-		ProjectID:         project.ID,
-		ApplicationID:     strings.TrimSpace(input.ApplicationID),
-		EnvironmentID:     strings.TrimSpace(input.EnvironmentID),
-		Host:              host,
-		Path:              fallback(strings.TrimSpace(input.Path), "/"),
-		ServicePort:       fallbackInt(input.ServicePort, 80),
-		TLSMode:           tlsMode,
-		CertificateStatus: certStatus,
-		CNAMEName:         host,
-		CNAMETarget:       h.gatewayCNAMETarget(project),
-		DNSStatus:         fallback(strings.TrimSpace(input.DNSStatus), "pending"),
-		Status:            fallback(strings.TrimSpace(input.Status), "pending"),
-		IsDefault:         input.IsDefault,
-		CreatedBy:         userID,
+		ID:                 routeID,
+		ProjectID:          project.ID,
+		ApplicationID:      application.ID,
+		EnvironmentID:      environment.ID,
+		DeploymentTargetID: target.ID,
+		Host:               host,
+		Path:               fallback(strings.TrimSpace(input.Path), "/"),
+		ServicePort:        fallbackInt(input.ServicePort, 80),
+		TLSMode:            tlsMode,
+		CertificateStatus:  certStatus,
+		CNAMEName:          host,
+		CNAMETarget:        h.gatewayCNAMETarget(project),
+		DNSStatus:          fallback(strings.TrimSpace(input.DNSStatus), "pending"),
+		Status:             fallback(strings.TrimSpace(input.Status), "pending"),
+		IsDefault:          input.IsDefault,
+		CreatedBy:          userID,
 	}, true
+}
+
+func (h *Handlers) gatewayRouteTargetContext(ctx *gin.Context, projectID string, input gatewayRouteInput) (model.DeploymentTarget, model.Application, model.Environment, bool) {
+	var target model.DeploymentTarget
+	if err := h.db.First(&target, "id = ? and project_id = ? and enabled = ?", strings.TrimSpace(input.DeploymentTargetID), projectID, true).Error; err != nil {
+		writeError(ctx, http.StatusBadRequest, "部署配置不存在或不属于当前项目空间")
+		return model.DeploymentTarget{}, model.Application{}, model.Environment{}, false
+	}
+	if applicationID := strings.TrimSpace(input.ApplicationID); applicationID != "" && applicationID != target.ApplicationID {
+		writeError(ctx, http.StatusBadRequest, "部署配置不属于当前应用")
+		return model.DeploymentTarget{}, model.Application{}, model.Environment{}, false
+	}
+	var application model.Application
+	if err := h.db.First(&application, "id = ? and project_id = ?", target.ApplicationID, projectID).Error; err != nil {
+		writeError(ctx, http.StatusBadRequest, "应用不存在或不属于当前项目空间")
+		return model.DeploymentTarget{}, model.Application{}, model.Environment{}, false
+	}
+	if !applicationCanMutate(application) {
+		writeErrorCode(ctx, http.StatusConflict, "application.delete_in_progress", "应用正在删除中，不能维护访问入口")
+		return model.DeploymentTarget{}, model.Application{}, model.Environment{}, false
+	}
+	var environment model.Environment
+	if err := h.db.First(&environment, "id = ? and project_id = ?", target.EnvironmentID, projectID).Error; err != nil {
+		writeError(ctx, http.StatusBadRequest, "环境不存在或不属于当前项目空间")
+		return model.DeploymentTarget{}, model.Application{}, model.Environment{}, false
+	}
+	return target, application, environment, true
 }
 
 func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationSlug string) string {
@@ -285,16 +318,15 @@ func normalizeTLSMode(value string) string {
 }
 
 type gatewayRouteInput struct {
-	ApplicationID     string `json:"applicationId" binding:"required"`
-	ApplicationSlug   string `json:"applicationSlug"`
-	EnvironmentID     string `json:"environmentId"`
-	Stage             string `json:"stage"`
-	Host              string `json:"host"`
-	Path              string `json:"path"`
-	ServicePort       int    `json:"servicePort"`
-	TLSMode           string `json:"tlsMode"`
-	CertificateStatus string `json:"certificateStatus"`
-	DNSStatus         string `json:"dnsStatus"`
-	Status            string `json:"status"`
-	IsDefault         bool   `json:"isDefault"`
+	ApplicationID      string `json:"applicationId" binding:"required"`
+	EnvironmentID      string `json:"environmentId"`
+	DeploymentTargetID string `json:"deploymentTargetId" binding:"required"`
+	Host               string `json:"host"`
+	Path               string `json:"path"`
+	ServicePort        int    `json:"servicePort"`
+	TLSMode            string `json:"tlsMode"`
+	CertificateStatus  string `json:"certificateStatus"`
+	DNSStatus          string `json:"dnsStatus"`
+	Status             string `json:"status"`
+	IsDefault          bool   `json:"isDefault"`
 }

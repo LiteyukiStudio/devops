@@ -18,6 +18,7 @@ import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
 import { PageHeader } from '@/components/common/page-header'
+import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -27,6 +28,7 @@ const schema = z.object({
   name: z.string().min(1, i18next.t('apps.nameRequired')),
   slug: z.string().min(1, i18next.t('apps.slugRequired')).max(APPLICATION_SLUG_MAX_LENGTH, i18next.t('apps.slugMaxLength', { count: APPLICATION_SLUG_MAX_LENGTH })).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
   icon: z.string().default('box'),
+  servicePort: z.coerce.number().int().min(1, i18next.t('apps.servicePortRequired')).max(65535, i18next.t('apps.servicePortMax')),
 })
 
 type ApplicationFormInput = z.input<typeof schema>
@@ -62,6 +64,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
       name: '',
       slug: '',
       icon: 'box',
+      servicePort: 8080,
     },
   })
 
@@ -70,6 +73,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
       name: application?.name ?? '',
       slug: application?.slug ?? '',
       icon: application?.icon ?? 'box',
+      servicePort: application?.servicePort ?? 8080,
     })
   }
 
@@ -88,7 +92,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
           name: payload.name,
           slug: payload.slug,
           icon: payload.icon,
-          servicePort: 8080,
+          servicePort: payload.servicePort,
         }
         return api.createApplication(projectId, appPayload)
       })(),
@@ -111,7 +115,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
           name: payload.name,
           slug: payload.slug,
           icon: payload.icon,
-          servicePort: editingApplication.servicePort,
+          servicePort: payload.servicePort,
         }
         return api.updateApplication(projectId, editingApplication.id, appPayload)
       })(),
@@ -128,7 +132,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
   const deleteApplication = useMutation({
     mutationFn: (applicationId: string) => api.deleteApplication(projectId, applicationId),
     onSuccess: () => {
-      toast.success(t('apps.deleted'))
+      toast.success(t('apps.deleteQueued'))
       queryClient.invalidateQueries({ queryKey: ['applications', projectId] })
       queryClient.invalidateQueries({ queryKey: ['repository-bindings', projectId] })
     },
@@ -166,38 +170,43 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
             key: 'actions',
             header: t('common.actions'),
             className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
-            render: application => (
-              <div className="flex justify-end gap-2">
-                <Link
-                  aria-label={t('apps.openDetailAria')}
-                  className={buttonVariants({ size: 'sm', variant: 'secondary' })}
-                  to={`/projects/${projectId}/apps/${application.id}`}
-                >
-                  <LayoutDashboard size={16} />
-                  {t('apps.openDetail')}
-                </Link>
-                <EditActionButton
-                  aria-label={t('apps.editAria')}
-                  label={t('edit')}
-                  onClick={() => {
-                    setEditingApplication(application)
-                    resetApplicationForm(application)
-                    setDialogOpen(true)
-                  }}
-                />
-                <ConfirmDialog
-                  confirmText={t('apps.deleteConfirm')}
-                  description={t('apps.deleteDescription', { name: application.name })}
-                  pending={deleteApplication.isPending}
-                  title={t('apps.deleteTitle')}
-                  onConfirm={() => deleteApplication.mutate(application.id)}
-                >
-                  <Button aria-label={t('apps.deleteAria')} variant="ghost">
-                    <Trash2 size={16} />
-                  </Button>
-                </ConfirmDialog>
-              </div>
-            ),
+            render: (application) => {
+              const deleting = application.deleteStatus === 'deleting'
+              return (
+                <div className="flex justify-end gap-2">
+                  <Link
+                    aria-label={t('apps.openDetailAria')}
+                    aria-disabled={deleting}
+                    className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, size: 'sm', variant: 'ghost' })}
+                    to={`/projects/${projectId}/apps/${application.id}`}
+                  >
+                    <LayoutDashboard size={16} />
+                    {t('apps.openDetail')}
+                  </Link>
+                  <EditActionButton
+                    aria-label={t('apps.editAria')}
+                    label={t('edit')}
+                    disabled={deleting}
+                    onClick={() => {
+                      setEditingApplication(application)
+                      resetApplicationForm(application)
+                      setDialogOpen(true)
+                    }}
+                  />
+                  <ConfirmDialog
+                    confirmText={t('apps.deleteConfirm')}
+                    description={t('apps.deleteDescription', { name: application.name })}
+                    pending={deleteApplication.isPending || deleting}
+                    title={t('apps.deleteTitle')}
+                    onConfirm={() => deleteApplication.mutate(application.id)}
+                  >
+                    <Button aria-label={t('apps.deleteAria')} disabled={deleting} variant="ghost">
+                      <Trash2 size={16} />
+                    </Button>
+                  </ConfirmDialog>
+                </div>
+              )
+            },
           },
         ]}
         emptyDescription={t('apps.emptyDescription')}
@@ -235,6 +244,8 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
               icon={form.watch('icon')}
               nameError={form.formState.errors.name?.message}
               nameField={form.register('name')}
+              servicePortError={form.formState.errors.servicePort?.message}
+              servicePortField={form.register('servicePort', { valueAsNumber: true })}
               slugError={form.formState.errors.slug?.message}
               slugField={form.register('slug')}
               slugMaxLength={APPLICATION_SLUG_MAX_LENGTH}
@@ -257,6 +268,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
 }
 
 function ApplicationSummary({ application, projectId }: { application: Application, projectId: string }) {
+  const deleting = application.deleteStatus === 'deleting'
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -264,11 +276,16 @@ function ApplicationSummary({ application, projectId }: { application: Applicati
       </span>
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <Link className="truncate font-medium transition hover:text-primary" to={`/projects/${projectId}/apps/${application.id}`}>
+          <Link className={`truncate font-medium transition hover:text-primary ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${projectId}/apps/${application.id}`}>
             {application.name}
           </Link>
+          {application.deleteStatus && application.deleteStatus !== 'active' && (
+            <StatusValueBadge labelKeyPrefix="apps.deleteStatuses" value={application.deleteStatus} />
+          )}
         </div>
-        <p className="truncate text-sm text-muted-foreground">{application.slug}</p>
+        <p className="truncate text-sm text-muted-foreground">
+          {application.deleteStatus === 'delete_failed' && application.deleteMessage ? application.deleteMessage : application.slug}
+        </p>
       </div>
     </div>
   )

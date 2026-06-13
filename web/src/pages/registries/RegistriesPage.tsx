@@ -465,7 +465,7 @@ export function RegistriesPage() {
                 render: registry => (
                   <div className="flex justify-end gap-2">
                     <EditActionButton type="button" label={t('edit')} onClick={() => beginEdit(registry)} />
-                    <Button disabled={testRegistry.isPending} type="button" variant="secondary" onClick={() => testRegistry.mutate(registry.id)}>
+                    <Button disabled={testRegistry.isPending} type="button" variant="ghost" onClick={() => testRegistry.mutate(registry.id)}>
                       <RefreshCw size={16} />
                       {t('registriesPage.test')}
                     </Button>
@@ -657,7 +657,7 @@ export function RegistriesPage() {
             <DialogDescription>{t('registriesPage.description')}</DialogDescription>
           </DialogHeader>
           <form className="grid gap-3" onSubmit={registryForm.handleSubmit(values => saveRegistry.mutate(values))}>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={registryForm.formState.errors.name?.message} hint={t('registriesPage.registryNameHint')} label={t('registriesPage.name')} required>
                 <Input {...registryForm.register('name')} aria-invalid={Boolean(registryForm.formState.errors.name)} placeholder={t('registriesPage.registryNamePlaceholder')} />
               </Field>
@@ -738,7 +738,7 @@ export function RegistriesPage() {
                 ))}
               </Select>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={credentialForm.formState.errors.name?.message} hint={t('registriesPage.credentialNameHint')} label={t('registriesPage.name')} required>
                 <Input {...credentialForm.register('name')} aria-invalid={Boolean(credentialForm.formState.errors.name)} />
               </Field>
@@ -759,7 +759,7 @@ export function RegistriesPage() {
             <Field error={credentialForm.formState.errors.username?.message} hint={t('registriesPage.usernameHint')} label={t('registriesPage.username')}>
               <Input {...credentialForm.register('username')} aria-invalid={Boolean(credentialForm.formState.errors.username)} />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={credentialForm.formState.errors.password?.message} hint={t('registriesPage.passwordHint')} label={t('registriesPage.password')}>
                 <Input {...credentialForm.register('password')} aria-invalid={Boolean(credentialForm.formState.errors.password)} type="password" />
               </Field>
@@ -861,7 +861,7 @@ export function RegistriesPage() {
                 )}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field error={imageForm.formState.errors.tag?.message} hint={t('registriesPage.tagHint')} label={t('registriesPage.tag')}>
                 <Input
                   {...imageForm.register('tag')}

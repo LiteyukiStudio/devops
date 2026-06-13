@@ -18,7 +18,7 @@ func Open(databaseURL string) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
-	if err := cleanupLegacySchema(db); err != nil {
+	if err := cleanupApplicationDeliveryColumns(db); err != nil {
 		return err
 	}
 	return db.AutoMigrate(
@@ -46,8 +46,7 @@ func Migrate(db *gorm.DB) error {
 		&model.RegistryCredential{},
 		&model.ContainerImage{},
 		&model.BuildProvider{},
-		&model.ApplicationModule{},
-		&model.ApplicationModuleHookBinding{},
+		&model.DeploymentTargetHookBinding{},
 		&model.BuildVariableSet{},
 		&model.BuildRun{},
 		&model.BuildJob{},
@@ -57,15 +56,26 @@ func Migrate(db *gorm.DB) error {
 		&model.Environment{},
 		&model.Release{},
 		&model.ReleaseLog{},
+		&model.ProjectRuntimeConfigSet{},
 		&model.DeploymentTarget{},
 		&model.GatewayRoute{},
 		&model.AppConfig{},
 	)
 }
 
-func cleanupLegacySchema(db *gorm.DB) error {
-	if err := db.Exec("ALTER TABLE deployment_targets DROP COLUMN IF EXISTS build_config_id").Error; err != nil {
-		return fmt.Errorf("drop legacy deployment_targets.build_config_id: %w", err)
+func cleanupApplicationDeliveryColumns(db *gorm.DB) error {
+	statements := []string{
+		"DROP INDEX IF EXISTS idx_applications_git_account",
+		"ALTER TABLE IF EXISTS applications DROP COLUMN IF EXISTS source_type",
+		"ALTER TABLE IF EXISTS applications DROP COLUMN IF EXISTS repository_url",
+		"ALTER TABLE IF EXISTS applications DROP COLUMN IF EXISTS image_reference",
+		"ALTER TABLE IF EXISTS applications DROP COLUMN IF EXISTS git_account_id",
+		"ALTER TABLE IF EXISTS deployment_targets DROP COLUMN IF EXISTS build_config_id",
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return fmt.Errorf("cleanup application delivery columns: %w", err)
+		}
 	}
 	return nil
 }

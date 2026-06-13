@@ -433,8 +433,9 @@ func writeTempKubeconfigFile(t *testing.T, name string, content string) string {
 }
 
 type fakeBuildTaskEnqueuer struct {
-	deployPayload  tasks.DeployRunPayload
-	gatewayPayload tasks.GatewayApplyPayload
+	deployPayload            tasks.DeployRunPayload
+	gatewayPayload           tasks.GatewayApplyPayload
+	applicationDeletePayload tasks.ApplicationDeletePayload
 }
 
 func (f *fakeBuildTaskEnqueuer) EnqueueDeployRun(_ context.Context, payload tasks.DeployRunPayload) (*asynq.TaskInfo, error) {
@@ -444,6 +445,11 @@ func (f *fakeBuildTaskEnqueuer) EnqueueDeployRun(_ context.Context, payload task
 
 func (f *fakeBuildTaskEnqueuer) EnqueueGatewayApply(_ context.Context, payload tasks.GatewayApplyPayload) (*asynq.TaskInfo, error) {
 	f.gatewayPayload = payload
+	return &asynq.TaskInfo{}, nil
+}
+
+func (f *fakeBuildTaskEnqueuer) EnqueueApplicationDelete(_ context.Context, payload tasks.ApplicationDeletePayload) (*asynq.TaskInfo, error) {
+	f.applicationDeletePayload = payload
 	return &asynq.TaskInfo{}, nil
 }
 
@@ -519,6 +525,16 @@ func TestGitUpstreamErrorStatusAndCodeMapsWebhookLocalhost(t *testing.T) {
 		t.Fatalf("status = %d, want %d", status, http.StatusBadRequest)
 	}
 	if code != "git.webhook_callback_unreachable" {
+		t.Fatalf("code = %q", code)
+	}
+}
+
+func TestGitUpstreamErrorStatusAndCodeMapsNetworkFailure(t *testing.T) {
+	status, code := gitUpstreamErrorStatusAndCode(errors.New("dial tcp: lookup github.com: no such host"))
+	if status != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d", status, http.StatusBadGateway)
+	}
+	if code != "git.network_failed" {
 		t.Fatalf("code = %q", code)
 	}
 }

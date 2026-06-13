@@ -5,12 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
 	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -222,6 +224,9 @@ func writeGitUpstreamError(ctx *gin.Context, err error) {
 func gitUpstreamErrorStatusAndCode(err error) (int, string) {
 	upstreamErr, ok := gitprovider.AsUpstreamError(err)
 	if !ok {
+		if isGitNetworkError(err) {
+			return http.StatusBadGateway, "git.network_failed"
+		}
 		return http.StatusBadGateway, "git.upstream_failed"
 	}
 	if isWebhookCallbackUnreachable(upstreamErr) {
@@ -246,6 +251,26 @@ func gitUpstreamErrorStatusAndCode(err error) (int, string) {
 	default:
 		return http.StatusBadGateway, "git.upstream_failed"
 	}
+}
+
+func isGitNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such host") ||
+		strings.Contains(message, "i/o timeout") ||
+		strings.Contains(message, "connection refused") ||
+		strings.Contains(message, "network is unreachable") ||
+		strings.Contains(message, "context deadline exceeded")
 }
 
 func isWebhookCallbackUnreachable(err *gitprovider.UpstreamError) bool {

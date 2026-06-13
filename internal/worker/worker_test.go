@@ -267,6 +267,14 @@ func (fakeNamespaceManager) GetCertificateSnapshot(context.Context, string, stri
 	return kubeprovider.CertificateSnapshot{}, nil
 }
 
+func (fakeNamespaceManager) ListManagedResources(context.Context, kubeprovider.ResourceListOptions) ([]kubeprovider.ResourceSnapshot, error) {
+	return nil, nil
+}
+
+func (fakeNamespaceManager) DeleteManagedResource(context.Context, string, string, string) error {
+	return nil
+}
+
 func TestParseKeyValueMapSupportsEnvLines(t *testing.T) {
 	got, err := parseKeyValueMap("APP_ENV=prod\n# comment\nLOG_LEVEL=info")
 	if err != nil {
@@ -284,6 +292,7 @@ func TestApplicationResourcesSpecAppliesDefaults(t *testing.T) {
 		model.Application{ID: "app_api", Slug: "api"},
 		model.Environment{ID: "env_dev", Slug: "dev", EnvVars: `{"APP_ENV":"dev"}`, ConfigRefs: "LOG_LEVEL=debug", SecretRefs: "TOKEN=secret"},
 		model.DeploymentTarget{ID: "dplt_backend"},
+		nil,
 		"ns-demo",
 		120,
 	)
@@ -295,6 +304,32 @@ func TestApplicationResourcesSpecAppliesDefaults(t *testing.T) {
 	}
 	if spec.ConfigData["APP_ENV"] != "dev" || spec.ConfigData["LOG_LEVEL"] != "debug" || spec.SecretData["TOKEN"] != "secret" {
 		t.Fatalf("spec data = config:%#v secret:%#v", spec.ConfigData, spec.SecretData)
+	}
+}
+
+func TestApplicationResourcesSpecMergesRuntimeConfigFiles(t *testing.T) {
+	spec, err := applicationResourcesSpec(
+		model.Release{ImageRef: "registry.example.com/acme/api:v1"},
+		model.Project{ID: "prj_demo"},
+		model.Application{ID: "app_api"},
+		model.Environment{ID: "env_dev"},
+		model.DeploymentTarget{ID: "dplt_backend", ConfigFiles: `[{"path":"/app/config.yaml","content":"port: 3000"}]`},
+		[]model.ProjectRuntimeConfigSet{{ConfigFiles: `[{"path":"/app/config.yaml","content":"port: 8080"},{"path":"/app/base.yaml","content":"enabled: true"}]`}},
+		"ns-demo",
+		120,
+	)
+	if err != nil {
+		t.Fatalf("applicationResourcesSpec returned error: %v", err)
+	}
+	if len(spec.ConfigFiles) != 2 {
+		t.Fatalf("config files = %#v", spec.ConfigFiles)
+	}
+	filesByPath := map[string]string{}
+	for _, file := range spec.ConfigFiles {
+		filesByPath[file.Path] = file.Content
+	}
+	if filesByPath["/app/config.yaml"] != "port: 3000" || filesByPath["/app/base.yaml"] != "enabled: true" {
+		t.Fatalf("config files = %#v", spec.ConfigFiles)
 	}
 }
 

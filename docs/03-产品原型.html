@@ -382,7 +382,7 @@
       <a href="#page-overview">01 总览与导航</a>
       <a href="#page-projects">02 项目与成员</a>
       <a href="#page-create-app">03 创建应用向导</a>
-      <a href="#page-repository">04 仓库绑定</a>
+      <a href="#page-repository">04 仓库</a>
       <a href="#page-build">05 应用构建 tab</a>
       <a href="#page-registry">06 镜像站配置</a>
       <a href="#page-deploy">07 应用部署 tab</a>
@@ -451,32 +451,33 @@
 
       <section class="page-section" id="page-create-app">
         <h2>03 创建应用向导</h2>
-        <p>第一步选择应用来源：代码仓库或已有镜像。镜像应用不需要仓库和构建页面。</p>
+        <p>创建应用只维护名称、标识和图标。应用是最小交付单元；仓库、Dockerfile、构建产物、调度、钩子、部署环境和访问入口进入应用详情的部署配置维护。</p>
         <div class="wireframe">
-          <div class="wire-top"><span>创建应用截图</span><span>Step 1 / 4</span></div>
+          <div class="wire-top"><span>应用详情与部署配置</span><span>ContentTabs</span></div>
           <div class="wire-body">
             <div class="flow">
-              <div class="card"><strong>来源</strong><span>代码仓库 / 已有镜像</span></div>
-              <div class="card"><strong>基础信息</strong><span>名称、slug、项目</span></div>
-              <div class="card"><strong>构建或镜像</strong><span>Dockerfile 或 image:tag</span></div>
-              <div class="card"><strong>服务</strong><span>端口、健康检查</span></div>
-              <div class="card"><strong>网关</strong><span>默认域名或自定义域名</span></div>
+              <div class="card"><strong>应用基础信息</strong><span>名称、slug、图标</span></div>
+              <div class="card"><strong>部署配置</strong><span>来源、构建、触发、配置</span></div>
+              <div class="card"><strong>构建记录</strong><span>BuildRun 直接绑定部署配置</span></div>
+              <div class="card"><strong>发布记录</strong><span>Release 直接绑定部署配置</span></div>
+              <div class="card"><strong>访问入口</strong><span>应用访问 tab 统一维护</span></div>
             </div>
             <div class="form-grid" style="margin-top:12px">
-              <div class="field"><strong>代码仓库应用</strong><span>webhook -> BuildRun -> Builder -> image</span></div>
-              <div class="field"><strong>已有镜像应用</strong><span>选择镜像站或填写完整镜像地址，校验失败也允许保存。</span></div>
-              <div class="field"><strong>目标镜像模板变量</strong><span>应用配置页宽屏在表单右侧展示变量、含义和示例；窄屏自动落到表单下方。</span></div>
-              <div class="field"><strong>Webhook 配置</strong><span>在应用配置表单内展示状态、回调地址、最近事件，并提供重新配置入口。</span></div>
+              <div class="field"><strong>部署配置弹窗</strong><span>选择 repository 或 image 来源；源码构建维护仓库、Dockerfile、构建上下文和目标镜像。</span></div>
+              <div class="field"><strong>镜像直部署</strong><span>image 来源不进入 Builder，直接使用镜像引用创建 Release。</span></div>
+              <div class="field"><strong>详情页标题</strong><span>项目、应用标题按“项目 / 应用”展示，点击名称进入对应资源面板。</span></div>
+              <div class="field"><strong>目标镜像模板变量</strong><span>构建页保留变量说明入口，目标镜像在部署配置维护。</span></div>
+              <div class="field"><strong>构建/部署钩子</strong><span>钩子名称作为主信息展示，策略、Shell 和超时放在次行，避免名称被过早截断。</span></div>
             </div>
           </div>
         </div>
       </section>
 
       <section class="page-section" id="page-repository">
-        <h2>04 仓库绑定</h2>
-        <p>跳转授权代码账户，支持多 Git 账户。绑定保存时默认由平台自动创建 webhook，失败不阻塞保存，并用 webhook secret 校验事件。</p>
+        <h2>04 仓库</h2>
+        <p>跳转授权代码账户，支持多 Git 账户。仓库保存时默认由平台自动创建 webhook，失败不阻塞保存，并用 webhook secret 校验事件。</p>
         <div class="wireframe">
-          <div class="wire-top"><span>仓库绑定截图</span><span>Gitea / GitHub</span></div>
+          <div class="wire-top"><span>仓库截图</span><span>Gitea / GitHub</span></div>
           <div class="wire-body">
             <div class="form-grid">
               <div class="field"><strong>Git Provider</strong><span>Gitea / GitHub / 后续 GitLab</span></div>
@@ -511,7 +512,7 @@ digest sha256:...</div>
 
       <section class="page-section" id="page-registry">
         <h2>06 镜像站配置</h2>
-        <p>支持全局、项目、用户三个范围。模块配置中选择推送目标，部署时选择拉取来源。</p>
+        <p>支持全局、项目、用户三个范围。部署配置中选择推送目标，部署时选择拉取来源。</p>
         <div class="wireframe">
           <div class="wire-top"><span>镜像站截图</span><span>Harbor / Gitea Registry / DockerHub</span></div>
           <div class="wire-body rows">
@@ -542,12 +543,13 @@ digest sha256:...</div>
 
       <section class="page-section" id="page-gateway">
         <h2>08 应用访问 tab</h2>
-        <p>访问入口位于应用详情页。默认域名扁平化，自定义域名通过 CNAME 验证。HTTPS 使用 HTTP Challenge，用户也可以选择 HTTP-only。</p>
+        <p>访问入口位于应用详情页。创建域名时直接选择部署配置，平台由部署配置推导应用、环境和目标 Service；默认域名扁平化，自定义域名通过 CNAME 验证。</p>
         <div class="wireframe">
           <div class="wire-top"><span>网关域名截图</span><span>Ingress / Traefik</span></div>
           <div class="wire-body">
             <div class="form-grid">
               <div class="field"><strong>默认域名</strong><span>demo-api-liteyuki.dev.example.com</span></div>
+              <div class="field"><strong>目标部署</strong><span>选择 DeploymentTarget，不再单独选择环境或阶段</span></div>
               <div class="field"><strong>自定义域名</strong><span>api.example.org -> CNAME gateway.example.com</span></div>
               <div class="field"><strong>证书</strong><span>HTTP Challenge / pending_dns / active</span></div>
               <div class="field"><strong>访问模式</strong><span>HTTPS 或 HTTP-only</span></div>
@@ -558,13 +560,14 @@ digest sha256:...</div>
 
       <section class="page-section" id="page-secrets">
         <h2>09 配置与密钥</h2>
-        <p>Secret 按作用域管理，不回显明文。Kubernetes Secret 是 application + environment 级。</p>
+        <p>运行配置入口挂靠到项目空间和应用部署配置。项目空间维护可复用运行配置集，DeploymentTarget 选择公共配置并提供本应用覆盖项；密钥和密钥文件不回显明文。</p>
         <div class="wireframe">
-          <div class="wire-top"><span>配置密钥截图</span><span>demo-api / dev</span></div>
+          <div class="wire-top"><span>部署配置弹窗 · 运行配置</span><span>应用 / 环境</span></div>
           <div class="wire-body rows">
-            <div class="row"><strong>LOG_LEVEL</strong><span>普通环境变量，可展示</span><span class="badge">env</span></div>
+            <div class="row"><strong>LOG_LEVEL</strong><span>普通配置，可展示，写入 ConfigMap</span><span class="badge">config</span></div>
             <div class="row"><strong>DATABASE_URL</strong><span>Secret，不回显，修改后提示重新发布</span><span class="badge warn">secret</span></div>
-            <div class="row"><strong>REGISTRY_PASSWORD</strong><span>registry credential 引用</span><span class="badge">ref</span></div>
+            <div class="row"><strong>/app/config.yaml</strong><span>配置文件，按“文件路径 + 代码内容框”维护，支持添加多个文件；同一配置内路径不可重复</span><span class="badge">file</span></div>
+            <div class="row"><strong>FEATURE_FLAG</strong><span>部署配置覆盖环境默认值，同名键以部署配置为准</span><span class="badge">override</span></div>
           </div>
         </div>
       </section>

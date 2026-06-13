@@ -11,17 +11,18 @@ import (
 )
 
 type GatewayIngressSpec struct {
-	Name          string
-	Namespace     string
-	ProjectID     string
-	ApplicationID string
-	EnvironmentID string
-	RouteID       string
-	Host          string
-	Path          string
-	ServiceName   string
-	ServicePort   int32
-	TLSSecretName string
+	Name               string
+	Namespace          string
+	ProjectID          string
+	ApplicationID      string
+	EnvironmentID      string
+	DeploymentTargetID string
+	RouteID            string
+	Host               string
+	Path               string
+	ServiceName        string
+	ServicePort        int32
+	TLSSecretName      string
 }
 
 func (c *Client) ApplyGatewayIngress(ctx context.Context, spec GatewayIngressSpec) error {
@@ -72,8 +73,8 @@ func gatewayLabels(spec GatewayIngressSpec) map[string]string {
 	setLabel(labels, ProjectIDLabel, spec.ProjectID)
 	setLabel(labels, ApplicationIDLabel, spec.ApplicationID)
 	setLabel(labels, EnvironmentIDLabel, spec.EnvironmentID)
+	setLabel(labels, DeploymentTargetIDLabel, spec.DeploymentTargetID)
 	setLabel(labels, GatewayRouteIDLabel, spec.RouteID)
-	setLabel(labels, legacyGatewayRouteIDLabel, spec.RouteID)
 	return labels
 }
 

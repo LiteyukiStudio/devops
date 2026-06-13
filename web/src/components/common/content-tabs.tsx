@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs } from '@/components/ui/tabs'
 import { SegmentedTabsList } from './segmented-control'
 
@@ -97,12 +98,30 @@ export function ContentTabs({
     onValueChange(nextValue)
   }, [onValueChange, valueToRoute, writeHashRoute])
 
+  const effectiveValue = valueToRoute.has(value) ? value : tabs[0]?.value ?? value
+
   return (
-    <Tabs value={value} onValueChange={handleValueChange}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SegmentedTabsList items={tabs} layoutId="content-tabs-active" value={value} />
+    <Tabs value={effectiveValue} onValueChange={handleValueChange}>
+      <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0 md:hidden">
+          <Select value={effectiveValue} onValueChange={handleValueChange}>
+            <SelectTrigger className="h-12 w-full min-w-0 justify-between bg-muted px-4 text-base shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)]" position="popper">
+              {tabs.map(tab => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="-mx-1 hidden min-w-0 overflow-x-auto px-1 pb-1 md:block">
+          <SegmentedTabsList items={tabs} layoutId="content-tabs-active" value={effectiveValue} />
+        </div>
         {tools && (
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">
             {tools}
           </div>
         )}

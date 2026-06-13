@@ -31,6 +31,7 @@ type Handlers struct {
 type taskEnqueuer interface {
 	EnqueueDeployRun(ctx context.Context, payload tasks.DeployRunPayload) (*asynq.TaskInfo, error)
 	EnqueueGatewayApply(ctx context.Context, payload tasks.GatewayApplyPayload) (*asynq.TaskInfo, error)
+	EnqueueApplicationDelete(ctx context.Context, payload tasks.ApplicationDeletePayload) (*asynq.TaskInfo, error)
 }
 
 func NewHandlers(db *gorm.DB) *Handlers {

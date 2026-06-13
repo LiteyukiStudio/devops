@@ -31,17 +31,6 @@ clone_with_retry() {
   done
 }
 
-clone_with_retry
-cd source
-
-if [ -n "${SOURCE_TAG:-}" ]; then git checkout "$SOURCE_TAG"; fi
-if [ -n "${SOURCE_BRANCH:-}" ]; then git checkout "$SOURCE_BRANCH"; fi
-if [ -n "${SOURCE_COMMIT:-}" ]; then git checkout "$SOURCE_COMMIT"; fi
-
-CHECKED_OUT_COMMIT="$(git rev-parse HEAD)"
-SOURCE_AUTHOR_NAME="$(git log -1 --format=%an)"
-SOURCE_AUTHOR_EMAIL="$(git log -1 --format=%ae)"
-
 short_commit() {
   value="$1"
   printf "%s" "$(printf "%.12s" "$value")"
@@ -142,6 +131,22 @@ export_liteyuki_build_context() {
   export LITEYUKI_GIT_SHORT_SHA="$(short_commit "$LITEYUKI_GIT_SHA")"
   export LITEYUKI_IMAGE_REF="${IMAGE_REF:-}"
 }
+
+export_liteyuki_build_context
+run_hooks "prePull" "${PRE_PULL_HOOK_IDS:-}"
+
+clone_with_retry
+cd source
+
+if [ -n "${SOURCE_TAG:-}" ]; then git checkout "$SOURCE_TAG"; fi
+if [ -n "${SOURCE_BRANCH:-}" ]; then git checkout "$SOURCE_BRANCH"; fi
+if [ -n "${SOURCE_COMMIT:-}" ]; then git checkout "$SOURCE_COMMIT"; fi
+
+CHECKED_OUT_COMMIT="$(git rev-parse HEAD)"
+SOURCE_AUTHOR_NAME="$(git log -1 --format=%an)"
+SOURCE_AUTHOR_EMAIL="$(git log -1 --format=%ae)"
+export_liteyuki_build_context
+run_hooks "postPull" "${POST_PULL_HOOK_IDS:-}"
 
 sanitize_tag() {
   printf "%s" "$1" \
@@ -247,9 +252,11 @@ build_with_retry() {
   done
 }
 
+run_hooks "prePush" "${PRE_PUSH_HOOK_IDS:-}"
 build_with_retry "$@"
 
 export_liteyuki_build_context
+run_hooks "postPush" "${POST_PUSH_HOOK_IDS:-}"
 run_hooks "postBuild" "${POST_BUILD_HOOK_IDS:-}"
 
 printf '{"imageRef":"%s","sourceCommit":"%s","sourceAuthorName":"%s","sourceAuthorEmail":"%s","message":"builder task succeeded"}' "$(json_escape "$IMAGE_REF")" "$(json_escape "$CHECKED_OUT_COMMIT")" "$(json_escape "$SOURCE_AUTHOR_NAME")" "$(json_escape "$SOURCE_AUTHOR_EMAIL")" > /workspace/result.json

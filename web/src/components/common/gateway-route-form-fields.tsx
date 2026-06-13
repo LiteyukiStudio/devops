@@ -7,24 +7,22 @@ import { NativeSelect as Select } from '@/components/ui/native-select'
 export function GatewayRouteFormFields({
   applicationIdField,
   applications = [],
-  environmentIdField,
-  environments,
+  deploymentTargetIdField,
+  deploymentTargets,
   hostField,
   pathField,
   servicePortField,
   showApplication = false,
-  stageField,
   tlsModeField,
 }: {
   applicationIdField?: UseFormRegisterReturn<'applicationId'>
   applications?: Array<{ id: string, name: string }>
-  environmentIdField: UseFormRegisterReturn<'environmentId'>
-  environments: Array<{ id: string, name: string }>
+  deploymentTargetIdField: UseFormRegisterReturn<'deploymentTargetId'>
+  deploymentTargets: Array<{ id: string, label: string }>
   hostField: UseFormRegisterReturn<'host'>
   pathField: UseFormRegisterReturn<'path'>
   servicePortField: UseFormRegisterReturn<'servicePort'>
   showApplication?: boolean
-  stageField: UseFormRegisterReturn<'stage'>
   tlsModeField: UseFormRegisterReturn<'tlsMode'>
 }) {
   const { t } = useTranslation()
@@ -39,22 +37,14 @@ export function GatewayRouteFormFields({
           </Select>
         </Field>
       )}
-      <Field label={t('deploymentsPage.environment')}>
-        <Select {...environmentIdField}>
-          <option value="">{t('common.none')}</option>
-          {environments.map(environment => <option key={environment.id} value={environment.id}>{environment.name}</option>)}
+      <Field label={t('gatewayRoutesPage.deploymentTarget')} required>
+        <Select {...deploymentTargetIdField}>
+          <option value="">{t('common.select')}</option>
+          {deploymentTargets.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
         </Select>
       </Field>
-      <Field hint={t('gatewayRoutesPage.hostHint')} label={t('gatewayRoutesPage.host')} required={!showApplication}>
+      <Field hint={t('gatewayRoutesPage.hostHint')} label={t('gatewayRoutesPage.host')}>
         <Input {...hostField} />
-      </Field>
-      <Field label={t('deploymentsPage.stage')}>
-        <Select {...stageField}>
-          <option value="dev">{t('deploymentsPage.stageDev')}</option>
-          <option value="test">{t('deploymentsPage.stageTest')}</option>
-          <option value="staging">{t('deploymentsPage.stageStaging')}</option>
-          <option value="prod">{t('deploymentsPage.stageProd')}</option>
-        </Select>
       </Field>
       <Field label={t('gatewayRoutesPage.path')}>
         <Input {...pathField} />

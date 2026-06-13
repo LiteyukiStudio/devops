@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { EmptyState } from './empty-state'
 import { PaginationController } from './pagination'
 
@@ -9,6 +9,8 @@ export interface DataListColumn<T> {
   key: string
   header: ReactNode
   className?: string
+  headerClassName?: string
+  cellClassName?: string
   render: (item: T) => ReactNode
 }
 
@@ -30,6 +32,7 @@ interface DataListProps<T> {
     selectAllLabel: string
     selectRowLabel: (item: T) => string
     selectedLabel: string
+    isRowSelectable?: (item: T) => boolean
     bulkActions?: ReactNode
     onSelectionChange: (keys: string[]) => void
   }
@@ -64,9 +67,10 @@ export function DataList<T>({
 }: DataListProps<T>) {
   const selectedKeySet = new Set(selection?.selectedKeys ?? [])
   const rowKeys = items.map(rowKey)
+  const selectableRowKeys = selection ? items.filter(item => selection.isRowSelectable?.(item) ?? true).map(rowKey) : rowKeys
   const selectable = Boolean(selection)
-  const allRowsSelected = rowKeys.length > 0 && rowKeys.every(key => selectedKeySet.has(key))
-  const someRowsSelected = rowKeys.some(key => selectedKeySet.has(key))
+  const allRowsSelected = selectableRowKeys.length > 0 && selectableRowKeys.every(key => selectedKeySet.has(key))
+  const someRowsSelected = selectableRowKeys.some(key => selectedKeySet.has(key))
   const updateRowSelection = (key: string, selected: boolean) => {
     if (!selection)
       return
@@ -81,7 +85,7 @@ export function DataList<T>({
     if (!selection)
       return
     const next = new Set(selection.selectedKeys)
-    for (const key of rowKeys) {
+    for (const key of selectableRowKeys) {
       if (selected)
         next.add(key)
       else
@@ -91,19 +95,19 @@ export function DataList<T>({
   }
 
   return (
-    <Card className={`flex max-h-[calc(100vh-15rem)] min-h-0 flex-col overflow-hidden p-0 ${variant === 'plain' ? 'rounded-none border-0 bg-transparent shadow-none' : ''}`}>
+    <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden p-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none border-0 bg-transparent shadow-none')}>
       {(title || search || selection?.bulkActions) && (
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0">
             {title && <h2 className="text-base font-semibold">{title}</h2>}
             {selection && selection.selectedKeys.length > 0 && (
               <p className="mt-1 text-xs text-muted-foreground">{selection.selectedLabel}</p>
             )}
           </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             {search && (
               <Input
-                className="h-9 w-64 max-w-full"
+                className="h-9 w-full sm:w-64"
                 placeholder={search.placeholder}
                 value={search.value}
                 onChange={event => search.onChange(event.target.value)}
@@ -113,19 +117,20 @@ export function DataList<T>({
           </div>
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-auto">
         {items.length === 0
           ? <EmptyState description={emptyDescription} title={emptyTitle} variant="plain" />
           : (
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
-                  <TableRow>
+              <table className="w-full min-w-[56rem] table-auto caption-bottom text-sm" data-slot="data-list-table">
+                <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur [&_tr]:border-b">
+                  <tr className="border-b border-border transition-colors hover:bg-muted/40">
                     {selectable && (
-                      <TableHead className="w-10 px-4 py-3 align-middle">
+                      <th className="h-10 w-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground">
                         <input
                           aria-label={selection?.selectAllLabel}
                           checked={allRowsSelected}
                           className="size-4 accent-primary"
+                          disabled={selectableRowKeys.length === 0}
                           ref={(element) => {
                             if (element)
                               element.indeterminate = someRowsSelected && !allRowsSelected
@@ -133,38 +138,50 @@ export function DataList<T>({
                           type="checkbox"
                           onChange={event => updateAllRowsSelection(event.target.checked)}
                         />
-                      </TableHead>
+                      </th>
                     )}
                     {columns.map(column => (
-                      <TableHead key={column.key} className={column.className}>
+                      <th
+                        key={column.key}
+                        className={cn(
+                          'h-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground',
+                          column.className,
+                          column.headerClassName,
+                        )}
+                      >
                         {column.header}
-                      </TableHead>
+                      </th>
                     ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map(item => (
-                    <TableRow key={rowKey(item)}>
-                      {selectable && (
-                        <TableCell className="w-10 px-4 py-3 align-middle">
-                          <input
-                            aria-label={selection?.selectRowLabel(item)}
-                            checked={selectedKeySet.has(rowKey(item))}
-                            className="size-4 accent-primary"
-                            type="checkbox"
-                            onChange={event => updateRowSelection(rowKey(item), event.target.checked)}
-                          />
-                        </TableCell>
-                      )}
-                      {columns.map(column => (
-                        <TableCell key={column.key} className={column.className}>
-                          {column.render(item)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </tr>
+                </thead>
+                <tbody className="[&_tr:last-child]:border-0">
+                  {items.map((item) => {
+                    const itemKey = rowKey(item)
+                    const rowSelectable = selection?.isRowSelectable?.(item) ?? true
+                    return (
+                      <tr key={itemKey} className="border-b border-border transition-colors hover:bg-muted/40">
+                        {selectable && (
+                          <td className="w-10 px-4 py-3 align-middle">
+                            <input
+                              aria-label={selection?.selectRowLabel(item)}
+                              checked={selectedKeySet.has(itemKey)}
+                              className="size-4 accent-primary"
+                              disabled={!rowSelectable}
+                              type="checkbox"
+                              onChange={event => updateRowSelection(itemKey, event.target.checked)}
+                            />
+                          </td>
+                        )}
+                        {columns.map(column => (
+                          <td key={column.key} className={cn('px-4 py-3 align-middle', column.className, column.cellClassName)}>
+                            {column.render(item)}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             )}
       </div>
 

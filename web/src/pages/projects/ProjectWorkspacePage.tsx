@@ -5,8 +5,9 @@ import type { ProjectBuildVariableSetsPageHandle } from '@/pages/projects/Projec
 import type { ProjectEnvironmentsPageHandle } from '@/pages/projects/ProjectEnvironmentsPage'
 import type { ProjectHooksPageHandle } from '@/pages/projects/ProjectHooksPage'
 import type { ProjectMembersPageHandle } from '@/pages/projects/ProjectMembersPage'
+import type { ProjectRuntimeConfigSetsPageHandle } from '@/pages/projects/ProjectRuntimeConfigSetsPage'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Boxes, Globe2, KeyRound, Package, Plus, Rocket, ScrollText, UserPlus } from 'lucide-react'
+import { Activity, Boxes, FileCode2, Globe2, KeyRound, Package, Plus, Rocket, ScrollText, UserPlus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +25,7 @@ import { ProjectBuildVariableSetsPage } from '@/pages/projects/ProjectBuildVaria
 import { ProjectEnvironmentsPage } from '@/pages/projects/ProjectEnvironmentsPage'
 import { ProjectHooksPage } from '@/pages/projects/ProjectHooksPage'
 import { ProjectMembersPage } from '@/pages/projects/ProjectMembersPage'
+import { ProjectRuntimeConfigSetsPage } from '@/pages/projects/ProjectRuntimeConfigSetsPage'
 
 export function ProjectWorkspacePage() {
   const { t } = useTranslation()
@@ -34,9 +36,11 @@ export function ProjectWorkspacePage() {
   const environmentsPageRef = useRef<ProjectEnvironmentsPageHandle>(null)
   const hooksPageRef = useRef<ProjectHooksPageHandle>(null)
   const membersPageRef = useRef<ProjectMembersPageHandle>(null)
+  const runtimeConfigSetsPageRef = useRef<ProjectRuntimeConfigSetsPageHandle>(null)
   const project = useQuery({ queryKey: ['project', projectId], queryFn: () => api.getProject(projectId), enabled: Boolean(projectId) })
   const applications = useQuery({ queryKey: ['applications', projectId], queryFn: () => api.listApplications(projectId), enabled: Boolean(projectId) })
   const variableSets = useQuery({ queryKey: ['build-variable-sets', projectId], queryFn: () => api.listBuildVariableSets(projectId), enabled: Boolean(projectId) })
+  const runtimeConfigSets = useQuery({ queryKey: ['runtime-config-sets', projectId], queryFn: () => api.listProjectRuntimeConfigSets(projectId), enabled: Boolean(projectId) })
   const members = useQuery({ queryKey: ['project-members', projectId], queryFn: () => api.listProjectMembers(projectId), enabled: Boolean(projectId) })
   const recentBuilds = useQuery({ queryKey: ['project-overview-build-runs', projectId], queryFn: () => api.listBuildRunsPage(projectId, { page: 1, pageSize: 5, sortBy: 'createdAt', sortOrder: 'desc' }), enabled: Boolean(projectId) })
   const releases = useQuery({ queryKey: ['project-overview-releases', projectId], queryFn: () => api.listReleases(projectId), enabled: Boolean(projectId) })
@@ -54,6 +58,8 @@ export function ProjectWorkspacePage() {
         return <ProjectEnvironmentsPage ref={environmentsPageRef} projectId={projectId} />
       case 'build-variables':
         return <ProjectBuildVariableSetsPage ref={buildVariableSetsPageRef} projectId={projectId} />
+      case 'runtime-configs':
+        return <ProjectRuntimeConfigSetsPage ref={runtimeConfigSetsPageRef} projectId={projectId} />
       case 'hooks':
         return <ProjectHooksPage ref={hooksPageRef} projectId={projectId} />
       case 'members':
@@ -67,6 +73,7 @@ export function ProjectWorkspacePage() {
             project={currentProject}
             releases={releases.data ?? []}
             routes={routes.data ?? []}
+            runtimeConfigSetCount={runtimeConfigSets.data?.length ?? 0}
             variableSetCount={variableSets.data?.length ?? 0}
           />
         )
@@ -110,6 +117,15 @@ export function ProjectWorkspacePage() {
       )
     }
 
+    if (activeTab === 'runtime-configs') {
+      return (
+        <Button type="button" onClick={() => runtimeConfigSetsPageRef.current?.openCreateDialog()}>
+          <FileCode2 size={16} />
+          {t('runtimeConfigSets.createTitle')}
+        </Button>
+      )
+    }
+
     if (activeTab === 'hooks') {
       return (
         <Button type="button" onClick={() => hooksPageRef.current?.openCreateDialog()}>
@@ -130,6 +146,7 @@ export function ProjectWorkspacePage() {
           { value: 'apps', label: t('projectSpaces.apps') },
           { value: 'environments', label: t('deploymentsPage.environments') },
           { value: 'build-variables', label: t('buildsPage.variablesAndSecrets') },
+          { value: 'runtime-configs', label: t('runtimeConfigSets.tab') },
           { value: 'hooks', label: t('projectHooks.tab') },
           { value: 'members', label: t('projectSpaces.members') },
         ]}
@@ -152,13 +169,14 @@ export function ProjectWorkspacePage() {
   )
 }
 
-function ProjectOverviewDashboard({ applications, builds, members, project, releases, routes, variableSetCount }: {
+function ProjectOverviewDashboard({ applications, builds, members, project, releases, routes, runtimeConfigSetCount, variableSetCount }: {
   applications: Application[]
   builds: BuildRun[]
   members: ProjectMember[]
   project?: Project
   releases: Release[]
   routes: GatewayRoute[]
+  runtimeConfigSetCount: number
   variableSetCount: number
 }) {
   const { t } = useTranslation()
@@ -222,6 +240,7 @@ function ProjectOverviewDashboard({ applications, builds, members, project, rele
           <h3 className="text-sm font-semibold">{t('projectSpaces.projectOperations')}</h3>
           <div className="mt-3 grid gap-3">
             <ProjectOverviewItem label={t('buildsPage.variablesAndSecrets')} value={t('projectSpaces.variableSetCount', { count: variableSetCount })} />
+            <ProjectOverviewItem label={t('runtimeConfigSets.tab')} value={t('projectSpaces.runtimeConfigSetCount', { count: runtimeConfigSetCount })} />
             <ProjectOverviewItem label={t('projectSpaces.members')} value={t('projectSpaces.memberRoleMeta', { members: members.length, owners: ownerCount })} />
             <ProjectOverviewItem label={t('projectSpaces.latestRelease')} value={latestRelease ? formatSmartDateTime(latestRelease.createdAt, t) : t('projectSpaces.noRelease')} />
             <ProjectOverviewItem label={t('projectSpaces.accessHealth')} value={t('projectSpaces.readyRoutesMeta', { ready: readyRoutes, total: routes.length })} />

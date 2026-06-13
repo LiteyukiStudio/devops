@@ -69,11 +69,11 @@ export function SegmentedControl<Value extends string = string>({
 
 /**
  * ContentTabs 内部使用的分段式 tab 列表。
- * 用于 shadcn Tabs 语义下的二级页面切换；业务页通常直接使用 ContentTabs，而不是手动调用它。
+ * 用于 shadcn Tabs 语义下的页面或弹窗二级切换；完整页面优先使用 ContentTabs。
  */
 export function SegmentedTabsList({ items, layoutId, value }: SegmentedTabsListProps) {
   return (
-    <TabsList className={segmentedRootClassName(false)}>
+    <TabsList className="inline-flex w-max max-w-none flex-nowrap gap-1 rounded-full bg-muted p-1">
       {items.map((item) => {
         const active = value === item.value
         const Icon = item.icon

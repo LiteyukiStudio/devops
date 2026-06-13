@@ -25,7 +25,7 @@ type BuildRun struct {
 	ID                  string         `gorm:"primaryKey" json:"id"`
 	ProjectID           string         `gorm:"index;not null" json:"projectId"`
 	ApplicationID       string         `gorm:"index" json:"applicationId"`
-	ModuleID            string         `gorm:"index" json:"moduleId"`
+	DeploymentTargetID  string         `gorm:"index" json:"deploymentTargetId"`
 	BuildProviderID     string         `gorm:"index" json:"buildProviderId"`
 	BuildLabels         string         `json:"buildLabels"`
 	BuildVariableSetIDs string         `gorm:"type:text" json:"buildVariableSetIds"`
@@ -58,40 +58,13 @@ type BuildRun struct {
 	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-type ApplicationModule struct {
-	ID                  string                         `gorm:"primaryKey" json:"id"`
-	ProjectID           string                         `gorm:"index;not null" json:"projectId"`
-	ApplicationID       string                         `gorm:"index;not null" json:"applicationId"`
-	Name                string                         `gorm:"not null" json:"name"`
-	Slug                string                         `gorm:"index;not null" json:"slug"`
-	RepositoryBindingID string                         `gorm:"index" json:"repositoryBindingId"`
-	BuildProviderID     string                         `gorm:"index" json:"buildProviderId"`
-	DockerfilePath      string                         `gorm:"not null;default:Dockerfile" json:"dockerfilePath"`
-	BuildContext        string                         `gorm:"not null;default:." json:"buildContext"`
-	BuildDirectory      string                         `json:"buildDirectory"`
-	TargetRegistryID    string                         `gorm:"index" json:"targetRegistryId"`
-	TargetRepository    string                         `json:"targetRepository"`
-	TargetTag           string                         `json:"targetTag"`
-	BuildLabels         string                         `json:"buildLabels"`
-	BuildVariableSetIDs string                         `gorm:"type:text" json:"buildVariableSetIds"`
-	BuildHooksEnabled   bool                           `gorm:"not null;default:true" json:"buildHooksEnabled"`
-	BuildHookBindings   []ApplicationModuleHookBinding `gorm:"-" json:"buildHookBindings"`
-	BranchPattern       string                         `json:"branchPattern"`
-	TagPattern          string                         `json:"tagPattern"`
-	ConcurrencyPolicy   string                         `gorm:"not null;default:queue" json:"concurrencyPolicy"`
-	Enabled             bool                           `gorm:"not null;default:true" json:"enabled"`
-	CreatedBy           string                         `gorm:"index" json:"createdBy"`
-	CreatedAt           time.Time                      `json:"createdAt"`
-	UpdatedAt           time.Time                      `json:"updatedAt"`
-	DeletedAt           gorm.DeletedAt                 `gorm:"index" json:"-"`
-}
-
-type ApplicationModuleHookBinding struct {
+type DeploymentTargetHookBinding struct {
 	ID            string    `gorm:"primaryKey" json:"id"`
 	ProjectID     string    `gorm:"index;not null" json:"projectId"`
 	ApplicationID string    `gorm:"index;not null" json:"applicationId"`
-	ModuleID      string    `gorm:"uniqueIndex:idx_application_module_hook_bindings_module_hook;index;not null" json:"moduleId"`
-	HookConfigID  string    `gorm:"uniqueIndex:idx_application_module_hook_bindings_module_hook;index;not null" json:"hookConfigId"`
+	TargetID      string    `gorm:"uniqueIndex:idx_deployment_target_hook_bindings_target_hook;index;not null" json:"deploymentTargetId"`
+	HookConfigID  string    `gorm:"uniqueIndex:idx_deployment_target_hook_bindings_target_hook;index;not null" json:"hookConfigId"`
+	Phase         string    `gorm:"uniqueIndex:idx_deployment_target_hook_bindings_target_hook;index;not null" json:"phase"`
 	RunOrder      int       `gorm:"not null;default:0" json:"runOrder"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`

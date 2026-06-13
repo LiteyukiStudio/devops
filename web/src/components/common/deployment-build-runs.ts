@@ -10,7 +10,7 @@ export function buildRunImageRef(run: BuildRun) {
 
 export function latestDeployableBuildRuns(runs: BuildRun[]) {
   const ordered = runs
-    .filter(run => run.status === 'succeeded' && Boolean(buildRunImageRef(run)))
+    .filter(run => run.status === 'succeeded' && Boolean(run.deploymentTargetId?.trim()) && Boolean(buildRunImageRef(run)))
     .sort((left, right) => buildRunTime(right) - buildRunTime(left))
   const seen = new Set<string>()
   const output: BuildRun[] = []

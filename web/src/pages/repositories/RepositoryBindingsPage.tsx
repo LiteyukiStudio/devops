@@ -1,9 +1,10 @@
+import type { Ref } from 'react'
 import type { GitAccount, GitProvider, RepositoryBinding } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { GitBranch, LinkIcon, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useImperativeHandle, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
@@ -38,7 +39,11 @@ const bindingSchema = z.object({
 type BindingFormInput = z.input<typeof bindingSchema>
 type BindingForm = z.output<typeof bindingSchema>
 
-export function RepositoryBindingsPage({ embedded = false, projectId: projectIdProp }: { embedded?: boolean, projectId?: string } = {}) {
+export interface RepositoryBindingsPageHandle {
+  openCreateDialog: () => void
+}
+
+export function RepositoryBindingsPage({ applicationId, applicationName, embedded = false, projectId: projectIdProp, ref }: { applicationId?: string, applicationName?: string, embedded?: boolean, projectId?: string, ref?: Ref<RepositoryBindingsPageHandle> } = {}) {
   const { t } = useTranslation()
   const { projectId: routeProjectId = '' } = useParams()
   const projectId = projectIdProp ?? routeProjectId
@@ -52,13 +57,17 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
   const applications = useQuery({
     queryKey: ['applications', projectId],
     queryFn: () => api.listApplications(projectId),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId && !applicationId),
   })
   const bindings = useQuery({
     queryKey: ['repository-bindings', projectId],
     queryFn: () => api.listRepositoryBindings(projectId),
     enabled: Boolean(projectId),
   })
+  const visibleBindings = useMemo(() => {
+    const items = bindings.data ?? []
+    return applicationId ? items.filter(binding => binding.applicationId === applicationId) : items
+  }, [applicationId, bindings.data])
 
   const form = useForm<BindingFormInput, undefined, BindingForm>({
     resolver: zodResolver(bindingSchema),
@@ -151,7 +160,7 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
 
   function resetBindingForm(binding?: RepositoryBinding | null) {
     form.reset({
-      applicationId: binding?.applicationId ?? '',
+      applicationId: binding?.applicationId ?? applicationId ?? '',
       gitAccountId: binding?.gitAccountId ?? '',
       owner: binding?.owner ?? '',
       repo: binding?.repo ?? '',
@@ -175,6 +184,8 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
     setDialogOpen(true)
   }
 
+  useImperativeHandle(ref, () => ({ openCreateDialog }))
+
   return (
     <div className="grid gap-6">
       <PageHeader
@@ -189,8 +200,8 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
               </div>
             )
           : undefined}
-        description={t('repositories.description')}
-        title={t('repositories.title')}
+        description={applicationId ? t('apps.repositoryBindingDescription') : t('repositories.description')}
+        title={applicationId ? t('apps.repositoryBindingTitle', { app: applicationName || t('applications') }) : t('repositories.title')}
       />
 
       {(providers.isError || accounts.isError || bindings.isError) && (
@@ -214,7 +225,9 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
               </div>
             ),
           },
-          { key: 'application', header: t('repositories.application'), render: binding => binding.applicationName ?? binding.applicationId },
+          ...(!applicationId
+            ? [{ key: 'application', header: t('repositories.application'), render: (binding: RepositoryBinding) => binding.applicationName ?? binding.applicationId }]
+            : []),
           { key: 'branch', header: t('repositories.defaultBranch'), render: binding => <StatusBadge>{binding.defaultBranch}</StatusBadge> },
           { key: 'provider', header: t('codeRepositoriesView.provider'), render: binding => providerBindingLabel(binding, providers.data ?? [], accounts.data ?? []) },
           { key: 'webhook', header: t('repositories.webhookStatus'), render: binding => <StatusValueBadge value={binding.webhookStatus} /> },
@@ -224,7 +237,7 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
             className: 'text-right whitespace-nowrap',
             render: binding => (
               <div className="flex justify-end gap-2">
-                <Button disabled={createWebhook.isPending || binding.webhookStatus === 'created'} type="button" variant="secondary" onClick={() => createWebhook.mutate(binding.id)}>
+                <Button disabled={createWebhook.isPending || binding.webhookStatus === 'created'} type="button" variant="ghost" onClick={() => createWebhook.mutate(binding.id)}>
                   <LinkIcon size={16} />
                   {t('repositories.createWebhook')}
                 </Button>
@@ -238,7 +251,7 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
         ]}
         emptyTitle={t('repositories.emptyTitle')}
         emptyDescription={t('repositories.emptyDescription')}
-        items={bindings.data ?? []}
+        items={visibleBindings}
         rowKey={binding => binding.id}
       />
 
@@ -279,14 +292,18 @@ export function RepositoryBindingsPage({ embedded = false, projectId: projectIdP
             <div className="flex justify-end">
               <Link className="text-sm text-primary hover:underline" to="/code-repositories">{t('repositories.manageCodeRepositories')}</Link>
             </div>
-            <Field error={form.formState.errors.applicationId?.message} label={t('repositories.application')} required>
-              <Select {...form.register('applicationId')} aria-invalid={Boolean(form.formState.errors.applicationId)}>
-                <option value="">{t('repositories.selectApplication')}</option>
-                {(applications.data ?? []).map(application => (
-                  <option key={application.id} value={application.id}>{application.name}</option>
-                ))}
-              </Select>
-            </Field>
+            {applicationId
+              ? <input type="hidden" {...form.register('applicationId')} value={applicationId} />
+              : (
+                  <Field error={form.formState.errors.applicationId?.message} label={t('repositories.application')} required>
+                    <Select {...form.register('applicationId')} aria-invalid={Boolean(form.formState.errors.applicationId)}>
+                      <option value="">{t('repositories.selectApplication')}</option>
+                      {(applications.data ?? []).map(application => (
+                        <option key={application.id} value={application.id}>{application.name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
             <GitRepositoryPicker
               accounts={accounts.data ?? []}
               providers={providers.data ?? []}

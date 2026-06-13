@@ -1,8 +1,11 @@
 package kubernetes
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +14,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 type ResourceListOptions struct {
@@ -22,19 +28,68 @@ type ResourceListOptions struct {
 }
 
 type ResourceSnapshot struct {
-	ID            string            `json:"id"`
-	Kind          string            `json:"kind"`
-	Name          string            `json:"name"`
-	Namespace     string            `json:"namespace"`
-	Status        string            `json:"status"`
-	Summary       string            `json:"summary"`
-	ProjectID     string            `json:"projectId"`
-	ApplicationID string            `json:"applicationId"`
-	EnvironmentID string            `json:"environmentId"`
-	ReleaseID     string            `json:"releaseId"`
-	RouteID       string            `json:"routeId"`
-	Labels        map[string]string `json:"labels"`
-	CreatedAt     time.Time         `json:"createdAt"`
+	ID                 string            `json:"id"`
+	Kind               string            `json:"kind"`
+	Name               string            `json:"name"`
+	Namespace          string            `json:"namespace"`
+	Status             string            `json:"status"`
+	Summary            string            `json:"summary"`
+	ProjectID          string            `json:"projectId"`
+	ApplicationID      string            `json:"applicationId"`
+	EnvironmentID      string            `json:"environmentId"`
+	DeploymentTargetID string            `json:"deploymentTargetId"`
+	ReleaseID          string            `json:"releaseId"`
+	RouteID            string            `json:"routeId"`
+	Labels             map[string]string `json:"labels"`
+	CreatedAt          time.Time         `json:"createdAt"`
+}
+
+type ResourceEventSnapshot struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	Reason    string    `json:"reason"`
+	Message   string    `json:"message"`
+	Source    string    `json:"source"`
+	Count     int32     `json:"count"`
+	FirstSeen time.Time `json:"firstSeen"`
+	LastSeen  time.Time `json:"lastSeen"`
+}
+
+type RuntimePodLogsOptions struct {
+	Namespace          string
+	DeploymentTargetID string
+	Container          string
+	TailLines          int64
+}
+
+type RuntimePodLogsResult struct {
+	Pod       string `json:"pod"`
+	Container string `json:"container"`
+	Content   string `json:"content"`
+}
+
+type RuntimeExecOptions struct {
+	Namespace          string
+	DeploymentTargetID string
+	Container          string
+	Command            string
+}
+
+type RuntimeExecResult struct {
+	Pod       string `json:"pod"`
+	Container string `json:"container"`
+	Stdout    string `json:"stdout"`
+	Stderr    string `json:"stderr"`
+	ExitCode  int    `json:"exitCode"`
+}
+
+type RuntimeTerminalOptions struct {
+	Namespace          string
+	DeploymentTargetID string
+	Container          string
+	Stdin              io.Reader
+	Stdout             io.Writer
+	SizeQueue          remotecommand.TerminalSizeQueue
 }
 
 func (c *Client) ListManagedResources(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
@@ -54,6 +109,376 @@ func (c *Client) ListManagedResources(ctx context.Context, options ResourceListO
 	}
 }
 
+func (c *Client) RuntimePodLogs(ctx context.Context, options RuntimePodLogsOptions) (RuntimePodLogsResult, error) {
+	pod, container, err := c.runtimePod(ctx, options.Namespace, options.DeploymentTargetID, options.Container)
+	if err != nil {
+		return RuntimePodLogsResult{}, err
+	}
+	logOptions := &corev1.PodLogOptions{Container: container}
+	if options.TailLines > 0 {
+		logOptions.TailLines = &options.TailLines
+	}
+	stream, err := c.client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, logOptions).Stream(ctx)
+	if err != nil {
+		return RuntimePodLogsResult{}, err
+	}
+	defer stream.Close()
+	content, err := io.ReadAll(stream)
+	if err != nil {
+		return RuntimePodLogsResult{}, err
+	}
+	return RuntimePodLogsResult{Pod: pod.Name, Container: container, Content: string(content)}, nil
+}
+
+func (c *Client) RuntimeExec(ctx context.Context, options RuntimeExecOptions) (RuntimeExecResult, error) {
+	if c.restConfig == nil {
+		return RuntimeExecResult{}, fmt.Errorf("runtime exec requires a REST config")
+	}
+	command := strings.TrimSpace(options.Command)
+	if command == "" {
+		return RuntimeExecResult{}, fmt.Errorf("command is required")
+	}
+	pod, container, err := c.runtimePod(ctx, options.Namespace, options.DeploymentTargetID, options.Container)
+	if err != nil {
+		return RuntimeExecResult{}, err
+	}
+	req := c.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: container,
+			Command:   []string{"/bin/sh", "-lc", command},
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
+	executor, err := remotecommand.NewSPDYExecutor(c.restConfig, "POST", req.URL())
+	if err != nil {
+		return RuntimeExecResult{}, err
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	streamErr := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+	exitCode := 0
+	if streamErr != nil {
+		exitCode = 1
+		if stderr.Len() > 0 {
+			stderr.WriteByte('\n')
+		}
+		stderr.WriteString(streamErr.Error())
+	}
+	return RuntimeExecResult{
+		Pod:       pod.Name,
+		Container: container,
+		Stdout:    stdout.String(),
+		Stderr:    stderr.String(),
+		ExitCode:  exitCode,
+	}, nil
+}
+
+func (c *Client) RuntimeTerminal(ctx context.Context, options RuntimeTerminalOptions) error {
+	if c.restConfig == nil {
+		return fmt.Errorf("runtime terminal requires a REST config")
+	}
+	if options.Stdin == nil || options.Stdout == nil {
+		return fmt.Errorf("runtime terminal streams are required")
+	}
+	pod, container, err := c.runtimePod(ctx, options.Namespace, options.DeploymentTargetID, options.Container)
+	if err != nil {
+		return err
+	}
+	req := c.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: container,
+			Command:   []string{"/bin/sh"},
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+		}, scheme.ParameterCodec)
+	executor, err := remotecommand.NewSPDYExecutor(c.restConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	return executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:             options.Stdin,
+		Stdout:            options.Stdout,
+		Stderr:            options.Stdout,
+		Tty:               true,
+		TerminalSizeQueue: options.SizeQueue,
+	})
+}
+
+func (c *Client) runtimePod(ctx context.Context, namespace string, deploymentTargetID string, container string) (corev1.Pod, string, error) {
+	namespace = strings.TrimSpace(namespace)
+	deploymentTargetID = strings.TrimSpace(deploymentTargetID)
+	if namespace == "" {
+		return corev1.Pod{}, "", fmt.Errorf("resource namespace is required")
+	}
+	if deploymentTargetID == "" {
+		return corev1.Pod{}, "", fmt.Errorf("deployment target is required")
+	}
+	selector := strings.Join([]string{
+		ManagedByLabel + "=" + ManagedByValue,
+		DeploymentTargetIDLabel + "=" + deploymentTargetID,
+	}, ",")
+	pods, err := c.client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return corev1.Pod{}, "", err
+	}
+	if len(pods.Items) == 0 {
+		return corev1.Pod{}, "", fmt.Errorf("runtime pod not found")
+	}
+	sort.Slice(pods.Items, func(left, right int) bool {
+		leftReady := podReady(pods.Items[left])
+		rightReady := podReady(pods.Items[right])
+		if leftReady != rightReady {
+			return leftReady
+		}
+		leftRunning := pods.Items[left].Status.Phase == corev1.PodRunning
+		rightRunning := pods.Items[right].Status.Phase == corev1.PodRunning
+		if leftRunning != rightRunning {
+			return leftRunning
+		}
+		return pods.Items[left].CreationTimestamp.After(pods.Items[right].CreationTimestamp.Time)
+	})
+	pod := pods.Items[0]
+	selectedContainer := strings.TrimSpace(container)
+	if selectedContainer == "" && len(pod.Spec.Containers) > 0 {
+		selectedContainer = pod.Spec.Containers[0].Name
+	}
+	if selectedContainer == "" {
+		return corev1.Pod{}, "", fmt.Errorf("runtime container not found")
+	}
+	for _, item := range pod.Spec.Containers {
+		if item.Name == selectedContainer {
+			return pod, selectedContainer, nil
+		}
+	}
+	return corev1.Pod{}, "", fmt.Errorf("runtime container %q not found", selectedContainer)
+}
+
+func (c *Client) GetManagedResource(ctx context.Context, kind string, namespace string, name string) (ResourceSnapshot, error) {
+	kind = normalizeResourceObjectKind(kind)
+	name = strings.TrimSpace(name)
+	namespace = strings.TrimSpace(namespace)
+	if name == "" {
+		return ResourceSnapshot{}, fmt.Errorf("resource name is required")
+	}
+	switch kind {
+	case "namespace":
+		item, err := c.client.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshotFromMeta("Namespace", item.ObjectMeta, "", item.Status.Phase, "")
+	case "deployment":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(deploymentSnapshot(*item))
+	case "pod":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(podSnapshot(*item))
+	case "service":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(serviceSnapshot(*item))
+	case "ingress":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(ingressSnapshot(*item))
+	case "configmap":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshotFromMeta("ConfigMap", item.ObjectMeta, "", fmt.Sprintf("%d keys", len(item.Data)), "")
+	case "secret":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshotFromMeta("Secret", item.ObjectMeta, "", string(item.Type), "data hidden")
+	case "persistentvolumeclaim":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshotFromMeta("PersistentVolumeClaim", item.ObjectMeta, "", item.Status.Phase, pvcSummary(*item))
+	default:
+		return ResourceSnapshot{}, fmt.Errorf("unsupported resource kind: %s", kind)
+	}
+}
+
+func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespace string, name string) error {
+	kind = normalizeResourceObjectKind(kind)
+	name = strings.TrimSpace(name)
+	namespace = strings.TrimSpace(namespace)
+	if name == "" {
+		return fmt.Errorf("resource name is required")
+	}
+	switch kind {
+	case "namespace":
+		item, err := c.client.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
+	case "deployment":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "pod":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "service":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "ingress":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.NetworkingV1().Ingresses(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "configmap":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.CoreV1().ConfigMaps(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "secret":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.CoreV1().Secrets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "persistentvolumeclaim":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	default:
+		return fmt.Errorf("unsupported resource kind: %s", kind)
+	}
+}
+
+func (c *Client) ListManagedResourceEvents(ctx context.Context, kind string, namespace string, name string) ([]ResourceEventSnapshot, ResourceSnapshot, error) {
+	snapshot, err := c.GetManagedResource(ctx, kind, namespace, name)
+	if err != nil {
+		return nil, ResourceSnapshot{}, err
+	}
+	selector := fields.Set{
+		"involvedObject.kind": snapshot.Kind,
+		"involvedObject.name": snapshot.Name,
+	}.AsSelector().String()
+	events, err := c.client.CoreV1().Events(snapshot.Namespace).List(ctx, metav1.ListOptions{FieldSelector: selector})
+	if err != nil {
+		return nil, ResourceSnapshot{}, err
+	}
+	items := make([]ResourceEventSnapshot, 0, len(events.Items))
+	for _, item := range events.Items {
+		items = append(items, eventSnapshot(item))
+	}
+	sort.Slice(items, func(left, right int) bool {
+		return items[left].LastSeen.After(items[right].LastSeen)
+	})
+	return items, snapshot, nil
+}
+
 func (c *Client) listManagedNamespaces(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
 	list, err := c.client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{LabelSelector: managedResourceSelector(options)})
 	if err != nil {
@@ -67,6 +492,44 @@ func (c *Client) listManagedNamespaces(ctx context.Context, options ResourceList
 		items = append(items, snapshotFromMeta("Namespace", item.ObjectMeta, "", item.Status.Phase, ""))
 	}
 	return items, nil
+}
+
+func managedSnapshot(snapshot ResourceSnapshot) (ResourceSnapshot, error) {
+	if !isManagedResource(snapshot.Labels) {
+		return ResourceSnapshot{}, fmt.Errorf("resource is not managed by Liteyuki DevOps")
+	}
+	return snapshot, nil
+}
+
+func managedSnapshotFromMeta(kind string, meta metav1.ObjectMeta, namespace string, status any, summary string) (ResourceSnapshot, error) {
+	return managedSnapshot(snapshotFromMeta(kind, meta, namespace, status, summary))
+}
+
+func eventSnapshot(item corev1.Event) ResourceEventSnapshot {
+	firstSeen := item.FirstTimestamp.Time
+	lastSeen := item.LastTimestamp.Time
+	if firstSeen.IsZero() {
+		firstSeen = item.EventTime.Time
+	}
+	if lastSeen.IsZero() {
+		lastSeen = item.EventTime.Time
+	}
+	if lastSeen.IsZero() {
+		lastSeen = item.CreationTimestamp.Time
+	}
+	if firstSeen.IsZero() {
+		firstSeen = lastSeen
+	}
+	return ResourceEventSnapshot{
+		ID:        resourceID("Event", item.Namespace, item.Name),
+		Type:      item.Type,
+		Reason:    item.Reason,
+		Message:   item.Message,
+		Source:    firstNonEmpty(item.ReportingController, item.Source.Component),
+		Count:     item.Count,
+		FirstSeen: firstSeen,
+		LastSeen:  lastSeen,
+	}
 }
 
 func (c *Client) listManagedWorkloads(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
@@ -161,7 +624,7 @@ func podSnapshot(item corev1.Pod) ResourceSnapshot {
 			break
 		}
 	}
-	return snapshotFromMeta("Pod", item.ObjectMeta, "", item.Status.Phase, fmt.Sprintf("ready %d/1", ready))
+	return snapshotFromMeta("Pod", item.ObjectMeta, "", item.Status.Phase, podSummary(item, ready))
 }
 
 func serviceSnapshot(item corev1.Service) ResourceSnapshot {
@@ -200,19 +663,20 @@ func snapshotFromMeta(kind string, meta metav1.ObjectMeta, namespace string, sta
 		ns = meta.Namespace
 	}
 	return ResourceSnapshot{
-		ID:            resourceID(kind, ns, meta.Name),
-		Kind:          kind,
-		Name:          meta.Name,
-		Namespace:     ns,
-		Status:        fmt.Sprint(status),
-		Summary:       summary,
-		ProjectID:     labels[ProjectIDLabel],
-		ApplicationID: firstNonEmpty(labels[ApplicationIDLabel], labels[legacyApplicationIDLabel]),
-		EnvironmentID: firstNonEmpty(labels[EnvironmentIDLabel], labels[legacyEnvironmentIDLabel]),
-		ReleaseID:     labels[ReleaseIDLabel],
-		RouteID:       firstNonEmpty(labels[GatewayRouteIDLabel], labels[legacyGatewayRouteIDLabel]),
-		Labels:        labels,
-		CreatedAt:     meta.CreationTimestamp.Time,
+		ID:                 resourceID(kind, ns, meta.Name),
+		Kind:               kind,
+		Name:               meta.Name,
+		Namespace:          ns,
+		Status:             fmt.Sprint(status),
+		Summary:            summary,
+		ProjectID:          labels[ProjectIDLabel],
+		ApplicationID:      labels[ApplicationIDLabel],
+		EnvironmentID:      labels[EnvironmentIDLabel],
+		DeploymentTargetID: labels[DeploymentTargetIDLabel],
+		ReleaseID:          labels[ReleaseIDLabel],
+		RouteID:            labels[GatewayRouteIDLabel],
+		Labels:             labels,
+		CreatedAt:          meta.CreationTimestamp.Time,
 	}
 }
 
@@ -234,10 +698,10 @@ func matchesResourceOptions(labels map[string]string, options ResourceListOption
 	if options.ProjectID != "" && labels[ProjectIDLabel] != options.ProjectID {
 		return false
 	}
-	if options.ApplicationID != "" && firstNonEmpty(labels[ApplicationIDLabel], labels[legacyApplicationIDLabel]) != options.ApplicationID {
+	if options.ApplicationID != "" && labels[ApplicationIDLabel] != options.ApplicationID {
 		return false
 	}
-	if options.EnvironmentID != "" && firstNonEmpty(labels[EnvironmentIDLabel], labels[legacyEnvironmentIDLabel]) != options.EnvironmentID {
+	if options.EnvironmentID != "" && labels[EnvironmentIDLabel] != options.EnvironmentID {
 		return false
 	}
 	return true
@@ -258,6 +722,73 @@ func normalizeResourceKind(value string) string {
 	default:
 		return strings.ToLower(strings.TrimSpace(value))
 	}
+}
+
+func normalizeResourceObjectKind(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "namespace", "namespaces":
+		return "namespace"
+	case "deployment", "deployments":
+		return "deployment"
+	case "pod", "pods":
+		return "pod"
+	case "service", "services":
+		return "service"
+	case "ingress", "ingresses":
+		return "ingress"
+	case "configmap", "configmaps":
+		return "configmap"
+	case "secret", "secrets":
+		return "secret"
+	case "persistentvolumeclaim", "persistentvolumeclaims", "pvc", "pvcs":
+		return "persistentvolumeclaim"
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func isManagedResource(labels map[string]string) bool {
+	return labels[ManagedByLabel] == ManagedByValue
+}
+
+func podSummary(item corev1.Pod, ready int) string {
+	parts := []string{fmt.Sprintf("ready %d/1", ready)}
+	for _, status := range item.Status.ContainerStatuses {
+		switch {
+		case status.State.Waiting != nil:
+			parts = append(parts, strings.TrimSpace(status.Name+" waiting: "+firstNonEmpty(status.State.Waiting.Reason, status.State.Waiting.Message)))
+		case status.State.Terminated != nil:
+			parts = append(parts, strings.TrimSpace(status.Name+" terminated: "+firstNonEmpty(status.State.Terminated.Reason, status.State.Terminated.Message)))
+		case !status.Ready:
+			parts = append(parts, status.Name+" not ready")
+		}
+	}
+	for _, condition := range item.Status.Conditions {
+		if condition.Status == corev1.ConditionTrue || condition.Reason == "" && condition.Message == "" {
+			continue
+		}
+		parts = append(parts, strings.TrimSpace(string(condition.Type)+": "+firstNonEmpty(condition.Reason, condition.Message)))
+	}
+	return strings.Join(compactStrings(parts), "; ")
+}
+
+func podReady(item corev1.Pod) bool {
+	for _, condition := range item.Status.Conditions {
+		if condition.Type == corev1.PodReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
+func compactStrings(values []string) []string {
+	compacted := make([]string, 0, len(values))
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			compacted = append(compacted, strings.TrimSpace(value))
+		}
+	}
+	return compacted
 }
 
 func resourceID(kind string, namespace string, name string) string {

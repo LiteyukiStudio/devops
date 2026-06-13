@@ -11,17 +11,18 @@ import (
 func TestApplyGatewayIngressCreatesIngress(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset())
 	spec := GatewayIngressSpec{
-		Name:          "api-dev",
-		Namespace:     "project-demo",
-		ProjectID:     "prj_demo",
-		ApplicationID: "app_api",
-		EnvironmentID: "env_dev",
-		RouteID:       "gwr_api",
-		Host:          "api.example.com",
-		Path:          "api",
-		ServiceName:   "api-dev",
-		ServicePort:   8080,
-		TLSSecretName: "api-dev-tls",
+		Name:               "api-dev",
+		Namespace:          "project-demo",
+		ProjectID:          "prj_demo",
+		ApplicationID:      "app_api",
+		EnvironmentID:      "env_dev",
+		DeploymentTargetID: "dplt_api",
+		RouteID:            "gwr_api",
+		Host:               "api.example.com",
+		Path:               "api",
+		ServiceName:        "api-dev",
+		ServicePort:        8080,
+		TLSSecretName:      "api-dev-tls",
 	}
 
 	if err := client.ApplyGatewayIngress(context.Background(), spec); err != nil {
@@ -43,13 +44,13 @@ func TestApplyGatewayIngressCreatesIngress(t *testing.T) {
 		t.Fatalf("tls = %#v", ingress.Spec.TLS)
 	}
 	expectedLabels := map[string]string{
-		ManagedByLabel:            ManagedByValue,
-		ApplicationNameKey:        spec.ServiceName,
-		ProjectIDLabel:            spec.ProjectID,
-		ApplicationIDLabel:        spec.ApplicationID,
-		EnvironmentIDLabel:        spec.EnvironmentID,
-		GatewayRouteIDLabel:       spec.RouteID,
-		legacyGatewayRouteIDLabel: spec.RouteID,
+		ManagedByLabel:          ManagedByValue,
+		ApplicationNameKey:      spec.ServiceName,
+		ProjectIDLabel:          spec.ProjectID,
+		ApplicationIDLabel:      spec.ApplicationID,
+		EnvironmentIDLabel:      spec.EnvironmentID,
+		DeploymentTargetIDLabel: spec.DeploymentTargetID,
+		GatewayRouteIDLabel:     spec.RouteID,
 	}
 	for key, value := range expectedLabels {
 		if ingress.Labels[key] != value {

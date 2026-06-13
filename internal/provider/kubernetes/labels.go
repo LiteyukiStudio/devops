@@ -14,10 +14,6 @@ const (
 	HookRunIDLabel          = "liteyuki.devops/hook-run-id"
 	HookPhaseLabel          = "liteyuki.devops/hook-phase"
 	ScopeLabel              = "liteyuki.devops/scope"
-
-	legacyApplicationIDLabel  = "liteyuki.devops/app-id"
-	legacyEnvironmentIDLabel  = "liteyuki.devops/env-id"
-	legacyGatewayRouteIDLabel = "liteyuki.devops/route-id"
 )
 
 func baseManagedLabels(name string) map[string]string {

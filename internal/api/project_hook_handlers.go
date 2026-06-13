@@ -12,18 +12,31 @@ import (
 )
 
 const (
+	hookPhasePrePull        = "prePull"
+	hookPhasePostPull       = "postPull"
 	hookPhasePreBuild       = "preBuild"
 	hookPhasePostBuild      = "postBuild"
+	hookPhasePrePush        = "prePush"
+	hookPhasePostPush       = "postPush"
 	hookPhasePreDeployment  = "preDeployment"
 	hookPhasePostDeployment = "postDeployment"
 )
+
+var buildHookPhases = []string{
+	hookPhasePrePull,
+	hookPhasePostPull,
+	hookPhasePreBuild,
+	hookPhasePostBuild,
+	hookPhasePrePush,
+	hookPhasePostPush,
+}
 
 func (h *Handlers) ListProjectHookConfigs(ctx *gin.Context) {
 	if _, _, ok := h.projectAndCurrentUser(ctx); !ok {
 		return
 	}
 	var hooks []model.ProjectHookConfig
-	if err := h.db.Where("project_id = ?", ctx.Param("projectId")).Order("phase asc, run_order asc, created_at asc").Find(&hooks).Error; err != nil {
+	if err := h.db.Where("project_id = ?", ctx.Param("projectId")).Order("created_at asc").Find(&hooks).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -47,7 +60,7 @@ func (h *Handlers) CreateProjectHookConfig(ctx *gin.Context) {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.audit(user.ID, "project_hook.create", hook.ID, true, hook.Phase)
+	h.audit(user.ID, "project_hook.create", hook.ID, true, hook.Name)
 	ctx.JSON(http.StatusCreated, hook)
 }
 
@@ -75,7 +88,7 @@ func (h *Handlers) UpdateProjectHookConfig(ctx *gin.Context) {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.audit(user.ID, "project_hook.update", hook.ID, true, hook.Phase)
+	h.audit(user.ID, "project_hook.update", hook.ID, true, hook.Name)
 	ctx.JSON(http.StatusOK, hook)
 }
 
@@ -90,7 +103,7 @@ func (h *Handlers) DeleteProjectHookConfig(ctx *gin.Context) {
 		return
 	}
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("hook_config_id = ?", hook.ID).Delete(&model.ApplicationModuleHookBinding{}).Error; err != nil {
+		if err := tx.Where("hook_config_id = ?", hook.ID).Delete(&model.DeploymentTargetHookBinding{}).Error; err != nil {
 			return err
 		}
 		return tx.Delete(&hook).Error
@@ -98,7 +111,7 @@ func (h *Handlers) DeleteProjectHookConfig(ctx *gin.Context) {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.audit(user.ID, "project_hook.delete", hook.ID, true, hook.Phase)
+	h.audit(user.ID, "project_hook.delete", hook.ID, true, hook.Name)
 	ctx.Status(http.StatusNoContent)
 }
 
@@ -153,11 +166,6 @@ func (h *Handlers) projectHookConfigFromInput(ctx *gin.Context, user model.User,
 		writeError(ctx, http.StatusBadRequest, "hook name is required")
 		return model.ProjectHookConfig{}, false
 	}
-	phase := normalizeHookPhase(input.Phase)
-	if phase == "" {
-		writeError(ctx, http.StatusBadRequest, "hook phase is invalid")
-		return model.ProjectHookConfig{}, false
-	}
 	script := strings.TrimSpace(input.Script)
 	if script == "" {
 		writeError(ctx, http.StatusBadRequest, "hook script is required")
@@ -171,12 +179,10 @@ func (h *Handlers) projectHookConfigFromInput(ctx *gin.Context, user model.User,
 		ID:             hookID,
 		ProjectID:      projectID,
 		Name:           name,
-		Phase:          phase,
 		Script:         script,
 		Shell:          normalizeHookShell(input.Shell),
 		TimeoutSeconds: normalizeHookTimeout(input.TimeoutSeconds),
 		FailurePolicy:  normalizeHookFailurePolicy(input.FailurePolicy),
-		RunOrder:       input.RunOrder,
 		CreatedBy:      user.ID,
 	}, true
 }
@@ -214,10 +220,18 @@ func trimHookRunLogContent(content string) string {
 
 func normalizeHookPhase(value string) string {
 	switch strings.TrimSpace(value) {
+	case hookPhasePrePull:
+		return hookPhasePrePull
+	case hookPhasePostPull:
+		return hookPhasePostPull
 	case hookPhasePreBuild:
 		return hookPhasePreBuild
 	case hookPhasePostBuild:
 		return hookPhasePostBuild
+	case hookPhasePrePush:
+		return hookPhasePrePush
+	case hookPhasePostPush:
+		return hookPhasePostPush
 	case hookPhasePreDeployment:
 		return hookPhasePreDeployment
 	case hookPhasePostDeployment:
@@ -225,6 +239,15 @@ func normalizeHookPhase(value string) string {
 	default:
 		return ""
 	}
+}
+
+func isBuildHookPhase(phase string) bool {
+	for _, item := range buildHookPhases {
+		if phase == item {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeHookShell(value string) string {
@@ -255,10 +278,8 @@ func normalizeHookTimeout(value int) int {
 
 type projectHookConfigInput struct {
 	Name           string `json:"name" binding:"required"`
-	Phase          string `json:"phase" binding:"required"`
 	Script         string `json:"script" binding:"required"`
 	Shell          string `json:"shell"`
 	TimeoutSeconds int    `json:"timeoutSeconds"`
 	FailurePolicy  string `json:"failurePolicy"`
-	RunOrder       int    `json:"runOrder"`
 }

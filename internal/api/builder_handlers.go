@@ -505,11 +505,11 @@ func (h *Handlers) claimBuildTask(heartbeat builderHeartbeatInput) (builderTaskR
 }
 
 func (h *Handlers) buildRunBlockedByConfigConcurrency(tx *gorm.DB, run model.BuildRun, jobID string, now time.Time) bool {
-	if strings.TrimSpace(run.ModuleID) == "" {
+	if strings.TrimSpace(run.DeploymentTargetID) == "" {
 		return false
 	}
-	var config model.ApplicationModule
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&config, "id = ? and project_id = ? and application_id = ?", run.ModuleID, run.ProjectID, run.ApplicationID).Error; err != nil {
+	var config model.DeploymentTarget
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&config, "id = ? and project_id = ? and application_id = ?", run.DeploymentTargetID, run.ProjectID, run.ApplicationID).Error; err != nil {
 		return false
 	}
 	if strings.TrimSpace(config.ConcurrencyPolicy) == "parallel" {
@@ -518,10 +518,10 @@ func (h *Handlers) buildRunBlockedByConfigConcurrency(tx *gorm.DB, run model.Bui
 	var count int64
 	err := tx.Model(&model.BuildRun{}).
 		Joins("join build_jobs on build_jobs.build_run_id = build_runs.id").
-		Where("build_runs.project_id = ? and build_runs.application_id = ? and build_runs.module_id = ? and build_runs.status = ? and build_runs.id <> ? and build_jobs.id <> ? and build_jobs.status = ? and (build_jobs.lease_until is null or build_jobs.lease_until >= ?)",
+		Where("build_runs.project_id = ? and build_runs.application_id = ? and build_runs.deployment_target_id = ? and build_runs.status = ? and build_runs.id <> ? and build_jobs.id <> ? and build_jobs.status = ? and (build_jobs.lease_until is null or build_jobs.lease_until >= ?)",
 			run.ProjectID,
 			run.ApplicationID,
-			run.ModuleID,
+			run.DeploymentTargetID,
 			"running",
 			run.ID,
 			jobID,
@@ -572,10 +572,10 @@ func heartbeatFromClaimInput(input builderClaimInput) builderHeartbeatInput {
 func (h *Handlers) builderPayloadForRun(tx *gorm.DB, run model.BuildRun, job model.BuildJob) (builderTaskResponse, error) {
 	var binding model.RepositoryBinding
 	bindingQuery := tx.Where("project_id = ? and application_id = ?", run.ProjectID, run.ApplicationID)
-	if strings.TrimSpace(run.ModuleID) != "" {
-		var config model.ApplicationModule
-		if err := tx.First(&config, "id = ? and project_id = ? and application_id = ?", run.ModuleID, run.ProjectID, run.ApplicationID).Error; err != nil {
-			return builderTaskResponse{}, fmt.Errorf("module not found: %w", err)
+	if strings.TrimSpace(run.DeploymentTargetID) != "" {
+		var config model.DeploymentTarget
+		if err := tx.First(&config, "id = ? and project_id = ? and application_id = ?", run.DeploymentTargetID, run.ProjectID, run.ApplicationID).Error; err != nil {
+			return builderTaskResponse{}, fmt.Errorf("deployment target not found: %w", err)
 		}
 		if strings.TrimSpace(config.RepositoryBindingID) != "" {
 			bindingQuery = bindingQuery.Where("id = ?", config.RepositoryBindingID)
@@ -635,11 +635,11 @@ func (h *Handlers) builderPayloadForRun(tx *gorm.DB, run model.BuildRun, job mod
 		return builderTaskResponse{}, err
 	}
 	return builderTaskResponse{
-		JobID:         job.ID,
-		BuildRunID:    run.ID,
-		ProjectID:     run.ProjectID,
-		ApplicationID: run.ApplicationID,
-		ModuleID:      run.ModuleID,
+		JobID:              job.ID,
+		BuildRunID:         run.ID,
+		ProjectID:          run.ProjectID,
+		ApplicationID:      run.ApplicationID,
+		DeploymentTargetID: run.DeploymentTargetID,
 		Repository: builderRepositoryPayload{
 			CloneURL:     binding.CloneURL,
 			Owner:        binding.Owner,
@@ -675,18 +675,18 @@ func repositoryBindingLooksPublic(binding model.RepositoryBinding) bool {
 }
 
 func (h *Handlers) builderHookPayloadsForRun(tx *gorm.DB, run model.BuildRun, job model.BuildJob) ([]builderHookPayload, error) {
-	if strings.TrimSpace(run.ModuleID) == "" {
+	if strings.TrimSpace(run.DeploymentTargetID) == "" {
 		return nil, nil
 	}
-	var module model.ApplicationModule
-	if err := tx.First(&module, "id = ? and project_id = ? and application_id = ?", run.ModuleID, run.ProjectID, run.ApplicationID).Error; err != nil {
+	var target model.DeploymentTarget
+	if err := tx.First(&target, "id = ? and project_id = ? and application_id = ?", run.DeploymentTargetID, run.ProjectID, run.ApplicationID).Error; err != nil {
 		return nil, err
 	}
-	if !module.BuildHooksEnabled {
+	if !target.BuildHooksEnabled {
 		return nil, nil
 	}
-	var bindings []model.ApplicationModuleHookBinding
-	if err := tx.Where("project_id = ? and application_id = ? and module_id = ?", run.ProjectID, run.ApplicationID, run.ModuleID).
+	var bindings []model.DeploymentTargetHookBinding
+	if err := tx.Where("project_id = ? and application_id = ? and target_id = ?", run.ProjectID, run.ApplicationID, run.DeploymentTargetID).
 		Order("run_order asc, created_at asc").
 		Find(&bindings).Error; err != nil {
 		return nil, err
@@ -694,12 +694,20 @@ func (h *Handlers) builderHookPayloadsForRun(tx *gorm.DB, run model.BuildRun, jo
 	if len(bindings) == 0 {
 		return nil, nil
 	}
+	buildBindings := make([]model.DeploymentTargetHookBinding, 0, len(bindings))
 	hookIDs := make([]string, 0, len(bindings))
 	for _, binding := range bindings {
+		if !isBuildHookPhase(binding.Phase) {
+			continue
+		}
+		buildBindings = append(buildBindings, binding)
 		hookIDs = append(hookIDs, binding.HookConfigID)
 	}
+	if len(hookIDs) == 0 {
+		return nil, nil
+	}
 	var configs []model.ProjectHookConfig
-	if err := tx.Where("project_id = ? and id in ? and phase in ?", run.ProjectID, hookIDs, []string{hookPhasePreBuild, hookPhasePostBuild}).
+	if err := tx.Where("project_id = ? and id in ?", run.ProjectID, hookIDs).
 		Find(&configs).Error; err != nil {
 		return nil, err
 	}
@@ -708,26 +716,26 @@ func (h *Handlers) builderHookPayloadsForRun(tx *gorm.DB, run model.BuildRun, jo
 		configsByID[config.ID] = config
 	}
 	hooks := make([]builderHookPayload, 0, len(configs))
-	for _, binding := range bindings {
+	for _, binding := range buildBindings {
 		config, ok := configsByID[binding.HookConfigID]
 		if !ok {
 			continue
 		}
 		runRecord := model.HookRun{
-			ID:             id.New("hrun"),
-			ProjectID:      run.ProjectID,
-			HookConfigID:   config.ID,
-			BuildRunID:     run.ID,
-			BuildJobID:     job.ID,
-			ApplicationID:  run.ApplicationID,
-			ModuleID:       run.ModuleID,
-			Name:           config.Name,
-			Phase:          config.Phase,
-			Status:         "queued",
-			ScriptSnapshot: config.Script,
-			Shell:          config.Shell,
-			TimeoutSeconds: config.TimeoutSeconds,
-			FailurePolicy:  config.FailurePolicy,
+			ID:                 id.New("hrun"),
+			ProjectID:          run.ProjectID,
+			HookConfigID:       config.ID,
+			BuildRunID:         run.ID,
+			BuildJobID:         job.ID,
+			ApplicationID:      run.ApplicationID,
+			DeploymentTargetID: run.DeploymentTargetID,
+			Name:               config.Name,
+			Phase:              binding.Phase,
+			Status:             "queued",
+			ScriptSnapshot:     config.Script,
+			Shell:              config.Shell,
+			TimeoutSeconds:     config.TimeoutSeconds,
+			FailurePolicy:      config.FailurePolicy,
 		}
 		if err := tx.Create(&runRecord).Error; err != nil {
 			return nil, err
@@ -1059,16 +1067,16 @@ type builderHookCompleteInput struct {
 }
 
 type builderTaskResponse struct {
-	JobID         string                   `json:"jobId"`
-	LeaseToken    string                   `json:"leaseToken"`
-	LeaseUntil    time.Time                `json:"leaseUntil"`
-	BuildRunID    string                   `json:"buildRunId"`
-	ProjectID     string                   `json:"projectId"`
-	ApplicationID string                   `json:"applicationId"`
-	ModuleID      string                   `json:"moduleId"`
-	Repository    builderRepositoryPayload `json:"repository"`
-	Build         builderBuildPayload      `json:"build"`
-	Registry      builderRegistryPayload   `json:"registry"`
+	JobID              string                   `json:"jobId"`
+	LeaseToken         string                   `json:"leaseToken"`
+	LeaseUntil         time.Time                `json:"leaseUntil"`
+	BuildRunID         string                   `json:"buildRunId"`
+	ProjectID          string                   `json:"projectId"`
+	ApplicationID      string                   `json:"applicationId"`
+	DeploymentTargetID string                   `json:"deploymentTargetId"`
+	Repository         builderRepositoryPayload `json:"repository"`
+	Build              builderBuildPayload      `json:"build"`
+	Registry           builderRegistryPayload   `json:"registry"`
 }
 
 type builderRepositoryPayload struct {

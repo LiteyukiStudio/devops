@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path"
 	"strings"
 	"time"
 
@@ -64,6 +65,7 @@ func Run(redisAddr string, db *gorm.DB, options Options) error {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeDeployRun, runner.withTaskEvents(runner.handleDeployRun))
 	mux.HandleFunc(tasks.TypeGatewayApply, runner.withTaskEvents(runner.handleGatewayApply))
+	mux.HandleFunc(tasks.TypeApplicationDelete, runner.withTaskEvents(runner.handleApplicationDelete))
 	mux.HandleFunc(tasks.TypeGitAccountRefresh, runner.withTaskEvents(runner.handleGitAccountRefresh))
 	mux.HandleFunc(tasks.TypeSyncStatus, runner.withTaskEvents(runner.handleSyncStatus))
 
@@ -351,6 +353,9 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) error
 	if err := r.db.First(&application, "id = ? and project_id = ?", route.ApplicationID, payload.ProjectID).Error; err != nil {
 		return err
 	}
+	if !applicationRuntimeCanMutate(application) {
+		return nil
+	}
 	var environment model.Environment
 	if err := r.db.First(&environment, "id = ? and project_id = ?", route.EnvironmentID, payload.ProjectID).Error; err != nil {
 		return err
@@ -377,6 +382,131 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) error
 	return r.db.Model(&route).Updates(updates).Error
 }
 
+func (r *Runner) handleApplicationDelete(ctx context.Context, task *asynq.Task) error {
+	var payload tasks.ApplicationDeletePayload
+	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
+		return err
+	}
+	var app model.Application
+	if err := r.db.First(&app, "id = ? and project_id = ?", payload.ApplicationID, payload.ProjectID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if !applicationDeleteTaskCanRun(app) {
+		return nil
+	}
+	_ = r.db.Model(&model.Application{}).Where("id = ?", app.ID).Updates(map[string]any{
+		"delete_status":  "deleting",
+		"delete_message": "",
+	}).Error
+	if err := r.cleanupApplicationRuntimeResources(ctx, payload); err != nil {
+		_ = r.markApplicationDeleteFailed(payload.ApplicationID, err)
+		return err
+	}
+	return r.finishApplicationDelete(app, payload)
+}
+
+func (r *Runner) cleanupApplicationRuntimeResources(ctx context.Context, payload tasks.ApplicationDeletePayload) error {
+	var project model.Project
+	if err := r.db.First(&project, "id = ?", payload.ProjectID).Error; err != nil {
+		return fmt.Errorf("project not found: %w", err)
+	}
+	var environments []model.Environment
+	if err := r.db.Where("project_id = ?", payload.ProjectID).Find(&environments).Error; err != nil {
+		return err
+	}
+	kinds := []string{"services", "workloads", "configs"}
+	if payload.DeleteData {
+		kinds = append(kinds, "storage")
+	}
+	for _, environment := range environments {
+		manager, err := r.kubernetesManager(environment)
+		if err != nil {
+			return err
+		}
+		namespace := deploymentNamespace(project, environment)
+		for _, kind := range kinds {
+			items, err := manager.ListManagedResources(ctx, kubeprovider.ResourceListOptions{
+				Kind:          kind,
+				Namespace:     namespace,
+				ProjectID:     payload.ProjectID,
+				ApplicationID: payload.ApplicationID,
+			})
+			if err != nil {
+				if isKubernetesNotFound(err) {
+					continue
+				}
+				return fmt.Errorf("list %s resources in %s: %w", kind, namespace, err)
+			}
+			for _, item := range items {
+				if !payload.DeleteData && strings.EqualFold(item.Kind, "PersistentVolumeClaim") {
+					continue
+				}
+				if err := manager.DeleteManagedResource(ctx, item.Kind, item.Namespace, item.Name); err != nil && !isKubernetesNotFound(err) {
+					return fmt.Errorf("delete %s %s/%s: %w", item.Kind, item.Namespace, item.Name, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func applicationDeleteTaskCanRun(app model.Application) bool {
+	status := strings.TrimSpace(app.DeleteStatus)
+	return status == "deleting" || status == "delete_failed"
+}
+
+func applicationRuntimeCanMutate(app model.Application) bool {
+	status := strings.TrimSpace(app.DeleteStatus)
+	return status == "" || status == "active"
+}
+
+func (r *Runner) markApplicationDeleteFailed(applicationID string, err error) error {
+	finishedAt := time.Now()
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	return r.db.Model(&model.Application{}).Where("id = ?", applicationID).Updates(map[string]any{
+		"delete_status":      "delete_failed",
+		"delete_message":     trimReleaseLogContent(message),
+		"delete_finished_at": &finishedAt,
+	}).Error
+}
+
+func (r *Runner) finishApplicationDelete(app model.Application, payload tasks.ApplicationDeletePayload) error {
+	finishedAt := time.Now()
+	dataRetentionMode := "retained"
+	if payload.DeleteData {
+		dataRetentionMode = "deleted"
+	}
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("project_id = ? and application_id = ?", app.ProjectID, app.ID).Delete(&model.DeploymentTargetHookBinding{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ? and application_id = ?", app.ProjectID, app.ID).Delete(&model.DeploymentTarget{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ? and application_id = ?", app.ProjectID, app.ID).Delete(&model.GatewayRoute{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("project_id = ? and application_id = ?", app.ProjectID, app.ID).Delete(&model.RepositoryBinding{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&model.Application{}).Where("id = ?", app.ID).Updates(map[string]any{
+			"delete_status":       "deleted",
+			"delete_message":      "",
+			"delete_finished_at":  &finishedAt,
+			"data_retention_mode": dataRetentionMode,
+		}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&app).Error
+	})
+}
+
 func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 	var payload tasks.DeployRunPayload
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
@@ -394,6 +524,11 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 	var application model.Application
 	if err := r.db.First(&application, "id = ? and project_id = ?", release.ApplicationID, payload.ProjectID).Error; err != nil {
 		return err
+	}
+	if !applicationRuntimeCanMutate(application) {
+		message := "应用正在删除中，跳过部署"
+		r.appendReleaseLog(release, message)
+		return r.finishDeployRelease(release, "failed", message)
 	}
 	var environment model.Environment
 	if err := r.db.First(&environment, "id = ? and project_id = ?", release.EnvironmentID, payload.ProjectID).Error; err != nil {
@@ -569,9 +704,13 @@ func (r *Runner) applyGatewayIngress(ctx context.Context, route model.GatewayRou
 
 func (r *Runner) gatewayServiceName(route model.GatewayRoute, application model.Application, environment model.Environment) string {
 	var target model.DeploymentTarget
-	err := r.db.Where("project_id = ? and application_id = ? and environment_id = ? and enabled = ?", route.ProjectID, application.ID, environment.ID, true).
-		Order("created_at asc").
-		First(&target).Error
+	query := r.db.Where("project_id = ? and application_id = ? and environment_id = ? and enabled = ?", route.ProjectID, application.ID, environment.ID, true)
+	if strings.TrimSpace(route.DeploymentTargetID) != "" {
+		query = query.Where("id = ?", strings.TrimSpace(route.DeploymentTargetID))
+	} else {
+		query = query.Order("created_at asc")
+	}
+	err := query.First(&target).Error
 	if err == nil {
 		return applicationResourceName(target)
 	}
@@ -609,7 +748,12 @@ func (r *Runner) applyApplicationResources(ctx context.Context, release model.Re
 	if err != nil {
 		return err
 	}
-	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, namespace, r.deployRolloutTimeoutSeconds)
+	runtimeConfigSets, err := r.runtimeConfigSetsForTarget(project.ID, deploymentTarget)
+	if err != nil {
+		return err
+	}
+	deploymentTarget.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(deploymentTarget.SecretFiles)
+	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, runtimeConfigSets, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {
 		return err
 	}
@@ -621,11 +765,88 @@ func (r *Runner) applyApplicationRuntimeConfig(ctx context.Context, release mode
 	if err != nil {
 		return err
 	}
-	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, namespace, r.deployRolloutTimeoutSeconds)
+	runtimeConfigSets, err := r.runtimeConfigSetsForTarget(project.ID, deploymentTarget)
+	if err != nil {
+		return err
+	}
+	deploymentTarget.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(deploymentTarget.SecretFiles)
+	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, runtimeConfigSets, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {
 		return err
 	}
 	return manager.ApplyApplicationRuntimeConfig(ctx, spec)
+}
+
+func (r *Runner) runtimeConfigSetsForTarget(projectID string, deploymentTarget model.DeploymentTarget) ([]model.ProjectRuntimeConfigSet, error) {
+	ids := runtimeConfigSetIDs(deploymentTarget.RuntimeConfigSetIDs)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var sets []model.ProjectRuntimeConfigSet
+	if err := r.db.Where("project_id = ? and enabled = ? and id in ?", projectID, true, ids).Find(&sets).Error; err != nil {
+		return nil, err
+	}
+	byID := make(map[string]model.ProjectRuntimeConfigSet, len(sets))
+	for _, set := range sets {
+		set.SecretRefs = r.resolveRuntimeSecretRefsRaw(set.SecretRefs)
+		set.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(set.SecretFiles)
+		byID[set.ID] = set
+	}
+	ordered := make([]model.ProjectRuntimeConfigSet, 0, len(sets))
+	for _, item := range ids {
+		if set, ok := byID[item]; ok {
+			ordered = append(ordered, set)
+		}
+	}
+	return ordered, nil
+}
+
+func (r *Runner) resolveRuntimeSecretRefsRaw(raw string) string {
+	refs := map[string]string{}
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		trimmed = "{}"
+	}
+	if err := json.Unmarshal([]byte(trimmed), &refs); err != nil {
+		return raw
+	}
+	resolved := make(map[string]string, len(refs))
+	for key, ref := range refs {
+		value := r.secrets.Resolve(ref)
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		resolved[key] = value
+	}
+	content, err := json.Marshal(resolved)
+	if err != nil {
+		return ""
+	}
+	return string(content)
+}
+
+func (r *Runner) resolveRuntimeSecretFileRefsRaw(raw string) string {
+	refs := map[string]string{}
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if err := json.Unmarshal([]byte(trimmed), &refs); err != nil {
+		return raw
+	}
+	files := make([]runtimeConfigFileInput, 0, len(refs))
+	for filePath, ref := range refs {
+		value := r.secrets.Resolve(ref)
+		if strings.TrimSpace(filePath) == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		files = append(files, runtimeConfigFileInput{Path: strings.TrimSpace(filePath), Content: value})
+	}
+	content, err := json.Marshal(files)
+	if err != nil {
+		return ""
+	}
+	return string(content)
 }
 
 func (r *Runner) waitForDeploymentRollout(ctx context.Context, release model.Release, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) (string, error) {
@@ -670,14 +891,26 @@ func (r *Runner) waitForDeploymentRollout(ctx context.Context, release model.Rel
 }
 
 func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) error {
-	var configs []model.ProjectHookConfig
-	if err := r.db.Where("project_id = ? and phase = ?", project.ID, phase).
+	var bindings []model.DeploymentTargetHookBinding
+	if err := r.db.Where("project_id = ? and application_id = ? and target_id = ? and phase = ?", project.ID, application.ID, deploymentTarget.ID, phase).
 		Order("run_order asc, created_at asc").
-		Find(&configs).Error; err != nil {
+		Find(&bindings).Error; err != nil {
 		return err
 	}
-	if len(configs) == 0 {
+	if len(bindings) == 0 {
 		return nil
+	}
+	hookIDs := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		hookIDs = append(hookIDs, binding.HookConfigID)
+	}
+	var configs []model.ProjectHookConfig
+	if err := r.db.Where("project_id = ? and id in ?", project.ID, hookIDs).Find(&configs).Error; err != nil {
+		return err
+	}
+	configsByID := make(map[string]model.ProjectHookConfig, len(configs))
+	for _, config := range configs {
+		configsByID[config.ID] = config
 	}
 	manager, err := r.kubernetesManager(environment)
 	if err != nil {
@@ -685,18 +918,21 @@ func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release m
 	}
 	resourceName := applicationResourceName(deploymentTarget)
 	buildContext := r.releaseBuildContext(release)
-	for _, config := range configs {
+	for _, binding := range bindings {
+		config, ok := configsByID[binding.HookConfigID]
+		if !ok {
+			continue
+		}
 		hookRun := model.HookRun{
 			ID:                 id.New("hrun"),
 			ProjectID:          project.ID,
 			HookConfigID:       config.ID,
 			ReleaseID:          release.ID,
 			ApplicationID:      application.ID,
-			ModuleID:           release.ModuleID,
 			EnvironmentID:      environment.ID,
 			DeploymentTargetID: deploymentTarget.ID,
 			Name:               config.Name,
-			Phase:              config.Phase,
+			Phase:              binding.Phase,
 			Status:             "running",
 			ScriptSnapshot:     config.Script,
 			Shell:              config.Shell,
@@ -714,7 +950,6 @@ func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release m
 			Namespace:          namespace,
 			ProjectID:          project.ID,
 			ApplicationID:      application.ID,
-			ModuleID:           release.ModuleID,
 			BuildRunID:         release.BuildRunID,
 			EnvironmentID:      environment.ID,
 			DeploymentTargetID: deploymentTarget.ID,
@@ -932,8 +1167,8 @@ func deploymentNamespace(project model.Project, _ model.Environment) string {
 
 func (r *Runner) releaseDeploymentTarget(release model.Release) model.DeploymentTarget {
 	var target model.DeploymentTarget
-	if strings.TrimSpace(release.ModuleID) != "" {
-		if err := r.db.First(&target, "project_id = ? and application_id = ? and environment_id = ? and module_id = ?", release.ProjectID, release.ApplicationID, release.EnvironmentID, release.ModuleID).Error; err == nil {
+	if strings.TrimSpace(release.DeploymentTargetID) != "" {
+		if err := r.db.First(&target, "id = ? and project_id = ? and application_id = ?", release.DeploymentTargetID, release.ProjectID, release.ApplicationID).Error; err == nil {
 			return target
 		}
 	}
@@ -1007,17 +1242,18 @@ func gatewayIngressSpec(route model.GatewayRoute, project model.Project, applica
 		servicePort = 80
 	}
 	return kubeprovider.GatewayIngressSpec{
-		Name:          gatewayIngressName(route),
-		Namespace:     namespace,
-		ProjectID:     project.ID,
-		ApplicationID: application.ID,
-		EnvironmentID: environment.ID,
-		RouteID:       route.ID,
-		Host:          strings.TrimSpace(route.Host),
-		Path:          route.Path,
-		ServiceName:   firstNonEmpty(serviceName, dnsLabel(application.Slug)),
-		ServicePort:   int32(servicePort),
-		TLSSecretName: gatewayTLSSecretName(route),
+		Name:               gatewayIngressName(route),
+		Namespace:          namespace,
+		ProjectID:          project.ID,
+		ApplicationID:      application.ID,
+		EnvironmentID:      environment.ID,
+		DeploymentTargetID: route.DeploymentTargetID,
+		RouteID:            route.ID,
+		Host:               strings.TrimSpace(route.Host),
+		Path:               route.Path,
+		ServiceName:        firstNonEmpty(serviceName, dnsLabel(application.Slug)),
+		ServicePort:        int32(servicePort),
+		TLSSecretName:      gatewayTLSSecretName(route),
 	}
 }
 
@@ -1033,12 +1269,34 @@ func gatewayCertificateSpec(route model.GatewayRoute, project model.Project, nam
 	}
 }
 
-func applicationResourcesSpec(release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string, rolloutTimeoutSeconds int64) (kubeprovider.ApplicationResourcesSpec, error) {
-	configData, err := mergeKeyValueMaps(environment.EnvVars, environment.ConfigRefs)
+func applicationResourcesSpec(release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, runtimeConfigSets []model.ProjectRuntimeConfigSet, namespace string, rolloutTimeoutSeconds int64) (kubeprovider.ApplicationResourcesSpec, error) {
+	configValues := make([]string, 0, len(runtimeConfigSets)+4)
+	secretValues := make([]string, 0, len(runtimeConfigSets)+2)
+	configFileValues := make([]string, 0, len(runtimeConfigSets)+1)
+	secretFileValues := make([]string, 0, len(runtimeConfigSets)+1)
+	for _, set := range runtimeConfigSets {
+		configValues = append(configValues, set.EnvVars)
+		secretValues = append(secretValues, set.SecretRefs)
+		configFileValues = append(configFileValues, set.ConfigFiles)
+		secretFileValues = append(secretFileValues, set.SecretFiles)
+	}
+	configValues = append(configValues, environment.EnvVars, environment.ConfigRefs, deploymentTarget.EnvVars, deploymentTarget.ConfigRefs)
+	secretValues = append(secretValues, environment.SecretRefs, deploymentTarget.SecretRefs)
+	configFileValues = append(configFileValues, deploymentTarget.ConfigFiles)
+	secretFileValues = append(secretFileValues, deploymentTarget.SecretFiles)
+	configData, err := mergeKeyValueMaps(configValues...)
 	if err != nil {
 		return kubeprovider.ApplicationResourcesSpec{}, err
 	}
-	secretData, err := parseKeyValueMap(environment.SecretRefs)
+	secretData, err := mergeKeyValueMaps(secretValues...)
+	if err != nil {
+		return kubeprovider.ApplicationResourcesSpec{}, err
+	}
+	configFiles, err := mergeRuntimeConfigFiles(configFileValues...)
+	if err != nil {
+		return kubeprovider.ApplicationResourcesSpec{}, err
+	}
+	secretFiles, err := mergeRuntimeConfigFiles(secretFileValues...)
 	if err != nil {
 		return kubeprovider.ApplicationResourcesSpec{}, err
 	}
@@ -1066,7 +1324,32 @@ func applicationResourcesSpec(release model.Release, project model.Project, appl
 		RolloutTimeoutSeconds: int32(rolloutTimeoutSeconds),
 		ConfigData:            configData,
 		SecretData:            secretData,
+		ConfigFiles:           configFiles,
+		SecretFiles:           secretFiles,
+		DataRetentionEnabled:  deploymentTarget.DataRetentionEnabled,
+		DataCapacity:          deploymentTarget.DataCapacity,
+		DataMountPath:         deploymentTarget.DataMountPath,
+		DataVolumes:           deploymentTargetDataVolumes(deploymentTarget),
 	}, nil
+}
+
+func deploymentTargetDataVolumes(target model.DeploymentTarget) []kubeprovider.ApplicationDataVolume {
+	normalized := strings.TrimSpace(target.DataVolumes)
+	if normalized == "" || normalized == "[]" {
+		if !target.DataRetentionEnabled {
+			return nil
+		}
+		return []kubeprovider.ApplicationDataVolume{{
+			Name:      "data",
+			MountPath: firstNonEmpty(target.DataMountPath, "/data"),
+			Capacity:  firstNonEmpty(target.DataCapacity, "1Gi"),
+		}}
+	}
+	var volumes []kubeprovider.ApplicationDataVolume
+	if err := json.Unmarshal([]byte(normalized), &volumes); err != nil {
+		return nil
+	}
+	return volumes
 }
 
 func mergeKeyValueMaps(values ...string) (map[string]string, error) {
@@ -1081,6 +1364,121 @@ func mergeKeyValueMaps(values ...string) (map[string]string, error) {
 		}
 	}
 	return merged, nil
+}
+
+type runtimeConfigFileInput struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+func mergeRuntimeConfigFiles(values ...string) ([]kubeprovider.ApplicationConfigFile, error) {
+	merged := map[string]kubeprovider.ApplicationConfigFile{}
+	order := []string{}
+	for _, value := range values {
+		files, err := parseRuntimeConfigFiles(value)
+		if err != nil {
+			return nil, err
+		}
+		for _, file := range files {
+			if _, ok := merged[file.Path]; !ok {
+				order = append(order, file.Path)
+			}
+			merged[file.Path] = file
+		}
+	}
+	output := make([]kubeprovider.ApplicationConfigFile, 0, len(order))
+	for index, itemPath := range order {
+		file := merged[itemPath]
+		file.Key = runtimeConfigFileKey(index, file.Path)
+		output = append(output, file)
+	}
+	return output, nil
+}
+
+func parseRuntimeConfigFiles(value string) ([]kubeprovider.ApplicationConfigFile, error) {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "[]" {
+		return nil, nil
+	}
+	if !strings.HasPrefix(value, "[") {
+		return nil, fmt.Errorf("runtime config files must be an array")
+	}
+	var raw []runtimeConfigFileInput
+	if err := json.Unmarshal([]byte(value), &raw); err != nil {
+		return nil, err
+	}
+	files := make([]kubeprovider.ApplicationConfigFile, 0, len(raw))
+	seenPaths := map[string]bool{}
+	for _, item := range raw {
+		filePath, err := normalizeRuntimeConfigFilePath(item.Path)
+		if err != nil {
+			return nil, err
+		}
+		if seenPaths[filePath] {
+			return nil, fmt.Errorf("runtime config file path %q is duplicated", filePath)
+		}
+		seenPaths[filePath] = true
+		files = append(files, kubeprovider.ApplicationConfigFile{Path: filePath, Content: item.Content})
+	}
+	return files, nil
+}
+
+func normalizeRuntimeConfigFilePath(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || !strings.HasPrefix(trimmed, "/") {
+		return "", fmt.Errorf("runtime config file path must be absolute")
+	}
+	cleaned := path.Clean(trimmed)
+	if cleaned == "/" || strings.Contains(cleaned, "/../") || strings.HasSuffix(cleaned, "/..") {
+		return "", fmt.Errorf("runtime config file path is invalid")
+	}
+	return cleaned, nil
+}
+
+func runtimeConfigFileKey(index int, filePath string) string {
+	name := strings.Trim(path.Base(filePath), ". ")
+	if name == "" || name == "/" {
+		name = "file"
+	}
+	var builder strings.Builder
+	for _, char := range strings.ToLower(name) {
+		if char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '-' || char == '_' || char == '.' {
+			builder.WriteRune(char)
+		} else {
+			builder.WriteByte('-')
+		}
+	}
+	key := strings.Trim(builder.String(), "-.")
+	if key == "" {
+		key = "file"
+	}
+	return fmt.Sprintf("%02d-%s", index+1, key)
+}
+
+func runtimeConfigSetIDs(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var ids []string
+	if err := json.Unmarshal([]byte(raw), &ids); err == nil {
+		return compactStringList(ids)
+	}
+	return compactStringList(strings.Split(raw, ","))
+}
+
+func compactStringList(values []string) []string {
+	seen := map[string]bool{}
+	output := make([]string, 0, len(values))
+	for _, value := range values {
+		item := strings.TrimSpace(value)
+		if item == "" || seen[item] {
+			continue
+		}
+		seen[item] = true
+		output = append(output, item)
+	}
+	return output
 }
 
 func parseKeyValueMap(value string) (map[string]string, error) {

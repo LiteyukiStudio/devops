@@ -15,6 +15,10 @@ func TestPolicyForTypeUsesDedicatedQueuesAndTimeouts(t *testing.T) {
 	if git.Queue != QueueLight || git.MaxRetry != 2 || git.Unique != 5*time.Minute {
 		t.Fatalf("git policy = %#v", git)
 	}
+	appDelete := PolicyForType(TypeApplicationDelete)
+	if appDelete.Queue != QueueDeploy || appDelete.Unique != 10*time.Minute {
+		t.Fatalf("application delete policy = %#v", appDelete)
+	}
 }
 
 func TestNewDeployRunTaskBuildsTypedPayload(t *testing.T) {
@@ -85,6 +89,42 @@ func TestNewGatewayApplyTaskRequiresCoreIDs(t *testing.T) {
 		t.Fatal("expected missing gateway route id to fail")
 	}
 	if _, err := NewGatewayApplyTask(GatewayApplyPayload{GatewayRouteID: "gwr_1"}); err == nil {
+		t.Fatal("expected missing project id to fail")
+	}
+}
+
+func TestNewApplicationDeleteTaskBuildsTypedPayload(t *testing.T) {
+	payload := ApplicationDeletePayload{
+		ApplicationID: "app_1",
+		ProjectID:     "prj_1",
+		ActorID:       "usr_1",
+	}
+
+	task, err := NewApplicationDeleteTask(payload)
+	if err != nil {
+		t.Fatalf("NewApplicationDeleteTask returned error: %v", err)
+	}
+	if task.Type() != TypeApplicationDelete {
+		t.Fatalf("task type = %q", task.Type())
+	}
+
+	var got ApplicationDeletePayload
+	if err := json.Unmarshal(task.Payload(), &got); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if got.ApplicationID != payload.ApplicationID || got.ProjectID != payload.ProjectID {
+		t.Fatalf("payload = %#v", got)
+	}
+	if got.Envelope.TaskType != TypeApplicationDelete || got.Envelope.ResourceRef != "app_1" {
+		t.Fatalf("envelope = %#v", got.Envelope)
+	}
+}
+
+func TestNewApplicationDeleteTaskRequiresCoreIDs(t *testing.T) {
+	if _, err := NewApplicationDeleteTask(ApplicationDeletePayload{ProjectID: "prj_1"}); err == nil {
+		t.Fatal("expected missing application id to fail")
+	}
+	if _, err := NewApplicationDeleteTask(ApplicationDeletePayload{ApplicationID: "app_1"}); err == nil {
 		t.Fatal("expected missing project id to fail")
 	}
 }

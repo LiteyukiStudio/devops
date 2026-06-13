@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -26,6 +27,9 @@ func TestApplyApplicationResourcesCreatesWorkloadResources(t *testing.T) {
 		RolloutTimeoutSeconds: 120,
 		ConfigData:            map[string]string{"APP_ENV": "dev"},
 		SecretData:            map[string]string{"TOKEN": "secret"},
+		DataRetentionEnabled:  true,
+		DataCapacity:          "2Gi",
+		DataMountPath:         "/data",
 	}
 
 	if err := client.ApplyApplicationResources(context.Background(), spec); err != nil {
@@ -44,6 +48,12 @@ func TestApplyApplicationResourcesCreatesWorkloadResources(t *testing.T) {
 	}
 	if deployment.Spec.ProgressDeadlineSeconds == nil || *deployment.Spec.ProgressDeadlineSeconds != 120 {
 		t.Fatalf("progress deadline = %#v", deployment.Spec.ProgressDeadlineSeconds)
+	}
+	if len(deployment.Spec.Template.Spec.Volumes) != 1 || deployment.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim == nil || deployment.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != spec.Name+"-data" {
+		t.Fatalf("deployment data volume = %#v", deployment.Spec.Template.Spec.Volumes)
+	}
+	if len(deployment.Spec.Template.Spec.Containers[0].VolumeMounts) != 1 || deployment.Spec.Template.Spec.Containers[0].VolumeMounts[0].MountPath != "/data" {
+		t.Fatalf("deployment data mount = %#v", deployment.Spec.Template.Spec.Containers[0].VolumeMounts)
 	}
 	assertManagedLabels(t, deployment.Labels, spec.Name, spec.ProjectID, spec.ApplicationID, spec.EnvironmentID, spec.DeploymentTargetID, spec.ReleaseID)
 	assertSelectorLabels(t, deployment.Spec.Selector.MatchLabels, spec.Name, spec.ProjectID, spec.ApplicationID, spec.EnvironmentID, spec.DeploymentTargetID)
@@ -75,6 +85,16 @@ func TestApplyApplicationResourcesCreatesWorkloadResources(t *testing.T) {
 		t.Fatalf("secret data = %#v", secret.Data)
 	}
 	assertManagedLabels(t, secret.Labels, spec.Name, spec.ProjectID, spec.ApplicationID, spec.EnvironmentID, spec.DeploymentTargetID, spec.ReleaseID)
+
+	claim, err := client.client.CoreV1().PersistentVolumeClaims(spec.Namespace).Get(context.Background(), spec.Name+"-data", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get persistent data claim: %v", err)
+	}
+	storage := claim.Spec.Resources.Requests[corev1.ResourceStorage]
+	if storage.String() != "2Gi" {
+		t.Fatalf("data capacity = %s", storage.String())
+	}
+	assertManagedLabels(t, claim.Labels, spec.Name, spec.ProjectID, spec.ApplicationID, spec.EnvironmentID, spec.DeploymentTargetID, spec.ReleaseID)
 }
 
 func TestApplyApplicationResourcesKeepsDeploymentSelectorStableAcrossReleases(t *testing.T) {
@@ -115,15 +135,13 @@ func TestApplyApplicationResourcesKeepsDeploymentSelectorStableAcrossReleases(t 
 func assertManagedLabels(t *testing.T, labels map[string]string, name string, projectID string, applicationID string, environmentID string, deploymentTargetID string, releaseID string) {
 	t.Helper()
 	expected := map[string]string{
-		ManagedByLabel:           ManagedByValue,
-		ApplicationNameKey:       name,
-		ProjectIDLabel:           projectID,
-		ApplicationIDLabel:       applicationID,
-		EnvironmentIDLabel:       environmentID,
-		DeploymentTargetIDLabel:  deploymentTargetID,
-		ReleaseIDLabel:           releaseID,
-		legacyApplicationIDLabel: applicationID,
-		legacyEnvironmentIDLabel: environmentID,
+		ManagedByLabel:          ManagedByValue,
+		ApplicationNameKey:      name,
+		ProjectIDLabel:          projectID,
+		ApplicationIDLabel:      applicationID,
+		EnvironmentIDLabel:      environmentID,
+		DeploymentTargetIDLabel: deploymentTargetID,
+		ReleaseIDLabel:          releaseID,
 	}
 	for key, value := range expected {
 		if labels[key] != value {
@@ -135,14 +153,12 @@ func assertManagedLabels(t *testing.T, labels map[string]string, name string, pr
 func assertSelectorLabels(t *testing.T, labels map[string]string, name string, projectID string, applicationID string, environmentID string, deploymentTargetID string) {
 	t.Helper()
 	expected := map[string]string{
-		ManagedByLabel:           ManagedByValue,
-		ApplicationNameKey:       name,
-		ProjectIDLabel:           projectID,
-		ApplicationIDLabel:       applicationID,
-		EnvironmentIDLabel:       environmentID,
-		DeploymentTargetIDLabel:  deploymentTargetID,
-		legacyApplicationIDLabel: applicationID,
-		legacyEnvironmentIDLabel: environmentID,
+		ManagedByLabel:          ManagedByValue,
+		ApplicationNameKey:      name,
+		ProjectIDLabel:          projectID,
+		ApplicationIDLabel:      applicationID,
+		EnvironmentIDLabel:      environmentID,
+		DeploymentTargetIDLabel: deploymentTargetID,
 	}
 	for key, value := range expected {
 		if labels[key] != value {

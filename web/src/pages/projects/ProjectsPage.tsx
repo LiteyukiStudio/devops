@@ -19,6 +19,7 @@ import { PageHeader } from '@/components/common/page-header'
 import { StatusBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
@@ -55,7 +56,7 @@ export function ProjectsPage() {
   })
   const projectItems = Array.isArray(projects.data) ? projects.data : projects.data?.items ?? []
   const projectTotal = Array.isArray(projects.data) ? projects.data.length : projects.data?.total ?? 0
-  const projectTotalPages = Array.isArray(projects.data) ? 1 : projects.data?.totalPages ?? 0
+  const projectTotalPages = Math.max(1, Array.isArray(projects.data) ? 1 : projects.data?.totalPages ?? 1)
   const projectPage = Array.isArray(projects.data) ? 1 : projects.data?.page ?? page
   const projectPageSize = Array.isArray(projects.data) ? pageSize : projects.data?.pageSize ?? pageSize
   const form = useForm<ProjectForm>({
@@ -77,9 +78,12 @@ export function ProjectsPage() {
 
   const deleteProject = useMutation({
     mutationFn: api.deleteProject,
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(t('projectSpaces.deleted'))
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      if (projectItems.length <= 1 && page > 1)
+        setPage(page - 1)
+      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      await queryClient.refetchQueries({ queryKey: ['projects', 'page'], type: 'active' })
     },
     onError: error => toast.error(error.message),
   })
@@ -181,7 +185,7 @@ export function ProjectsPage() {
             className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
             render: project => (
               <div className="flex justify-end gap-2">
-                <Link className="inline-flex h-9 items-center justify-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-foreground transition hover:bg-muted" to={`/projects/${project.id}`}>
+                <Link className={buttonVariants({ variant: 'ghost' })} to={`/projects/${project.id}`}>
                   {t('projectSpaces.openWorkspace')}
                 </Link>
                 <EditActionButton

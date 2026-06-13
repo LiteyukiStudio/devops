@@ -132,19 +132,16 @@ CREATE TABLE IF NOT EXISTS project_hook_configs (
   id text PRIMARY KEY,
   project_id text NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   name text NOT NULL,
-  phase text NOT NULL,
   script text NOT NULL,
   shell text NOT NULL DEFAULT 'sh',
   timeout_seconds integer NOT NULL DEFAULT 300,
   failure_policy text NOT NULL DEFAULT 'fail',
-  run_order integer NOT NULL DEFAULT 0,
   created_by text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS idx_project_hook_configs_project_id ON project_hook_configs(project_id);
-CREATE INDEX IF NOT EXISTS idx_project_hook_configs_phase ON project_hook_configs(phase);
 CREATE INDEX IF NOT EXISTS idx_project_hook_configs_created_by ON project_hook_configs(created_by);
 CREATE INDEX IF NOT EXISTS idx_project_hook_configs_deleted_at ON project_hook_configs(deleted_at);
 
@@ -156,7 +153,6 @@ CREATE TABLE IF NOT EXISTS hook_runs (
   build_job_id text NOT NULL DEFAULT '',
   release_id text NOT NULL DEFAULT '',
   application_id text NOT NULL DEFAULT '',
-  module_id text NOT NULL DEFAULT '',
   environment_id text NOT NULL DEFAULT '',
   deployment_target_id text NOT NULL DEFAULT '',
   name text NOT NULL,
@@ -180,7 +176,6 @@ CREATE INDEX IF NOT EXISTS idx_hook_runs_build_run_id ON hook_runs(build_run_id)
 CREATE INDEX IF NOT EXISTS idx_hook_runs_build_job_id ON hook_runs(build_job_id);
 CREATE INDEX IF NOT EXISTS idx_hook_runs_release_id ON hook_runs(release_id);
 CREATE INDEX IF NOT EXISTS idx_hook_runs_application_id ON hook_runs(application_id);
-CREATE INDEX IF NOT EXISTS idx_hook_runs_module_id ON hook_runs(module_id);
 CREATE INDEX IF NOT EXISTS idx_hook_runs_environment_id ON hook_runs(environment_id);
 CREATE INDEX IF NOT EXISTS idx_hook_runs_deployment_target_id ON hook_runs(deployment_target_id);
 CREATE INDEX IF NOT EXISTS idx_hook_runs_phase ON hook_runs(phase);
@@ -241,6 +236,11 @@ CREATE TABLE IF NOT EXISTS applications (
   name text NOT NULL,
   icon text NOT NULL DEFAULT 'box',
   service_port integer NOT NULL DEFAULT 8080,
+  delete_status text NOT NULL DEFAULT 'active',
+  delete_message text NOT NULL DEFAULT '',
+  delete_started_at timestamptz,
+  delete_finished_at timestamptz,
+  data_retention_mode text NOT NULL DEFAULT 'retain',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz
@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS applications (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_project_slug_active ON applications(project_id, slug) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_applications_project_id ON applications(project_id);
 CREATE INDEX IF NOT EXISTS idx_applications_slug ON applications(slug);
-CREATE INDEX IF NOT EXISTS idx_applications_git_account ON applications(git_account_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_applications_delete_status ON applications(delete_status);
 CREATE INDEX IF NOT EXISTS idx_applications_deleted_at ON applications(deleted_at);
 
 CREATE TABLE IF NOT EXISTS app_configs (
@@ -424,63 +424,29 @@ CREATE INDEX IF NOT EXISTS idx_build_providers_created_by ON build_providers(cre
 CREATE INDEX IF NOT EXISTS idx_build_providers_deleted_at ON build_providers(deleted_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_build_providers_scope_owner_slug_active ON build_providers(scope, owner_ref, slug) WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS application_modules (
+CREATE TABLE IF NOT EXISTS deployment_target_hook_bindings (
   id text PRIMARY KEY,
   project_id text NOT NULL,
   application_id text NOT NULL,
-  name text NOT NULL,
-  slug text NOT NULL,
-  repository_binding_id text NOT NULL DEFAULT '',
-  build_provider_id text NOT NULL DEFAULT '',
-  dockerfile_path text NOT NULL DEFAULT 'Dockerfile',
-  build_context text NOT NULL DEFAULT '.',
-  build_directory text NOT NULL DEFAULT '',
-  target_registry_id text NOT NULL DEFAULT '',
-  target_repository text NOT NULL DEFAULT '',
-  target_tag text NOT NULL DEFAULT '',
-  build_labels text NOT NULL DEFAULT '',
-  build_variable_set_ids text NOT NULL DEFAULT '',
-  build_hooks_enabled boolean NOT NULL DEFAULT true,
-  branch_pattern text NOT NULL DEFAULT '',
-  tag_pattern text NOT NULL DEFAULT '',
-  concurrency_policy text NOT NULL DEFAULT 'queue',
-  enabled boolean NOT NULL DEFAULT true,
-  created_by text NOT NULL DEFAULT '',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  deleted_at timestamptz
-);
-CREATE INDEX IF NOT EXISTS idx_application_modules_project_id ON application_modules(project_id);
-CREATE INDEX IF NOT EXISTS idx_application_modules_application_id ON application_modules(application_id);
-CREATE INDEX IF NOT EXISTS idx_application_modules_slug ON application_modules(slug);
-CREATE INDEX IF NOT EXISTS idx_application_modules_repository_binding_id ON application_modules(repository_binding_id);
-CREATE INDEX IF NOT EXISTS idx_application_modules_build_provider_id ON application_modules(build_provider_id);
-CREATE INDEX IF NOT EXISTS idx_application_modules_target_registry_id ON application_modules(target_registry_id);
-CREATE INDEX IF NOT EXISTS idx_application_modules_created_by ON application_modules(created_by);
-CREATE INDEX IF NOT EXISTS idx_application_modules_deleted_at ON application_modules(deleted_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_application_modules_app_slug_active ON application_modules(application_id, slug) WHERE deleted_at IS NULL;
-
-CREATE TABLE IF NOT EXISTS application_module_hook_bindings (
-  id text PRIMARY KEY,
-  project_id text NOT NULL,
-  application_id text NOT NULL,
-  module_id text NOT NULL,
+  target_id text NOT NULL,
   hook_config_id text NOT NULL,
+  phase text NOT NULL,
   run_order integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_application_module_hook_bindings_project_id ON application_module_hook_bindings(project_id);
-CREATE INDEX IF NOT EXISTS idx_application_module_hook_bindings_application_id ON application_module_hook_bindings(application_id);
-CREATE INDEX IF NOT EXISTS idx_application_module_hook_bindings_module_id ON application_module_hook_bindings(module_id);
-CREATE INDEX IF NOT EXISTS idx_application_module_hook_bindings_hook_config_id ON application_module_hook_bindings(hook_config_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_application_module_hook_bindings_module_hook ON application_module_hook_bindings(module_id, hook_config_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_target_hook_bindings_project_id ON deployment_target_hook_bindings(project_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_target_hook_bindings_application_id ON deployment_target_hook_bindings(application_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_target_hook_bindings_target_id ON deployment_target_hook_bindings(target_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_target_hook_bindings_hook_config_id ON deployment_target_hook_bindings(hook_config_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_target_hook_bindings_phase ON deployment_target_hook_bindings(phase);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deployment_target_hook_bindings_target_hook ON deployment_target_hook_bindings(target_id, hook_config_id, phase);
 
 CREATE TABLE IF NOT EXISTS build_runs (
   id text PRIMARY KEY,
   project_id text NOT NULL,
   application_id text NOT NULL DEFAULT '',
-  module_id text NOT NULL DEFAULT '',
+  deployment_target_id text NOT NULL DEFAULT '',
   build_provider_id text NOT NULL DEFAULT '',
   build_labels text NOT NULL DEFAULT '',
   build_variable_set_ids text NOT NULL DEFAULT '',
@@ -514,7 +480,7 @@ CREATE TABLE IF NOT EXISTS build_runs (
 );
 CREATE INDEX IF NOT EXISTS idx_build_runs_project_id ON build_runs(project_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_application_id ON build_runs(application_id);
-CREATE INDEX IF NOT EXISTS idx_build_runs_module_id ON build_runs(module_id);
+CREATE INDEX IF NOT EXISTS idx_build_runs_deployment_target_id ON build_runs(deployment_target_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_build_provider_id ON build_runs(build_provider_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_status ON build_runs(status);
 CREATE INDEX IF NOT EXISTS idx_build_runs_target_registry_id ON build_runs(target_registry_id);
@@ -648,7 +614,7 @@ CREATE TABLE IF NOT EXISTS releases (
   project_id text NOT NULL,
   application_id text NOT NULL,
   environment_id text NOT NULL,
-  module_id text NOT NULL DEFAULT '',
+  deployment_target_id text NOT NULL DEFAULT '',
   build_run_id text NOT NULL DEFAULT '',
   image_ref text NOT NULL,
   type text NOT NULL DEFAULT 'deploy',
@@ -666,7 +632,7 @@ CREATE TABLE IF NOT EXISTS releases (
 CREATE INDEX IF NOT EXISTS idx_releases_project_id ON releases(project_id);
 CREATE INDEX IF NOT EXISTS idx_releases_application_id ON releases(application_id);
 CREATE INDEX IF NOT EXISTS idx_releases_environment_id ON releases(environment_id);
-CREATE INDEX IF NOT EXISTS idx_releases_module_id ON releases(module_id);
+CREATE INDEX IF NOT EXISTS idx_releases_deployment_target_id ON releases(deployment_target_id);
 CREATE INDEX IF NOT EXISTS idx_releases_build_run_id ON releases(build_run_id);
 CREATE INDEX IF NOT EXISTS idx_releases_status ON releases(status);
 CREATE INDEX IF NOT EXISTS idx_releases_rollback_from_id ON releases(rollback_from_id);
@@ -689,11 +655,31 @@ CREATE TABLE IF NOT EXISTS deployment_targets (
   project_id text NOT NULL,
   application_id text NOT NULL,
   environment_id text NOT NULL,
-  module_id text NOT NULL,
   name text NOT NULL,
+  source_type text NOT NULL DEFAULT 'repository',
+  repository_binding_id text NOT NULL DEFAULT '',
+  build_provider_id text NOT NULL DEFAULT '',
+  dockerfile_path text NOT NULL DEFAULT 'Dockerfile',
+  build_context text NOT NULL DEFAULT '.',
+  build_directory text NOT NULL DEFAULT '',
+  target_registry_id text NOT NULL DEFAULT '',
+  target_repository text NOT NULL DEFAULT '',
+  target_tag text NOT NULL DEFAULT '',
+  image_ref text NOT NULL DEFAULT '',
+  build_labels text NOT NULL DEFAULT '',
+  build_variable_set_ids text NOT NULL DEFAULT '',
+  build_hooks_enabled boolean NOT NULL DEFAULT true,
   auto_deploy boolean NOT NULL DEFAULT false,
   branch_pattern text NOT NULL DEFAULT '',
   tag_pattern text NOT NULL DEFAULT '',
+  concurrency_policy text NOT NULL DEFAULT 'queue',
+  env_vars text NOT NULL DEFAULT '',
+  config_refs text NOT NULL DEFAULT '',
+  secret_refs text NOT NULL DEFAULT '',
+  data_retention_enabled boolean NOT NULL DEFAULT false,
+  data_capacity text NOT NULL DEFAULT '',
+  data_mount_path text NOT NULL DEFAULT '/data',
+  data_volumes text NOT NULL DEFAULT '',
   require_approval boolean NOT NULL DEFAULT false,
   enabled boolean NOT NULL DEFAULT true,
   created_by text NOT NULL DEFAULT '',
@@ -704,16 +690,19 @@ CREATE TABLE IF NOT EXISTS deployment_targets (
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_project_id ON deployment_targets(project_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_application_id ON deployment_targets(application_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_environment_id ON deployment_targets(environment_id);
-CREATE INDEX IF NOT EXISTS idx_deployment_targets_module_id ON deployment_targets(module_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_targets_repository_binding_id ON deployment_targets(repository_binding_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_targets_build_provider_id ON deployment_targets(build_provider_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_targets_target_registry_id ON deployment_targets(target_registry_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_created_by ON deployment_targets(created_by);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_deleted_at ON deployment_targets(deleted_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_deployment_targets_app_env_module_active ON deployment_targets(application_id, environment_id, module_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deployment_targets_app_env_name_active ON deployment_targets(application_id, environment_id, name) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS gateway_routes (
   id text PRIMARY KEY,
   project_id text NOT NULL,
   application_id text NOT NULL,
   environment_id text NOT NULL DEFAULT '',
+  deployment_target_id text NOT NULL DEFAULT '',
   host text NOT NULL,
   path text NOT NULL DEFAULT '/',
   service_port integer NOT NULL DEFAULT 80,
@@ -732,6 +721,7 @@ CREATE TABLE IF NOT EXISTS gateway_routes (
 CREATE INDEX IF NOT EXISTS idx_gateway_routes_project_id ON gateway_routes(project_id);
 CREATE INDEX IF NOT EXISTS idx_gateway_routes_application_id ON gateway_routes(application_id);
 CREATE INDEX IF NOT EXISTS idx_gateway_routes_environment_id ON gateway_routes(environment_id);
+CREATE INDEX IF NOT EXISTS idx_gateway_routes_deployment_target_id ON gateway_routes(deployment_target_id);
 CREATE INDEX IF NOT EXISTS idx_gateway_routes_host ON gateway_routes(host);
 CREATE INDEX IF NOT EXISTS idx_gateway_routes_created_by ON gateway_routes(created_by);
 CREATE INDEX IF NOT EXISTS idx_gateway_routes_deleted_at ON gateway_routes(deleted_at);

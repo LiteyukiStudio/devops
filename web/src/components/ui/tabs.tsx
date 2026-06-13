@@ -4,7 +4,7 @@ import { Tabs as TabsPrimitive } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
 function Tabs({ className, ...props }: ComponentProps<typeof TabsPrimitive.Root>) {
-  return <TabsPrimitive.Root className={cn('flex flex-col gap-4', className)} data-slot="tabs" {...props} />
+  return <TabsPrimitive.Root className={cn('flex w-full min-w-0 max-w-full flex-col gap-4', className)} data-slot="tabs" {...props} />
 }
 
 function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
@@ -31,7 +31,7 @@ function TabsTrigger({ className, ...props }: ComponentProps<typeof TabsPrimitiv
 }
 
 function TabsContent({ className, ...props }: ComponentProps<typeof TabsPrimitive.Content>) {
-  return <TabsPrimitive.Content className={cn('outline-none', className)} data-slot="tabs-content" {...props} />
+  return <TabsPrimitive.Content className={cn('w-full min-w-0 max-w-full outline-none', className)} data-slot="tabs-content" {...props} />
 }
 
 export { Tabs, TabsContent, TabsList, TabsTrigger }

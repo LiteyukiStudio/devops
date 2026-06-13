@@ -28,7 +28,7 @@ export default function App() {
           <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="/projects/:projectId/members" element={<ProjectRootRedirect />} />
           <Route path="/projects/:projectId/apps" element={<ProjectRootRedirect />} />
-          <Route path="/projects/:projectId/repositories" element={<ProjectRootRedirect />} />
+          <Route path="/projects/:projectId/repositories" element={<ProjectAppsRedirect />} />
           <Route path="/projects/:projectId/apps/:applicationId" element={<ApplicationConfigPage />} />
           <Route path="/code-repositories" element={<CodeRepositoriesPage />} />
           <Route path="/registries" element={<RegistriesPage />} />
@@ -48,4 +48,9 @@ export default function App() {
 function ProjectRootRedirect() {
   const { projectId = '' } = useParams()
   return <Navigate to={`/projects/${projectId}`} replace />
+}
+
+function ProjectAppsRedirect() {
+  const { projectId = '' } = useParams()
+  return <Navigate to={`/projects/${projectId}#tab=apps`} replace />
 }
