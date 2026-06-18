@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/LiteyukiStudio/devops/internal/config"
 )
 
 type ListMode string
@@ -309,11 +311,7 @@ func egressDebugEnabled() bool {
 	case "debug", "trace":
 		return true
 	}
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV"))) {
-	case "development", "dev", "local":
-		return true
-	}
-	return false
+	return config.RuntimeMode() == "development"
 }
 
 func debugList(values []string) string {

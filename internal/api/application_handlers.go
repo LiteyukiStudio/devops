@@ -20,8 +20,26 @@ func (h *Handlers) ListApplications(ctx *gin.Context) {
 	}
 
 	var applications []model.Application
-	query := h.db.Where("project_id = ?", ctx.Param("projectId"))
+	query := h.db.Model(&model.Application{}).Where("project_id = ?", ctx.Param("projectId"))
 	query = applySearch(ctx, query, "name", "slug")
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"name":      "name",
+			"slug":      "slug",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&applications).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(applications, total, pagination))
+		return
+	}
 	if err := query.Order("created_at desc").Find(&applications).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -53,7 +71,6 @@ func (h *Handlers) CreateApplication(ctx *gin.Context) {
 		Slug:              input.Slug,
 		Name:              input.Name,
 		Icon:              normalizeApplicationIcon(input.Icon),
-		ServicePort:       fallbackInt(input.ServicePort, 8080),
 		DeleteStatus:      "active",
 		DataRetentionMode: "retain",
 	}
@@ -107,7 +124,6 @@ func (h *Handlers) UpdateApplication(ctx *gin.Context) {
 	app.Slug = input.Slug
 	app.Name = input.Name
 	app.Icon = normalizeApplicationIcon(input.Icon)
-	app.ServicePort = fallbackInt(input.ServicePort, 8080)
 
 	if err := h.db.Save(&app).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
@@ -226,10 +242,9 @@ func (h *Handlers) ensureApplicationSlugAvailable(ctx *gin.Context, projectID st
 }
 
 type applicationInput struct {
-	Slug        string `json:"slug" binding:"required"`
-	Name        string `json:"name" binding:"required"`
-	Icon        string `json:"icon"`
-	ServicePort int    `json:"servicePort"`
+	Slug string `json:"slug" binding:"required"`
+	Name string `json:"name" binding:"required"`
+	Icon string `json:"icon"`
 }
 
 func normalizeBuildConcurrencyPolicy(value string) string {

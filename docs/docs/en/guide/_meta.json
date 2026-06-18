@@ -1,0 +1,22 @@
+[
+  {
+    "type": "file",
+    "name": "getting-started",
+    "label": "Quick Docker Compose Deploy"
+  },
+  {
+    "type": "file",
+    "name": "product",
+    "label": "First Visit"
+  },
+  {
+    "type": "file",
+    "name": "workspace",
+    "label": "Next Steps"
+  },
+  {
+    "type": "file",
+    "name": "build-and-release",
+    "label": "Startup Troubleshooting"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "type": "file",
+    "name": "deployment",
+    "label": "Feature Map"
+  },
+  {
+    "type": "file",
+    "name": "configuration",
+    "label": "Settings and Connections"
+  },
+  {
+    "type": "file",
+    "name": "diagnostics",
+    "label": "Status and Troubleshooting"
+  }
+]

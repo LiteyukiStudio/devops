@@ -1,0 +1,46 @@
+const errors = {
+  auth: {
+    unauthorized: '请先登录',
+    forbidden: '没有执行此操作的权限',
+    login: { invalid: '邮箱或密码不正确' },
+    session: {
+      missing: '请先登录',
+      expired: '登录会话已过期，请重新登录',
+    },
+    account: { disabled: '账号不可用，请联系平台管理员' },
+  },
+  application: {
+    delete_in_progress: '应用正在删除中，请等待资源清理完成或删除失败后重试。',
+  },
+  config: {
+    admin: { required: '请确认当前账号具有平台管理员权限。' },
+  },
+  request: {
+    invalid: '请求参数不正确',
+    invalid_json: '请求 JSON 格式不正确',
+    failed: '请求处理失败，请稍后重试',
+  },
+  resource: {
+    not_found: '资源不存在或已被删除',
+    conflict: '资源状态冲突，请刷新后重试',
+  },
+  network: {
+    failed: '无法连接到平台后端，请检查本地服务、网络代理或 VPN 设置。',
+  },
+  rate_limited: '请求过于频繁，请稍后再试',
+  internal_error: '服务暂时不可用，请稍后再试',
+  git: {
+    network_failed: 'Git 平台连接失败。请检查服务端网络、代理/VPN、DNS 解析或 FakeIP 设置后重试。',
+    token_refresh_failed: 'Git Token 刷新失败，请重新授权或检查凭据。',
+    upstream_failed: 'Git 上游接口调用失败，请稍后重试。',
+    permission_denied: 'Git 凭据权限不足，无法访问该仓库或配置 Webhook。请检查凭据权限后重试。',
+    repository_not_found: 'Git 仓库不存在，或当前凭据无权访问该仓库。请检查仓库和 Git 凭据。',
+    validation_failed: 'Git 平台拒绝了本次配置请求。请检查仓库、Webhook 地址和凭据权限。',
+    webhook_callback_unreachable: 'Webhook 回调地址无法被 GitHub/Gitea 从公网访问。请配置可公网访问的 PUBLIC_BASE_URL 后重新配置 Webhook。',
+    webhook_callback_invalid: 'Webhook 回调地址格式无效。请配置以 http/https 开头的 PUBLIC_BASE_URL 后重新配置 Webhook。',
+    webhook_already_exists: '该仓库可能已经存在相同回调地址的 Webhook。请在 Git 平台确认后重试或使用现有 Webhook。',
+    webhook_rate_limited: 'Git 平台暂时限制了 Webhook 创建请求，请稍后重试。',
+  },
+}
+
+export default errors

@@ -1,0 +1,87 @@
+name: Build & Publish Containers
+
+on:
+  push:
+    branches: [main, dev]
+    tags: [v*]
+  workflow_dispatch:
+
+env:
+  CONTAINER_PLATFORMS: linux/amd64,linux/arm64
+  DOCKERHUB_REGISTRY: docker.io
+  DOCKERHUB_NAMESPACE: liteyukistudio
+  IMAGE_API: devops-api
+  IMAGE_WORKER: devops-worker
+
+concurrency:
+  group: build-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    name: Build & Publish Container Images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare image metadata
+        id: meta
+        shell: bash
+        run: |
+          image_prefix="${DOCKERHUB_NAMESPACE}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version_tag="${GITHUB_REF#refs/tags/}"
+            api_tags="${image_prefix}/${IMAGE_API}:${version_tag}"$'\n'"${image_prefix}/${IMAGE_API}:latest"
+            worker_tags="${image_prefix}/${IMAGE_WORKER}:${version_tag}"$'\n'"${image_prefix}/${IMAGE_WORKER}:latest"
+          else
+            api_tags="${image_prefix}/${IMAGE_API}:latest"
+            worker_tags="${image_prefix}/${IMAGE_WORKER}:latest"
+          fi
+          {
+            echo "api_tags<<EOF"
+            echo "${api_tags}"
+            echo "EOF"
+            echo "worker_tags<<EOF"
+            echo "${worker_tags}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime-embed-web
+          push: true
+          platforms: ${{ env.CONTAINER_PLATFORMS }}
+          tags: |
+            ${{ steps.meta.outputs.api_tags }}
+
+      - name: Build & Push Worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: ${{ env.CONTAINER_PLATFORMS }}
+          build-args: |
+            TARGET=worker
+          tags: |
+            ${{ steps.meta.outputs.worker_tags }}

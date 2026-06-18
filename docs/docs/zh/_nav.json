@@ -1,0 +1,17 @@
+[
+  {
+    "text": "开始",
+    "link": "/guide/getting-started",
+    "activeMatch": "/guide/"
+  },
+  {
+    "text": "使用",
+    "link": "/operations/deployment",
+    "activeMatch": "/operations/"
+  },
+  {
+    "text": "开发",
+    "link": "/developer/architecture",
+    "activeMatch": "/developer/"
+  }
+]

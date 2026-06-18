@@ -23,6 +23,23 @@ func TestExecutorContainerNameSanitizesBuildID(t *testing.T) {
 	}
 }
 
+func TestExecutorSecurityArgsDefaultToUnprivileged(t *testing.T) {
+	args := executorSecurityArgs(Options{})
+
+	if len(args) != 0 {
+		t.Fatalf("expected no security args by default, got %#v", args)
+	}
+}
+
+func TestExecutorSecurityArgsCanEnablePrivilegedCompatibilityMode(t *testing.T) {
+	args := executorSecurityArgs(Options{Privileged: true, Seccomp: "unconfined"})
+	got := strings.Join(args, " ")
+
+	if got != "--privileged --security-opt seccomp=unconfined" {
+		t.Fatalf("security args = %q", got)
+	}
+}
+
 func TestBuildkitProgressFromRawJSONLineReadsVertex(t *testing.T) {
 	line := `{"vertexes":[{"digest":"sha256:1","name":"RUN pnpm install --frozen-lockfile","started":"2026-06-08T10:00:00Z"}]}`
 	got := buildkitProgressFromRawJSONLine(line)

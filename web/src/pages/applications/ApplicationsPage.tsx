@@ -17,22 +17,25 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
+import { HoverText } from '@/components/common/hover-text'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { APPLICATION_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('apps.nameRequired')),
   slug: z.string().min(1, i18next.t('apps.slugRequired')).max(APPLICATION_SLUG_MAX_LENGTH, i18next.t('apps.slugMaxLength', { count: APPLICATION_SLUG_MAX_LENGTH })).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
   icon: z.string().default('box'),
-  servicePort: z.coerce.number().int().min(1, i18next.t('apps.servicePortRequired')).max(65535, i18next.t('apps.servicePortMax')),
 })
 
 type ApplicationFormInput = z.input<typeof schema>
 type ApplicationForm = z.output<typeof schema>
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 export interface ApplicationsPageHandle {
   openCreateDialog: () => void
@@ -41,22 +44,35 @@ export interface ApplicationsPageHandle {
 interface ApplicationsPageProps {
   embedded?: boolean
   projectId?: string
+  projectName?: string
   ref?: Ref<ApplicationsPageHandle>
 }
 
-export function ApplicationsPage({ embedded = false, projectId: projectIdProp, ref }: ApplicationsPageProps = {}) {
+export function ApplicationsPage({ embedded = false, projectId: projectIdProp, projectName: projectNameProp, ref }: ApplicationsPageProps = {}) {
   const { t } = useTranslation()
   const { projectId: routeProjectId = '' } = useParams()
   const projectId = projectIdProp ?? routeProjectId
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingApplication, setEditingApplication] = useState<Application | null>(null)
+  const [applicationToDelete, setApplicationToDelete] = useState<Application | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   const applications = useQuery({
-    queryKey: ['applications', projectId],
-    queryFn: () => api.listApplications(projectId),
+    queryKey: ['applications', projectId, page, pageSize],
+    queryFn: () => api.listApplicationsPage(projectId, { page, pageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
     enabled: Boolean(projectId),
   })
+  const project = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => api.getProject(projectId),
+    enabled: Boolean(projectId) && !projectNameProp,
+  })
+  const resolvedProjectName = projectNameProp ?? project.data?.name ?? ''
+  const deleteConfirmationTarget = applicationToDelete && resolvedProjectName ? `${resolvedProjectName}/${applicationToDelete.name}` : ''
+  const deleteConfirmationMatches = deleteConfirmation === deleteConfirmationTarget
   const form = useForm<ApplicationFormInput, undefined, ApplicationForm>({
     resolver: zodResolver(schema),
     mode: 'onChange',
@@ -64,7 +80,6 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
       name: '',
       slug: '',
       icon: 'box',
-      servicePort: 8080,
     },
   })
 
@@ -73,7 +88,6 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
       name: application?.name ?? '',
       slug: application?.slug ?? '',
       icon: application?.icon ?? 'box',
-      servicePort: application?.servicePort ?? 8080,
     })
   }
 
@@ -92,7 +106,6 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
           name: payload.name,
           slug: payload.slug,
           icon: payload.icon,
-          servicePort: payload.servicePort,
         }
         return api.createApplication(projectId, appPayload)
       })(),
@@ -115,7 +128,6 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
           name: payload.name,
           slug: payload.slug,
           icon: payload.icon,
-          servicePort: payload.servicePort,
         }
         return api.updateApplication(projectId, editingApplication.id, appPayload)
       })(),
@@ -133,6 +145,8 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
     mutationFn: (applicationId: string) => api.deleteApplication(projectId, applicationId),
     onSuccess: () => {
       toast.success(t('apps.deleteQueued'))
+      setApplicationToDelete(null)
+      setDeleteConfirmation('')
       queryClient.invalidateQueries({ queryKey: ['applications', projectId] })
       queryClient.invalidateQueries({ queryKey: ['repository-bindings', projectId] })
     },
@@ -193,17 +207,17 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
                       setDialogOpen(true)
                     }}
                   />
-                  <ConfirmDialog
-                    confirmText={t('apps.deleteConfirm')}
-                    description={t('apps.deleteDescription', { name: application.name })}
-                    pending={deleteApplication.isPending || deleting}
-                    title={t('apps.deleteTitle')}
-                    onConfirm={() => deleteApplication.mutate(application.id)}
+                  <Button
+                    aria-label={t('apps.deleteAria')}
+                    disabled={deleting}
+                    variant="ghost"
+                    onClick={() => {
+                      setApplicationToDelete(application)
+                      setDeleteConfirmation('')
+                    }}
                   >
-                    <Button aria-label={t('apps.deleteAria')} disabled={deleting} variant="ghost">
-                      <Trash2 size={16} />
-                    </Button>
-                  </ConfirmDialog>
+                    <Trash2 size={16} />
+                  </Button>
                 </div>
               )
             },
@@ -211,8 +225,58 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
         ]}
         emptyDescription={t('apps.emptyDescription')}
         emptyTitle={t('apps.emptyTitle')}
-        items={applications.data ?? []}
+        items={applications.data?.items ?? []}
+        pagination={{
+          page: applications.data?.page ?? page,
+          pageSize: applications.data?.pageSize ?? pageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          total: applications.data?.total ?? 0,
+          totalPages: applications.data?.totalPages ?? 0,
+          pageInfoLabel: t('pagination.pageInfo', {
+            page: applications.data?.page ?? page,
+            totalPages: applications.data?.totalPages ?? 0,
+            total: applications.data?.total ?? 0,
+          }),
+          onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(1)
+          },
+        }}
         rowKey={application => application.id}
+      />
+
+      <ConfirmDialog
+        confirmDisabled={!deleteConfirmationMatches}
+        confirmText={t('apps.deleteConfirm')}
+        content={(
+          <div className="grid gap-2">
+            <Label htmlFor="application-delete-confirmation">{t('apps.deleteConfirmationLabel', { name: deleteConfirmationTarget })}</Label>
+            <Input
+              id="application-delete-confirmation"
+              aria-invalid={Boolean(deleteConfirmation) && !deleteConfirmationMatches}
+              autoComplete="off"
+              placeholder={deleteConfirmationTarget}
+              value={deleteConfirmation}
+              onChange={event => setDeleteConfirmation(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{t('apps.deleteConfirmationHint')}</p>
+          </div>
+        )}
+        description={applicationToDelete ? t('apps.deleteDescription', { name: applicationToDelete.name }) : ''}
+        open={Boolean(applicationToDelete)}
+        pending={deleteApplication.isPending || applicationToDelete?.deleteStatus === 'deleting'}
+        title={t('apps.deleteTitle')}
+        onConfirm={() => {
+          if (applicationToDelete && deleteConfirmationMatches)
+            deleteApplication.mutate(applicationToDelete.id)
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApplicationToDelete(null)
+            setDeleteConfirmation('')
+          }
+        }}
       />
 
       <Dialog
@@ -244,8 +308,6 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
               icon={form.watch('icon')}
               nameError={form.formState.errors.name?.message}
               nameField={form.register('name')}
-              servicePortError={form.formState.errors.servicePort?.message}
-              servicePortField={form.register('servicePort', { valueAsNumber: true })}
               slugError={form.formState.errors.slug?.message}
               slugField={form.register('slug')}
               slugMaxLength={APPLICATION_SLUG_MAX_LENGTH}
@@ -269,22 +331,26 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
 
 function ApplicationSummary({ application, projectId }: { application: Application, projectId: string }) {
   const deleting = application.deleteStatus === 'deleting'
+  const deleteFailedMessage = application.deleteStatus === 'delete_failed' ? application.deleteMessage?.trim() : ''
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
         <ApplicationIcon name={application.icon} />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 w-full">
         <div className="flex items-center gap-2">
-          <Link className={`truncate font-medium transition hover:text-primary ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${projectId}/apps/${application.id}`}>
+          <Link className={`min-w-0 truncate font-medium transition hover:text-primary ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${projectId}/apps/${application.id}`}>
             {application.name}
           </Link>
           {application.deleteStatus && application.deleteStatus !== 'active' && (
             <StatusValueBadge labelKeyPrefix="apps.deleteStatuses" value={application.deleteStatus} />
           )}
+          {deleteFailedMessage && (
+            <HoverText className="flex-1 text-xs text-muted-foreground" value={deleteFailedMessage} />
+          )}
         </div>
         <p className="truncate text-sm text-muted-foreground">
-          {application.deleteStatus === 'delete_failed' && application.deleteMessage ? application.deleteMessage : application.slug}
+          {application.slug}
         </p>
       </div>
     </div>

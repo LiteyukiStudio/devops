@@ -4,8 +4,13 @@
 
 - [x] 更新产品原型为文档式多页面线框。
 - [x] 在原型中覆盖创建应用、构建、部署、镜像站、自定义域名、Access Token、配额页面。
-- [x] 检查并移除文档中旧的 Actions / Kubernetes Job 构建路径表述，构建只保留平台 Builder。
-- [x] 新增 Builder 真实构建验收复盘文档，记录问题、修复项、待优化项和构建镜像源方案。
+- [x] 检查并移除文档中旧的 Actions / 常驻 Builder 构建路径表述，构建主路径收敛为 Worker 调度部署集群 Kubernetes Job。
+- [x] 新增旧 Builder 真实构建验收复盘文档，记录问题、修复项、待优化项和构建镜像源方案。
+- [x] 新增代码健康检查 SOP，沉淀 AI 长期协作项目的定期检查、重构触发条件和健康记录模板。
+- [x] 清理已被 `AGENTS.md` 吸收的旧版技术栈文档 `docs/02-项目技术栈要求.md`。
+- [x] 删除过期产品原型和暂不启用的 AI 能力提案文档，README 与 AGENTS 只保留当前有效文档入口。
+- [x] 删除独立品牌说明和旧 Builder 构建验收复盘文档；构建后续计划已由 TODO 中的细分条目承接。
+- [x] 将旧 `docs/` 内容迁移到 `docs-legacy/`，并使用 Rspress 建立支持中英双语、响应式和多主题的文档站。
 
 ## 2. 项目基础与前后端脚手架
 
@@ -45,7 +50,7 @@
 - [x] 将用户信息和主题切换控件移动到侧边栏底部。
 - [x] 引入前端轻量动效，覆盖页面切换、列表、弹窗和基础控件。
 - [x] 将侧边栏导航改为二级分组结构，按 DevOps、个人工作区、系统管理分栏展示。
-- [x] 新增 `/dashboard` 看板页，登录后默认进入看板，聚合项目空间、应用、近期构建、构建器、镜像站和集群状态；最近构建固定 4 条高度并支持最多 20 条滚动查看，按“项目空间 · 应用”展示并可一键直达具体页面。
+- [x] 新增 `/dashboard` 看板页，登录后默认进入看板，聚合项目空间、应用、近期构建、镜像站和集群状态；最近构建固定 4 条高度并支持最多 20 条滚动查看，按“项目空间 · 应用”展示并可一键直达具体页面。
 - [x] 看板常用项目空间改为一行横向滚动展示，最多 16 个；固定项目空间优先，其余按当前用户使用频次和最近使用排序。
 - [x] 项目空间列表支持最近使用、使用频次、创建时间、更新时间和名称排序；最近使用与使用频次写入 `project_members.last_used_at/use_count`，不复用项目更新时间。
 - [x] 将内容区顶部改为当前页面标题和说明，正文区域不再重复渲染页面标题。
@@ -71,6 +76,8 @@
 - [x] 项目空间侧边栏子项目列表增加层级缩进，进入工作台后 topbar 显示项目名称。
 - [x] 项目空间侧边栏展开/收起增加动画，图钉内嵌到项目条目右侧。
 - [x] 侧边栏导航横条和项目条目统一为完全圆角风格。
+- [x] 项目空间列表增加范围筛选：默认展示“与我相关”，平台管理员可手动切换到“全部项目空间”。
+- [x] 抽离通用 `HoverText` 单行省略组件，删除失败原因展示在状态 badge 右侧，hover/focus 展示完整原文，避免错误日志撑开列表。
 - [x] 项目空间工作台用 `ContentTabs` 集中概览、应用、成员内容，仓库绑定改为挂靠到应用下面。
 - [x] 应用详情新增“仓库”tab，按当前应用过滤 RepositoryBinding；仓库新建入口收敛到部署配置表单，保存后自动选中到当前部署配置。
 - [x] 项目空间概览改为项目级 dashboard，聚合应用、最近构建、发布健康、访问入口、变量密钥和成员摘要；粒度保持项目级，避免与应用概览重复。
@@ -80,26 +87,29 @@
 - [x] 应用行新增仓库绑定入口，支持用 Git 凭据搜索可见仓库并自动回填。
 - [x] 应用编辑仓库来源移除 owner/repo/cloneUrl 自由输入，Dockerfile 与构建上下文改为在部署配置中维护，避免应用信息表单和部署配置重复。
 - [x] 应用保存当前 `gitAccountId`，编辑时优先从 RepositoryBinding 恢复，绑定缺失时回退应用字段，避免重复选择 Git 凭据。
+- [x] 应用仓库绑定增加同应用同 Git Provider、同 owner/repo 的重复校验；后端返回冲突，前端保存前提示并禁用重复提交。
 - [x] 将 Dockerfile/构建目录探测迁到后端 build-options 接口，优先使用 recursive tree API，前端不再逐目录串行探测。
 - [x] Dockerfile 和构建上下文改为可输入候选建议，探测结果只作为建议，不阻止用户手动修正。
 - [x] 新增统一搜索选择器，并将 Git 分支选择改为 search/limit 查询、短缓存筛选和前端最大展示。
 - [x] 修复 Dialog 内搜索下拉撑高弹窗的问题，并将 Git 分支缓存改为分页拉取后再搜索。
+- [x] 补齐管理类列表分页：Git Provider/Git Account、应用、仓库绑定、项目成员、镜像站/单镜像站凭据、构建变量集、运行配置集、部署配置和访问入口支持 `items/page/pageSize/total/totalPages`，前端主要管理页接入 `DataList` 分页控件。
 - [x] 为 `web/src/components/common` 公共组件补充用途、适用场景和边界注释，方便后续 AI 复用。
 - [x] 项目详情页之间切换时复用同一个页面动画容器，只让项目信息和 tab 内容轻量切换。
 - [x] 全部项目列表只保留进入工作台入口，旧项目内列表路由重定向到工作台。
 - [x] 第一批 CRUD 弹窗化：项目空间、应用、项目成员、用户、身份源、Access Token。
-- [x] 将镜像站页面拆为镜像站、凭据、镜像、构建器四个子 tab，并将创建/编辑表单改为 Dialog。
-- [x] 构建器作为镜像站页子资源管理，展示自动注册的 Builder Agent，并保留 global/project/user 三种作用域的 BuildProvider 配置项。
-- [x] BuildProvider 配置拆分稳定唯一标识和友好显示名称，并在前端列表、表单和构建器选择器同时展示。
+- [x] 将镜像站页面拆为镜像站、凭据和镜像子 tab，并将创建/编辑表单改为 Dialog。
+- [x] 移除构建器 / Builder Token 主路径：构建由 Worker 在部署集群创建 Kubernetes Job，不再需要用户维护构建器接入。
 - [x] 应用支持多个部署配置 `DeploymentTarget`，BuildRun 记录 `deploymentTargetId`，触发构建时选择部署配置并从配置继承 Dockerfile、构建上下文和目标镜像；项目空间变量和密钥默认注入构建容器。
 - [x] 创建应用和应用配置表单不再填写部署配置；部署配置没有默认属性，触发构建和部署链路必须显式引用具体部署配置。
+- [x] 应用基础信息不再维护服务端口；服务端口改由部署配置维护，部署生成 Service 使用部署配置端口，访问入口默认继承部署配置端口。
 - [x] 新增部署配置 `DeploymentTarget`，部署配置直接绑定环境并配置自动部署策略；构建成功后按策略自动创建 Release 并投递部署任务，部署页展示部署配置、最新发布状态、日志、回滚和手动发布。
+- [x] 新增部署配置时自动部署默认启用，用户可在部署配置表单中手动禁用。
 - [x] 应用访问入口创建域名时直接选择部署配置，GatewayRoute 由 DeploymentTarget 推导应用、环境和目标 Service，留空域名时沿用平台默认域名生成规则。
 - [x] 镜像凭据 tab 默认展示全部镜像站凭据，并在凭据行展示所属镜像站名称。
-- [x] Builder running 阶段展示当前步骤，日志抽屉标题同步显示状态 Badge，并修复构建运行操作菜单长文案溢出。
+- [x] 构建 running 阶段展示当前步骤，日志抽屉标题同步显示状态 Badge，并修复构建运行操作菜单长文案溢出。
 - [x] 构建运行时间展示优化：10 小时内显示相对时间，超过后显示带年份绝对时间，并展示构建耗时。
 - [x] 构建时间与耗时展示走 i18n，中文时间单位统一使用 `时 / 分 / 秒`。
-- [x] 抽离通用时间格式化工具，Builder 心跳和构建任务复用同一套 10 小时内相对时间、超过后绝对时间策略。
+- [x] 抽离通用时间格式化工具，构建任务复用同一套 10 小时内相对时间、超过后绝对时间策略。
 - [x] 应用构建运行列表接入后端分页，并支持 Event、Status、Branch、Actor 筛选；全局分页组件调整为 GitHub 风格页码。
 - [x] 构建运行行压缩信息密度：代码来源和运行/镜像状态分别用 badge 分组展示，并区分平台触发人与 Git 提交者。
 - [x] 构建运行 badge 支持操作：仓库/提交跳转到 Git commit，Git 提交者跳转 Git 平台主页，镜像标签点击复制并 toast 提示。
@@ -118,13 +128,14 @@
 - [x] 继续将仓库绑定等多表单页面改为创建/编辑 Dialog。
 - [x] 使用浏览器验收前端启动、主题切换和基础路由。
 - [x] 开发环境使用 Vite proxy 反代后端 API。
-- [x] 为 api、worker、web 编写 Dockerfile。
+- [x] 为 api、worker 编写 Dockerfile；api 支持 `embed_web` 构建内嵌前端 SPA，前端不再维护独立 Dockerfile。
 - [x] 提供完整 docker compose 运行编排。
 - [x] 拆分开发依赖和完整部署的 compose 边界：开发依赖使用独立项目名并暴露 PG/Redis，完整部署的 PG/Redis 仅走容器内网络，避免端口和容器项目名冲突。
-- [x] 明确本地开发拓扑：前端、API、worker 优先在宿主机运行，PG/Redis 由 dev compose 提供；Builder 仅在真实构建联调或完整部署验收时启动。
-- [x] 将 compose 场景收敛为两份：`docker-compose-dev.yaml` 启动 PG/Redis/worker/builder 用于开发联调，`docker-compose.yaml` 保留完整部署栈。
-- [x] `docker-compose-dev.yaml` 的 worker / builder 读取 `.env.dev`，并通过服务级环境变量直接设置容器内连接地址。
-- [x] `.env.example` / `.env.dev` 增加 scope 注释，区分宿主机进程、Builder、安全策略和前端公开入口变量；Compose 容器连接地址直接保留在 compose 文件内。
+- [x] 明确本地开发拓扑：前端、API、worker 优先在宿主机运行，PG/Redis 由 dev compose 提供；构建联调使用部署配置所选运行集群的 Kubernetes Job。
+- [x] 将 compose 场景收敛为两份：`docker-compose-dev.yaml` 启动 PG/Redis/worker 用于开发联调，`docker-compose.yaml` 保留完整部署栈。
+- [x] 环境文件按运行边界拆分：`.env` 只保留基础模式开关，`.env.development` 面向宿主机进程，`.env.worker` 面向 worker 容器，并提供对应 `.example` 模板。
+- [x] `docker-compose-dev.yaml` 和 `docker-compose.yaml` 的 worker 显式读取 `.env.worker`，Compose 文件只保留具体拓扑需要覆盖的 API 地址等少量差异。
+- [x] 新增 GitHub Actions 多架构容器发布工作流：仅构建 `linux/amd64` 和 `linux/arm64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；`v*` tag 发布版本 tag 和 `latest`，分支发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
 
 ## 3. 认证、权限与登录
 
@@ -183,6 +194,7 @@
 - [x] 统一分页组件支持每页条数选择，统一列表滚动限制在表格区域内。
 - [x] 项目空间列表接入分页与每页条数选择，侧边栏项目空间父入口默认进入列表并移除子级“全部项目”。
 - [x] 侧边栏项目空间展开区限制为同时展示 6 个项目，其余项目在子列表内滚动。
+- [x] 修复项目空间列表 total 与可见行不一致：浏览器场景中空状态显示“还没有项目空间”但分页仍显示有记录，新建后只显示 1 行却显示“共 2 条”；排查软删除、权限过滤和分页 total 统计口径。
 - [x] 抽离统一分页组件，并将列表 API 改造为支持分页、排序、搜索和可选批量选择。
 - [x] 使用浏览器验收本地登录、退出和 Access Token 创建/撤销流程。
 - [x] 使用浏览器验收权限隐藏流程。
@@ -243,9 +255,14 @@
 - [x] 部署失败诊断第一阶段：集群工作负载页 Pod 摘要展示容器 waiting/terminated reason 和 Pod condition，避免 rollout stuck 时只能看到 `ready=0`。
 - [x] 补齐部署运行日志入口：应用部署页“查看日志”支持在部署日志和当前运行 Pod 容器日志之间切换。
 - [x] Web Console MVP：应用部署页支持对当前发布对应的运行中 Pod 执行一次性命令，后端通过 Kubernetes exec 执行并写入审计日志。
-- [ ] 补齐部署失败诊断第二阶段：发布日志和集群工作负载页继续补 Pod events、重新同步入口、镜像架构提示和交互式 TTY Web Console。
+- [x] 代码健康修复：项目空间异步删除按项目环境覆盖的集群逐个清理 namespace；项目、部署配置、访问入口和运行配置写入口统一阻止 deleting 状态；启动清理移除旧 `applications.service_port` 字段；资源清理状态机拆出 `internal/worker/resource_cleanup.go` 并补单测。
+- [x] 热点大文件第一轮拆分：`deployment_handlers.go` 拆出运行集群 handler，`web/src/api/client.ts` 拆出 DTO 类型，i18n locale 按语言和 namespace 拆分，`ApplicationConfigPage.tsx` 拆出 Overview 面板与页面工具函数。
+- [ ] 补齐部署失败诊断第二阶段：发布日志和集群工作负载页继续补 Pod events、重新同步入口和镜像架构提示。
 - [ ] 破坏式重建验收：主人确认 `docs/场景模拟.md` 后，清空本地旧库并按场景完成应用创建、部署配置创建、repository 构建、image 直部署、自动部署、域名、ConfigMap/Secret 覆盖、权限、Access Token、回滚和集群资源归属 smoke。
 - [x] Neo Blog 镜像直部署验收：清库后通过浏览器创建项目空间、环境、数据库/后端/前端应用、镜像来源部署配置和 `blogtest.local` 访问入口；Postgres、后端、前端均 rollout 成功，Ingress 通过 `http://blogtest.local:64111/` 返回 200。
+- [x] Browser 镜像直部署运行配置闭环：通过 UI 创建 nginx 镜像应用、部署配置、ConfigMap 环境变量、ConfigMap 文件、Release、运行日志、Web Console 和 `nginx-loop.local` 访问入口；`curl --resolve` 返回 `liteyuki browser loop ok`。
+- [x] 收紧运行集群和环境删除关系：运行集群被环境引用时禁止删除；环境被部署配置、访问入口或发布记录引用时禁止删除，避免父资源删除后子链路不可维护。
+- [x] 删除运行配置集成功后从部署配置中移除对应引用，避免部署配置继续指向已删除配置集。
 - [ ] 镜像架构与本地集群提示：镜像部署失败时在发布日志或资源详情中提示 `no matching manifest for linux/arm64` 等架构不匹配原因，并引导改用支持当前集群架构的镜像或平台构建产物。
 
 ## 5. Git 集成
@@ -257,7 +274,8 @@
 - [x] 实现 RepositoryBinding 基础模型、迁移和项目内 CRUD API。
 - [x] 实现 GitProvider / GitAccount OAuth 回调和 token 刷新 API。
 - [x] 统一 Git/OIDC OAuth state 运行时表名与迁移表名，并迁移历史 AutoMigrate 错误表数据。
-- [x] Git Provider / Git 凭据表单作用域交互与镜像站一致：global/user 不展示具体项目，project 才选择所属项目。
+- [x] Git Provider / Git 凭据表单作用域交互与镜像站一致：global/user 不展示具体项目，project 支持选择多个项目空间。
+- [x] 统一 scoped 资源项目空间绑定模型：Git Provider、Git 凭据、镜像站、运行集群、BuildProvider 和 BuildVariableSet 的 project scope 使用 `scoped_resource_project_bindings`，不再把单个项目 ID 塞进 `ownerRef`。
 - [x] 实现仓库列表、分支、文件读取和 Dockerfile/构建目录探测 API。
 - [x] 应用/仓库绑定选择仓库时优先搜索当前 Git 凭据可访问仓库；无匹配且有搜索词时由平台后端搜索公开仓库，并继续复用后端结构探测 API。
 - [x] 创建 Git webhook API。
@@ -273,15 +291,40 @@
 - [x] Git webhook 创建失败按上游状态和 validation 细节映射友好错误码，明确提示 PUBLIC_BASE_URL 不可公网访问、权限不足、仓库不存在、重复 webhook 和平台限流等原因。
 - [x] Git 外部请求网络失败映射为稳定错误码 `git.network_failed`，提示检查服务端网络、代理/VPN、DNS 解析或 FakeIP 设置。
 - [x] 收紧 Git 个人凭据访问：`personal` 凭据仅所有者可见可用，`provider` 凭据才按作用域共享。
-- [x] 收紧普通业务列表中的用户空间资源：管理员不再混看他人的 user-scope Git Provider、镜像站、构建提供者和 personal Registry/Git 凭据，后续单独建设管理视图。
+- [x] 收紧普通业务列表中的用户空间资源：管理员不再混看他人的 user-scope Git Provider、镜像站和 personal Registry/Git 凭据，后续单独建设管理视图。
 - [x] 全局 Git Provider、镜像站、集群对普通用户只返回可用资源摘要，不返回管理员维护的连接配置或密钥明文。
 - [x] 将 Git OAuth 凭据自动刷新放入后期 Worker：扫描即将过期的 GitAccount，使用 refresh token 刷新 access token，失败时标记 expired 并记录审计事件。
 - [x] 在 Git API 调用前增加兜底刷新：当 access token 已过期或即将过期时同步触发一次刷新，避免用户必须手动点击刷新。
+- [x] 删除 Git Provider 时同步软删除其 Git 凭据，并在前端确认弹窗提示级联删除，避免父资源删除后凭据残留且无法维护。
 
 ## 5.1 异步任务与 Worker 后期增强
 
 - [x] 以 Redis + Asynq 作为 Go 侧默认异步任务方案，承担类似 Celery 的队列、重试、延迟任务和定时任务能力。
 - [x] 引入 Asynq Scheduler/PeriodicTaskManager 管理周期任务，包括 Git 凭据刷新、集群状态同步、证书续期检查、资源清理和失败任务补偿。
+
+## 5.1.1 删除与 Kubernetes 资源最终一致性
+
+开发原则：
+
+- 不追求数据库删除和 Kubernetes 删除的强原子事务；Kubernetes API 不参与数据库事务，平台语义统一定义为“用户删除平台托管对象，平台负责最终清理对应运行态资源”。
+- 不引入复杂 Saga 框架或多层补偿 DSL；保持一个资源族一个清理入口、一个幂等 worker、一个可观测状态字段，避免系统越来越难维护。
+- 删除操作必须幂等：重复删除不存在的 Kubernetes 资源视为成功；权限、归属和 managed labels 校验失败才视为失败。
+- 用户侧不隐藏中间态：删除中、删除失败、残留资源待清理要明确展示，并提供重试或手动清理入口。
+
+待做：
+
+- [x] 统一删除状态字段和状态机：Project/Application/DeploymentTarget/GatewayRoute/ProjectRuntimeConfigSet 等资源使用 `active/deleting/delete_failed/deleted` 或等价最小状态，避免每个 handler 自造删除语义。
+- [x] 统一清理任务 payload：按资源族定义 `resource:cleanup`，通过 `resourceType` 区分 `project`、`deployment_target`、`gateway_route`、`runtime_config`，payload 只携带稳定 ID、actor、dedupeKey，具体 Kubernetes 资源名由后端按当前命名规则推导。
+- [x] Project 删除采用两阶段：先标记项目空间删除中并阻断新建应用、环境、发布和访问入口；worker 删除该项目 namespace 内平台托管资源或整个 namespace，成功后软删除业务数据，失败则保留 `delete_failed` 和错误摘要。
+- [x] 项目空间删除前端防误触：删除时必须输入项目空间名称后才允许确认。
+- [x] Application 删除保持两阶段：先阻断新的构建、发布、网关和运行态变更；worker 按应用归属 labels 删除 Deployment/Service/ConfigMap/Secret/Ingress 等托管资源，托管数据卷按数据保留策略处理。
+- [x] DeploymentTarget 删除只清理该部署配置派生资源：Deployment、Service、ConfigMap、Secret、PVC 可按保留策略处理；不误删同一应用其他部署配置的资源。
+- [x] GatewayRoute 删除不删除 Service，只删除对应 Ingress 等访问入口资源；访问入口删除和部署运行态删除职责分离。
+- [x] ProjectRuntimeConfigSet 删除或变更不直接删除正在运行的 ConfigMap/Secret；只更新引用关系并提示受影响部署配置重新部署，真正运行态清理由部署配置发布/清理任务负责。
+- [x] 增加资源清理审计和日志：清理任务复用 WorkerTaskEvent 记录开始、成功、失败原因和重试上下文，业务资源保留 `delete_failed` 错误摘要供前端展示。
+- [x] 增加周期 reconciler：复用 `sync:status` 周期任务扫描 `deleting/delete_failed` 业务资源并重放幂等清理，避免任务投递或 worker 短暂故障导致资源永久卡住。
+- [x] 前端删除体验统一：列表/详情页展示删除中、删除失败并禁用重复操作，删除失败时展示错误摘要。
+- [ ] 集群孤儿资源自动发现：周期扫描平台 managed labels 下但业务对象已不存在的 Kubernetes 资源，生成残留资源提示或清理建议；当前阶段仍可通过集群资源页手动清理。
 
 ## 5.2 安全审计后续
 
@@ -304,6 +347,7 @@
 
 - [x] 实现 ArtifactRegistry。
 - [x] 支持 global/project/user scope。
+- [x] 项目 scope 镜像站支持绑定多个项目空间，项目默认镜像站按绑定项目空间分别保存。
 - [x] 实现 RegistryCredential 加密引用。
 - [x] 明确 RegistryCredential 隔离：`scope` 表示 pull/push 用途，`accessScope` 表示 personal/跟随镜像站；global 镜像站凭据强制 personal。
 - [x] Registry response 不再暴露默认 `credentialRef`，仅返回 `credentialSet`。
@@ -314,6 +358,7 @@
 - [x] 镜像记录支持按镜像站搜索镜像仓库和读取 tag 建议，后端适配 DockerHub、Harbor 与通用 Registry，并加入限数、短缓存和用户级限流。
 - [x] 实现 ContainerImage 记录。
 - [x] 镜像站“镜像”列表接入后端分页、排序和搜索，前端复用统一分页控件。
+- [x] 删除镜像站时同步软删除其凭据，并在前端确认弹窗提示级联删除，避免镜像站删除后凭据残留且无法维护。
 
 ## 7. 平台构建
 
@@ -326,7 +371,7 @@
 - [x] 实现构建触发器配置 API：manual、webhook、push branch、tag、API token。
 - [x] 实现构建参数配置 API：Dockerfile 路径、构建上下文、目标镜像、目标镜像站凭据、构建目录。
 - [x] 构建触发只允许用户填写目标镜像 Tag 模板；目标镜像名前缀由平台按镜像站和应用标识固定生成，DockerHub 不带域名前缀，其他镜像站强制带 registry domain；镜像站不再承载 repository namespace。
-- [ ] 支持无 Dockerfile 仓库使用平台 Dockerfile 模板构建：部署配置可选择模板类型和运行参数，Builder 在 workspace 内生成临时 Dockerfile 后执行 BuildKit 构建，前端在仓库探测不到 Dockerfile 时引导用户选择模板。
+- [ ] 支持无 Dockerfile 仓库使用平台 Dockerfile 模板构建：部署配置可选择模板类型和运行参数，Kubernetes 构建 Job 在 workspace 内生成临时 Dockerfile 后执行 BuildKit 构建，前端在仓库探测不到 Dockerfile 时引导用户选择模板。
 - [x] 部署配置表单维护代码仓库、Dockerfile、构建上下文、目标镜像站、镜像引用模板和构建策略；应用配置只保留名称、标识、图标和服务默认端口，不再维护单一仓库或镜像来源。
 - [x] 创建/编辑应用弹窗只保留名称、标识和图标，仓库、镜像、端口、Webhook 等来源与交付入口统一由部署配置维护，避免应用被误解为只能绑定一个仓库。
 - [x] 应用详情概览改为看板式运行摘要，展示部署配置、构建、部署和访问入口关键状态；应用基础模型移除来源类型、仓库、镜像和构建字段，交付配置统一归属部署配置和访问配置。
@@ -339,100 +384,105 @@
 - [x] 部署配置表单增加智能默认值：选择 Dockerfile 时自动填充构建上下文和构建目录为 Dockerfile 所在目录；目标镜像引用模板在用户未手动编辑前按镜像站命名空间、应用标识和部署配置标识自动生成。
 - [x] 构建变量和密钥提升为项目空间级资源，在项目工作台集中维护；构建时默认注入项目空间启用的变量和密钥。
 - [x] 实现项目空间级构建/部署钩子 MVP：项目 Hook 页面只维护通用脚本库，不维护阶段、启停状态或执行顺序；部署配置把通用 Hook 绑定到构建/部署阶段并在部署配置内拖拽排序；运行时按部署配置绑定快照执行，并支持脚本快照、超时、失败策略、运行记录、日志和审计。
-- [x] 扩展部署配置阶段 Hook：支持 `prePull` / `postPull`（仓库拉取前后）、`preBuild` / `postBuild`（镜像构建前后）、`prePush` / `postPush`（镜像推送前后）以及 `preDeployment` / `postDeployment`；部署配置的 Hook 选择与排序 UI、Builder executor 阶段调用点、Worker 部署阶段调用点、HookRun 展示和文档同步覆盖这些阶段。
-- [x] 收敛构建模板变量命名：同一个值只保留一个变量名，前端说明、后端预览渲染和 Builder executor 渲染保持一致。
-- [x] 部署配置支持同配置并行策略：默认同一部署配置排队，不同部署配置可并行；配置为并行时同一部署配置也允许多个任务同时被 Builder 领取。
-- [x] Builder 支持 BuildKit registry 镜像层缓存：通过 `BUILDER_CACHE_ENABLED` / `BUILDER_CACHE_TAG` 统一控制，启用后按目标镜像同仓库默认推送 `:buildcache`，executor 自动 import/export cache。
+- [x] 扩展部署配置阶段 Hook：支持 `prePull` / `postPull`（仓库拉取前后）、`preBuild` / `postBuild`（镜像构建前后）、`prePush` / `postPush`（镜像推送前后）以及 `preDeployment` / `postDeployment`；部署配置的 Hook 选择与排序 UI、Build Job 阶段调用点、Worker 部署阶段调用点、HookRun 展示和文档同步覆盖这些阶段。
+- [x] 收敛构建模板变量命名：同一个值只保留一个变量名，前端说明、后端预览渲染和 Build Job executor 渲染保持一致。
+- [x] 部署配置支持同配置并行策略：默认同一部署配置排队，不同部署配置可并行；配置为并行时同一部署配置也允许多个构建任务同时运行。
+- [x] Kubernetes 构建 Job 支持 BuildKit registry 镜像层缓存：通过 `BUILD_CACHE_ENABLED` / `BUILD_CACHE_TAG` 统一控制，启用后按目标镜像同仓库默认推送 `:buildcache`，executor 自动 import/export cache。
 - [x] 新增 BuildVariableSet 构建变量和密钥模型、迁移和 CRUD API，支持 global/project/user 作用域。
-- [x] BuildRun 默认注入项目空间启用的变量和密钥，Builder 领取任务时按权限解析变量并从后端 Secret Store 解析密钥。
+- [x] BuildRun 默认注入项目空间启用的变量和密钥，Worker 调度构建 Job 前按权限解析变量并从后端 Secret Store 解析密钥。
 - [x] 为 BuildRun 预留 cache 配置字段，MVP 先不启用缓存。
 - [x] 记录 image tag、digest、source commit 和构建产物归属。
 - [x] 记录 CPU、内存和 credit 消耗字段，计费系统先不实现。
 
-### 7.2 构建 Builder 执行链路
+### 7.2 Worker + Kubernetes Job 构建执行链路
 
-- [x] 构建执行链路收敛为平台 Builder Agent，移除 GitHub Actions、Gitea Actions 和 Kubernetes Job 构建执行支持。
-- [x] API 只创建 queued 状态的 BuildRun / BuildJob，由 Builder Agent 通过 HTTP 轮询领取。
-- [x] Builder Agent 注入 Git 和 registry 凭据到一次性 executor 容器。
-- [x] Builder Agent 注入构建变量到一次性 executor 容器，并作为 BuildKit build-arg 传入。
-- [x] Builder Agent 实时记录构建日志。
-- [x] Builder Agent 回写构建状态、镜像引用、digest 和 source commit。
+- [x] 构建执行链路收敛为 Worker 调度部署集群 Kubernetes Job，移除常驻 Builder Agent 和宿主机 Docker socket 主路径。
+- [x] API 创建 queued 状态的 BuildRun / BuildJob 后投递 `build:run` 异步任务，由 Worker 负责调度和回写。
+- [x] Worker 按 DeploymentTarget 所属环境解析运行集群，在项目命名空间创建一次性 Kubernetes Job。
+- [x] Worker 通过一次性 Kubernetes Secret 注入 Git、registry 凭据和构建变量，并作为 BuildKit build-arg 传入。
+- [x] Worker 实时采集 Pod 日志并写入 BuildLog，同时解析 Hook 控制行和 BuildKit 阶段进度。
+- [x] Worker 回写构建状态、镜像引用、digest、source commit，并按自动部署策略创建 Release。
 - [x] 前端构建页新增构建变量和密钥管理、触发构建变量和密钥选择、任务日志 Dialog 和列表自动刷新。
 
 ### 7.3 构建安全与网络策略
 
-- [x] 移除 Kubernetes Build Job 专属 NetworkPolicy 执行链路。
-- [ ] 为 Builder executor 增加独立出站访问控制策略。
+- [x] 构建主路径恢复 Kubernetes Build Job 执行链路。
+- [x] 为 Kubernetes 构建 Job 增加独立出站访问控制策略。
 - [x] 支持公开 Git、公开 registry、公开包管理源访问。
 - [x] 支持内网 registry/镜像源 TCP 443 白名单访问。
 - [x] 禁止私有网段非 443 端口访问。
 - [x] 禁止元数据地址、Kubernetes API Server 和 Service CIDR 访问。
 - [x] 为构建网络拒绝事件记录审计日志。
+- [ ] Web Console 增加项目/部署配置级开关：真实终端默认面向可信开发者，公开 RC 前需要能按项目或部署配置关闭，并在权限说明中明确审计范围。
+- [ ] 细化 Access Token scope：将应用、部署配置、发布、构建和网关接口从粗粒度 `project:read/write` 拆到稳定业务 scope，避免自动化授权语义模糊。
+- [x] 构建日志和 Hook 日志统一脱敏验收：Git Token、Registry 密码/Token、构建密钥、常见 Authorization header 和 URL 内 token 不应落入 BuildLog/HookRunLog。
+- [x] Kubernetes 构建 Job 默认不使用 privileged，不挂载宿主机 Docker socket；rootless BuildKit executor 使用非 root UID/GID、`--oci-worker-no-process-sandbox`、允许 `newuidmap/newgidmap` 所需的 privilege escalation，并放开 seccomp/AppArmor 兼容 Kubernetes 用户命名空间限制。
+- [x] 构建变量集拆分“可使用”和“可查看明文”权限：列表仍展示可用配置摘要和变量数量，但普通项目成员不再收到 variables 明文，只有平台管理员、个人所有者或项目空间 Owner/Admin 可查看和编辑。
+- [x] 目标镜像默认模板在镜像站 namespace 为空时 fallback 到当前项目空间 slug，避免生成裸仓库名。
+- [x] 运行时 exec 审计收敛验收：AuditLog 只记录命令摘要、长度、容器和退出码，不记录原始命令文本。
 
-### 7.4 Builder 详细排期
+### 7.4 Kubernetes 构建 Job 详细排期
 
 #### 7.4.1 API 与队列
 
 - [x] API 创建 BuildRun / BuildJob 后保存在数据库构建队列。
-- [x] HTTP Builder API 支持 heartbeat、claim、logs、progress、complete、fail 和 cancel 查询。
-- [x] 移除 `BUILD_DISPATCH_MODE` 和旧 Asynq `build:run`，BuildJob 始终作为数据库队列任务由 Builder Agent 领取。
-- [x] BuildJob 增加 `builderId` 和 `leaseUntil`，支持任务认领和 lease。
-- [x] BuildJob 增加 `leaseToken`、运行心跳和 executor 标识，Builder 回写日志/进度/结果必须携带当前 lease token，防止旧任务或迟到回调覆盖终态。
+- [x] 移除常驻 Builder claim 主路径，恢复 Asynq `build:run` 任务作为构建调度入口。
+- [x] BuildJob 记录 Kubernetes Job executor 标识、logRef、运行心跳和超时兜底。
 - [x] BuildRun 创建时补充应用、仓库绑定、目标镜像站和凭据权限的强校验，避免 Worker 阶段才发现无权限。
-- [x] BuildRun 支持 cancel 请求和 canceled 状态，Builder Agent 轮询取消状态后终止对应 executor 容器。
+- [x] BuildRun 支持 cancel 请求和 canceled 状态，Worker 发现取消后删除对应 Kubernetes Job。
 
-#### 7.4.2 Worker / Builder Controller
+#### 7.4.2 Worker Build Controller
 
-- [x] 新增 `cmd/builder`，Builder Agent 通过 HTTP 轮询领取任务并执行。
-- [x] Builder Agent 增加任务 cancel 轮询流程，实时同步 queued/running/succeeded/failed/canceled 状态。
-- [x] Worker 定时扫描运行中 BuildJob 的租约，lease 过期时标记 BuildRun/BuildJob 为 `lost`，避免 executor 或 Builder 异常后长期卡在 running。
-- [ ] Builder Agent 增加并发控制：全局、项目、用户三个维度的构建并发额度。
-- [ ] Builder Agent 增加超时处理：超过任务超时时间后终止 executor 并标记 failed。
-- [ ] Builder Agent 增加失败重试策略，由平台任务队列控制 attempts 和重试窗口。
+- [x] 移除 `cmd/builder` 独立入口，Worker 直接处理构建任务。
+- [x] 清理旧 Builder 本地配置残留：删除本地 `.env.builder`、旧 `.local/builder-workspace` 和空壳 `internal/api/builder_handlers.go`。
+- [x] Worker 创建 Kubernetes Job 后实时同步 queued/running/succeeded/failed/canceled 状态。
+- [x] Worker 定时扫描运行中 BuildJob 的超时状态，避免 executor 或 Pod 异常后长期卡在 running。
+- [x] Worker 增加并发控制：项目空间与运行集群两级构建并发额度，默认项目空间 2、运行集群 4，超额构建保持 queued 并短延迟重试。
+- [x] Worker 增加超时处理：超过任务超时时间后删除 Job 并标记 failed。
+- [x] Worker 构建失败重试策略由平台任务队列控制 attempts 和重试窗口，默认避免重复推送过多次。
 
-#### 7.4.3 Builder Image / Job 执行
+#### 7.4.3 Executor Image / Job 执行
 
 - [x] 默认使用 BuildKit rootless 构建镜像。
-- [x] Builder Agent 支持 Docker executor：每次构建通过 Docker CLI 启动独立 executor 容器。
-- [x] Builder Docker executor 本地开发模式允许使用 privileged BuildKit 容器，解决嵌套构建 `/proc` 挂载权限问题。
-- [x] Builder Git clone 增加浅克隆和重试，BuildKit 构建增加整体重试，缓解 GitHub/DockerHub 网络 EOF。
+- [x] Worker 支持 Kubernetes Job executor：每次构建在部署集群里启动独立 Pod。
+- [x] Git clone 增加浅克隆和重试，BuildKit 构建增加整体重试，缓解 GitHub/DockerHub 网络 EOF。
 - [x] 修正 DockerHub 镜像引用和认证地址：镜像使用 `docker.io/...`，auth config 使用 DockerHub 兼容 key。
-- [x] Builder 增加 `BUILDER_NPM_REGISTRY` 配置入口，默认值下沉到代码，compose 只保留必要连接和身份配置。
-- [x] Builder 通信收敛为 HTTP-only：API 维护数据库构建队列，Builder 轮询 claim 并通过 HTTP 回写日志、进度和结果。
-- [x] Builder 使用 `BUILDER_AGENT_NAME` 作为唯一标识自动注册，worker 定时同步 agent online/offline 状态到数据库。
-- [x] Builder 支持 `BUILDER_SCOPES` 和 `BUILDER_LABELS` 上报；API claim 时按应用构建标签和 builder scope 抢占式分配匹配任务。
-- [x] 构建器页面支持删除已注册 Builder Agent 记录，便于清理已移除或长期离线的构建器。
+- [x] Worker 增加 `BUILD_NPM_REGISTRY` 配置入口，默认值下沉到代码，compose 只保留必要连接和构建 Job 配置。
+- [x] 构建通信收敛为 Worker 内部调度：API 维护构建记录并投递队列，Worker 直接写回日志、进度和结果。
+- [x] 移除构建器注册、Builder Token 和 Agent scope 主路径，构建隔离由项目空间、部署配置环境和运行集群权限决定。
 - [x] 构建运行支持重试，应用构建列表行操作菜单提供重试和右侧日志/日志流侧栏。
-- [x] 修复容器内 Builder 使用宿主机 Docker socket 时 workspace host path 误指向容器内路径导致 Docker Desktop mounts denied 的问题，并验证 neo-blog 前端镜像成功构建推送。
-- [x] 支持平台通过 `BUILDER_TOKEN` 配置通用 Builder token，供内部 Builder 通过 HTTP 接入。
-- [ ] 制作平台自有 builder 镜像，内置 git、ca-certificates、buildctl、shell、jq、基础诊断工具。
-- [ ] 新增 Builder Profile：支持配置 executor 类型、executor image、是否 privileged、CPU/内存/超时/并发、适用项目范围和能力标签。
-- [ ] Builder executor image 必须可配置，默认推荐 BuildKit，生产环境支持使用本地或内网镜像站中的 BuildKit 镜像。
-- [ ] Builder Job 明确入口脚本：clone、checkout、registry login、buildctl build、push、输出 result。
-- [ ] Builder Job 输出结构化 `result.json`，包含 `imageRef`、`imageDigest`、`sourceCommit`、`startedAt`、`finishedAt`。
-- [x] Builder Job 不持有平台 API token，不直接回调 API；Builder Agent 仅持有受限 Builder token 并通过 HTTP 与平台交换任务和事件。
-- [x] Builder executor 容器名统一为 `liteyuki-devops-buildtask_{buildid}`，方便本地排查和日志关联。
-- [x] Docker executor 不再依赖 `--rm` 判断执行结果，构建结束后由 Builder 清理容器；若执行器容器被外部删除，Builder 回写 `executor_lost` 失败原因。
+- [ ] 制作平台自有 executor 镜像，内置 git、ca-certificates、buildctl、shell、jq、基础诊断工具。
+- [ ] 新增 Build Job Profile：支持配置 executor image、CPU/内存/超时/并发、适用项目范围和能力标签。
+- [x] Executor image 可配置，默认推荐 BuildKit rootless，生产环境支持使用本地或内网镜像站中的 BuildKit 镜像。
+- [x] 删除构建变量集时清理部署配置中的引用并删除 scoped 项目绑定，避免部署配置保留不可用变量集 ID。
+- [x] Kubernetes Build Job 按官方 rootless BuildKit 兼容方式启动：设置 `BUILDKITD_FLAGS=--oci-worker-no-process-sandbox`，并为 executor 容器放开 seccomp/AppArmor 与 privilege escalation，但仍保持非 privileged、无 ServiceAccount token。
+- [x] Build Job 明确入口脚本：clone、checkout、registry login、buildctl build、push、输出 result。
+- [x] Build Job 输出结构化 `result.json`，并通过日志 marker 回传 `imageRef`、`imageDigest`、`sourceCommit` 等结果。
+- [x] Build Job 不持有平台 API token，不直接回调 API；Worker 通过 Kubernetes API 采集日志和结果。
+- [x] Build Job 名称统一为 `build-{buildJobId}`，方便集群内排查和日志关联。
+- [x] 构建结束由 Worker 根据 Kubernetes Job 状态回写结果；若 Job/Pod 丢失或超时，Worker 回写失败原因。
 
 #### 7.4.4 隔离与安全
 
-- [x] Builder Job 不挂载宿主机 Docker socket。
-- [x] Builder Job 默认不使用 privileged。
+- [x] Build Job 不挂载宿主机 Docker socket。
+- [x] Build Job 默认不使用 privileged。
 - [x] 每个 BuildRun 使用独立 Kubernetes Secret 注入 Git/Registry 凭据。
 - [x] build namespace 应用 restricted BuildNetworkPolicy。
-- [x] Docker Compose 增加 builder 服务，MVP 可通过 Docker socket 跑 Docker executor。
-- [ ] 每个 Builder Job 使用受限 ServiceAccount，默认不授予读取集群资源权限。
-- [ ] Builder Job 完成后立即删除临时 Secret，Job/Pod 按 TTL 保留日志窗口后清理。
+- [x] Docker Compose 移除 builder 服务，构建只依赖 worker 和部署集群 Kubernetes Job。
+- [x] 每个 Build Job 使用受限 ServiceAccount，默认不授予读取集群资源权限。
+- [x] Build Job 完成后立即删除临时 Secret，Job/Pod 按 TTL 保留日志窗口后清理。
 - [ ] 将构建出口网络拒绝事件接入审计或日志视图。
 
 #### 7.4.5 日志、结果和前端展示
 
 - [x] BuildJob 记录 `logRef`。
-- [x] Builder Agent 实时采集 executor stdout/stderr，并按 1 秒或 8KB 批量追加到平台 BuildLog。
+- [x] Worker 实时采集 executor stdout/stderr，并按行追加到平台 BuildLog。
 - [x] BuildKit build 阶段使用 `--progress=plain` 保留可读实时日志，Worker 文本日志解析继续作为阶段识别兜底。
-- [x] 构建运行支持用户主动终止：queued/running 可取消，平台标记 BuildRun/BuildJob 为 `canceled`，Builder 轮询取消状态后停止当前 Docker executor。
-- [x] BuildKit plain 日志解析为结构化进度并通过 Builder progress 接口旁路上报，保留普通日志展示且不依赖 rawjson。
-- [x] Hook 控制行不再原样写入普通构建日志；Builder 将 Hook 日志协议转换为 `[phase: name] message` 可读文本，同时继续写入独立 HookRunLog。
+- [x] 构建运行支持用户主动终止：queued/running 可取消，平台标记 BuildRun/BuildJob 为 `canceled`，Worker 删除当前 Kubernetes Job。
+- [x] BuildKit plain 日志解析为结构化进度并由 Worker 直接回写，保留普通日志展示且不依赖 rawjson。
+- [x] Hook 控制行不再原样写入普通构建日志；Worker 将 Hook 日志协议转换为 `[phase: name] message` 可读文本，同时继续写入独立 HookRunLog。
+- [x] 修复 Kubernetes Build Job 日志跟随过早失败：等待 executor 容器进入 running/terminated 后再读取日志，避免 `ContainerCreating` 被误判失败并提前删除临时 Secret。
+- [x] 修复 Kubernetes Build Job executor Secret 投影权限问题：脚本文件对非 root 容器可读，并且启动命令只复制显式脚本和 hooks，避免递归复制 `..data/..timestamp` 内部目录导致 Permission denied。
 - [x] 前端构建状态补充 `lost` / `timeout` 展示和筛选，失联与超时按需要关注状态统计。
 - [x] 增加 BuildLog 适配，避免只依赖 Kubernetes Pod 日志保留。
 - [ ] 后续增加日志对象存储适配，用于大日志归档、检索和下载。
@@ -447,7 +497,7 @@
 
 #### 7.4.6 后续增强
 
-- [x] 接入 registry cache / BuildKit cache，MVP 由 Builder 环境变量统一控制，使用目标镜像同仓库 cache tag 作为跨 Builder 共享缓存。
+- [x] 接入 registry cache / BuildKit cache，MVP 由 Worker `BUILD_*` 环境变量统一控制，使用目标镜像同仓库 cache tag 作为共享缓存。
 - [ ] BuildKit 支持 registry mirror / pull-through cache 配置，优先支持 DockerHub、GHCR 和平台内网镜像站。
 - [ ] 语言依赖工具链按生态注入镜像源，可选是否注入环境变量或配置文件：npm/pnpm/yarn、pip/poetry、GOPROXY、Maven settings、Gradle init、Cargo config 等。
 - [ ] 镜像源凭据通过 BuildKit secret 或一次性文件注入，禁止进入最终镜像层。
@@ -463,6 +513,8 @@
 - [x] 部署信息架构拆分：集群页只管理平台运行能力，项目空间管理环境，应用详情管理部署意图和发布入口，用户侧不直接暴露 Deployment/Service/Ingress/ConfigMap 等 Kubernetes 资源名。
 - [x] 项目空间新增“环境”页签，支持创建/编辑/删除环境，环境引用可用集群并配置副本数和资源规格；部署统一使用项目空间命名空间。
 - [x] 环境资源规格输入改为数值和单位同胶囊分栏选择，数值区只允许数字，CPU 支持 `m`/核，内存支持 `Mi`/`Gi`，避免用户手写 Kubernetes quantity。
+- [x] 抽象带单位数值输入组件，环境 CPU/内存和部署配置数据容量统一使用“数值 + 单位”胶囊输入。
+- [x] 优化带单位数值输入组件默认宽度，至少容纳四五位数字和单位，避免数据容量等字段输入区过窄。
 - [x] 运行配置支持项目空间级复用配置集，并支持普通配置、配置文件、密钥配置和密钥文件；部署配置可引用公共配置集并覆盖同名键或同路径文件。
 - [x] 应用详情新增“部署”页签，展示当前应用在各环境的发布状态，并支持从成功构建产物一键发布到环境。
 - [x] 部署配置编辑检测运行态字段变更，提示运行中副本需重新部署后生效，并提供“保存并重新部署”入口复用上一条发布镜像创建新 Release。
@@ -471,13 +523,14 @@
 - [ ] 部署错误输出友好化：Kubernetes apply/rollout 错误返回稳定错误码，前端按 i18n 展示，避免直接暴露底层异常。
 - [x] 实现 RuntimeCluster 模型、迁移和 CRUD API。
 - [x] 支持设置默认集群。
-- [x] RuntimeCluster 支持 global/project/user scope，只有 global 集群允许设为默认集群，列表按当前用户可访问范围返回。
-- [x] 实现 kubeconfig 保存、按权限回显和测试连接 API：仅创建者本人或平台管理员可以查看和编辑 kubeconfig 明文。
+- [x] RuntimeCluster 支持 global/project/user scope，project scope 支持多个项目空间绑定；只有 global 集群允许设为默认集群，列表按当前用户可访问范围返回。
+- [x] 实现 kubeconfig 保存、替换和测试连接 API：仅创建者本人或平台管理员可以替换 kubeconfig，接口不回显 kubeconfig 明文。
 - [x] 运行集群测试改为真实 Kubernetes API Server `/version` 连通性检测；无 kubeconfig、无效 kubeconfig 或网络不可达时写入失败状态并返回错误。
 - [x] 集群前端接入改为 kubeconfig-only YAML 代码框，普通用户列表不展示无权维护集群的 endpoint 配置。
 - [x] 约束 kubeconfig 代码框宽度，长行只在编辑器内部滚动，不撑大 Dialog 或表单布局。
 - [x] 修复集群 kubeconfig 代码框超长行反撑表单宽度的问题，CodeMirror 顶层固定宽度，横向滚动限制在编辑器内部。
 - [x] 引入公共 `CodeEditor` 代码编辑框组件，集群 kubeconfig 使用 YAML 高亮、等宽字体和行号。
+- [x] 集群创建/编辑前端支持多 context kubeconfig 选择：粘贴多 context 配置时必须选择一个 context，提交前只保留该 context 及其引用的 cluster/user。
 - [x] Kubernetes 和 K3s 接入选项合并为 Kubernetes / K3s，后端兼容旧 k3s 输入并归一到 kubernetes。
 - [ ] 设计 Docker 运行时接入模型：支持 Docker host、Unix socket、TCP TLS CA/cert/key、连接测试、权限边界和部署适配，不复用 kubeconfig 字段。
 - [x] 实现 Environment 模型、迁移和 CRUD API。
@@ -500,8 +553,14 @@
 - [x] 发布日志弹窗的“部署日志 / 运行日志”切换复用统一 `SegmentedTabsList + Tabs` 组件，避免手写按钮风格和页面 tab 不一致。
 - [x] 应用部署 tab 展示 Kubernetes 运行状态：按部署配置聚合对应 Deployment/Pod，映射 Running、Pending、CrashLoopBackOff、ImagePullBackOff、NotReady 等 Pod 状态并在 tooltip 展示摘要。
 - [x] 应用部署 tab 将平台 Release 流程状态列命名为“发布状态”，与 Kubernetes “运行状态”区分。
+- [x] 修复应用部署 tab 运行状态轮询闪烁：后台 refetch 保留上一轮 Kubernetes 状态，只有首屏无数据时显示检查中。
+- [x] 应用部署 tab 行菜单支持重启当前部署配置对应 Kubernetes Deployment；该操作只触发 rollout restart，不新建 Release，并写入审计日志。
+- [x] 修复 Release 同步/部署缺失 DeploymentTarget 时退化查询 `dplt` 的问题；发布执行会明确失败为部署配置缺失，状态同步会跳过异常历史记录，避免误报 `deployment_missing .../dplt not found`。
 - [x] 应用部署 tab 展示当前命名空间内互相访问的 Service DNS，按部署配置从真实 Service 资源生成短名和完整 `svc.cluster.local` 域名并支持复制。
+- [x] 构建日志、发布日志和运行日志默认打开时滚动到底部；仅当用户停留在底部时新日志自动跟随，向上查看历史时不强制回底。
+- [x] 修复部署配置数据卷表单输入被打断：数据卷行使用稳定 UI key，避免每次输入后重新 parse 生成随机 id 导致输入框重挂载。
 - [x] 应用删除改为异步清理流程：先进入删除中并阻断新的构建、发布和运行态变更，Worker 清理平台托管的 Kubernetes 运行资源后再软删除应用，托管数据卷默认保留，失败进入删除失败状态。
+- [x] 应用删除前端防误触：项目空间应用列表删除时必须输入“项目空间/应用”完整名称后才允许确认。
 - [x] 实现 rollout 状态等待。
 - [x] 实现 Release 状态回写。
 - [x] 实现回滚到上一成功版本。
@@ -520,7 +579,11 @@
 - [x] 集群资源各类型列表的名称、命名空间、摘要和归属长文本改为单行省略，hover tooltip 展示完整值并提供复制入口，避免长 Kubernetes 资源名撑宽表格。
 - [x] 集群资源列表按资源类型裁剪列：命名空间页隐藏命名空间列并前置归属列，工作负载、服务与入口、配置与密钥、存储页均展示归属。
 - [x] 集群资源各类型列表支持批量选择可删除资源，批量删除入口提升到 `ContentTabs.tools` 当前页签工具区，并通过二次确认批量删除；每个资源仍逐条走后端归属和权限校验。
+- [x] 集群资源支持查看只读 Kubernetes YAML：后端实时读取平台 managed 对象并校验资源归属，前端使用 YAML CodeEditor 展示；Secret 值必须脱敏。
+- [x] `DataList` 支持 sticky 列；集群资源页将右侧操作列固定在可视区，其他信息列保留横向滚动。
+- [x] 集群资源页新增资源“更新时间”列，后端基于 Kubernetes managedFields 最新写入时间并 fallback 到创建时间，前端复用智能相对时间格式展示。
 - [ ] 前端提供集群、命名空间、项目空间、应用筛选和手动刷新；空状态说明“只展示平台管理资源”。
+- [x] 集群资源归属展示补齐部署配置名称：Workload、Pod、Service、Ingress、ConfigMap、Secret 当前只显示“项目空间 / 应用”，应显示“项目空间 / 应用 / 部署配置”，避免用户无法判断同一应用多部署配置资源来源。
 - [ ] 资源详情抽屉展示 labels/annotations 摘要、状态条件、关联业务对象和 Events，不展示 Secret data。
 - [ ] 集群资源管理 MVP 验收：在测试集群发布一次应用后，集群资源页能看到对应 Namespace、Deployment、Pod、Service、Ingress，并能查看相关事件；已有未打平台标签资源默认不显示。
 
@@ -534,6 +597,7 @@
 - [x] GatewayRoute 增加 DeploymentTarget 绑定字段，使一个应用同环境存在多个部署配置时，Ingress 能明确指向该部署配置对应的 Service。
 - [x] 实现域名冲突检查 API。
 - [x] 支持自定义域名创建和状态管理。
+- [x] 域名检查体验优化：已创建路由点击“检查域名”时不应只提示“域名已被占用”，需要区分当前路由自身、其他路由占用、DNS/Ingress 可达性和证书状态。
 - [x] 生成 CNAME 目标并返回给前端展示。
 - [x] 支持 HTTP-only 访问开关。
 - [x] 实现证书状态字段：disabled、pending、issued、failed、expired。
@@ -586,14 +650,20 @@
 
 ### 11.1 超大文件拆分与可维护性收敛
 
-- [ ] 拆分 `web/src/pages/applications/ApplicationConfigPage.tsx`：按应用详情 tab 拆为 `overview/`、`builds/`、`deployments/`、`gateway/` 子组件；将表单 defaults/types、镜像引用、仓库 URL、构建运行展示、部署摘要等纯函数迁入 `utils.ts` 或邻近模块；入口文件只保留数据查询、tab 编排和跨 tab ref 调度。验收：单文件降到 400 行以内，各子组件只负责一个 tab，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
-- [ ] 拆分 `internal/api/build_handlers.go`：按职责拆为 `build_provider_handlers.go`、`build_variable_handlers.go`、`build_run_handlers.go`、`build_job_log_handlers.go`、`build_validation.go`、`build_variables.go`；BuildRun 创建/重试/取消、BuildJob 日志/SSE、变量和密钥解析、Builder scope/label 匹配分离。验收：handler 文件只做 HTTP 入参、权限和响应，构建校验与变量解析可被单测直接调用，`go test ./...` 通过。
-- [ ] 拆分 `internal/worker/worker.go`：将调度器/周期任务放入 `scheduler.go`，构建任务租约和状态同步放入 `build_reconciler.go`，发布执行放入 `deploy_runner.go`，网关执行放入 `gateway_runner.go`，部署钩子放入 `deployment_hooks.go`，Kubernetes spec 组装与命名工具放入 `kube_specs.go`。验收：`Runner` 主文件只保留构造、启动和公共依赖，部署/网关/Hook 单元逻辑分别可测试，`go test ./...` 通过。
-- [ ] 拆分 `internal/api/builder_handlers.go`：将 Builder 认证与心跳、任务 claim/lease、日志/进度回写、任务 payload 组装、Hook payload、镜像引用和 Registry 凭据解析拆到独立文件；镜像引用和 tag 渲染 helper 迁入可复用构建工具模块，避免 API 与 Builder payload 强耦合。验收：内部 Builder API 路由行为不变，payload 组装有针对性测试，`go test ./...` 通过。
-- [ ] 拆分 `internal/api/deployment_handlers.go`：按运行集群、项目环境、部署配置、发布/回滚、自动部署匹配拆为独立文件；集群 kubeconfig flatten、环境 slug 校验和自动部署匹配规则迁入独立 helper/service。验收：每个 handler 文件只处理一个资源族，自动部署匹配规则有单测覆盖，`go test ./...` 通过。
+- [x] 拆分 `web/src/pages/applications/ApplicationConfigPage.tsx`：按应用详情 tab 拆为 `overview/`、`builds/`、`deployments/`、`gateway/` 子组件；将表单 defaults/types、镜像引用、仓库 URL、构建运行展示、部署摘要等纯函数迁入 `utils.ts` 或邻近模块；入口文件只保留数据查询、tab 编排和跨 tab ref 调度。验收：单文件降到 400 行以内，各子组件只负责一个 tab，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
+  - [x] 第一刀低风险拆分：抽出构建日志抽屉 `application-build-log-panel.tsx` 和运行终端 `application-runtime-terminal-panel.tsx`，`ApplicationConfigPage.tsx` 从 3039 行降到 2881 行。
+  - [x] 第二刀低风险拆分：抽出构建运行筛选条 `application-build-run-filter-bar.tsx`，`ApplicationConfigPage.tsx` 降到 2800 行。
+  - [x] 第三刀构建页拆分：抽出 `application-build-run-row.tsx` 和 `application-builds-panel.tsx`，构建运行展示、筛选、日志抽屉和触发表单不再堆在入口文件。
+  - [x] 第四刀部署/访问入口拆分：抽出 `application-deployments-panel.tsx` 和 `application-gateway-panel.tsx`，入口文件只负责应用数据查询、tab 编排和跨 tab ref 调度。
+  - [x] 第五刀部署运行态拆分：抽出 `application-deployment-runtime.tsx` 和 `application-deployment-runtime-utils.ts`，运行态状态 badge、内网访问域名和 Kubernetes 资源状态归一逻辑独立维护。
+- [x] 拆分 `internal/api/build_handlers.go`：按职责拆为 `build_provider_handlers.go`、`build_variable_handlers.go`、`build_run_handlers.go`、`build_job_log_handlers.go`、`build_validation.go`、`build_variables.go`；BuildRun 创建/重试/取消、BuildJob 日志/SSE、变量和密钥解析分离。验收：handler 文件只做 HTTP 入参、权限和响应，构建校验与变量解析可被单测直接调用，`go test ./...` 通过。
+- [x] 拆分 `internal/worker/worker.go`：将调度器/周期任务放入 `scheduler.go`，构建任务租约和状态同步放入 `build_reconciler.go`，发布执行放入 `deploy_runner.go`，网关执行放入 `gateway_runner.go`，部署钩子放入 `deployment_hooks.go`，Kubernetes spec 组装与命名工具放入 `kube_specs.go`。验收：`Runner` 主文件只保留构造、启动和公共依赖，部署/网关/Hook 单元逻辑分别可测试，`go test ./...` 通过。
+- [x] 拆分并退场旧 `internal/api/builder_handlers.go` 主路径：Builder 认证与心跳、任务 claim/lease、日志/进度回写等旧 Agent API 已不再注册路由；构建 payload 组装迁入 Worker 可复用运行时，镜像引用和 tag 渲染 helper 继续复用。验收：构建主路径走 `build:run` + Kubernetes Job，`go test ./...` 通过。
+- [x] 拆分 `internal/api/deployment_handlers.go`：按运行集群、项目环境、部署配置、发布/回滚、自动部署匹配拆为独立文件；集群 kubeconfig flatten、环境 slug 校验和自动部署匹配规则迁入独立 helper/service。验收：每个 handler 文件只处理一个资源族，自动部署匹配规则有单测覆盖，`go test ./...` 通过。
+- [x] 后端热点第二轮拆分：继续拆分部署配置、发布运行时和运行集群资源文件；`deployment_target_handlers.go` 只保留部署配置 HTTP 入口，发布运行时日志/exec/terminal 独立到 `release_runtime_handlers.go`，运行集群资源浏览/权限/响应/kubeconfig helper 独立成文件。验收：`go test ./...` 通过。
 - [ ] 拆分 `web/src/api/client.ts`：保留 `request`、错误处理和分页类型在 API core，将 `Application/Project/Build/Deployment/Gateway/Git/Registry/Auth` 类型和方法分别迁入 `web/src/api/domains/*.ts` 或 `web/src/api/types/*.ts`；一次性更新业务页面 import，不保留旧路径兼容层。验收：业务页面不再依赖一个千行 client 文件，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
-- [ ] 拆分 `web/src/pages/registries/RegistriesPage.tsx`：将镜像站列表、凭据列表、镜像记录、Builder Agent/Provider 管理拆成独立 panel 和 form 组件；镜像 tag 分页、凭据状态和 Builder 在线状态展示逻辑迁入局部 utils。验收：主页面只负责 tab 和数据聚合，列表组件继续复用 `DataList`，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
-- [ ] 拆分 `internal/builder/agent.go`：将 Agent 生命周期/并发控制、Docker executor 启动、Hook 脚本写入、日志流、BuildKit plain/raw progress 解析、payload/result types 拆为 `agent.go`、`executor_docker.go`、`hooks.go`、`log_streamer.go`、`buildkit_progress.go`、`types.go`。验收：executor 与 progress parser 可独立测试，构建日志和 Hook 控制行解析行为不变，`go test ./...` 通过。
+- [ ] 拆分 `web/src/pages/registries/RegistriesPage.tsx`：将镜像站列表、凭据列表和镜像记录拆成独立 panel 和 form 组件；镜像 tag 分页和凭据状态展示逻辑迁入局部 utils。验收：主页面只负责 tab 和数据聚合，列表组件继续复用 `DataList`，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
+- [ ] 拆分 `internal/builder/agent.go` 遗留 executor 工具：移除 Agent 生命周期与 Docker executor 代码，保留并拆分脚本、Hook 控制行、日志流、BuildKit plain/raw progress 解析、payload/result types 到更中性的 build executor 包。验收：executor 与 progress parser 可独立测试，构建日志和 Hook 控制行解析行为不变，`go test ./...` 通过。
 - [ ] 拆分 `web/src/pages/code-repositories/CodeRepositoriesPage.tsx`：按 Git Provider、Git Account、OAuth 指引、Provider/Account 表单拆为独立组件；账号作用域、授权状态和跳转授权 helper 迁入局部 utils。验收：代码库页面主文件降到 300 行左右，provider/account 子功能可独立维护，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
 - [ ] 拆分 i18n locale 文件：将 `web/src/i18n/locales/zh-CN.ts` 和 `en-US.ts` 按 namespace 拆为 `common`、`apps`、`builds`、`deployments`、`gateway`、`registries`、`settings` 等文件，并一次性更新调用方 key 路径，不保留旧 key 兼容层。验收：单个 locale 文件不再超过 400 行，新增文案能按领域定位，`pnpm --dir web lint` 和 `pnpm --dir web build` 通过。
 - [ ] 拆分 Git provider client：将 `internal/provider/git/client.go` 按 GitHub/Gitea/GitLab 实现、公共接口、错误映射和分页/search DTO 拆分；保持前端只调用平台后端 API 的边界不变。验收：provider 行为单测继续通过，新增 Git 平台适配时无需修改一个超大 client 文件。

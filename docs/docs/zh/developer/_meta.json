@@ -1,0 +1,17 @@
+[
+  {
+    "type": "file",
+    "name": "architecture",
+    "label": "本地开发"
+  },
+  {
+    "type": "file",
+    "name": "contributing",
+    "label": "代码约定"
+  },
+  {
+    "type": "file",
+    "name": "docs-site",
+    "label": "文档站维护"
+  }
+]

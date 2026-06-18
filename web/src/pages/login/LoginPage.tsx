@@ -93,13 +93,14 @@ export function LoginPage() {
       <PageMotion className="w-full max-w-5xl">
         <Card className="overflow-hidden p-0">
           <div className="grid lg:min-h-[620px] lg:grid-cols-[1.08fr_0.92fr]">
-            <div className="relative hidden overflow-hidden bg-muted lg:block">
+            <div className="relative hidden overflow-hidden bg-gradient-to-br from-[#eef5ff] via-[#f8fbff] to-[#e8fbf7] lg:block">
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(47,123,244,0.12)_0,transparent_36%),linear-gradient(45deg,rgba(34,199,169,0.12)_0,transparent_42%)]" />
               <img
                 alt=""
-                className="absolute inset-0 size-full object-cover"
-                src="/brand/mascot-liteyuki-devops.png"
+                className="pointer-events-none absolute bottom-0 left-1/2 h-[94%] w-auto max-w-none -translate-x-1/2 select-none object-contain object-bottom drop-shadow-[0_28px_42px_rgba(47,123,244,0.22)]"
+                src="/brand/mascot-liteyuki-catgirl-login-alpha.png"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-background/5 via-transparent to-background/20" />
+              <div className="absolute inset-0 bg-gradient-to-r from-background/10 via-transparent to-background/30" />
             </div>
             <div className="flex min-w-0 items-center justify-center p-6 sm:p-8 lg:p-10">
               <div className="w-full max-w-sm">

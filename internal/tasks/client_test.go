@@ -129,6 +129,34 @@ func TestNewApplicationDeleteTaskRequiresCoreIDs(t *testing.T) {
 	}
 }
 
+func TestNewResourceCleanupTaskBuildsTypedPayload(t *testing.T) {
+	payload := ResourceCleanupPayload{
+		ResourceType: "deployment_target",
+		ResourceID:   "dplt_1",
+		ProjectID:    "prj_1",
+		ActorID:      "usr_1",
+	}
+
+	task, err := NewResourceCleanupTask(payload)
+	if err != nil {
+		t.Fatalf("NewResourceCleanupTask returned error: %v", err)
+	}
+	if task.Type() != TypeResourceCleanup {
+		t.Fatalf("task type = %q", task.Type())
+	}
+
+	var got ResourceCleanupPayload
+	if err := json.Unmarshal(task.Payload(), &got); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	if got.ResourceType != payload.ResourceType || got.ResourceID != payload.ResourceID || got.ProjectID != payload.ProjectID {
+		t.Fatalf("payload = %#v", got)
+	}
+	if got.Envelope.TaskType != TypeResourceCleanup || got.Envelope.ResourceRef != "deployment_target:dplt_1" {
+		t.Fatalf("envelope = %#v", got.Envelope)
+	}
+}
+
 func TestNewGitAccountRefreshTaskBuildsTypedPayload(t *testing.T) {
 	payload := GitAccountRefreshPayload{ActorID: "system"}
 

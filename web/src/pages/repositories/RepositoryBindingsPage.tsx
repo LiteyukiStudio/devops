@@ -38,6 +38,7 @@ const bindingSchema = z.object({
 
 type BindingFormInput = z.input<typeof bindingSchema>
 type BindingForm = z.output<typeof bindingSchema>
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 export interface RepositoryBindingsPageHandle {
   openCreateDialog: () => void
@@ -52,6 +53,8 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
   const [editingBinding, setEditingBinding] = useState<RepositoryBinding | null>(null)
   const [bindingToDelete, setBindingToDelete] = useState<RepositoryBinding | null>(null)
   const [branchSearch, setBranchSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const providers = useQuery({ queryKey: ['git-providers'], queryFn: () => api.listGitProviders() })
   const accounts = useQuery({ queryKey: ['git-accounts'], queryFn: () => api.listGitAccounts() })
   const applications = useQuery({
@@ -59,15 +62,20 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
     queryFn: () => api.listApplications(projectId),
     enabled: Boolean(projectId && !applicationId),
   })
-  const bindings = useQuery({
-    queryKey: ['repository-bindings', projectId],
+  const bindingsPage = useQuery({
+    queryKey: ['repository-bindings', projectId, page, pageSize],
+    queryFn: () => api.listRepositoryBindingsPage(projectId, { page, pageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+    enabled: Boolean(projectId && !applicationId),
+  })
+  const allBindings = useQuery({
+    queryKey: ['repository-bindings', projectId, 'all'],
     queryFn: () => api.listRepositoryBindings(projectId),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId && (applicationId || dialogOpen)),
   })
   const visibleBindings = useMemo(() => {
-    const items = bindings.data ?? []
+    const items = applicationId ? (allBindings.data ?? []) : (bindingsPage.data?.items ?? [])
     return applicationId ? items.filter(binding => binding.applicationId === applicationId) : items
-  }, [applicationId, bindings.data])
+  }, [allBindings.data, applicationId, bindingsPage.data?.items])
 
   const form = useForm<BindingFormInput, undefined, BindingForm>({
     resolver: zodResolver(bindingSchema),
@@ -84,8 +92,24 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
     },
   })
   const selectedAccountId = form.watch('gitAccountId')
+  const selectedApplicationId = applicationId ?? form.watch('applicationId')
   const selectedOwner = form.watch('owner')
   const selectedRepo = form.watch('repo')
+  const selectedProviderId = useMemo(() => {
+    const selectedAccount = (accounts.data ?? []).find(account => account.id === selectedAccountId)
+    return selectedAccount?.providerId ?? editingBinding?.gitProviderId ?? ''
+  }, [accounts.data, editingBinding?.gitProviderId, selectedAccountId])
+  const duplicateBinding = useMemo(() => {
+    if (!selectedApplicationId || !selectedProviderId || !selectedOwner || !selectedRepo)
+      return undefined
+    return (allBindings.data ?? bindingsPage.data?.items ?? []).find(binding =>
+      binding.applicationId === selectedApplicationId
+      && binding.gitProviderId === selectedProviderId
+      && normalizeRepositoryPart(binding.owner) === normalizeRepositoryPart(selectedOwner)
+      && normalizeRepositoryName(binding.repo) === normalizeRepositoryName(selectedRepo)
+      && binding.id !== editingBinding?.id,
+    )
+  }, [allBindings.data, bindingsPage.data?.items, editingBinding?.id, selectedApplicationId, selectedOwner, selectedProviderId, selectedRepo])
   const branches = useQuery({
     queryKey: ['git-branches', selectedAccountId, selectedOwner, selectedRepo, branchSearch],
     queryFn: () => api.listGitBranches(selectedAccountId || '', selectedOwner || '', selectedRepo || '', { search: branchSearch, limit: 50 }),
@@ -204,7 +228,7 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
         title={applicationId ? t('apps.repositoryBindingTitle', { app: applicationName || t('applications') }) : t('repositories.title')}
       />
 
-      {(providers.isError || accounts.isError || bindings.isError) && (
+      {(providers.isError || accounts.isError || bindingsPage.isError || allBindings.isError) && (
         <ErrorState title={t('repositories.loadFailedTitle')} description={t('repositories.loadFailedDescription')} />
       )}
 
@@ -252,6 +276,25 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
         emptyTitle={t('repositories.emptyTitle')}
         emptyDescription={t('repositories.emptyDescription')}
         items={visibleBindings}
+        pagination={!applicationId
+          ? {
+              page: bindingsPage.data?.page ?? page,
+              pageSize: bindingsPage.data?.pageSize ?? pageSize,
+              pageSizeOptions: PAGE_SIZE_OPTIONS,
+              total: bindingsPage.data?.total ?? 0,
+              totalPages: bindingsPage.data?.totalPages ?? 0,
+              pageInfoLabel: t('pagination.pageInfo', {
+                page: bindingsPage.data?.page ?? page,
+                totalPages: bindingsPage.data?.totalPages ?? 0,
+                total: bindingsPage.data?.total ?? 0,
+              }),
+              onPageChange: setPage,
+              onPageSizeChange: (nextPageSize) => {
+                setPageSize(nextPageSize)
+                setPage(1)
+              },
+            }
+          : undefined}
         rowKey={binding => binding.id}
       />
 
@@ -323,6 +366,9 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
                 setBranchSearch('')
               }}
             />
+            {duplicateBinding && (
+              <p className="text-sm text-destructive">{t('repositories.duplicateBinding')}</p>
+            )}
             <div className="grid gap-3 md:grid-cols-3">
               <Field error={form.formState.errors.owner?.message} label={t('repositories.owner')} required><Input {...form.register('owner')} aria-invalid={Boolean(form.formState.errors.owner)} placeholder={t('repositories.ownerPlaceholder')} /></Field>
               <Field error={form.formState.errors.repo?.message} label={t('repositories.repo')} required><Input {...form.register('repo')} aria-invalid={Boolean(form.formState.errors.repo)} placeholder={t('repositories.repoPlaceholder')} /></Field>
@@ -352,7 +398,7 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
               </label>
             </div>
             <DialogFooter>
-              <Button disabled={createBinding.isPending || updateBinding.isPending || (accounts.data ?? []).length === 0 || !form.formState.isValid} type="submit">
+              <Button disabled={createBinding.isPending || updateBinding.isPending || (accounts.data ?? []).length === 0 || !form.formState.isValid || Boolean(duplicateBinding)} type="submit">
                 <Plus size={16} />
                 {t('repositories.saveBinding')}
               </Button>
@@ -384,4 +430,12 @@ function branchOptions(branches: Array<{ name: string }>, current?: string) {
   if (normalized && !options.some(option => option.value === normalized))
     options.unshift({ value: normalized, label: normalized })
   return options
+}
+
+function normalizeRepositoryPart(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function normalizeRepositoryName(value: string) {
+  return normalizeRepositoryPart(value).replace(/\.git$/, '')
 }

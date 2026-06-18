@@ -169,6 +169,7 @@ var localizedMessages = map[string]map[string]string{
 		"auth.session.expired":             "Your session has expired. Please sign in again",
 		"auth.account.disabled":            "This account is unavailable. Contact a platform administrator",
 		"application.delete_in_progress":   "The application is being deleted. Wait for resource cleanup to finish, or retry after deletion fails.",
+		"project.delete_in_progress":       "The project space is being deleted. Wait for resource cleanup to finish.",
 		"config.admin.required":            "Only platform administrators can update site settings",
 		"git.network_failed":               "Failed to connect to the Git platform. Check server network, proxy/VPN, DNS resolution, or FakeIP settings and try again.",
 		"git.upstream_failed":              "Git upstream request failed. Try again later.",

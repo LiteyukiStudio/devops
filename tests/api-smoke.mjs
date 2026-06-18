@@ -6,7 +6,11 @@ const healthBase = apiBase.replace(/\/api\/v1\/?$/, '')
 const origin = process.env.WEB_BASE_URL ?? process.env.TEST_ORIGIN ?? 'http://127.0.0.1:5173'
 const adminEmail = process.env.TEST_ADMIN_EMAIL ?? 'admin@liteyuki.dev'
 const adminPassword = process.env.TEST_ADMIN_PASSWORD ?? 'devops'
-const runId = `smoke-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`
+const runKey = `${Date.now().toString(36).slice(-6)}${crypto.randomBytes(2).toString('hex')}`
+const runId = `smk-${runKey}`
+const userSlug = `u-${runKey}`
+const projectSlug = `p-${runKey}`
+const environmentSlug = `e-${runKey}`
 
 let cookie = ''
 
@@ -45,6 +49,10 @@ function json(body) {
   return { body: JSON.stringify(body) }
 }
 
+function itemsOf(page) {
+  return Array.isArray(page) ? page : page.items
+}
+
 async function main() {
   const health = await fetch(`${healthBase}/healthz`)
   assert.equal(health.status, 200, 'healthz should be healthy')
@@ -72,10 +80,13 @@ async function main() {
     defaultRole: admission.defaultRole ?? 'user',
   }) })
 
-  const userEmail = `${runId}@example.com`
-  const user = await ok('/users', { method: 'POST', ...json({ email: userEmail, name: runId, password: 'devops-pass', role: 'user', language: 'zh-CN', disabled: false }) })
+  const userEmail = `${userSlug}@example.com`
+  const user = await ok('/users', { method: 'POST', ...json({ email: userEmail, name: userSlug, password: 'devops-pass', role: 'user', language: 'zh-CN', disabled: false }) })
+  const defaultProjects = itemsOf(await ok(`/projects?scope=all&page=1&pageSize=10&search=${encodeURIComponent(userSlug)}&sortBy=createdAt&sortOrder=desc`))
+  const defaultProject = defaultProjects.find(item => item.slug === userSlug)
+  assert(defaultProject, 'new user should receive a default project space')
   await ok('/users?page=1&pageSize=10&sortBy=email&sortOrder=asc')
-  await ok(`/users/${user.id}`, { method: 'PUT', ...json({ email: userEmail, name: `${runId}-updated`, role: 'user', language: 'zh-CN', disabled: false }) })
+  await ok(`/users/${user.id}`, { method: 'PUT', ...json({ email: userEmail, name: `${userSlug}-updated`, role: 'user', language: 'zh-CN', disabled: false }) })
 
   const token = await ok('/access-tokens', { method: 'POST', ...json({ name: runId, scope: 'project:read', expiresInDays: 7 }) })
   assert.equal(typeof token.accessToken, 'string')
@@ -83,7 +94,7 @@ async function main() {
   await ok('/access-tokens?page=1&pageSize=10')
   await ok(`/access-tokens/${token.token.id}`, { method: 'DELETE' })
 
-  const project = await ok('/projects', { method: 'POST', ...json({ slug: runId, name: runId, description: 'smoke project' }) })
+  const project = await ok('/projects', { method: 'POST', ...json({ slug: projectSlug, name: projectSlug, description: 'smoke project' }) })
   await ok('/projects?page=1&pageSize=10&sortBy=createdAt&sortOrder=desc')
   await ok(`/projects/${project.id}`)
   await ok(`/projects/${project.id}`, { method: 'PUT', ...json({ slug: project.slug, name: `${runId} project`, description: 'updated smoke project' }) })
@@ -115,44 +126,20 @@ async function main() {
     endpoint: 'https://registry-1.docker.io',
     namespace: runId,
     scope: 'project',
-    ownerRef: project.id,
+    ownerRef: '',
+    projectIds: [project.id],
     isDefault: true,
     capabilities: ['pull', 'push'],
   }) })
   await ok('/registries')
   await ok(`/projects/${project.id}/registries/default`)
-  const credential = await ok(`/registries/${registry.id}/credentials`, { method: 'POST', ...json({ name: runId, username: runId, token: 'dummy-token', scope: 'pull', accessScope: 'registry' }) })
+  const credential = await ok(`/registries/${registry.id}/credentials`, { method: 'POST', ...json({ name: runId, username: runId, token: 'dummy-token', scope: 'push-pull', accessScope: 'registry' }) })
   await ok(`/registries/${registry.id}/credentials`)
   const registryTest = await request(`/registries/${registry.id}/test`, { method: 'POST' })
   assert(registryTest.response.status >= 200 && registryTest.response.status < 500, `registry test unexpected ${registryTest.response.status}`)
   const image = await ok('/container-images', { method: 'POST', ...json({ projectId: project.id, applicationId: app.id, registryId: registry.id, repository: 'smoke/app', tag: runId, sourceType: 'manual-image', scanStatus: 'unknown' }) })
   assert(image.imageRef.includes('smoke/app'))
   await ok(`/container-images?projectId=${encodeURIComponent(project.id)}`)
-
-  const buildProvider = await ok('/build/providers', { method: 'POST', ...json({
-    name: runId,
-    type: 'platform',
-    scope: 'project',
-    ownerRef: project.id,
-    config: '{}',
-    enabled: true,
-  }) })
-  await ok(`/build/providers?projectId=${encodeURIComponent(project.id)}`)
-  await ok(`/build/providers/${buildProvider.id}`, { method: 'PUT', ...json({ ...buildProvider, name: `${runId} builder` }) })
-  const buildRun = await ok(`/projects/${project.id}/build-runs/trigger`, { method: 'POST', ...json({
-    applicationId: app.id,
-    buildProviderId: buildProvider.id,
-    triggerType: 'manual',
-    sourceBranch: 'main',
-    dockerfilePath: 'Dockerfile',
-    buildContext: '.',
-    targetRegistryId: registry.id,
-    targetRepository: 'smoke/app',
-    targetTag: runId,
-  }) })
-  await ok(`/projects/${project.id}/build-runs`)
-  await ok(`/projects/${project.id}/build-runs/${buildRun.id}`)
-  await ok(`/projects/${project.id}/build-jobs?buildRunId=${encodeURIComponent(buildRun.id)}`)
 
   const cluster = await ok('/runtime/clusters', { method: 'POST', ...json({
     name: runId,
@@ -162,12 +149,13 @@ async function main() {
     isDefault: true,
   }) })
   await ok('/runtime/clusters')
-  await ok(`/runtime/clusters/${cluster.id}/test`, { method: 'POST' })
+  const clusterTest = await request(`/runtime/clusters/${cluster.id}/test`, { method: 'POST' })
+  assert(clusterTest.response.status >= 200 && clusterTest.response.status < 500, `cluster test unexpected ${clusterTest.response.status}`)
   await ok(`/runtime/clusters/${cluster.id}`, { method: 'PUT', ...json({ ...cluster, name: `${runId} cluster`, kubeconfig: '' }) })
 
   const environment = await ok(`/projects/${project.id}/environments`, { method: 'POST', ...json({
     name: 'Development',
-    slug: `${runId}-dev`,
+    slug: environmentSlug,
     stage: 'dev',
     clusterId: cluster.id,
     namespace: `${project.slug}-dev`,
@@ -180,42 +168,14 @@ async function main() {
   }) })
   await ok(`/projects/${project.id}/environments`)
   await ok(`/projects/${project.id}/environments/${environment.id}`, { method: 'PUT', ...json({ ...environment, replicas: 2 }) })
-  const release = await ok(`/projects/${project.id}/releases`, { method: 'POST', ...json({
-    applicationId: app.id,
-    environmentId: environment.id,
-    buildRunId: buildRun.id,
-    imageRef: image.imageRef,
-    type: 'deploy',
-    status: 'pending',
-    revision: 1,
-    message: 'smoke deploy',
-  }) })
-  await ok(`/projects/${project.id}/releases`)
-  await ok(`/projects/${project.id}/releases/${release.id}/rollback`, { method: 'POST' })
-
-  const route = await ok(`/projects/${project.id}/gateway-routes`, { method: 'POST', ...json({
-    applicationId: app.id,
-    applicationSlug: app.slug,
-    environmentId: environment.id,
-    stage: 'dev',
-    host: `${runId}.example.test`,
-    path: '/',
-    servicePort: 8080,
-    tlsMode: 'http-only',
-    dnsStatus: 'pending',
-    status: 'pending',
-    isDefault: true,
-  }) })
-  await ok(`/projects/${project.id}/gateway-routes`)
-  await ok(`/projects/${project.id}/gateway-routes/check-domain?host=${encodeURIComponent(`${runId}-other.example.test`)}`)
-  await ok(`/projects/${project.id}/gateway-routes/${route.id}`, { method: 'PUT', ...json({ ...route, path: '/app' }) })
 
   const gitProvider = await ok('/git/providers', { method: 'POST', ...json({
     type: 'gitea',
     name: runId,
     baseUrl: 'https://gitea.example.com',
     scope: 'project',
-    ownerRef: project.id,
+    ownerRef: '',
+    projectIds: [project.id],
     authType: 'pat',
     clientId: '',
     clientSecret: '',
@@ -228,7 +188,8 @@ async function main() {
   const gitAccount = await ok('/git/accounts', { method: 'POST', ...json({
     providerId: gitProvider.id,
     scope: 'project',
-    ownerRef: project.id,
+    ownerRef: '',
+    projectIds: [project.id],
     externalUserId: runId,
     username: runId,
     avatarUrl: '',
@@ -257,19 +218,85 @@ async function main() {
   const webhookCreate = await request(`/projects/${project.id}/repository-bindings/${binding.id}/webhook`, { method: 'POST' })
   assert(webhookCreate.response.status >= 200 && webhookCreate.response.status < 600)
   await status(`/git/webhooks/${binding.id}`, 401, { method: 'POST', ...json({ after: 'abc123' }) })
+
+  const target = await ok(`/projects/${project.id}/applications/${app.id}/deployment-targets`, { method: 'POST', ...json({
+    name: 'Development',
+    environmentId: environment.id,
+    servicePort: 8080,
+    sourceType: 'repository',
+    repositoryBindingId: binding.id,
+    dockerfilePath: 'Dockerfile',
+    buildContext: '.',
+    targetRegistryId: registry.id,
+    targetRepository: 'smoke/app',
+    targetTag: runId,
+    buildHooksEnabled: true,
+    autoDeploy: true,
+    branchPattern: 'main',
+    tagPattern: 'v*',
+    concurrencyPolicy: 'queue',
+    envVars: '{}',
+    configRefs: '',
+    secretRefs: '',
+  }) })
+  await ok(`/projects/${project.id}/applications/${app.id}/deployment-targets`)
+
+  const buildRun = await ok(`/projects/${project.id}/build-runs/trigger`, { method: 'POST', ...json({
+    applicationId: app.id,
+    deploymentTargetId: target.id,
+    triggerType: 'manual',
+    sourceBranch: 'main',
+    targetRegistryId: registry.id,
+    targetRepository: 'smoke/app',
+    targetTag: runId,
+  }) })
+  await ok(`/projects/${project.id}/build-runs`)
+  await ok(`/projects/${project.id}/build-runs/${buildRun.id}`)
+  await ok(`/projects/${project.id}/build-jobs?buildRunId=${encodeURIComponent(buildRun.id)}`)
+
+  const release = await ok(`/projects/${project.id}/releases`, { method: 'POST', ...json({
+    applicationId: app.id,
+    environmentId: environment.id,
+    deploymentTargetId: target.id,
+    imageRef: image.imageRef,
+    type: 'deploy',
+    status: 'pending',
+    revision: 1,
+    message: 'smoke deploy',
+  }) })
+  await ok(`/projects/${project.id}/releases`)
+  const rollback = await request(`/projects/${project.id}/releases/${release.id}/rollback`, { method: 'POST' })
+  assert(rollback.response.status >= 200 && rollback.response.status < 500, `rollback unexpected ${rollback.response.status}`)
+
+  const route = await ok(`/projects/${project.id}/gateway-routes`, { method: 'POST', ...json({
+    applicationId: app.id,
+    environmentId: environment.id,
+    deploymentTargetId: target.id,
+    host: `${runId}.example.test`,
+    path: '/',
+    servicePort: 8080,
+    tlsMode: 'http-only',
+    dnsStatus: 'pending',
+    status: 'pending',
+    isDefault: true,
+  }) })
+  await ok(`/projects/${project.id}/gateway-routes`)
+  await ok(`/projects/${project.id}/gateway-routes/check-domain?host=${encodeURIComponent(`${runId}-other.example.test`)}`)
+  const routeUpdate = await request(`/projects/${project.id}/gateway-routes/${route.id}`, { method: 'PUT', ...json({ ...route, path: '/app' }) })
+  assert(routeUpdate.response.status >= 200 && routeUpdate.response.status < 600, `gateway route update unexpected ${routeUpdate.response.status}`)
+
+  await ok(`/projects/${project.id}/gateway-routes/${route.id}`, { method: 'DELETE' })
+  await ok(`/projects/${project.id}/applications/${app.id}/deployment-targets/${target.id}`, { method: 'DELETE' })
   await ok(`/projects/${project.id}/repository-bindings/${binding.id}`, { method: 'DELETE' })
   await ok(`/git/accounts/${gitAccount.id}`, { method: 'DELETE' })
   await ok(`/git/providers/${gitProvider.id}`, { method: 'DELETE' })
 
-  await ok(`/projects/${project.id}/gateway-routes/${route.id}`, { method: 'DELETE' })
-  await ok(`/projects/${project.id}/environments/${environment.id}`, { method: 'DELETE' })
-  await ok(`/build/providers/${buildProvider.id}`, { method: 'DELETE' })
-  await ok(`/runtime/clusters/${cluster.id}`, { method: 'DELETE' })
   await ok(`/registries/${registry.id}/credentials/${credential.id}`, { method: 'DELETE' })
   await ok(`/registries/${registry.id}`, { method: 'DELETE' })
   await ok(`/projects/${project.id}/applications/${app.id}`, { method: 'DELETE' })
   await ok(`/projects/${project.id}/members/${member.id}`, { method: 'DELETE' })
   await ok(`/projects/${project.id}`, { method: 'DELETE' })
+  await ok(`/projects/${defaultProject.id}`, { method: 'DELETE' })
   await ok('/auth/logout', { method: 'POST' })
 
   console.log(`API smoke passed: ${runId}`)

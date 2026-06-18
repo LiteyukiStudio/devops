@@ -29,7 +29,6 @@ type CancelSubscriber interface {
 }
 
 type Heartbeat struct {
-	AgentID            string   `json:"agentId"`
 	Name               string   `json:"name"`
 	Labels             []string `json:"labels"`
 	Scopes             []string `json:"scopes"`

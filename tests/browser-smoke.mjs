@@ -23,9 +23,9 @@ async function main() {
   await page.getByRole('textbox').first().fill(adminEmail)
   await page.locator('input[type="password"]').fill(adminPassword)
   await page.getByRole('button', { name: /^(登录|Sign in)$/i }).click()
-  await page.waitForURL(/projects|settings|registries|code-repositories/, { timeout: 20_000 })
+  await page.waitForURL(/dashboard|projects|settings|registries|code-repositories|clusters/, { timeout: 20_000 })
 
-  for (const path of ['/projects', '/registries', '/code-repositories', '/builds', '/deployments', '/gateway-routes', '/settings/account', '/settings/users', '/settings/auth-providers', '/settings/site']) {
+  for (const path of ['/dashboard', '/projects', '/registries', '/code-repositories', '/clusters', '/settings/account', '/settings/users', '/settings/auth-providers', '/settings/site']) {
     await page.goto(`${webBase}${path}`, { waitUntil: 'networkidle' })
     await assertVisibleMain(page, path)
   }

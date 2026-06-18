@@ -90,6 +90,11 @@ CREATE TABLE IF NOT EXISTS projects (
   name text NOT NULL,
   description text NOT NULL DEFAULT '',
   namespace_strategy text NOT NULL DEFAULT 'project',
+  max_concurrent_builds integer NOT NULL DEFAULT 2,
+  delete_status text NOT NULL DEFAULT 'active',
+  delete_message text NOT NULL DEFAULT '',
+  delete_started_at timestamptz,
+  delete_finished_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz
@@ -229,13 +234,27 @@ CREATE TABLE IF NOT EXISTS secret_values (
 CREATE INDEX IF NOT EXISTS idx_secret_values_created_by ON secret_values(created_by);
 CREATE INDEX IF NOT EXISTS idx_secret_values_resource ON secret_values(resource);
 
+CREATE TABLE IF NOT EXISTS scoped_resource_project_bindings (
+  id text PRIMARY KEY,
+  resource_type text NOT NULL,
+  resource_id text NOT NULL,
+  project_id text NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (resource_type, resource_id, project_id)
+);
+CREATE INDEX IF NOT EXISTS idx_scoped_resource_project_bindings_type_id ON scoped_resource_project_bindings(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_scoped_resource_project_bindings_project_id ON scoped_resource_project_bindings(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scoped_resource_project_bindings_default_registry ON scoped_resource_project_bindings(project_id)
+  WHERE resource_type = 'artifact_registry' AND is_default;
+
 CREATE TABLE IF NOT EXISTS applications (
   id text PRIMARY KEY,
   project_id text NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   slug text NOT NULL,
   name text NOT NULL,
   icon text NOT NULL DEFAULT 'box',
-  service_port integer NOT NULL DEFAULT 8080,
   delete_status text NOT NULL DEFAULT 'active',
   delete_message text NOT NULL DEFAULT '',
   delete_started_at timestamptz,
@@ -403,27 +422,6 @@ CREATE INDEX IF NOT EXISTS idx_container_images_project ON container_images(proj
 CREATE INDEX IF NOT EXISTS idx_container_images_application ON container_images(application_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_container_images_registry_repo ON container_images(registry_id, repository) WHERE deleted_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS build_providers (
-  id text PRIMARY KEY,
-  slug text NOT NULL DEFAULT '',
-  name text NOT NULL,
-  type text NOT NULL DEFAULT 'platform',
-  scope text NOT NULL DEFAULT 'global',
-  owner_ref text NOT NULL DEFAULT '',
-  config text NOT NULL DEFAULT '',
-  enabled boolean NOT NULL DEFAULT true,
-  created_by text NOT NULL DEFAULT '',
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  deleted_at timestamptz
-);
-CREATE INDEX IF NOT EXISTS idx_build_providers_slug ON build_providers(slug);
-CREATE INDEX IF NOT EXISTS idx_build_providers_scope ON build_providers(scope);
-CREATE INDEX IF NOT EXISTS idx_build_providers_owner_ref ON build_providers(owner_ref);
-CREATE INDEX IF NOT EXISTS idx_build_providers_created_by ON build_providers(created_by);
-CREATE INDEX IF NOT EXISTS idx_build_providers_deleted_at ON build_providers(deleted_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_build_providers_scope_owner_slug_active ON build_providers(scope, owner_ref, slug) WHERE deleted_at IS NULL;
-
 CREATE TABLE IF NOT EXISTS deployment_target_hook_bindings (
   id text PRIMARY KEY,
   project_id text NOT NULL,
@@ -447,7 +445,6 @@ CREATE TABLE IF NOT EXISTS build_runs (
   project_id text NOT NULL,
   application_id text NOT NULL DEFAULT '',
   deployment_target_id text NOT NULL DEFAULT '',
-  build_provider_id text NOT NULL DEFAULT '',
   build_labels text NOT NULL DEFAULT '',
   build_variable_set_ids text NOT NULL DEFAULT '',
   status text NOT NULL DEFAULT 'queued',
@@ -481,7 +478,6 @@ CREATE TABLE IF NOT EXISTS build_runs (
 CREATE INDEX IF NOT EXISTS idx_build_runs_project_id ON build_runs(project_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_application_id ON build_runs(application_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_deployment_target_id ON build_runs(deployment_target_id);
-CREATE INDEX IF NOT EXISTS idx_build_runs_build_provider_id ON build_runs(build_provider_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_status ON build_runs(status);
 CREATE INDEX IF NOT EXISTS idx_build_runs_target_registry_id ON build_runs(target_registry_id);
 CREATE INDEX IF NOT EXISTS idx_build_runs_created_by ON build_runs(created_by);
@@ -548,21 +544,6 @@ CREATE INDEX IF NOT EXISTS idx_build_logs_build_run_id ON build_logs(build_run_i
 CREATE UNIQUE INDEX IF NOT EXISTS idx_build_logs_build_job_id ON build_logs(build_job_id);
 CREATE INDEX IF NOT EXISTS idx_build_logs_project_id ON build_logs(project_id);
 
-CREATE TABLE IF NOT EXISTS builder_agents (
-  id text PRIMARY KEY,
-  name text NOT NULL,
-  labels text NOT NULL DEFAULT '',
-  scopes text NOT NULL DEFAULT '',
-  executor text NOT NULL DEFAULT '',
-  status text NOT NULL DEFAULT 'online',
-  max_concurrency integer NOT NULL DEFAULT 1,
-  current_concurrency integer NOT NULL DEFAULT 0,
-  last_heartbeat_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_builder_agents_status ON builder_agents(status);
-
 CREATE TABLE IF NOT EXISTS runtime_clusters (
   id text PRIMARY KEY,
   name text NOT NULL,
@@ -572,6 +553,7 @@ CREATE TABLE IF NOT EXISTS runtime_clusters (
   owner_ref text NOT NULL DEFAULT '',
   kubeconfig_ref text NOT NULL DEFAULT '',
   is_default boolean NOT NULL DEFAULT false,
+  max_concurrent_builds integer NOT NULL DEFAULT 4,
   status text NOT NULL DEFAULT 'unknown',
   last_checked_at timestamptz,
   created_by text NOT NULL DEFAULT '',
@@ -656,9 +638,13 @@ CREATE TABLE IF NOT EXISTS deployment_targets (
   application_id text NOT NULL,
   environment_id text NOT NULL,
   name text NOT NULL,
+  service_port integer NOT NULL DEFAULT 8080,
+  delete_status text NOT NULL DEFAULT 'active',
+  delete_message text NOT NULL DEFAULT '',
+  delete_started_at timestamptz,
+  delete_finished_at timestamptz,
   source_type text NOT NULL DEFAULT 'repository',
   repository_binding_id text NOT NULL DEFAULT '',
-  build_provider_id text NOT NULL DEFAULT '',
   dockerfile_path text NOT NULL DEFAULT 'Dockerfile',
   build_context text NOT NULL DEFAULT '.',
   build_directory text NOT NULL DEFAULT '',
@@ -691,7 +677,6 @@ CREATE INDEX IF NOT EXISTS idx_deployment_targets_project_id ON deployment_targe
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_application_id ON deployment_targets(application_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_environment_id ON deployment_targets(environment_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_repository_binding_id ON deployment_targets(repository_binding_id);
-CREATE INDEX IF NOT EXISTS idx_deployment_targets_build_provider_id ON deployment_targets(build_provider_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_target_registry_id ON deployment_targets(target_registry_id);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_created_by ON deployment_targets(created_by);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_deleted_at ON deployment_targets(deleted_at);
@@ -712,6 +697,10 @@ CREATE TABLE IF NOT EXISTS gateway_routes (
   cname_target text NOT NULL DEFAULT '',
   dns_status text NOT NULL DEFAULT 'pending',
   status text NOT NULL DEFAULT 'pending',
+  delete_status text NOT NULL DEFAULT 'active',
+  delete_message text NOT NULL DEFAULT '',
+  delete_started_at timestamptz,
+  delete_finished_at timestamptz,
   is_default boolean NOT NULL DEFAULT false,
   created_by text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now(),

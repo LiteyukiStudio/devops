@@ -142,7 +142,7 @@ func (h *Handlers) canUseGitProvider(ctx *gin.Context, provider model.GitProvide
 	if !ok {
 		return false
 	}
-	if service.CanUseGitProvider(user, provider, h.projects.UserHasProject) {
+	if h.canUseScopedResourceByID(user, provider.Scope, provider.OwnerRef, scopedResourceGitProvider, provider.ID) {
 		return true
 	}
 	writeError(ctx, http.StatusForbidden, "无权访问该 Git Provider")
@@ -150,29 +150,18 @@ func (h *Handlers) canUseGitProvider(ctx *gin.Context, provider model.GitProvide
 }
 
 func (h *Handlers) canManageGitProvider(ctx *gin.Context, user model.User, provider model.GitProvider) bool {
-	switch provider.Scope {
-	case "global":
-		if user.Role == "platform_admin" {
-			return true
-		}
-	case "user":
-		if provider.OwnerRef == user.ID {
-			return true
-		}
-	case "project":
-		if user.Role == "platform_admin" {
-			return true
-		}
-		if _, ok := h.findProjectForCurrentUserWithRolesByID(ctx, provider.OwnerRef, "owner", "admin"); ok {
-			return true
-		}
-	}
-	writeError(ctx, http.StatusForbidden, "无权维护该 Git Provider")
-	return false
+	return h.canManageScopedResourceByID(ctx, user, provider.Scope, provider.OwnerRef, scopedResourceGitProvider, provider.ID, "无权维护该 Git Provider")
 }
 
 func (h *Handlers) canUseGitAccount(ctx *gin.Context, user model.User, account model.GitAccount) bool {
-	if service.CanUseGitAccount(user, account, h.projects.UserHasProject) {
+	if normalizeGitAccessScope(account.AccessScope) == "personal" {
+		if account.UserID == user.ID {
+			return true
+		}
+		writeError(ctx, http.StatusForbidden, "无权访问该 Git 凭据")
+		return false
+	}
+	if h.canUseScopedResourceByID(user, account.Scope, account.OwnerRef, scopedResourceGitAccount, account.ID) {
 		return true
 	}
 	writeError(ctx, http.StatusForbidden, "无权访问该 Git 凭据")
@@ -188,11 +177,7 @@ func (h *Handlers) canManageGitAccount(ctx *gin.Context, user model.User, accoun
 		writeError(ctx, http.StatusForbidden, "无权维护该个人 Git 凭据")
 		return false
 	case "provider":
-		provider, ok := h.findEnabledGitProvider(ctx, account.ProviderID)
-		if !ok {
-			return false
-		}
-		return h.canManageGitProvider(ctx, user, provider)
+		return h.canManageScopedResourceByID(ctx, user, account.Scope, account.OwnerRef, scopedResourceGitAccount, account.ID, "无权维护该 Git 凭据")
 	default:
 		writeError(ctx, http.StatusBadRequest, "无效的凭据范围")
 		return false
@@ -374,56 +359,6 @@ func normalizeGitScope(value string) string {
 	}
 }
 
-func (h *Handlers) normalizeAndSetGitScopeOwner(ctx *gin.Context, user model.User, scope string, ownerRef *string, _ *model.GitProvider) bool {
-	switch scope {
-	case "global":
-		*ownerRef = ""
-		return true
-	case "user":
-		*ownerRef = user.ID
-		return true
-	case "project":
-		projectID := strings.TrimSpace(*ownerRef)
-		if projectID == "" {
-			writeError(ctx, http.StatusBadRequest, "project scope 需要选择所属项目")
-			return false
-		}
-		if _, ok := h.findProjectForCurrentUserByID(ctx, projectID); !ok {
-			return false
-		}
-		*ownerRef = projectID
-		return true
-	default:
-		writeError(ctx, http.StatusBadRequest, "invalid scope")
-		return false
-	}
-}
-
-func (h *Handlers) normalizeAndSetGitScopeOwnerForAccount(ctx *gin.Context, user model.User, scope string, ownerRef *string, _ *model.GitAccount) bool {
-	switch scope {
-	case "global":
-		*ownerRef = ""
-		return true
-	case "user":
-		*ownerRef = user.ID
-		return true
-	case "project":
-		projectID := strings.TrimSpace(*ownerRef)
-		if projectID == "" {
-			writeError(ctx, http.StatusBadRequest, "project scope 需要选择所属项目")
-			return false
-		}
-		if _, ok := h.findProjectForCurrentUserByID(ctx, projectID); !ok {
-			return false
-		}
-		*ownerRef = projectID
-		return true
-	default:
-		writeError(ctx, http.StatusBadRequest, "invalid scope")
-		return false
-	}
-}
-
 func (h *Handlers) providerIsSingleFor(ctx *gin.Context, providerID, providerType string) bool {
 	if providerType != "github" {
 		return true
@@ -475,8 +410,9 @@ func gitProviderResponses(providers []model.GitProvider) []gin.H {
 func (h *Handlers) gitProviderResponsesForUser(user model.User, providers []model.GitProvider) []gin.H {
 	responses := make([]gin.H, 0, len(providers))
 	for _, provider := range providers {
+		provider.ProjectIDs = h.scopedResourceProjectIDs(scopedResourceGitProvider, provider.ID)
 		response := gitProviderResponse(provider)
-		if !h.canInspectScopedResourceConfig(user, provider.Scope, provider.OwnerRef) {
+		if !h.canInspectScopedResourceConfigByID(user, provider.Scope, provider.OwnerRef, scopedResourceGitProvider, provider.ID) {
 			response["baseUrl"] = ""
 			response["clientId"] = ""
 		}
@@ -493,6 +429,7 @@ func gitProviderResponse(provider model.GitProvider) gin.H {
 		"baseUrl":         provider.BaseURL,
 		"scope":           provider.Scope,
 		"ownerRef":        provider.OwnerRef,
+		"projectIds":      jsonList(provider.ProjectIDs),
 		"authType":        provider.AuthType,
 		"clientId":        provider.ClientID,
 		"clientSecretSet": secret.HasValue(provider.ClientSecretRef),
@@ -515,6 +452,7 @@ func gitAccountResponse(account model.GitAccount) gin.H {
 		"userId":          account.UserID,
 		"scope":           account.Scope,
 		"ownerRef":        account.OwnerRef,
+		"projectIds":      jsonList(account.ProjectIDs),
 		"providerId":      account.ProviderID,
 		"externalUserId":  account.ExternalUserID,
 		"username":        account.Username,
@@ -571,21 +509,23 @@ func defaultCloneURL(provider model.GitProvider, owner, repo string) string {
 }
 
 type gitProviderInput struct {
-	Type         string `json:"type"`
-	Name         string `json:"name" binding:"required"`
-	BaseURL      string `json:"baseUrl"`
-	Scope        string `json:"scope"`
-	OwnerRef     string `json:"ownerRef"`
-	AuthType     string `json:"authType"`
-	ClientID     string `json:"clientId"`
-	ClientSecret string `json:"clientSecret"`
-	Enabled      bool   `json:"enabled"`
+	Type         string   `json:"type"`
+	Name         string   `json:"name" binding:"required"`
+	BaseURL      string   `json:"baseUrl"`
+	Scope        string   `json:"scope"`
+	OwnerRef     string   `json:"ownerRef"`
+	ProjectIDs   []string `json:"projectIds"`
+	AuthType     string   `json:"authType"`
+	ClientID     string   `json:"clientId"`
+	ClientSecret string   `json:"clientSecret"`
+	Enabled      bool     `json:"enabled"`
 }
 
 type gitAccountInput struct {
 	ProviderID     string   `json:"providerId" binding:"required"`
 	Scope          string   `json:"scope"`
 	OwnerRef       string   `json:"ownerRef"`
+	ProjectIDs     []string `json:"projectIds"`
 	ExternalUserID string   `json:"externalUserId"`
 	Username       string   `json:"username" binding:"required"`
 	AvatarURL      string   `json:"avatarUrl"`

@@ -1,0 +1,28 @@
+const projectMembers = {
+  addTitle: 'Add member',
+  title: 'Project space members',
+  description: 'Owner/Admin can manage members, Developer can manage applications, and Viewer is read-only.',
+  email: 'User email',
+  emailHint: 'Must be an existing platform user email. OIDC users are created after their first successful login.',
+  emailPlaceholder: 'user@example.com',
+  role: 'Space role',
+  roleHint: 'Only affects this project space. Owner can manage members, Developer is for daily build and deploy work, Viewer is read-only.',
+  roleViewer: 'Viewer',
+  roleDeveloper: 'Developer',
+  roleAdmin: 'Admin',
+  roleOwner: 'Owner',
+  add: 'Add member',
+  added: 'Member added',
+  updated: 'Member role updated',
+  removed: 'Member removed',
+  loadFailedTitle: 'Members failed to load',
+  loadFailedDescription: 'Make sure the project space exists and you have access.',
+  emptyTitle: 'No members yet',
+  emptyDescription: 'At least one Owner should remain.',
+  removeAria: 'Remove member',
+  removeConfirm: 'Remove member',
+  removeTitle: 'Remove project space member',
+  removeDescription: 'Member {{email}} will lose access to this project space.',
+}
+
+export default projectMembers

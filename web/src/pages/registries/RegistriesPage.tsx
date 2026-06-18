@@ -1,14 +1,13 @@
-import type { ArtifactRegistry, BuilderAgent, BuildProvider, RegistryCredential, RegistryRepositoryItem } from '@/api/client'
+import type { ArtifactRegistry, RegistryCredential, RegistryRepositoryItem } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Container, Cpu, KeyRound, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { CheckCircle2, Container, KeyRound, Plus, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
-import { BuildProviderFormFields } from '@/components/common/build-provider-form-fields'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { DataList } from '@/components/common/data-list'
@@ -16,8 +15,8 @@ import { EditActionButton } from '@/components/common/edit-action-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
+import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
-import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -31,8 +30,17 @@ const registrySchema = z.object({
   endpoint: z.string().url(i18next.t('registriesPage.validUrlRequired')),
   scope: z.enum(['global', 'project', 'user']),
   ownerRef: z.string(),
+  projectIds: z.array(z.string()),
   isDefault: z.boolean(),
   capabilitiesText: z.string(),
+}).superRefine((values, ctx) => {
+  if (values.scope === 'project' && values.projectIds.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['projectIds'],
+      message: i18next.t('projectSpaces.selectProject'),
+    })
+  }
 })
 
 const credentialSchema = z.object({
@@ -61,33 +69,23 @@ const imageSchema = z.object({
   scanStatus: z.enum(['unknown', 'pending', 'scanning', 'passed', 'failed']),
 })
 
-const buildProviderSchema = z.object({
-  slug: z.string().min(1, i18next.t('buildsPage.providerSlugRequired')).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
-  name: z.string().min(1, i18next.t('buildsPage.providerNameRequired')),
-  type: z.enum(['platform']),
-  scope: z.enum(['global', 'project', 'user']),
-  ownerRef: z.string(),
-  config: z.string(),
-  enabled: z.boolean(),
-})
-
 type RegistryForm = z.infer<typeof registrySchema>
 type CredentialForm = z.infer<typeof credentialSchema>
 type ImageForm = z.infer<typeof imageSchema>
-type BuildProviderForm = z.infer<typeof buildProviderSchema>
 type CredentialWithRegistry = RegistryCredential & { registryName: string }
 
 const IMAGE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 const registryDefaults: RegistryForm = {
   name: '',
   provider: 'harbor',
   endpoint: '',
   scope: 'global',
   ownerRef: '',
+  projectIds: [],
   isDefault: false,
   capabilitiesText: 'push,pull,tags,digest',
 }
-const buildProviderDefaults: BuildProviderForm = { config: '{}', enabled: true, name: '', ownerRef: '', scope: 'global', slug: '', type: 'platform' }
 
 export function RegistriesPage() {
   const { t } = useTranslation()
@@ -100,27 +98,30 @@ export function RegistriesPage() {
   const [registryDialogOpen, setRegistryDialogOpen] = useState(false)
   const [credentialDialogOpen, setCredentialDialogOpen] = useState(false)
   const [imageDialogOpen, setImageDialogOpen] = useState(false)
-  const [buildProviderDialogOpen, setBuildProviderDialogOpen] = useState(false)
-  const [editingBuildProvider, setEditingBuildProvider] = useState<BuildProvider | null>(null)
-  const [buildProviderToDelete, setBuildProviderToDelete] = useState<BuildProvider | null>(null)
-  const [builderAgentToDelete, setBuilderAgentToDelete] = useState<BuilderAgent | null>(null)
+  const [registryPage, setRegistryPage] = useState(1)
+  const [registryPageSize, setRegistryPageSize] = useState(10)
+  const [credentialPage, setCredentialPage] = useState(1)
+  const [credentialPageSize, setCredentialPageSize] = useState(10)
   const [imagePage, setImagePage] = useState(1)
   const [imagePageSize, setImagePageSize] = useState(20)
   const [imageRepositorySearch, setImageRepositorySearch] = useState('')
   const [imageRepositoryResultsOpen, setImageRepositoryResultsOpen] = useState(false)
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
-  const registries = useQuery({ queryKey: ['registries'], queryFn: () => api.listRegistries() })
+  const registries = useQuery({
+    queryKey: ['registries', registryPage, registryPageSize],
+    queryFn: () => api.listRegistriesPage({ page: registryPage, pageSize: registryPageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+  })
+  const registryItems = registries.data?.items ?? []
+  const registryOptions = useQuery({ queryKey: ['registries', 'options'], queryFn: () => api.listRegistries() })
   const images = useQuery({
     queryKey: ['container-images', imagePage, imagePageSize],
     queryFn: () => api.listContainerImages({ page: imagePage, pageSize: imagePageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
   })
-  const buildProviders = useQuery({ queryKey: ['build-providers'], queryFn: () => api.listBuildProviders() })
-  const builderAgents = useQuery({ queryKey: ['builder-agents'], queryFn: () => api.listBuilderAgents() })
   const projectMap = useMemo(() => Object.fromEntries((projects.data ?? []).map(project => [project.id, project])), [projects.data])
   const allCredentials = useQuery({
-    queryKey: ['registry-credentials', 'all', (registries.data ?? []).map(registry => registry.id).join(',')],
+    queryKey: ['registry-credentials', 'all', registryItems.map(registry => registry.id).join(',')],
     queryFn: async () => {
-      const results = await Promise.all((registries.data ?? []).map(async (registry) => {
+      const results = await Promise.all(registryItems.map(async (registry) => {
         try {
           const items = await api.listRegistryCredentials(registry.id)
           return items.map(credential => ({ ...credential, registryName: registry.name }))
@@ -134,8 +135,8 @@ export function RegistriesPage() {
     enabled: registries.isSuccess,
   })
   const credentials = useQuery({
-    queryKey: ['registry-credentials', selectedRegistryId],
-    queryFn: () => api.listRegistryCredentials(selectedRegistryId),
+    queryKey: ['registry-credentials', selectedRegistryId, credentialPage, credentialPageSize],
+    queryFn: () => api.listRegistryCredentialsPage(selectedRegistryId, { page: credentialPage, pageSize: credentialPageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
     enabled: Boolean(selectedRegistryId),
   })
 
@@ -165,11 +166,6 @@ export function RegistriesPage() {
       scanStatus: 'unknown',
     },
   })
-  const buildProviderForm = useForm<BuildProviderForm>({
-    resolver: zodResolver(buildProviderSchema),
-    mode: 'onChange',
-    defaultValues: buildProviderDefaults,
-  })
   const imageRegistryId = imageForm.watch('registryId')
   const imageRepository = imageForm.watch('repository')
   const imageRepositoryResults = useQuery({
@@ -190,7 +186,8 @@ export function RegistriesPage() {
         provider: values.provider,
         endpoint: values.endpoint,
         scope: values.scope,
-        ownerRef: values.scope === 'project' ? values.ownerRef : '',
+        ownerRef: '',
+        projectIds: values.scope === 'project' ? values.projectIds : [],
         isDefault: values.isDefault,
         capabilities: splitText(values.capabilitiesText),
       }
@@ -210,7 +207,7 @@ export function RegistriesPage() {
 
   const createCredential = useMutation({
     mutationFn: (values: CredentialForm) => {
-      const registry = (registries.data ?? []).find(item => item.id === values.registryId)
+      const registry = (registryOptions.data ?? []).find(item => item.id === values.registryId)
       return api.createRegistryCredential(values.registryId, {
         ...values,
         accessScope: registry?.scope === 'global' ? 'personal' : values.accessScope,
@@ -272,44 +269,6 @@ export function RegistriesPage() {
     },
     onError: error => toast.error(error.message),
   })
-  const saveBuildProvider = useMutation({
-    mutationFn: (values: BuildProviderForm) => {
-      const payload = {
-        ...values,
-        ownerRef: values.scope === 'project' ? values.ownerRef : '',
-      }
-      if (editingBuildProvider)
-        return api.updateBuildProvider(editingBuildProvider.id, payload)
-      return api.createBuildProvider(payload)
-    },
-    onSuccess: () => {
-      toast.success(editingBuildProvider ? t('buildsPage.providerUpdated') : t('buildsPage.providerCreated'))
-      setBuildProviderDialogOpen(false)
-      setEditingBuildProvider(null)
-      buildProviderForm.reset(buildProviderDefaults)
-      queryClient.invalidateQueries({ queryKey: ['build-providers'] })
-    },
-    onError: error => toast.error(error.message),
-  })
-  const deleteBuildProvider = useMutation({
-    mutationFn: api.deleteBuildProvider,
-    onSuccess: () => {
-      toast.success(t('buildsPage.providerDeleted'))
-      setBuildProviderToDelete(null)
-      queryClient.invalidateQueries({ queryKey: ['build-providers'] })
-    },
-    onError: error => toast.error(error.message),
-  })
-  const deleteBuilderAgent = useMutation({
-    mutationFn: api.deleteBuilderAgent,
-    onSuccess: () => {
-      toast.success(t('registriesPage.builderDeleted'))
-      setBuilderAgentToDelete(null)
-      queryClient.invalidateQueries({ queryKey: ['builder-agents'] })
-    },
-    onError: error => toast.error(error.message),
-  })
-
   const beginEdit = (registry: ArtifactRegistry) => {
     setEditingRegistry(registry)
     registryForm.reset({
@@ -318,31 +277,18 @@ export function RegistriesPage() {
       endpoint: registry.endpoint,
       scope: registry.scope,
       ownerRef: registry.ownerRef,
+      projectIds: registry.projectIds ?? [],
       isDefault: registry.isDefault,
       capabilitiesText: registry.capabilities.join(', '),
     })
     setRegistryDialogOpen(true)
   }
 
-  const beginEditBuildProvider = (provider: BuildProvider) => {
-    setEditingBuildProvider(provider)
-    buildProviderForm.reset({
-      config: provider.config,
-      enabled: provider.enabled,
-      name: provider.name,
-      ownerRef: provider.ownerRef,
-      scope: provider.scope,
-      slug: provider.slug,
-      type: provider.type,
-    })
-    setBuildProviderDialogOpen(true)
-  }
-
-  const selectedRegistry = (registries.data ?? []).find(registry => registry.id === selectedRegistryId)
-  const credentialRegistry = (registries.data ?? []).find(registry => registry.id === credentialForm.watch('registryId'))
+  const selectedRegistry = (registryOptions.data ?? registryItems).find(registry => registry.id === selectedRegistryId)
+  const credentialRegistry = (registryOptions.data ?? registryItems).find(registry => registry.id === credentialForm.watch('registryId'))
   const credentialRegistryIsGlobal = credentialRegistry?.scope === 'global'
   const visibleCredentials: CredentialWithRegistry[] = selectedRegistryId
-    ? (credentials.data ?? []).map(credential => ({ ...credential, registryName: selectedRegistry?.name ?? '' }))
+    ? (credentials.data?.items ?? []).map(credential => ({ ...credential, registryName: selectedRegistry?.name ?? '' }))
     : (allCredentials.data ?? [])
 
   const selectImageRepository = (repository: RegistryRepositoryItem) => {
@@ -359,7 +305,6 @@ export function RegistriesPage() {
           { value: 'registries', label: t('registriesPage.registriesTab') },
           { value: 'credentials', label: t('registriesPage.credentialsTab') },
           { value: 'images', label: t('registriesPage.imagesTab') },
-          { value: 'build-providers', label: t('registriesPage.buildPlatformsTab') },
         ]}
         tools={(
           <>
@@ -379,7 +324,7 @@ export function RegistriesPage() {
               <div className="flex flex-nowrap items-center justify-end gap-2">
                 <Select className="h-9" containerClassName="w-40 shrink-0" value={selectedRegistryId} aria-label={t('registriesPage.selectRegistryTitle')} onChange={event => setSelectedRegistryId(event.target.value)}>
                   <option value="">{t('registriesPage.allRegistries')}</option>
-                  {(registries.data ?? []).map(registry => (
+                  {(registryOptions.data ?? registryItems).map(registry => (
                     <option key={registry.id} value={registry.id}>{registry.name}</option>
                   ))}
                 </Select>
@@ -407,18 +352,6 @@ export function RegistriesPage() {
                 {t('registriesPage.recordImage')}
               </Button>
             )}
-            {activeTab === 'build-providers' && (
-              <Button
-                onClick={() => {
-                  setEditingBuildProvider(null)
-                  buildProviderForm.reset(buildProviderDefaults)
-                  setBuildProviderDialogOpen(true)
-                }}
-              >
-                <Cpu size={16} />
-                {t('buildsPage.createProvider')}
-              </Button>
-            )}
           </>
         )}
         value={activeTab}
@@ -438,6 +371,7 @@ export function RegistriesPage() {
                     type="button"
                     onClick={() => {
                       setSelectedRegistryId(registry.id)
+                      setCredentialPage(1)
                       setActiveTab('credentials')
                     }}
                   >
@@ -453,6 +387,7 @@ export function RegistriesPage() {
                 render: registry => (
                   <div className="flex flex-wrap gap-2">
                     <StatusBadge>{registry.scope}</StatusBadge>
+                    {projectScopeBadges(registry.projectIds, projectMap)}
                     {registry.isDefault && <StatusBadge>{t('common.default')}</StatusBadge>}
                   </div>
                 ),
@@ -478,7 +413,24 @@ export function RegistriesPage() {
             ]}
             emptyTitle={t('registriesPage.emptyTitle')}
             emptyDescription={t('registriesPage.emptyDescription')}
-            items={registries.data ?? []}
+            items={registryItems}
+            pagination={{
+              page: registries.data?.page ?? registryPage,
+              pageSize: registries.data?.pageSize ?? registryPageSize,
+              pageSizeOptions: PAGE_SIZE_OPTIONS,
+              total: registries.data?.total ?? 0,
+              totalPages: registries.data?.totalPages ?? 0,
+              pageInfoLabel: t('pagination.pageInfo', {
+                page: registries.data?.page ?? registryPage,
+                totalPages: registries.data?.totalPages ?? 0,
+                total: registries.data?.total ?? 0,
+              }),
+              onPageChange: setRegistryPage,
+              onPageSizeChange: (nextPageSize) => {
+                setRegistryPageSize(nextPageSize)
+                setRegistryPage(1)
+              },
+            }}
             rowKey={registry => registry.id}
           />
         </TabsContent>
@@ -523,6 +475,25 @@ export function RegistriesPage() {
             emptyTitle={t('registriesPage.noCredentialsTitle')}
             emptyDescription={t('registriesPage.noCredentialsDescription')}
             items={visibleCredentials}
+            pagination={selectedRegistryId
+              ? {
+                  page: credentials.data?.page ?? credentialPage,
+                  pageSize: credentials.data?.pageSize ?? credentialPageSize,
+                  pageSizeOptions: PAGE_SIZE_OPTIONS,
+                  total: credentials.data?.total ?? 0,
+                  totalPages: credentials.data?.totalPages ?? 0,
+                  pageInfoLabel: t('pagination.pageInfo', {
+                    page: credentials.data?.page ?? credentialPage,
+                    totalPages: credentials.data?.totalPages ?? 0,
+                    total: credentials.data?.total ?? 0,
+                  }),
+                  onPageChange: setCredentialPage,
+                  onPageSizeChange: (nextPageSize) => {
+                    setCredentialPageSize(nextPageSize)
+                    setCredentialPage(1)
+                  },
+                }
+              : undefined}
             rowKey={credential => credential.id}
           />
         </TabsContent>
@@ -531,7 +502,7 @@ export function RegistriesPage() {
           <DataList
             columns={[
               { key: 'image', header: t('registriesPage.image'), render: image => <code className="block max-w-xl truncate rounded bg-background px-2 py-1 text-xs" title={image.imageRef}>{image.imageRef}</code> },
-              { key: 'registry', header: t('registries'), render: image => registries.data?.find(registry => registry.id === image.registryId)?.name ?? image.registryId },
+              { key: 'registry', header: t('registries'), render: image => (registryOptions.data ?? registryItems).find(registry => registry.id === image.registryId)?.name ?? image.registryId },
               { key: 'source', header: t('common.type'), render: image => <StatusBadge>{image.sourceType}</StatusBadge> },
               { key: 'scan', header: t('common.status'), render: image => <StatusValueBadge value={image.scanStatus} /> },
               { key: 'digest', header: t('registriesPage.digest'), render: image => image.digest ? <CheckCircle2 className="text-primary" size={16} /> : '-' },
@@ -560,85 +531,6 @@ export function RegistriesPage() {
           />
         </TabsContent>
 
-        <TabsContent value="build-providers">
-          <div className="grid gap-4">
-            <div className="px-1">
-              <h2 className="text-base font-semibold">{t('registriesPage.builderAgentsTitle')}</h2>
-              <p className="text-sm text-muted-foreground">{t('registriesPage.builderAgentsDescription')}</p>
-            </div>
-            <DataList
-              columns={[
-                {
-                  key: 'name',
-                  header: t('common.name'),
-                  render: builder => (
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{builder.name}</div>
-                      <p className="truncate text-sm text-muted-foreground">{builder.id}</p>
-                    </div>
-                  ),
-                },
-                { key: 'executor', header: t('common.type'), render: builder => builder.executor },
-                { key: 'status', header: t('common.status'), render: builder => <StatusValueBadge value={builder.status} /> },
-                { key: 'concurrency', header: t('registriesPage.builderConcurrencyLabel'), render: builder => `${builder.currentConcurrency}/${builder.maxConcurrency}` },
-                { key: 'heartbeat', header: t('registriesPage.builderHeartbeatLabel'), render: builder => formatSmartDateTime(builder.lastHeartbeatAt ?? undefined, t, t('common.none')) },
-                {
-                  key: 'actions',
-                  header: t('common.actions'),
-                  className: 'text-right whitespace-nowrap',
-                  render: builder => (
-                    <Button aria-label={t('registriesPage.deleteBuilderAria')} variant="ghost" onClick={() => setBuilderAgentToDelete(builder)}>
-                      <Trash2 size={16} />
-                    </Button>
-                  ),
-                },
-              ]}
-              emptyTitle={t('registriesPage.emptyBuilderAgentsTitle')}
-              emptyDescription={t('registriesPage.emptyBuilderAgentsDescription')}
-              items={builderAgents.data?.items ?? []}
-              rowKey={builder => builder.id}
-            />
-            <div className="border-t border-border px-1 pt-4">
-              <h2 className="text-base font-semibold">{t('registriesPage.buildProviderConfigsTitle')}</h2>
-              <p className="text-sm text-muted-foreground">{t('registriesPage.buildProviderConfigsDescription')}</p>
-            </div>
-            <DataList
-              columns={[
-                { key: 'slug', header: t('buildsPage.providerSlug'), render: provider => <code className="rounded bg-background px-2 py-1 text-xs">{provider.slug}</code> },
-                {
-                  key: 'name',
-                  header: t('buildsPage.providerDisplayName'),
-                  render: provider => (
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{provider.name}</div>
-                      <p className="truncate text-sm text-muted-foreground">{provider.config || t('common.noDescription')}</p>
-                    </div>
-                  ),
-                },
-                { key: 'type', header: t('common.type'), render: () => <StatusBadge>{t('buildsPage.typePlatform')}</StatusBadge> },
-                { key: 'scope', header: t('common.scope'), render: provider => buildProviderScopeLabel(provider, projectMap, t) },
-                { key: 'status', header: t('common.status'), render: provider => <StatusValueBadge value={provider.enabled ? 'enabled' : 'disabled'} /> },
-                {
-                  key: 'actions',
-                  header: t('common.actions'),
-                  className: 'text-right whitespace-nowrap',
-                  render: provider => (
-                    <div className="flex justify-end gap-2">
-                      <EditActionButton type="button" label={t('common.edit')} onClick={() => beginEditBuildProvider(provider)} />
-                      <Button aria-label={t('registriesPage.deleteBuildPlatformAria')} variant="ghost" onClick={() => setBuildProviderToDelete(provider)}>
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                  ),
-                },
-              ]}
-              emptyTitle={t('buildsPage.emptyProviders')}
-              emptyDescription={t('registriesPage.emptyBuildPlatformsDescription')}
-              items={buildProviders.data ?? []}
-              rowKey={provider => provider.id}
-            />
-          </div>
-        </TabsContent>
       </ContentTabs>
 
       <Dialog
@@ -680,13 +572,12 @@ export function RegistriesPage() {
               </Select>
             </Field>
             {registryForm.watch('scope') === 'project' && (
-              <Field error={registryForm.formState.errors.ownerRef?.message} hint={t('registriesPage.ownerProjectHint')} label={t('registriesPage.ownerProject')}>
-                <Select {...registryForm.register('ownerRef')} aria-invalid={Boolean(registryForm.formState.errors.ownerRef)}>
-                  <option value="">{t('registriesPage.selectProject')}</option>
-                  {(projects.data ?? []).map(project => (
-                    <option key={project.id} value={project.id}>{project.name}</option>
-                  ))}
-                </Select>
+              <Field error={registryForm.formState.errors.projectIds?.message} hint={t('registriesPage.ownerProjectHint')} label={t('registriesPage.ownerProject')}>
+                <ProjectSpaceMultiSelect
+                  projects={projects.data ?? []}
+                  value={registryForm.watch('projectIds')}
+                  onChange={value => registryForm.setValue('projectIds', value, { shouldDirty: true, shouldValidate: true })}
+                />
               </Field>
             )}
             <Field error={registryForm.formState.errors.capabilitiesText?.message} hint={t('registriesPage.capabilitiesHint')} label={t('registriesPage.capabilities')}>
@@ -726,14 +617,14 @@ export function RegistriesPage() {
                 aria-invalid={Boolean(credentialForm.formState.errors.registryId)}
                 onChange={(event) => {
                   credentialForm.setValue('registryId', event.target.value, { shouldValidate: true })
-                  const registry = (registries.data ?? []).find(item => item.id === event.target.value)
+                  const registry = (registryOptions.data ?? registryItems).find(item => item.id === event.target.value)
                   if (registry?.scope === 'global')
                     credentialForm.setValue('accessScope', 'personal', { shouldValidate: true })
                   setSelectedRegistryId(event.target.value)
                 }}
               >
                 <option value="">{t('registriesPage.selectRegistry')}</option>
-                {(registries.data ?? []).map(registry => (
+                {(registryOptions.data ?? registryItems).map(registry => (
                   <option key={registry.id} value={registry.id}>{registry.name}</option>
                 ))}
               </Select>
@@ -804,7 +695,7 @@ export function RegistriesPage() {
                 aria-invalid={Boolean(imageForm.formState.errors.registryId)}
               >
                 <option value="">{t('registriesPage.selectRegistry')}</option>
-                {(registries.data ?? []).map(registry => (
+                {(registryOptions.data ?? registryItems).map(registry => (
                   <option key={registry.id} value={registry.id}>{registry.name}</option>
                 ))}
               </Select>
@@ -889,33 +780,6 @@ export function RegistriesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={buildProviderDialogOpen}
-        onOpenChange={(open) => {
-          setBuildProviderDialogOpen(open)
-          if (!open) {
-            setEditingBuildProvider(null)
-            buildProviderForm.reset(buildProviderDefaults)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingBuildProvider ? t('buildsPage.editProvider') : t('buildsPage.createProvider')}</DialogTitle>
-            <DialogDescription>{t('registriesPage.buildPlatformDialogDescription')}</DialogDescription>
-          </DialogHeader>
-          <form className="grid gap-3" onSubmit={buildProviderForm.handleSubmit(values => saveBuildProvider.mutate(values))}>
-            <BuildProviderFormFields form={buildProviderForm} projects={projects.data ?? []} />
-            <DialogFooter>
-              <Button disabled={saveBuildProvider.isPending || !buildProviderForm.formState.isValid} type="submit">
-                <Cpu size={16} />
-                {editingBuildProvider ? t('common.save') : t('buildsPage.createProvider')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       <ConfirmDialog
         confirmText={t('registriesPage.deleteRegistryConfirm')}
         description={t('registriesPage.deleteRegistryDescription', { name: registryToDelete?.name ?? '' })}
@@ -934,34 +798,14 @@ export function RegistriesPage() {
         onConfirm={() => credentialToDelete && deleteCredential.mutate({ registryId: credentialToDelete.registryId, credentialId: credentialToDelete.id })}
         onOpenChange={open => !open && setCredentialToDelete(null)}
       />
-      <ConfirmDialog
-        confirmText={t('common.delete')}
-        description={t('buildsPage.deleteProviderDescription')}
-        open={Boolean(buildProviderToDelete)}
-        pending={deleteBuildProvider.isPending}
-        title={t('buildsPage.deleteProviderTitle')}
-        onConfirm={() => buildProviderToDelete && deleteBuildProvider.mutate(buildProviderToDelete.id)}
-        onOpenChange={open => !open && setBuildProviderToDelete(null)}
-      />
-      <ConfirmDialog
-        confirmText={t('common.delete')}
-        description={t('registriesPage.deleteBuilderDescription', { name: builderAgentToDelete?.name ?? '' })}
-        open={Boolean(builderAgentToDelete)}
-        pending={deleteBuilderAgent.isPending}
-        title={t('registriesPage.deleteBuilderTitle')}
-        onConfirm={() => builderAgentToDelete && deleteBuilderAgent.mutate(builderAgentToDelete.id)}
-        onOpenChange={open => !open && setBuilderAgentToDelete(null)}
-      />
     </div>
   )
 }
 
-function buildProviderScopeLabel(provider: BuildProvider, projectMap: Record<string, { name: string }>, t: (key: string) => string) {
-  if (provider.scope === 'project')
-    return projectMap[provider.ownerRef]?.name ?? provider.ownerRef
-  if (provider.scope === 'user')
-    return t('registriesPage.scopeUser')
-  return t('registriesPage.scopeGlobal')
+function projectScopeBadges(projectIds: string[] | undefined, projectMap: Record<string, { name: string }>) {
+  return (projectIds ?? []).map(projectId => (
+    <StatusBadge key={projectId}>{projectMap[projectId]?.name ?? projectId}</StatusBadge>
+  ))
 }
 
 function splitText(value: string) {

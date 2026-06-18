@@ -36,6 +36,8 @@ const roleLabels: Record<ProjectMember['role'], string> = {
   viewer: 'Viewer',
 }
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
 export interface ProjectMembersPageHandle {
   openAddMemberDialog: () => void
 }
@@ -52,9 +54,11 @@ export function ProjectMembersPage({ embedded = false, projectId: projectIdProp,
   const projectId = projectIdProp ?? routeProjectId
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const members = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => api.listProjectMembers(projectId),
+    queryKey: ['project-members', projectId, page, pageSize],
+    queryFn: () => api.listProjectMembersPage(projectId, { page, pageSize, sortBy: 'createdAt', sortOrder: 'asc' }),
     enabled: Boolean(projectId),
   })
   const form = useForm<MemberForm>({
@@ -173,7 +177,24 @@ export function ProjectMembersPage({ embedded = false, projectId: projectIdProp,
         ]}
         emptyDescription={t('projectMembers.emptyDescription')}
         emptyTitle={t('projectMembers.emptyTitle')}
-        items={members.data ?? []}
+        items={members.data?.items ?? []}
+        pagination={{
+          page: members.data?.page ?? page,
+          pageSize: members.data?.pageSize ?? pageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          total: members.data?.total ?? 0,
+          totalPages: members.data?.totalPages ?? 0,
+          pageInfoLabel: t('pagination.pageInfo', {
+            page: members.data?.page ?? page,
+            totalPages: members.data?.totalPages ?? 0,
+            total: members.data?.total ?? 0,
+          }),
+          onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(1)
+          },
+        }}
         rowKey={member => member.id}
       />
 

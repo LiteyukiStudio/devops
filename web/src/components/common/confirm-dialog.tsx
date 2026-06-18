@@ -25,6 +25,7 @@ interface ConfirmDialogProps {
   title: string
   description: string
   confirmText?: string
+  confirmDisabled?: boolean
   pending?: boolean
   onConfirm: () => null | void | Promise<null | void>
   onOpenChange?: (open: boolean) => void
@@ -45,6 +46,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmText,
+  confirmDisabled = false,
   pending = false,
   onConfirm,
   onOpenChange,
@@ -95,7 +97,7 @@ export function ConfirmDialog({
               {cancelText ?? t('cancel')}
             </Button>
           </DialogClose>
-          <Button disabled={busy} variant={confirmVariant} onClick={handleConfirm}>
+          <Button disabled={busy || confirmDisabled} variant={confirmVariant} onClick={handleConfirm}>
             {confirmText ?? t('common.confirm')}
           </Button>
         </DialogFooter>

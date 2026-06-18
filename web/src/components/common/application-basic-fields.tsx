@@ -12,8 +12,6 @@ export function ApplicationBasicFields({
   nameError,
   nameField,
   onIconChange,
-  servicePortError,
-  servicePortField,
   slugError,
   slugField,
   slugMaxLength,
@@ -23,8 +21,6 @@ export function ApplicationBasicFields({
   nameError?: string
   nameField: UseFormRegisterReturn<'name'>
   onIconChange: (icon: ApplicationIconName) => void
-  servicePortError?: string
-  servicePortField?: UseFormRegisterReturn<'servicePort'>
   slugError?: string
   slugField: UseFormRegisterReturn<'slug'>
   slugMaxLength?: number
@@ -34,7 +30,7 @@ export function ApplicationBasicFields({
 
   if (compact) {
     return (
-      <div className="grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_8rem]">
+      <div className="grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
         <Field hint={t('apps.iconHint')} label={t('apps.icon')}>
           <ApplicationIconPicker compact value={icon} onChange={onIconChange} />
         </Field>
@@ -44,11 +40,6 @@ export function ApplicationBasicFields({
         <Field error={slugError} hint={t('apps.slugHint', { count: normalizedSlugMaxLength })} label={t('apps.slug')} required>
           <Input {...slugField} aria-invalid={Boolean(slugError)} maxLength={normalizedSlugMaxLength} placeholder={t('apps.slugPlaceholder')} />
         </Field>
-        {servicePortField && (
-          <Field error={servicePortError} hint={t('apps.servicePortHint')} label={t('apps.servicePort')} required>
-            <Input {...servicePortField} aria-invalid={Boolean(servicePortError)} min={1} max={65535} type="number" />
-          </Field>
-        )}
       </div>
     )
   }
@@ -66,11 +57,6 @@ export function ApplicationBasicFields({
       <Field hint={t('apps.iconHint')} label={t('apps.icon')}>
         <ApplicationIconPicker value={icon} onChange={onIconChange} />
       </Field>
-      {servicePortField && (
-        <Field error={servicePortError} hint={t('apps.servicePortHint')} label={t('apps.servicePort')} required>
-          <Input {...servicePortField} aria-invalid={Boolean(servicePortError)} min={1} max={65535} type="number" />
-        </Field>
-      )}
     </>
   )
 }

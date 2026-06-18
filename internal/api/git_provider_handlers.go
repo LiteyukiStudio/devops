@@ -4,9 +4,9 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
-	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 	"net/http"
 	"net/url"
 	"strings"
@@ -21,34 +21,39 @@ func (h *Handlers) ListGitProviders(ctx *gin.Context) {
 		return
 	}
 
-	query := h.db.Order("created_at desc")
+	query := h.db.Model(&model.GitProvider{})
 	if user.Role != "platform_admin" {
 		query = query.Where("enabled = ?", true)
 	}
 
 	projectID := strings.TrimSpace(ctx.Query("projectId"))
-	conditions := []string{"scope = 'global'", "(scope = 'user' and owner_ref = ?)"}
-	args := []any{user.ID}
-	if projectID != "" {
-		if _, ok := h.findProjectForCurrentUserByID(ctx, projectID); !ok {
-			return
-		}
-		conditions = append(conditions, "(scope = 'project' and owner_ref = ?)")
-		args = append(args, projectID)
-	} else if user.Role == "platform_admin" {
-		conditions = append(conditions, "scope = 'project'")
-	} else {
-		projectIDs := h.projectIDsForUser(user.ID)
-		if len(projectIDs) > 0 {
-			conditions = append(conditions, "(scope = 'project' and owner_ref in ?)")
-			args = append(args, projectIDs)
-		}
+	var visible bool
+	query, visible = h.applyScopedResourceVisibility(ctx, query, scopedResourceGitProvider, user, projectID)
+	if !visible {
+		return
 	}
-	query = query.Where(strings.Join(conditions, " or "), args...)
 
 	var providers []model.GitProvider
 	query = applySearch(ctx, query, "name", "base_url")
-	if err := query.Find(&providers).Error; err != nil {
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"name":      "name",
+			"scope":     "scope",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&providers).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(h.gitProviderResponsesForUser(user, providers), total, pagination))
+		return
+	}
+	if err := query.Order("created_at desc").Find(&providers).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -166,7 +171,7 @@ func (h *Handlers) CompleteGitOAuth(ctx *gin.Context) {
 		return
 	}
 	debugLog("git.oauth.complete provider loaded providerId=%s type=%s baseUrl=%s scope=%s ownerRef=%s authType=%s", provider.ID, provider.Type, provider.BaseURL, provider.Scope, provider.OwnerRef, provider.AuthType)
-	if !service.CanUseGitProvider(stateUser, provider, h.projects.UserHasProject) {
+	if !h.canUseScopedResourceByID(stateUser, provider.Scope, provider.OwnerRef, scopedResourceGitProvider, provider.ID) {
 		debugLog("git.oauth.complete provider forbidden providerId=%s userId=%s", provider.ID, stateUser.ID)
 		h.audit(oauthState.UserID, "git.oauth.complete", oauthState.ProviderID, false, "provider access denied")
 		ctx.Redirect(http.StatusFound, "/login?error=git_oauth_provider_forbidden")
@@ -281,28 +286,36 @@ func (h *Handlers) CreateGitProvider(ctx *gin.Context) {
 	}
 
 	scope := normalizeGitScope(input.Scope)
-	ownerRef := strings.TrimSpace(input.OwnerRef)
+	projectIDs := normalizeStringList(input.ProjectIDs)
 	providerType := normalizeGitProviderType(input.Type)
 	if providerType == "github" {
 		scope = "global"
-		ownerRef = ""
+		input.OwnerRef = ""
+		projectIDs = nil
 		if err := h.requireSingleGitHubProvider(ctx, ""); err != nil {
 			return
 		}
-	} else if !h.normalizeAndSetGitScopeOwner(ctx, user, scope, &ownerRef, nil) {
-		return
+	} else {
+		normalizedScope, ownerRef, normalizedProjectIDs, ok := h.normalizeScopedOwnerWithProjects(ctx, user, scope, input.OwnerRef, projectIDs, "只有平台管理员可以维护全局 Git Provider")
+		if !ok {
+			return
+		}
+		scope = normalizedScope
+		input.OwnerRef = ownerRef
+		projectIDs = normalizedProjectIDs
 	}
 
 	provider := model.GitProvider{
-		ID:       id.New("gitp"),
-		Type:     providerType,
-		Name:     strings.TrimSpace(input.Name),
-		BaseURL:  normalizeGitBaseURL(providerType, input.BaseURL),
-		Scope:    scope,
-		OwnerRef: ownerRef,
-		AuthType: normalizeGitAuthType(input.AuthType),
-		ClientID: strings.TrimSpace(input.ClientID),
-		Enabled:  input.Enabled,
+		ID:         id.New("gitp"),
+		Type:       providerType,
+		Name:       strings.TrimSpace(input.Name),
+		BaseURL:    normalizeGitBaseURL(providerType, input.BaseURL),
+		Scope:      scope,
+		OwnerRef:   strings.TrimSpace(input.OwnerRef),
+		ProjectIDs: projectIDs,
+		AuthType:   normalizeGitAuthType(input.AuthType),
+		ClientID:   strings.TrimSpace(input.ClientID),
+		Enabled:    input.Enabled,
 	}
 	if strings.TrimSpace(input.ClientSecret) != "" {
 		provider.ClientSecretRef = h.secrets.Store(input.ClientSecret, user.ID, "git_provider:"+provider.ID)
@@ -315,7 +328,7 @@ func (h *Handlers) CreateGitProvider(ctx *gin.Context) {
 		provider.BaseURL = defaultGitBaseURL(provider.Type)
 	}
 
-	if err := h.db.Create(&provider).Error; err != nil {
+	if err := h.saveGitProvider(provider); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -346,23 +359,31 @@ func (h *Handlers) UpdateGitProvider(ctx *gin.Context) {
 
 	providerType := normalizeGitProviderType(input.Type)
 	scope := normalizeGitScope(input.Scope)
-	ownerRef := strings.TrimSpace(input.OwnerRef)
+	projectIDs := normalizeStringList(input.ProjectIDs)
 	if providerType == "github" {
 		scope = "global"
-		ownerRef = ""
+		projectIDs = nil
 		if !h.providerIsSingleFor(ctx, provider.ID, providerType) {
 			writeError(ctx, http.StatusBadRequest, "GitHub Provider 仅支持单个实例配置")
 			return
 		}
-	} else if !h.normalizeAndSetGitScopeOwner(ctx, user, scope, &ownerRef, &provider) {
-		return
+		input.OwnerRef = ""
+	} else {
+		normalizedScope, ownerRef, normalizedProjectIDs, ok := h.normalizeScopedOwnerWithProjects(ctx, user, scope, input.OwnerRef, projectIDs, "只有平台管理员可以维护全局 Git Provider")
+		if !ok {
+			return
+		}
+		scope = normalizedScope
+		input.OwnerRef = ownerRef
+		projectIDs = normalizedProjectIDs
 	}
 
 	provider.Type = providerType
 	provider.Name = strings.TrimSpace(input.Name)
 	provider.BaseURL = normalizeGitBaseURL(providerType, input.BaseURL)
 	provider.Scope = scope
-	provider.OwnerRef = ownerRef
+	provider.OwnerRef = strings.TrimSpace(input.OwnerRef)
+	provider.ProjectIDs = projectIDs
 	provider.AuthType = normalizeGitAuthType(input.AuthType)
 	provider.ClientID = strings.TrimSpace(input.ClientID)
 	if strings.TrimSpace(input.ClientSecret) != "" {
@@ -373,7 +394,7 @@ func (h *Handlers) UpdateGitProvider(ctx *gin.Context) {
 		writeError(ctx, http.StatusBadRequest, "请输入 Git Provider 名称")
 		return
 	}
-	if err := h.db.Save(&provider).Error; err != nil {
+	if err := h.saveGitProvider(provider); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -395,10 +416,37 @@ func (h *Handlers) DeleteGitProvider(ctx *gin.Context) {
 		writeError(ctx, http.StatusNotFound, "git provider not found")
 		return
 	}
-	if err := h.db.Delete(&provider).Error; err != nil {
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		var accountIDs []string
+		if err := tx.Model(&model.GitAccount{}).Where("provider_id = ?", provider.ID).Pluck("id", &accountIDs).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("provider_id = ?", provider.ID).Delete(&model.GitAccount{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&provider).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("resource_type = ? and resource_id = ?", scopedResourceGitProvider, provider.ID).Delete(&model.ScopedResourceProjectBinding{}).Error; err != nil {
+			return err
+		}
+		if len(accountIDs) > 0 {
+			return tx.Where("resource_type = ? and resource_id in ?", scopedResourceGitAccount, accountIDs).Delete(&model.ScopedResourceProjectBinding{}).Error
+		}
+		return nil
+	}); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 	h.audit(user.ID, "git_provider.delete", provider.ID, true, provider.Type)
 	ctx.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) saveGitProvider(provider model.GitProvider) error {
+	return h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&provider).Error; err != nil {
+			return err
+		}
+		return h.replaceScopedResourceProjectBindings(tx, scopedResourceGitProvider, provider.ID, sortedProjectIDs(provider.ProjectIDs), nil)
+	})
 }

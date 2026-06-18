@@ -12,6 +12,7 @@ type GitProvider struct {
 	BaseURL         string         `gorm:"not null" json:"baseUrl"`
 	Scope           string         `gorm:"not null;default:user" json:"scope"`
 	OwnerRef        string         `gorm:"index" json:"ownerRef"`
+	ProjectIDs      []string       `gorm:"-" json:"projectIds"`
 	AuthType        string         `gorm:"not null;default:oauth" json:"authType"`
 	ClientID        string         `json:"clientId"`
 	ClientSecretRef string         `json:"clientSecretRef"`
@@ -27,6 +28,7 @@ type GitAccount struct {
 	ProviderID      string         `gorm:"index;not null" json:"providerId"`
 	Scope           string         `gorm:"not null;default:user" json:"scope"`
 	OwnerRef        string         `gorm:"index" json:"ownerRef"`
+	ProjectIDs      []string       `gorm:"-" json:"projectIds"`
 	ExternalUserID  string         `json:"externalUserId"`
 	Username        string         `gorm:"not null" json:"username"`
 	AvatarURL       string         `json:"avatarUrl"`

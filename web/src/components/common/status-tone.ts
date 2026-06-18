@@ -37,6 +37,7 @@ export function statusToneFor(value: string): StatusTone {
     case 'running':
     case 'scanning':
     case 'not-ready':
+    case 'unregistered':
       return 'warning'
     case 'createdstatus':
       return 'success'

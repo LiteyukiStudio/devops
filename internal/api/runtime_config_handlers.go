@@ -10,7 +10,9 @@ import (
 
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (h *Handlers) ListProjectRuntimeConfigSets(ctx *gin.Context) {
@@ -19,7 +21,26 @@ func (h *Handlers) ListProjectRuntimeConfigSets(ctx *gin.Context) {
 		return
 	}
 	var sets []model.ProjectRuntimeConfigSet
-	if err := h.db.Where("project_id = ?", project.ID).Order("created_at desc").Find(&sets).Error; err != nil {
+	query := h.db.Model(&model.ProjectRuntimeConfigSet{}).Where("project_id = ?", project.ID)
+	query = applySearch(ctx, query, "name", "env_vars", "config_files")
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"name":      "name",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&sets).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(projectRuntimeConfigSetResponses(sets), total, pagination))
+		return
+	}
+	if err := query.Order("created_at desc").Find(&sets).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -29,6 +50,9 @@ func (h *Handlers) ListProjectRuntimeConfigSets(ctx *gin.Context) {
 func (h *Handlers) CreateProjectRuntimeConfigSet(ctx *gin.Context) {
 	project, ok := h.findProjectForCurrentUserWithRoles(ctx, "owner", "admin", "developer")
 	if !ok {
+		return
+	}
+	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
 	user, ok := h.currentUser(ctx)
@@ -56,6 +80,9 @@ func (h *Handlers) UpdateProjectRuntimeConfigSet(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
 	user, ok := h.currentUser(ctx)
 	if !ok {
 		return
@@ -63,6 +90,9 @@ func (h *Handlers) UpdateProjectRuntimeConfigSet(ctx *gin.Context) {
 	var existing model.ProjectRuntimeConfigSet
 	if err := h.db.First(&existing, "id = ? and project_id = ?", ctx.Param("setId"), project.ID).Error; err != nil {
 		writeError(ctx, http.StatusNotFound, "运行配置集不存在")
+		return
+	}
+	if !h.ensureRuntimeConfigSetCanMutate(ctx, existing) {
 		return
 	}
 	var input projectRuntimeConfigSetInput
@@ -93,13 +123,30 @@ func (h *Handlers) DeleteProjectRuntimeConfigSet(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
 	var set model.ProjectRuntimeConfigSet
 	if err := h.db.First(&set, "id = ? and project_id = ?", ctx.Param("setId"), project.ID).Error; err != nil {
 		writeError(ctx, http.StatusNotFound, "运行配置集不存在")
 		return
 	}
-	if err := h.db.Delete(&set).Error; err != nil {
+	if !deleteStatusCanStart(set.DeleteStatus) {
+		writeError(ctx, http.StatusConflict, "运行配置正在删除中，请等待资源清理完成")
+		return
+	}
+	if err := markResourceDeleting(h.db, &model.ProjectRuntimeConfigSet{}, set.ID); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !h.enqueueResourceCleanup(ctx.Request.Context(), tasks.ResourceCleanupPayload{
+		ResourceType: "runtime_config",
+		ResourceID:   set.ID,
+		ProjectID:    set.ProjectID,
+		ActorID:      set.CreatedBy,
+	}) {
+		_ = markResourceDeleteFailed(h.db, &model.ProjectRuntimeConfigSet{}, set.ID, "资源清理任务投递失败，请稍后重试")
+		writeError(ctx, http.StatusServiceUnavailable, "资源清理任务投递失败，请稍后重试")
 		return
 	}
 	ctx.Status(http.StatusNoContent)
@@ -333,6 +380,8 @@ type projectRuntimeConfigSetResponse struct {
 	SecretRefsSet                 bool      `json:"secretRefsSet"`
 	SecretFilesSet                bool      `json:"secretFilesSet"`
 	Enabled                       bool      `json:"enabled"`
+	DeleteStatus                  string    `json:"deleteStatus"`
+	DeleteMessage                 string    `json:"deleteMessage"`
 	CreatedBy                     string    `json:"createdBy"`
 	CreatedAt                     time.Time `json:"createdAt"`
 	AffectedDeploymentTargetCount int       `json:"affectedDeploymentTargetCount,omitempty"`
@@ -356,6 +405,8 @@ func projectRuntimeConfigSetResponseFor(set model.ProjectRuntimeConfigSet) proje
 		SecretRefsSet:  strings.TrimSpace(set.SecretRefs) != "" && strings.TrimSpace(set.SecretRefs) != "{}",
 		SecretFilesSet: strings.TrimSpace(set.SecretFiles) != "" && strings.TrimSpace(set.SecretFiles) != "{}",
 		Enabled:        set.Enabled,
+		DeleteStatus:   set.DeleteStatus,
+		DeleteMessage:  set.DeleteMessage,
 		CreatedBy:      set.CreatedBy,
 		CreatedAt:      set.CreatedAt,
 	}

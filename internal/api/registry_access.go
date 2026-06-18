@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
-	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,7 +30,7 @@ func (h *Handlers) findAccessibleRegistry(ctx *gin.Context, user model.User, reg
 }
 
 func (h *Handlers) canUseRegistry(ctx *gin.Context, user model.User, registry model.ArtifactRegistry) bool {
-	if service.CanUseRegistry(user, registry, h.projects.UserHasProject) {
+	if h.canUseScopedResourceByID(user, registry.Scope, registry.OwnerRef, scopedResourceArtifactRegistry, registry.ID) {
 		return true
 	}
 	writeError(ctx, http.StatusForbidden, "无权访问该镜像站")
@@ -39,13 +38,9 @@ func (h *Handlers) canUseRegistry(ctx *gin.Context, user model.User, registry mo
 }
 
 func (h *Handlers) canManageRegistry(ctx *gin.Context, user model.User, registry model.ArtifactRegistry) bool {
-	if service.CanManageRegistry(user, registry, func(projectID string, roles ...string) bool {
-		_, ok := h.findProjectForCurrentUserWithRolesByID(ctx, projectID, roles...)
-		return ok
-	}) {
+	if h.canManageScopedResourceByID(ctx, user, registry.Scope, registry.OwnerRef, scopedResourceArtifactRegistry, registry.ID, "无权维护该镜像站") {
 		return true
 	}
-	writeError(ctx, http.StatusForbidden, "无权维护该镜像站")
 	return false
 }
 
@@ -57,10 +52,10 @@ func (h *Handlers) canManageRegistryCredentials(ctx *gin.Context, user model.Use
 }
 
 func (h *Handlers) canManageRegistryCredential(ctx *gin.Context, user model.User, registry model.ArtifactRegistry, credential model.RegistryCredential) bool {
-	if service.CanManageRegistryCredential(user, registry, credential, func(projectID string, roles ...string) bool {
-		_, ok := h.findProjectForCurrentUserWithRolesByID(ctx, projectID, roles...)
-		return ok
-	}) {
+	if credential.AccessScope == "personal" && credential.CreatedBy == user.ID {
+		return true
+	}
+	if credential.AccessScope != "personal" && h.canManageScopedResourceByID(ctx, user, registry.Scope, registry.OwnerRef, scopedResourceArtifactRegistry, registry.ID, "无权维护该镜像站") {
 		return true
 	}
 	if credential.AccessScope == "personal" {
@@ -72,11 +67,20 @@ func (h *Handlers) canManageRegistryCredential(ctx *gin.Context, user model.User
 }
 
 func (h *Handlers) defaultRegistryFor(userID, projectID string) (model.ArtifactRegistry, bool) {
+	var projectRegistry model.ArtifactRegistry
+	projectDefault := h.db.
+		Joins("join scoped_resource_project_bindings srpb on srpb.resource_id = artifact_registries.id and srpb.resource_type = ? and srpb.project_id = ? and srpb.is_default = ?", scopedResourceArtifactRegistry, projectID, true).
+		Where("artifact_registries.scope = ? and artifact_registries.deleted_at is null", "project").
+		First(&projectRegistry)
+	if projectDefault.Error == nil {
+		projectRegistry.ProjectIDs = h.scopedResourceProjectIDs(scopedResourceArtifactRegistry, projectRegistry.ID)
+		projectRegistry.DefaultProjectIDs = h.scopedResourceDefaultProjectIDMap(scopedResourceArtifactRegistry, []string{projectRegistry.ID})[projectRegistry.ID]
+		return projectRegistry, true
+	}
 	candidates := []struct {
 		scope string
 		owner string
 	}{
-		{scope: "project", owner: projectID},
 		{scope: "user", owner: userID},
 		{scope: "global", owner: ""},
 	}

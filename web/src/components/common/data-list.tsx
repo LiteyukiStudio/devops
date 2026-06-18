@@ -11,6 +11,7 @@ export interface DataListColumn<T> {
   className?: string
   headerClassName?: string
   cellClassName?: string
+  sticky?: 'left' | 'right'
   render: (item: T) => ReactNode
 }
 
@@ -47,6 +48,17 @@ interface DataListProps<T> {
     onPageSizeChange?: (pageSize: number) => void
     pageSizeOptions?: number[]
   }
+}
+
+function stickyColumnClass(sticky: DataListColumn<unknown>['sticky'], surface: 'header' | 'cell') {
+  if (!sticky)
+    return undefined
+
+  return cn(
+    'sticky',
+    sticky === 'right' ? 'right-0 border-l border-border' : 'left-0 border-r border-border',
+    surface === 'header' ? 'z-30 bg-muted' : 'z-20 bg-card group-hover:bg-muted/40',
+  )
 }
 
 /**
@@ -146,6 +158,7 @@ export function DataList<T>({
                         className={cn(
                           'h-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground',
                           column.className,
+                          stickyColumnClass(column.sticky, 'header'),
                           column.headerClassName,
                         )}
                       >
@@ -159,7 +172,7 @@ export function DataList<T>({
                     const itemKey = rowKey(item)
                     const rowSelectable = selection?.isRowSelectable?.(item) ?? true
                     return (
-                      <tr key={itemKey} className="border-b border-border transition-colors hover:bg-muted/40">
+                      <tr key={itemKey} className="group border-b border-border transition-colors hover:bg-muted/40">
                         {selectable && (
                           <td className="w-10 px-4 py-3 align-middle">
                             <input
@@ -173,7 +186,15 @@ export function DataList<T>({
                           </td>
                         )}
                         {columns.map(column => (
-                          <td key={column.key} className={cn('px-4 py-3 align-middle', column.className, column.cellClassName)}>
+                          <td
+                            key={column.key}
+                            className={cn(
+                              'px-4 py-3 align-middle',
+                              column.className,
+                              stickyColumnClass(column.sticky, 'cell'),
+                              column.cellClassName,
+                            )}
+                          >
                             {column.render(item)}
                           </td>
                         ))}

@@ -22,11 +22,30 @@ func (h *Handlers) ListRegistryCredentials(ctx *gin.Context) {
 	}
 
 	var credentials []model.RegistryCredential
-	query := h.db.Where("registry_id = ?", registry.ID)
+	query := h.db.Model(&model.RegistryCredential{}).Where("registry_id = ?", registry.ID)
 	if registry.Scope == "global" {
 		query = query.Where("created_by = ? and access_scope = ?", user.ID, "personal")
 	} else {
 		query = query.Where("access_scope = ? or (access_scope = ? and created_by = ?)", "registry", "personal", user.ID)
+	}
+	query = applySearch(ctx, query, "name", "username")
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"name":      "name",
+			"username":  "username",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&credentials).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(credentialResponses(credentials), total, pagination))
+		return
 	}
 	if err := query.Order("created_at desc").Find(&credentials).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())

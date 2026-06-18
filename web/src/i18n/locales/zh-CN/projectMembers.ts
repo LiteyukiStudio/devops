@@ -1,0 +1,28 @@
+const projectMembers = {
+  title: '项目空间成员',
+  description: 'Owner/Admin 可以维护项目空间成员，Developer 可管理应用，Viewer 只读。',
+  addTitle: '添加成员',
+  email: '用户邮箱',
+  emailHint: '必须是平台里已经存在的用户邮箱；OIDC 用户首次登录成功后也会生成平台用户。',
+  emailPlaceholder: 'user@example.com',
+  role: '空间角色',
+  roleHint: '只影响当前项目空间内的权限。Owner 可管理项目空间成员，Developer 适合日常构建部署，Viewer 仅查看。',
+  roleViewer: 'Viewer',
+  roleDeveloper: 'Developer',
+  roleAdmin: 'Admin',
+  roleOwner: 'Owner',
+  add: '添加成员',
+  added: '成员已添加',
+  updated: '成员角色已更新',
+  removed: '成员已移除',
+  loadFailedTitle: '成员加载失败',
+  loadFailedDescription: '请确认项目空间存在，并且你有项目空间访问权限。',
+  emptyTitle: '还没有成员',
+  emptyDescription: '至少需要保留一个 Owner。',
+  removeAria: '移除成员',
+  removeConfirm: '移除成员',
+  removeTitle: '移除项目空间成员',
+  removeDescription: '成员 {{email}} 将失去该项目空间访问权限。',
+}
+
+export default projectMembers

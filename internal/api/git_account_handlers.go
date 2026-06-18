@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
@@ -20,7 +21,7 @@ func (h *Handlers) ListGitAccounts(ctx *gin.Context) {
 	}
 
 	projectID := strings.TrimSpace(ctx.Query("projectId"))
-	query := h.db
+	query := h.db.Model(&model.GitAccount{})
 	conditions := []string{
 		"(coalesce(access_scope, 'personal') = 'personal' and user_id = ?)",
 		"(access_scope = 'provider' and scope = 'global')",
@@ -31,25 +32,45 @@ func (h *Handlers) ListGitAccounts(ctx *gin.Context) {
 		if _, ok := h.findProjectForCurrentUserByID(ctx, projectID); !ok {
 			return
 		}
-		conditions = append(conditions, "(access_scope = 'provider' and scope = 'project' and owner_ref = ?)")
-		args = append(args, projectID)
+		conditions = append(conditions, "(access_scope = 'provider' and scope = 'project' and exists (select 1 from scoped_resource_project_bindings srpb where srpb.resource_type = ? and srpb.resource_id = git_accounts.id and srpb.project_id = ?))")
+		args = append(args, scopedResourceGitAccount, projectID)
 	} else if user.Role == "platform_admin" {
 		conditions = append(conditions, "(access_scope = 'provider' and scope = 'project')")
 	} else {
 		projectIDs := h.projectIDsForUser(user.ID)
 		if len(projectIDs) > 0 {
-			conditions = append(conditions, "(access_scope = 'provider' and scope = 'project' and owner_ref in ?)")
-			args = append(args, projectIDs)
+			conditions = append(conditions, "(access_scope = 'provider' and scope = 'project' and exists (select 1 from scoped_resource_project_bindings srpb where srpb.resource_type = ? and srpb.resource_id = git_accounts.id and srpb.project_id in ?))")
+			args = append(args, scopedResourceGitAccount, projectIDs)
 		}
 	}
 	query = query.Where(strings.Join(conditions, " or "), args...)
 
 	var accounts []model.GitAccount
 	query = applySearch(ctx, query, "username", "external_user_id")
-	if err := query.Find(&accounts).Error; err != nil {
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"username":  "username",
+			"status":    "status",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&accounts).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		h.attachGitAccountProjects(accounts)
+		ctx.JSON(http.StatusOK, paginatedResponse(gitAccountResponses(accounts), total, pagination))
+		return
+	}
+	if err := query.Order("created_at desc").Find(&accounts).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
+	h.attachGitAccountProjects(accounts)
 	ctx.JSON(http.StatusOK, gitAccountResponses(accounts))
 }
 
@@ -67,8 +88,8 @@ func (h *Handlers) CreateGitAccount(ctx *gin.Context) {
 		return
 	}
 	scope := normalizeGitScope(input.Scope)
-	ownerRef := strings.TrimSpace(input.OwnerRef)
-	if !h.normalizeAndSetGitScopeOwnerForAccount(ctx, user, scope, &ownerRef, nil) {
+	scope, ownerRef, projectIDs, scopeOK := h.normalizeScopedOwnerWithProjects(ctx, user, scope, input.OwnerRef, input.ProjectIDs, "只有平台管理员可以创建全局 Git 凭据")
+	if !scopeOK {
 		return
 	}
 	accessScope := normalizeGitAccessScope(input.AccessScope)
@@ -82,6 +103,7 @@ func (h *Handlers) CreateGitAccount(ctx *gin.Context) {
 		UserID:         user.ID,
 		Scope:          scope,
 		OwnerRef:       ownerRef,
+		ProjectIDs:     projectIDs,
 		ProviderID:     strings.TrimSpace(input.ProviderID),
 		ExternalUserID: strings.TrimSpace(input.ExternalUserID),
 		Username:       strings.TrimSpace(input.Username),
@@ -101,7 +123,7 @@ func (h *Handlers) CreateGitAccount(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.db.Create(&account).Error; err != nil {
+	if err := h.saveGitAccount(account); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -132,8 +154,8 @@ func (h *Handlers) UpdateGitAccount(ctx *gin.Context) {
 		return
 	}
 	scope := normalizeGitScope(input.Scope)
-	ownerRef := strings.TrimSpace(input.OwnerRef)
-	if !h.normalizeAndSetGitScopeOwnerForAccount(ctx, user, scope, &ownerRef, &account) {
+	scope, ownerRef, projectIDs, scopeOK := h.normalizeScopedOwnerWithProjects(ctx, user, scope, input.OwnerRef, input.ProjectIDs, "只有平台管理员可以创建全局 Git 凭据")
+	if !scopeOK {
 		return
 	}
 	accessScope := normalizeGitAccessScope(input.AccessScope)
@@ -145,6 +167,7 @@ func (h *Handlers) UpdateGitAccount(ctx *gin.Context) {
 	account.ProviderID = strings.TrimSpace(input.ProviderID)
 	account.Scope = scope
 	account.OwnerRef = ownerRef
+	account.ProjectIDs = projectIDs
 	account.ExternalUserID = strings.TrimSpace(input.ExternalUserID)
 	account.Username = strings.TrimSpace(input.Username)
 	account.AvatarURL = strings.TrimSpace(input.AvatarURL)
@@ -162,12 +185,36 @@ func (h *Handlers) UpdateGitAccount(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.db.Save(&account).Error; err != nil {
+	if err := h.saveGitAccount(account); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
 	h.audit(user.ID, "git_account.update", account.ID, true, account.Scope)
 	ctx.JSON(http.StatusOK, gitAccountResponse(account))
+}
+
+func (h *Handlers) saveGitAccount(account model.GitAccount) error {
+	return h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&account).Error; err != nil {
+			return err
+		}
+		return h.replaceScopedResourceProjectBindings(tx, scopedResourceGitAccount, account.ID, sortedProjectIDs(account.ProjectIDs), nil)
+	})
+}
+
+func (h *Handlers) attachGitAccountProjects(accounts []model.GitAccount) {
+	projectMap := h.scopedResourceProjectIDMap(scopedResourceGitAccount, gitAccountIDs(accounts))
+	for index := range accounts {
+		accounts[index].ProjectIDs = projectMap[accounts[index].ID]
+	}
+}
+
+func gitAccountIDs(accounts []model.GitAccount) []string {
+	ids := make([]string, 0, len(accounts))
+	for _, account := range accounts {
+		ids = append(ids, account.ID)
+	}
+	return ids
 }
 
 func (h *Handlers) DeleteGitAccount(ctx *gin.Context) {
@@ -190,10 +237,23 @@ func (h *Handlers) DeleteGitAccount(ctx *gin.Context) {
 		return
 	}
 	if bindingCount > 0 {
-		writeError(ctx, http.StatusConflict, "Git 凭据仍被仓库绑定引用，请先解绑")
-		return
+		var provider model.GitProvider
+		err := h.db.Select("id").First(&provider, "id = ?", account.ProviderID).Error
+		if err == nil {
+			writeError(ctx, http.StatusConflict, "Git 凭据仍被仓库绑定引用，请先解绑")
+			return
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
-	if err := h.db.Delete(&account).Error; err != nil {
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("resource_type = ? and resource_id = ?", scopedResourceGitAccount, account.ID).Delete(&model.ScopedResourceProjectBinding{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&account).Error
+	}); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

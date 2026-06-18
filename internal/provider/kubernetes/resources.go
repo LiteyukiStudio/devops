@@ -17,14 +17,17 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+	"sigs.k8s.io/yaml"
 )
 
 type ResourceListOptions struct {
-	Kind          string
-	Namespace     string
-	ProjectID     string
-	ApplicationID string
-	EnvironmentID string
+	Kind               string
+	Namespace          string
+	ProjectID          string
+	ApplicationID      string
+	EnvironmentID      string
+	DeploymentTargetID string
+	RouteID            string
 }
 
 type ResourceSnapshot struct {
@@ -42,6 +45,7 @@ type ResourceSnapshot struct {
 	RouteID            string            `json:"routeId"`
 	Labels             map[string]string `json:"labels"`
 	CreatedAt          time.Time         `json:"createdAt"`
+	UpdatedAt          time.Time         `json:"updatedAt"`
 }
 
 type ResourceEventSnapshot struct {
@@ -231,6 +235,7 @@ func (c *Client) runtimePod(ctx context.Context, namespace string, deploymentTar
 	selector := strings.Join([]string{
 		ManagedByLabel + "=" + ManagedByValue,
 		DeploymentTargetIDLabel + "=" + deploymentTargetID,
+		ScopeLabel + "!=build",
 	}, ",")
 	pods, err := c.client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
@@ -348,6 +353,157 @@ func (c *Client) GetManagedResource(ctx context.Context, kind string, namespace 
 	default:
 		return ResourceSnapshot{}, fmt.Errorf("unsupported resource kind: %s", kind)
 	}
+}
+
+func (c *Client) GetManagedResourceYAML(ctx context.Context, kind string, namespace string, name string) (string, ResourceSnapshot, error) {
+	kind = normalizeResourceObjectKind(kind)
+	name = strings.TrimSpace(name)
+	namespace = strings.TrimSpace(namespace)
+	if name == "" {
+		return "", ResourceSnapshot{}, fmt.Errorf("resource name is required")
+	}
+	switch kind {
+	case "namespace":
+		item, err := c.client.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshotFromMeta("Namespace", item.ObjectMeta, "", item.Status.Phase, "")
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "deployment":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(deploymentSnapshot(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "pod":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(podSnapshot(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "service":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(serviceSnapshot(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Service"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "ingress":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(ingressSnapshot(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "networking.k8s.io/v1", Kind: "Ingress"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "configmap":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshotFromMeta("ConfigMap", item.ObjectMeta, "", fmt.Sprintf("%d keys", len(item.Data)), "")
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "secret":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshotFromMeta("Secret", item.ObjectMeta, "", string(item.Type), "data hidden")
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"}
+		item.ManagedFields = nil
+		item.StringData = redactedSecretStringData(item.Data)
+		item.Data = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "persistentvolumeclaim":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshotFromMeta("PersistentVolumeClaim", item.ObjectMeta, "", item.Status.Phase, pvcSummary(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolumeClaim"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	default:
+		return "", ResourceSnapshot{}, fmt.Errorf("unsupported resource kind: %s", kind)
+	}
+}
+
+func redactedSecretStringData(data map[string][]byte) map[string]string {
+	if len(data) == 0 {
+		return nil
+	}
+	redacted := make(map[string]string, len(data))
+	for key := range data {
+		redacted[key] = "<redacted>"
+	}
+	return redacted
 }
 
 func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespace string, name string) error {
@@ -533,7 +689,7 @@ func eventSnapshot(item corev1.Event) ResourceEventSnapshot {
 }
 
 func (c *Client) listManagedWorkloads(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
-	selector := managedResourceSelector(options)
+	selector := managedRuntimeResourceSelector(options)
 	deployments, err := c.client.AppsV1().Deployments(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return nil, err
@@ -677,7 +833,21 @@ func snapshotFromMeta(kind string, meta metav1.ObjectMeta, namespace string, sta
 		RouteID:            labels[GatewayRouteIDLabel],
 		Labels:             labels,
 		CreatedAt:          meta.CreationTimestamp.Time,
+		UpdatedAt:          resourceUpdatedAt(meta),
 	}
+}
+
+func resourceUpdatedAt(meta metav1.ObjectMeta) time.Time {
+	updatedAt := meta.CreationTimestamp.Time
+	for _, field := range meta.ManagedFields {
+		if field.Time == nil {
+			continue
+		}
+		if field.Time.After(updatedAt) {
+			updatedAt = field.Time.Time
+		}
+	}
+	return updatedAt
 }
 
 func managedResourceSelector(options ResourceListOptions) string {
@@ -691,7 +861,21 @@ func managedResourceSelector(options ResourceListOptions) string {
 	if options.EnvironmentID != "" {
 		parts = append(parts, EnvironmentIDLabel+"="+options.EnvironmentID)
 	}
+	if options.DeploymentTargetID != "" {
+		parts = append(parts, DeploymentTargetIDLabel+"="+options.DeploymentTargetID)
+	}
+	if options.RouteID != "" {
+		parts = append(parts, GatewayRouteIDLabel+"="+options.RouteID)
+	}
 	return strings.Join(parts, ",")
+}
+
+func managedRuntimeResourceSelector(options ResourceListOptions) string {
+	selector := managedResourceSelector(options)
+	if selector == "" {
+		return ScopeLabel + "!=build"
+	}
+	return selector + "," + ScopeLabel + "!=build"
 }
 
 func matchesResourceOptions(labels map[string]string, options ResourceListOptions) bool {
@@ -702,6 +886,12 @@ func matchesResourceOptions(labels map[string]string, options ResourceListOption
 		return false
 	}
 	if options.EnvironmentID != "" && labels[EnvironmentIDLabel] != options.EnvironmentID {
+		return false
+	}
+	if options.DeploymentTargetID != "" && labels[DeploymentTargetIDLabel] != options.DeploymentTargetID {
+		return false
+	}
+	if options.RouteID != "" && labels[GatewayRouteIDLabel] != options.RouteID {
 		return false
 	}
 	return true

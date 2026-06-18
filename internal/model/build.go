@@ -6,27 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type BuildProvider struct {
-	ID        string         `gorm:"primaryKey" json:"id"`
-	Slug      string         `gorm:"index;not null;default:''" json:"slug"`
-	Name      string         `gorm:"not null" json:"name"`
-	Type      string         `gorm:"not null;default:platform" json:"type"`
-	Scope     string         `gorm:"index;not null;default:global" json:"scope"`
-	OwnerRef  string         `gorm:"index" json:"ownerRef"`
-	Config    string         `json:"config"`
-	Enabled   bool           `gorm:"not null;default:true" json:"enabled"`
-	CreatedBy string         `gorm:"index" json:"createdBy"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-}
-
 type BuildRun struct {
 	ID                  string         `gorm:"primaryKey" json:"id"`
 	ProjectID           string         `gorm:"index;not null" json:"projectId"`
 	ApplicationID       string         `gorm:"index" json:"applicationId"`
 	DeploymentTargetID  string         `gorm:"index" json:"deploymentTargetId"`
-	BuildProviderID     string         `gorm:"index" json:"buildProviderId"`
 	BuildLabels         string         `json:"buildLabels"`
 	BuildVariableSetIDs string         `gorm:"type:text" json:"buildVariableSetIds"`
 	Status              string         `gorm:"index;not null;default:queued" json:"status"`
@@ -75,6 +59,7 @@ type BuildVariableSet struct {
 	Name       string         `gorm:"not null" json:"name"`
 	Scope      string         `gorm:"index;not null;default:global" json:"scope"`
 	OwnerRef   string         `gorm:"index" json:"ownerRef"`
+	ProjectIDs []string       `gorm:"-" json:"projectIds"`
 	Variables  string         `gorm:"type:text" json:"variables"`
 	SecretRefs string         `gorm:"type:text;not null;default:''" json:"-"`
 	Enabled    bool           `gorm:"not null;default:true" json:"enabled"`
@@ -114,18 +99,4 @@ type BuildLog struct {
 	Content    string    `gorm:"type:text" json:"content"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
-}
-
-type BuilderAgent struct {
-	ID                 string     `gorm:"primaryKey" json:"id"`
-	Name               string     `gorm:"not null" json:"name"`
-	Labels             string     `json:"labels"`
-	Scopes             string     `json:"scopes"`
-	Executor           string     `json:"executor"`
-	Status             string     `gorm:"index;not null;default:online" json:"status"`
-	MaxConcurrency     int        `gorm:"not null;default:1" json:"maxConcurrency"`
-	CurrentConcurrency int        `gorm:"not null;default:0" json:"currentConcurrency"`
-	LastHeartbeatAt    *time.Time `json:"lastHeartbeatAt"`
-	CreatedAt          time.Time  `json:"createdAt"`
-	UpdatedAt          time.Time  `json:"updatedAt"`
 }

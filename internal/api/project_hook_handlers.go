@@ -188,6 +188,7 @@ func (h *Handlers) projectHookConfigFromInput(ctx *gin.Context, user model.User,
 }
 
 func (h *Handlers) appendHookRunLog(run model.HookRun, content string) error {
+	content = h.redactHookRunLogContent(run, content)
 	content = trimHookRunLogContent(content)
 	if content == "" {
 		return nil

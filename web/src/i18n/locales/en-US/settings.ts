@@ -1,0 +1,25 @@
+const settings = {
+  siteDescription: 'Manage public site settings and backend egress security policy.',
+  siteSaved: 'Site settings saved',
+  siteConfigTitle: 'Branding',
+  gatewayConfigTitle: 'Gateway',
+  securityEgressTitle: 'Security policy',
+  configDefinitionsFailedTitle: 'Config definitions failed to load',
+  configDefinitionsFailedDescription: 'Confirm that the current account can access site settings.',
+  saveConfig: 'Save settings',
+  boundIdentities: 'Bound identities',
+  identityLoadFailedTitle: 'Identity loading failed',
+  identityLoadFailedDescription: 'Refresh the page and try again.',
+  noIdentitiesTitle: 'No third-party login bound',
+  noIdentitiesDescription: 'Choose an enabled identity provider on the right.',
+  unbindIdentity: 'Unbind identity',
+  identityUnbound: 'Identity unbound',
+  bindProviderTitle: 'Bind new identity provider',
+  providerLoadFailedTitle: 'Provider loading failed',
+  providerLoadFailedDescription: 'Try again later.',
+  bindProvider: 'Bind {{provider}}',
+  securityDescription: 'Manage third-party login bindings and personal Access Tokens for API calls.',
+  bind: 'Bind',
+}
+
+export default settings

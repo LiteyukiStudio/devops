@@ -6,17 +6,22 @@ import (
 )
 
 type Project struct {
-	ID                string         `gorm:"primaryKey" json:"id"`
-	Slug              string         `gorm:"uniqueIndex:idx_projects_slug_active,where:deleted_at IS NULL;not null" json:"slug"`
-	Name              string         `gorm:"not null" json:"name"`
-	Description       string         `json:"description"`
-	NamespaceStrategy string         `gorm:"not null" json:"namespaceStrategy"`
-	DashboardOrder    int            `gorm:"->;column:dashboard_order;-:migration" json:"dashboardOrder"`
-	LastUsedAt        *time.Time     `gorm:"->;column:last_used_at;-:migration" json:"lastUsedAt"`
-	UseCount          int            `gorm:"->;column:use_count;-:migration" json:"useCount"`
-	CreatedAt         time.Time      `json:"createdAt"`
-	UpdatedAt         time.Time      `json:"updatedAt"`
-	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                  string         `gorm:"primaryKey" json:"id"`
+	Slug                string         `gorm:"uniqueIndex:idx_projects_slug_active,where:deleted_at IS NULL;not null" json:"slug"`
+	Name                string         `gorm:"not null" json:"name"`
+	Description         string         `json:"description"`
+	NamespaceStrategy   string         `gorm:"not null" json:"namespaceStrategy"`
+	MaxConcurrentBuilds int            `gorm:"not null;default:2" json:"maxConcurrentBuilds"`
+	DeleteStatus        string         `gorm:"index;not null;default:active" json:"deleteStatus"`
+	DeleteMessage       string         `gorm:"type:text;not null;default:''" json:"deleteMessage"`
+	DeleteStartedAt     *time.Time     `json:"deleteStartedAt"`
+	DeleteFinishedAt    *time.Time     `json:"deleteFinishedAt"`
+	DashboardOrder      int            `gorm:"->;column:dashboard_order;-:migration" json:"dashboardOrder"`
+	LastUsedAt          *time.Time     `gorm:"->;column:last_used_at;-:migration" json:"lastUsedAt"`
+	UseCount            int            `gorm:"->;column:use_count;-:migration" json:"useCount"`
+	CreatedAt           time.Time      `json:"createdAt"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type ProjectMember struct {

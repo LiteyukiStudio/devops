@@ -53,7 +53,7 @@ export function ProjectWorkspacePage() {
   const activeContent = (() => {
     switch (activeTab) {
       case 'apps':
-        return <ApplicationsPage ref={applicationsPageRef} embedded projectId={projectId} />
+        return <ApplicationsPage ref={applicationsPageRef} embedded projectId={projectId} projectName={currentProject?.name} />
       case 'environments':
         return <ProjectEnvironmentsPage ref={environmentsPageRef} projectId={projectId} />
       case 'build-variables':

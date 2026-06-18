@@ -1,0 +1,17 @@
+[
+  {
+    "type": "file",
+    "name": "architecture",
+    "label": "Local Development"
+  },
+  {
+    "type": "file",
+    "name": "contributing",
+    "label": "Code Rules"
+  },
+  {
+    "type": "file",
+    "name": "docs-site",
+    "label": "Docs Site"
+  }
+]

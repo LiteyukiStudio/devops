@@ -6,8 +6,8 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
-	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"strings"
@@ -130,16 +130,37 @@ func (h *Handlers) ListRepositoryBindings(ctx *gin.Context) {
 	}
 
 	var bindings []repositoryBindingResponse
-	err := h.db.Table("repository_bindings").
+	query := h.db.Table("repository_bindings").
 		Select("repository_bindings.*, git_providers.name as provider_name, git_providers.type as provider_type, git_accounts.username as account_username, users.email as account_owner_email, users.name as account_owner_name, applications.name as application_name").
 		Joins("join git_providers on git_providers.id = repository_bindings.git_provider_id and git_providers.deleted_at is null").
 		Joins("join git_accounts on git_accounts.id = repository_bindings.git_account_id and git_accounts.deleted_at is null").
 		Joins("join users on users.id = git_accounts.user_id and users.deleted_at is null").
 		Joins("join applications on applications.id = repository_bindings.application_id and applications.deleted_at is null").
-		Where("repository_bindings.project_id = ? and repository_bindings.deleted_at is null", ctx.Param("projectId")).
-		Order("repository_bindings.created_at desc").
-		Scan(&bindings).Error
-	if err != nil {
+		Where("repository_bindings.project_id = ? and repository_bindings.deleted_at is null", ctx.Param("projectId"))
+	query = applySearch(ctx, query, "repository_bindings.owner", "repository_bindings.repo", "applications.name", "git_accounts.username")
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"repo":      "repository_bindings.repo",
+			"owner":     "repository_bindings.owner",
+			"createdAt": "repository_bindings.created_at",
+		}, "repository_bindings.created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Scan(&bindings).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		for index := range bindings {
+			bindings[index].CredentialRef = ""
+			bindings[index].WebhookCallbackURL = h.gitWebhookURL(ctx, bindings[index].ID)
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(bindings, total, pagination))
+		return
+	}
+	if err := query.Order("repository_bindings.created_at desc").Scan(&bindings).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -166,6 +187,9 @@ func (h *Handlers) CreateRepositoryBinding(ctx *gin.Context) {
 
 	binding, ok := h.repositoryBindingFromInput(ctx, user.ID, input)
 	if !ok {
+		return
+	}
+	if !h.ensureRepositoryBindingUnique(ctx, binding, "") {
 		return
 	}
 
@@ -203,6 +227,9 @@ func (h *Handlers) UpdateRepositoryBinding(ctx *gin.Context) {
 
 	binding, ok := h.repositoryBindingFromInput(ctx, user.ID, input)
 	if !ok {
+		return
+	}
+	if !h.ensureRepositoryBindingUnique(ctx, binding, existing.ID) {
 		return
 	}
 	webhookTargetChanged := repositoryBindingWebhookTargetChanged(existing, binding)
@@ -358,6 +385,39 @@ func (h *Handlers) repositoryBindingFromInput(ctx *gin.Context, userID string, i
 	}, true
 }
 
+func (h *Handlers) ensureRepositoryBindingUnique(ctx *gin.Context, binding model.RepositoryBinding, excludeID string) bool {
+	query := h.db.Model(&model.RepositoryBinding{}).
+		Where("project_id = ? and application_id = ? and git_provider_id = ? and lower(owner) = ? and lower(repo) = ?",
+			binding.ProjectID,
+			binding.ApplicationID,
+			binding.GitProviderID,
+			normalizeRepositoryBindingOwner(binding.Owner),
+			normalizeRepositoryBindingRepo(binding.Repo),
+		)
+	if strings.TrimSpace(excludeID) != "" {
+		query = query.Where("id <> ?", excludeID)
+	}
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if count > 0 {
+		writeError(ctx, http.StatusConflict, "该应用已绑定同一个仓库")
+		return false
+	}
+	return true
+}
+
+func normalizeRepositoryBindingOwner(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func normalizeRepositoryBindingRepo(value string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(value)), ".git")
+}
+
 func shouldAutoConfigureWebhook(input repositoryBindingInput) bool {
 	return input.AutoConfigureWebhook == nil || *input.AutoConfigureWebhook
 }
@@ -438,7 +498,11 @@ func (h *Handlers) gitClientForUserBinding(ctx *gin.Context, user model.User, bi
 	if err := h.db.First(&account, "id = ?", strings.TrimSpace(binding.GitAccountID)).Error; err != nil {
 		return gitprovider.Client{}, fmt.Errorf("git account unavailable: %w", err)
 	}
-	if !service.CanUseGitAccount(user, account, h.projects.UserHasProject) {
+	if normalizeGitAccessScope(account.AccessScope) == "personal" {
+		if account.UserID != user.ID {
+			return gitprovider.Client{}, fmt.Errorf("git account forbidden")
+		}
+	} else if !h.canUseScopedResourceByID(user, account.Scope, account.OwnerRef, scopedResourceGitAccount, account.ID) {
 		return gitprovider.Client{}, fmt.Errorf("git account forbidden")
 	}
 	if account.Status != "connected" {
@@ -451,7 +515,7 @@ func (h *Handlers) gitClientForUserBinding(ctx *gin.Context, user model.User, bi
 	if account.ProviderID != provider.ID {
 		return gitprovider.Client{}, fmt.Errorf("git provider mismatch")
 	}
-	if !service.CanUseGitProvider(user, provider, h.projects.UserHasProject) {
+	if !h.canUseScopedResourceByID(user, provider.Scope, provider.OwnerRef, scopedResourceGitProvider, provider.ID) {
 		return gitprovider.Client{}, fmt.Errorf("git provider forbidden")
 	}
 	token := h.secrets.Resolve(account.AccessTokenRef)

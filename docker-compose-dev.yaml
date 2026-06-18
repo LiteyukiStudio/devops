@@ -33,38 +33,15 @@ services:
       dockerfile: Dockerfile
       args:
         TARGET: worker
+    env_file:
+      - .env.worker
     extra_hosts:
       - "dev.minikube.local:host-gateway"
-    environment:
-      APP_ENV: ${APP_ENV:-development}
-      DATABASE_URL: postgres://devops:devops@postgres:5432/devops?sslmode=disable
-      REDIS_ADDR: redis:6379
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  builder:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        TARGET: builder
-    environment:
-      APP_ENV: ${APP_ENV:-development}
-      BUILDER_API_URL: ${BUILDER_API_URL:-http://host.docker.internal:8080}
-      BUILDER_TOKEN: ${BUILDER_TOKEN:-dev-builder-token}
-      BUILDER_AGENT_NAME: ${BUILDER_AGENT_NAME:-local-docker-builder}
-      BUILDER_SCOPES: ${BUILDER_SCOPES:-}
-      BUILDER_LABELS: ${BUILDER_LABELS:-}
-      BUILDER_WORKSPACE_HOST_ROOT: ${BUILDER_WORKSPACE_HOST_ROOT:-/Users/sfkm/Developer/liteyuki-studio/devops/.local/builder-workspace}
-      BUILDER_CACHE_ENABLED: ${BUILDER_CACHE_ENABLED:-true}
-      BUILDER_CACHE_TAG: ${BUILDER_CACHE_TAG:-buildcache}
-    user: root
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./.local/builder-workspace:/builder-workspace
 
 volumes:
   postgres-data:

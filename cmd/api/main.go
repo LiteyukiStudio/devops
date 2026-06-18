@@ -7,6 +7,7 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/config"
 	"github.com/LiteyukiStudio/devops/internal/database"
 	"github.com/LiteyukiStudio/devops/internal/secret"
+	"github.com/LiteyukiStudio/devops/internal/webui"
 )
 
 func main() {
@@ -24,7 +25,7 @@ func main() {
 		log.Fatalf("migrate database: %v", err)
 	}
 
-	router := api.NewRouter(db)
+	router := api.NewRouterWithStaticFS(db, webui.FS)
 
 	log.Printf("api listening on %s", cfg.APIAddr)
 	if err := router.Run(cfg.APIAddr); err != nil {

@@ -11,15 +11,34 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (h *Handlers) ListGatewayRoutes(ctx *gin.Context) {
 	if _, ok := h.findProjectForCurrentUser(ctx); !ok {
 		return
 	}
-	query := h.db.Where("project_id = ?", ctx.Param("projectId")).Order("created_at desc")
+	query := h.db.Model(&model.GatewayRoute{}).Where("project_id = ?", ctx.Param("projectId"))
 	query = applySearch(ctx, query, "host", "path", "status")
 	var routes []model.GatewayRoute
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"host":      "host",
+			"status":    "status",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&routes).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(routes, total, pagination))
+		return
+	}
 	if err := query.Find(&routes).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -30,6 +49,9 @@ func (h *Handlers) ListGatewayRoutes(ctx *gin.Context) {
 func (h *Handlers) CreateGatewayRoute(ctx *gin.Context) {
 	user, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
 	if !ok {
+		return
+	}
+	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
 	var input gatewayRouteInput
@@ -62,8 +84,14 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
 	route, ok := h.findGatewayRoute(ctx)
 	if !ok {
+		return
+	}
+	if !h.ensureGatewayRouteCanMutate(ctx, route) {
 		return
 	}
 	var input gatewayRouteInput
@@ -104,15 +132,33 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 }
 
 func (h *Handlers) DeleteGatewayRoute(ctx *gin.Context) {
-	if _, ok := h.findProjectForCurrentUserWithRoles(ctx, "owner", "admin"); !ok {
+	user, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin")
+	if !ok {
+		return
+	}
+	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
 	route, ok := h.findGatewayRoute(ctx)
 	if !ok {
 		return
 	}
-	if err := h.db.Delete(&route).Error; err != nil {
+	if !deleteStatusCanStart(route.DeleteStatus) {
+		writeError(ctx, http.StatusConflict, "访问入口正在删除中，请等待资源清理完成")
+		return
+	}
+	if err := markResourceDeleting(h.db, &model.GatewayRoute{}, route.ID); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !h.enqueueResourceCleanup(ctx.Request.Context(), tasks.ResourceCleanupPayload{
+		ResourceType: "gateway_route",
+		ResourceID:   route.ID,
+		ProjectID:    route.ProjectID,
+		ActorID:      user.ID,
+	}) {
+		_ = markResourceDeleteFailed(h.db, &model.GatewayRoute{}, route.ID, "资源清理任务投递失败，请稍后重试")
+		writeError(ctx, http.StatusServiceUnavailable, "资源清理任务投递失败，请稍后重试")
 		return
 	}
 	ctx.Status(http.StatusNoContent)
@@ -127,14 +173,26 @@ func (h *Handlers) CheckGatewayDomain(ctx *gin.Context) {
 		writeError(ctx, http.StatusBadRequest, "请输入域名")
 		return
 	}
-	var count int64
-	if err := h.db.Model(&model.GatewayRoute{}).
+	routeID := strings.TrimSpace(ctx.Query("routeId"))
+	var routes []model.GatewayRoute
+	if err := h.db.Select("id").
 		Where("host = ?", host).
-		Count(&count).Error; err != nil {
+		Find(&routes).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"available": count == 0, "host": host})
+	status := "available"
+	available := true
+	for _, route := range routes {
+		if routeID != "" && route.ID == routeID {
+			status = "current"
+			continue
+		}
+		status = "conflict"
+		available = false
+		break
+	}
+	ctx.JSON(http.StatusOK, gin.H{"available": available, "host": host, "status": status})
 }
 
 func (h *Handlers) findGatewayRoute(ctx *gin.Context) (model.GatewayRoute, bool) {
@@ -175,6 +233,11 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		writeError(ctx, http.StatusBadRequest, "域名已被占用")
 		return model.GatewayRoute{}, false
 	}
+	servicePort := fallbackInt(input.ServicePort, deploymentTargetServicePort(target))
+	if servicePort <= 0 || servicePort > 65535 {
+		writeError(ctx, http.StatusBadRequest, "服务端口必须在 1 到 65535 之间")
+		return model.GatewayRoute{}, false
+	}
 
 	tlsMode := normalizeTLSMode(input.TLSMode)
 	certStatus := "disabled"
@@ -189,7 +252,7 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		DeploymentTargetID: target.ID,
 		Host:               host,
 		Path:               fallback(strings.TrimSpace(input.Path), "/"),
-		ServicePort:        fallbackInt(input.ServicePort, 80),
+		ServicePort:        servicePort,
 		TLSMode:            tlsMode,
 		CertificateStatus:  certStatus,
 		CNAMEName:          host,
@@ -199,6 +262,10 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		IsDefault:          input.IsDefault,
 		CreatedBy:          userID,
 	}, true
+}
+
+func deploymentTargetServicePort(target model.DeploymentTarget) int {
+	return fallbackInt(target.ServicePort, 8080)
 }
 
 func (h *Handlers) gatewayRouteTargetContext(ctx *gin.Context, projectID string, input gatewayRouteInput) (model.DeploymentTarget, model.Application, model.Environment, bool) {

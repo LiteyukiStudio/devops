@@ -16,37 +16,16 @@ type Config struct {
 	APIAddr                     string
 	DatabaseURL                 string
 	RedisAddr                   string
-	BuilderToken                string
-	BuilderTaskLeaseSeconds     int64
-	BuilderPollIntervalSeconds  int64
-	BuilderExecutorImage        string
-	BuilderExecutor             string
-	BuilderMaxConcurrency       int
-	BuilderAgentName            string
-	BuilderWorkspaceRoot        string
-	BuilderWorkspaceHostRoot    string
-	BuilderNPMRegistry          string
+	BuildExecutorImage          string
+	BuildNPMRegistry            string
+	BuildCacheEnabled           bool
+	BuildCacheTag               string
+	BuildJobTimeoutSeconds      int64
+	BuildJobTTLSeconds          int64
 	BuildPrivateEgressCIDRs     []string
 	BuildBlockedEgressCIDRs     []string
 	DeployRolloutTimeoutSeconds int64
 	CertManagerClusterIssuer    string
-}
-
-type BuilderConfig struct {
-	BuilderAPIURL              string
-	BuilderToken               string
-	BuilderPollIntervalSeconds int64
-	BuilderExecutorImage       string
-	BuilderExecutor            string
-	BuilderMaxConcurrency      int
-	BuilderAgentName           string
-	BuilderScopes              []string
-	BuilderLabels              []string
-	BuilderWorkspaceRoot       string
-	BuilderWorkspaceHostRoot   string
-	BuilderNPMRegistry         string
-	BuilderCacheEnabled        bool
-	BuilderCacheTag            string
 }
 
 func Load() Config {
@@ -56,41 +35,16 @@ func Load() Config {
 		APIAddr:                     env("API_ADDR", ":8080"),
 		DatabaseURL:                 env("DATABASE_URL", "postgres://devops:devops@localhost:5432/devops?sslmode=disable"),
 		RedisAddr:                   env("REDIS_ADDR", "localhost:6379"),
-		BuilderToken:                env("BUILDER_TOKEN", ""),
-		BuilderTaskLeaseSeconds:     int64(envInt("BUILDER_TASK_LEASE_SECONDS", 300)),
-		BuilderPollIntervalSeconds:  int64(envInt("BUILDER_POLL_INTERVAL_SECONDS", 3)),
-		BuilderExecutorImage:        env("BUILDER_EXECUTOR_IMAGE", "moby/buildkit:v0.24.0-rootless"),
-		BuilderExecutor:             env("BUILDER_EXECUTOR", "docker"),
-		BuilderMaxConcurrency:       envInt("BUILDER_MAX_CONCURRENCY", 16),
-		BuilderAgentName:            env("BUILDER_AGENT_NAME", "local-builder"),
-		BuilderWorkspaceRoot:        env("BUILDER_WORKSPACE_ROOT", ""),
-		BuilderWorkspaceHostRoot:    env("BUILDER_WORKSPACE_HOST_ROOT", ""),
-		BuilderNPMRegistry:          env("BUILDER_NPM_REGISTRY", ""),
+		BuildExecutorImage:          env("BUILD_EXECUTOR_IMAGE", "moby/buildkit:v0.24.0-rootless"),
+		BuildNPMRegistry:            env("BUILD_NPM_REGISTRY", ""),
+		BuildCacheEnabled:           envBool("BUILD_CACHE_ENABLED", false),
+		BuildCacheTag:               env("BUILD_CACHE_TAG", "buildcache"),
+		BuildJobTimeoutSeconds:      int64(envInt("BUILD_JOB_TIMEOUT_SECONDS", 5400)),
+		BuildJobTTLSeconds:          int64(envInt("BUILD_JOB_TTL_SECONDS", 3600)),
 		BuildPrivateEgressCIDRs:     envList("BUILD_PRIVATE_EGRESS_CIDRS"),
 		BuildBlockedEgressCIDRs:     append(defaultBuildBlockedEgressCIDRs(), envList("BUILD_BLOCKED_EGRESS_CIDRS")...),
 		DeployRolloutTimeoutSeconds: int64(envInt("DEPLOY_ROLLOUT_TIMEOUT_SECONDS", 600)),
 		CertManagerClusterIssuer:    env("CERT_MANAGER_CLUSTER_ISSUER", "letsencrypt-http01"),
-	}
-}
-
-func LoadBuilder() BuilderConfig {
-	loadEnvFile()
-
-	return BuilderConfig{
-		BuilderAPIURL:              env("BUILDER_API_URL", "http://localhost:8080"),
-		BuilderToken:               env("BUILDER_TOKEN", ""),
-		BuilderPollIntervalSeconds: int64(envInt("BUILDER_POLL_INTERVAL_SECONDS", 3)),
-		BuilderExecutorImage:       env("BUILDER_EXECUTOR_IMAGE", "moby/buildkit:v0.24.0-rootless"),
-		BuilderExecutor:            env("BUILDER_EXECUTOR", "docker"),
-		BuilderMaxConcurrency:      envInt("BUILDER_MAX_CONCURRENCY", 16),
-		BuilderAgentName:           env("BUILDER_AGENT_NAME", "local-builder"),
-		BuilderScopes:              envList("BUILDER_SCOPES"),
-		BuilderLabels:              envList("BUILDER_LABELS"),
-		BuilderWorkspaceRoot:       env("BUILDER_WORKSPACE_ROOT", "/builder-workspace"),
-		BuilderWorkspaceHostRoot:   env("BUILDER_WORKSPACE_HOST_ROOT", ""),
-		BuilderNPMRegistry:         env("BUILDER_NPM_REGISTRY", ""),
-		BuilderCacheEnabled:        envBool("BUILDER_CACHE_ENABLED", false),
-		BuilderCacheTag:            env("BUILDER_CACHE_TAG", "buildcache"),
 	}
 }
 

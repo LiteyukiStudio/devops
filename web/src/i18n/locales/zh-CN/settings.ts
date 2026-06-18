@@ -1,0 +1,25 @@
+const settings = {
+  siteDescription: '管理公开站点配置和后端出网安全策略。',
+  siteSaved: '站点配置已保存',
+  siteConfigTitle: '品牌信息',
+  gatewayConfigTitle: '网关配置',
+  securityEgressTitle: '安全策略',
+  configDefinitionsFailedTitle: '配置定义加载失败',
+  configDefinitionsFailedDescription: '请确认当前账号有权限访问站点设置。',
+  saveConfig: '保存配置',
+  securityDescription: '管理第三方登录绑定和用于 API 调用的个人 Access Token。',
+  boundIdentities: '已绑定身份',
+  identityLoadFailedTitle: '身份加载失败',
+  identityLoadFailedDescription: '请刷新页面后重试。',
+  noIdentitiesTitle: '还没有绑定第三方登录',
+  noIdentitiesDescription: '从右侧选择一个已启用身份源进行绑定。',
+  unbindIdentity: '解绑第三方登录',
+  identityUnbound: '第三方登录已解绑',
+  bindProviderTitle: '绑定新身份源',
+  providerLoadFailedTitle: '身份源加载失败',
+  providerLoadFailedDescription: '请稍后重试。',
+  bind: '绑定',
+  bindProvider: '绑定 {{provider}}',
+}
+
+export default settings

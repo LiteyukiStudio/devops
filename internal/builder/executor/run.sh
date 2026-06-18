@@ -259,4 +259,6 @@ export_liteyuki_build_context
 run_hooks "postPush" "${POST_PUSH_HOOK_IDS:-}"
 run_hooks "postBuild" "${POST_BUILD_HOOK_IDS:-}"
 
-printf '{"imageRef":"%s","sourceCommit":"%s","sourceAuthorName":"%s","sourceAuthorEmail":"%s","message":"builder task succeeded"}' "$(json_escape "$IMAGE_REF")" "$(json_escape "$CHECKED_OUT_COMMIT")" "$(json_escape "$SOURCE_AUTHOR_NAME")" "$(json_escape "$SOURCE_AUTHOR_EMAIL")" > /workspace/result.json
+RESULT_JSON="$(printf '{"imageRef":"%s","sourceCommit":"%s","sourceAuthorName":"%s","sourceAuthorEmail":"%s","message":"builder task succeeded"}' "$(json_escape "$IMAGE_REF")" "$(json_escape "$CHECKED_OUT_COMMIT")" "$(json_escape "$SOURCE_AUTHOR_NAME")" "$(json_escape "$SOURCE_AUTHOR_EMAIL")")"
+printf "%s" "$RESULT_JSON" > /workspace/result.json
+printf "::liteyuki-build-result::%s\n" "$(b64_line "$RESULT_JSON")"

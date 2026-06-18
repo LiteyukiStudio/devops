@@ -12,14 +12,25 @@ import (
 
 const (
 	TypeDeployRun         = "deploy:run"
+	TypeBuildRun          = "build:run"
 	TypeGatewayApply      = "gateway:apply"
 	TypeApplicationDelete = "application:delete"
+	TypeResourceCleanup   = "resource:cleanup"
 	TypeGitAccountRefresh = "git:accounts:refresh"
 	TypeSyncStatus        = "sync:status"
 
 	QueueDeploy = "deploy"
+	QueueBuild  = "build"
 	QueueLight  = "light"
 )
+
+type BuildRunPayload struct {
+	Envelope   TaskEnvelope `json:"envelope"`
+	BuildRunID string       `json:"buildRunId"`
+	BuildJobID string       `json:"buildJobId"`
+	ProjectID  string       `json:"projectId"`
+	ActorID    string       `json:"actorId"`
+}
 
 type DeployRunPayload struct {
 	Envelope  TaskEnvelope `json:"envelope"`
@@ -41,6 +52,15 @@ type ApplicationDeletePayload struct {
 	ProjectID     string       `json:"projectId"`
 	ActorID       string       `json:"actorId"`
 	DeleteData    bool         `json:"deleteData"`
+}
+
+type ResourceCleanupPayload struct {
+	Envelope     TaskEnvelope `json:"envelope"`
+	ResourceType string       `json:"resourceType"`
+	ResourceID   string       `json:"resourceId"`
+	ProjectID    string       `json:"projectId"`
+	ActorID      string       `json:"actorId"`
+	DeleteData   bool         `json:"deleteData"`
 }
 
 type GitAccountRefreshPayload struct {
@@ -90,6 +110,33 @@ func (c *Client) EnqueueDeployRun(ctx context.Context, payload DeployRunPayload)
 	return c.enqueueWithPolicy(ctx, task, PolicyForType(TypeDeployRun))
 }
 
+func (c *Client) EnqueueBuildRun(ctx context.Context, payload BuildRunPayload) (*asynq.TaskInfo, error) {
+	task, err := NewBuildRunTask(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.enqueueWithPolicy(ctx, task, PolicyForType(TypeBuildRun))
+}
+
+func (c *Client) EnqueueBuildRunAfter(ctx context.Context, payload BuildRunPayload, delay time.Duration) (*asynq.TaskInfo, error) {
+	task, err := NewBuildRunTask(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	policy := PolicyForType(TypeBuildRun)
+	return c.client.EnqueueContext(
+		ctx,
+		task,
+		asynq.Queue(policy.Queue),
+		asynq.MaxRetry(policy.MaxRetry),
+		asynq.Timeout(policy.Timeout),
+		asynq.Retention(policy.Retention),
+		asynq.ProcessIn(delay),
+	)
+}
+
 func (c *Client) EnqueueGatewayApply(ctx context.Context, payload GatewayApplyPayload) (*asynq.TaskInfo, error) {
 	task, err := NewGatewayApplyTask(payload)
 	if err != nil {
@@ -106,6 +153,15 @@ func (c *Client) EnqueueApplicationDelete(ctx context.Context, payload Applicati
 	}
 
 	return c.enqueueWithPolicy(ctx, task, PolicyForType(TypeApplicationDelete))
+}
+
+func (c *Client) EnqueueResourceCleanup(ctx context.Context, payload ResourceCleanupPayload) (*asynq.TaskInfo, error) {
+	task, err := NewResourceCleanupTask(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.enqueueWithPolicy(ctx, task, PolicyForType(TypeResourceCleanup))
 }
 
 func (c *Client) EnqueueGitAccountRefresh(ctx context.Context, payload GitAccountRefreshPayload) (*asynq.TaskInfo, error) {
@@ -131,17 +187,40 @@ func (c *Client) enqueueWithPolicy(ctx context.Context, task *asynq.Task, policy
 
 func PolicyForType(taskType string) EnqueuePolicy {
 	switch taskType {
+	case TypeBuildRun:
+		return EnqueuePolicy{Queue: QueueBuild, MaxRetry: 1, Timeout: 90 * time.Minute, Retention: 24 * time.Hour, Unique: 30 * time.Minute}
 	case TypeDeployRun:
 		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 30 * time.Minute, Retention: 24 * time.Hour, Unique: 30 * time.Minute}
 	case TypeGatewayApply:
 		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 10 * time.Minute, Retention: 24 * time.Hour, Unique: 10 * time.Minute}
 	case TypeApplicationDelete:
 		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 15 * time.Minute, Retention: 24 * time.Hour, Unique: 10 * time.Minute}
+	case TypeResourceCleanup:
+		return EnqueuePolicy{Queue: QueueDeploy, MaxRetry: 3, Timeout: 15 * time.Minute, Retention: 24 * time.Hour, Unique: 10 * time.Minute}
 	case TypeGitAccountRefresh:
 		return EnqueuePolicy{Queue: QueueLight, MaxRetry: 2, Timeout: 10 * time.Minute, Retention: 24 * time.Hour, Unique: 5 * time.Minute}
 	default:
 		return EnqueuePolicy{Queue: QueueLight, MaxRetry: 1, Timeout: 5 * time.Minute, Retention: 24 * time.Hour, Unique: 1 * time.Minute}
 	}
+}
+
+func NewBuildRunTask(payload BuildRunPayload) (*asynq.Task, error) {
+	if strings.TrimSpace(payload.BuildRunID) == "" {
+		return nil, errors.New("build run id is required")
+	}
+	if strings.TrimSpace(payload.BuildJobID) == "" {
+		return nil, errors.New("build job id is required")
+	}
+	if strings.TrimSpace(payload.ProjectID) == "" {
+		return nil, errors.New("project id is required")
+	}
+
+	payload.Envelope = ensureEnvelope(payload.Envelope, TypeBuildRun, payload.ActorID, payload.ProjectID, payload.BuildJobID)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeBuildRun, data), nil
 }
 
 func NewDeployRunTask(payload DeployRunPayload) (*asynq.Task, error) {
@@ -190,6 +269,26 @@ func NewApplicationDeleteTask(payload ApplicationDeletePayload) (*asynq.Task, er
 		return nil, err
 	}
 	return asynq.NewTask(TypeApplicationDelete, data), nil
+}
+
+func NewResourceCleanupTask(payload ResourceCleanupPayload) (*asynq.Task, error) {
+	if strings.TrimSpace(payload.ResourceType) == "" {
+		return nil, errors.New("resource type is required")
+	}
+	if strings.TrimSpace(payload.ResourceID) == "" {
+		return nil, errors.New("resource id is required")
+	}
+	if strings.TrimSpace(payload.ProjectID) == "" {
+		return nil, errors.New("project id is required")
+	}
+
+	resourceType := strings.TrimSpace(payload.ResourceType)
+	payload.Envelope = ensureEnvelope(payload.Envelope, TypeResourceCleanup, payload.ActorID, payload.ProjectID, resourceType+":"+strings.TrimSpace(payload.ResourceID))
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeResourceCleanup, data), nil
 }
 
 func NewGitAccountRefreshTask(payload GitAccountRefreshPayload) (*asynq.Task, error) {

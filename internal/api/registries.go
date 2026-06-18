@@ -18,32 +18,35 @@ func (h *Handlers) ListArtifactRegistries(ctx *gin.Context) {
 	}
 
 	projectID := strings.TrimSpace(ctx.Query("projectId"))
-	if projectID != "" {
-		if _, ok := h.findProjectForCurrentUserByID(ctx, projectID); !ok {
-			return
-		}
-	}
 
 	var registries []model.ArtifactRegistry
-	query := h.db.Order("is_default desc, created_at desc")
-	conditions := []string{"scope = 'global'", "(scope = 'user' and owner_ref = ?)"}
-	args := []any{user.ID}
-	if projectID != "" {
-		conditions = append(conditions, "(scope = 'project' and owner_ref = ?)")
-		args = append(args, projectID)
-	} else if user.Role == "platform_admin" {
-		conditions = append(conditions, "scope = 'project'")
-	} else {
-		projectIDs := h.projectIDsForUser(user.ID)
-		if len(projectIDs) > 0 {
-			conditions = append(conditions, "(scope = 'project' and owner_ref in ?)")
-			args = append(args, projectIDs)
-		}
+	query := h.db.Model(&model.ArtifactRegistry{})
+	var visible bool
+	query, visible = h.applyScopedResourceVisibility(ctx, query, scopedResourceArtifactRegistry, user, projectID)
+	if !visible {
+		return
 	}
-	query = query.Where(strings.Join(conditions, " or "), args...)
 
 	query = applySearch(ctx, query, "name", "endpoint")
-	if err := query.Find(&registries).Error; err != nil {
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"name":      "name",
+			"scope":     "scope",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&registries).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(h.registryResponsesForUser(user, registries), total, pagination))
+		return
+	}
+	if err := query.Order("is_default desc, created_at desc").Find(&registries).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -106,6 +109,7 @@ func (h *Handlers) UpdateArtifactRegistry(ctx *gin.Context) {
 	existing.Namespace = next.Namespace
 	existing.Scope = next.Scope
 	existing.OwnerRef = next.OwnerRef
+	existing.ProjectIDs = next.ProjectIDs
 	existing.IsDefault = next.IsDefault
 	existing.Capabilities = next.Capabilities
 
@@ -131,7 +135,15 @@ func (h *Handlers) DeleteArtifactRegistry(ctx *gin.Context) {
 	if !h.canManageRegistry(ctx, user, registry) {
 		return
 	}
-	if err := h.db.Delete(&registry).Error; err != nil {
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("registry_id = ?", registry.ID).Delete(&model.RegistryCredential{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&registry).Error; err != nil {
+			return err
+		}
+		return tx.Where("resource_type = ? and resource_id = ?", scopedResourceArtifactRegistry, registry.ID).Delete(&model.ScopedResourceProjectBinding{}).Error
+	}); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -168,25 +180,9 @@ func (h *Handlers) TestArtifactRegistry(ctx *gin.Context) {
 }
 
 func (h *Handlers) registryFromInput(ctx *gin.Context, user model.User, input artifactRegistryInput, registryID string) (model.ArtifactRegistry, bool) {
-	scope := normalizeRegistryScope(input.Scope)
-	ownerRef := strings.TrimSpace(input.OwnerRef)
-	switch scope {
-	case "global":
-		if user.Role != "platform_admin" {
-			writeError(ctx, http.StatusForbidden, "只有平台管理员可以维护全局镜像站")
-			return model.ArtifactRegistry{}, false
-		}
-		ownerRef = ""
-	case "project":
-		if ownerRef == "" {
-			writeError(ctx, http.StatusBadRequest, "项目镜像站需要选择项目")
-			return model.ArtifactRegistry{}, false
-		}
-		if _, ok := h.findProjectForCurrentUserWithRolesByID(ctx, ownerRef, "owner", "admin"); !ok {
-			return model.ArtifactRegistry{}, false
-		}
-	case "user":
-		ownerRef = user.ID
+	scope, ownerRef, projectIDs, ok := h.normalizeScopedOwnerWithProjects(ctx, user, input.Scope, input.OwnerRef, input.ProjectIDs, "只有平台管理员可以维护全局镜像站")
+	if !ok {
+		return model.ArtifactRegistry{}, false
 	}
 
 	endpoint := strings.TrimRight(strings.TrimSpace(input.Endpoint), "/")
@@ -203,6 +199,7 @@ func (h *Handlers) registryFromInput(ctx *gin.Context, user model.User, input ar
 		Namespace:    "",
 		Scope:        scope,
 		OwnerRef:     ownerRef,
+		ProjectIDs:   projectIDs,
 		IsDefault:    input.IsDefault,
 		Capabilities: strings.Join(normalizeList(input.Capabilities, false), ","),
 		CreatedBy:    user.ID,
@@ -216,13 +213,28 @@ func (h *Handlers) registryFromInput(ctx *gin.Context, user model.User, input ar
 
 func (h *Handlers) saveRegistryWithDefault(registry model.ArtifactRegistry) error {
 	return h.db.Transaction(func(tx *gorm.DB) error {
-		if registry.IsDefault {
+		projectIDs := sortedProjectIDs(registry.ProjectIDs)
+		defaultProjectIDs := []string{}
+		if registry.Scope == "project" {
+			if registry.IsDefault {
+				defaultProjectIDs = projectIDs
+				if err := tx.Model(&model.ScopedResourceProjectBinding{}).
+					Where("resource_type = ? and project_id in ? and resource_id <> ?", scopedResourceArtifactRegistry, projectIDs, registry.ID).
+					Update("is_default", false).Error; err != nil {
+					return err
+				}
+			}
+			registry.IsDefault = false
+		} else if registry.IsDefault {
 			if err := tx.Model(&model.ArtifactRegistry{}).
 				Where("scope = ? and owner_ref = ? and id <> ?", registry.Scope, registry.OwnerRef, registry.ID).
 				Update("is_default", false).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Save(&registry).Error
+		if err := tx.Save(&registry).Error; err != nil {
+			return err
+		}
+		return h.replaceScopedResourceProjectBindings(tx, scopedResourceArtifactRegistry, registry.ID, projectIDs, defaultProjectIDs)
 	})
 }

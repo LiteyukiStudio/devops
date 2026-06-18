@@ -62,3 +62,28 @@ func TestGetDeploymentSnapshotReadsProgressDeadlineFailure(t *testing.T) {
 		t.Fatalf("snapshot = %#v", snapshot)
 	}
 }
+
+func TestRestartDeploymentUpdatesPodTemplateAnnotation(t *testing.T) {
+	client := NewClientForInterface(fake.NewSimpleClientset(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "api-dev", Namespace: "project-demo"},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"existing": "keep"}},
+			},
+		},
+	}))
+
+	if err := client.RestartDeployment(context.Background(), "project-demo", "api-dev"); err != nil {
+		t.Fatalf("RestartDeployment returned error: %v", err)
+	}
+	deployment, err := client.client.AppsV1().Deployments("project-demo").Get(context.Background(), "api-dev", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Get deployment returned error: %v", err)
+	}
+	if deployment.Spec.Template.Annotations["existing"] != "keep" {
+		t.Fatalf("existing annotation was not preserved: %#v", deployment.Spec.Template.Annotations)
+	}
+	if deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] == "" {
+		t.Fatalf("restart annotation was not set: %#v", deployment.Spec.Template.Annotations)
+	}
+}

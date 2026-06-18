@@ -19,8 +19,10 @@ func registryResponses(registries []model.ArtifactRegistry) []artifactRegistryOu
 func (h *Handlers) registryResponsesForUser(user model.User, registries []model.ArtifactRegistry) []artifactRegistryOutput {
 	result := make([]artifactRegistryOutput, 0, len(registries))
 	for _, registry := range registries {
+		registry.ProjectIDs = h.scopedResourceProjectIDs(scopedResourceArtifactRegistry, registry.ID)
+		registry.DefaultProjectIDs = h.scopedResourceDefaultProjectIDMap(scopedResourceArtifactRegistry, []string{registry.ID})[registry.ID]
 		response := registryResponse(registry)
-		if !h.canInspectScopedResourceConfig(user, registry.Scope, registry.OwnerRef) {
+		if !h.canInspectScopedResourceConfigByID(user, registry.Scope, registry.OwnerRef, scopedResourceArtifactRegistry, registry.ID) {
 			response.Endpoint = ""
 			response.Namespace = ""
 			response.Capabilities = []string{}
@@ -32,18 +34,20 @@ func (h *Handlers) registryResponsesForUser(user model.User, registries []model.
 
 func registryResponse(registry model.ArtifactRegistry) artifactRegistryOutput {
 	return artifactRegistryOutput{
-		ID:            registry.ID,
-		Name:          registry.Name,
-		Provider:      registry.Provider,
-		Endpoint:      registry.Endpoint,
-		Namespace:     registry.Namespace,
-		Scope:         registry.Scope,
-		OwnerRef:      registry.OwnerRef,
-		CredentialSet: registry.CredentialRef != "",
-		IsDefault:     registry.IsDefault,
-		Capabilities:  jsonList(splitCSV(registry.Capabilities)),
-		CreatedBy:     registry.CreatedBy,
-		CreatedAt:     registry.CreatedAt,
+		ID:                registry.ID,
+		Name:              registry.Name,
+		Provider:          registry.Provider,
+		Endpoint:          registry.Endpoint,
+		Namespace:         registry.Namespace,
+		Scope:             registry.Scope,
+		OwnerRef:          registry.OwnerRef,
+		ProjectIDs:        jsonList(registry.ProjectIDs),
+		DefaultProjectIDs: jsonList(registry.DefaultProjectIDs),
+		CredentialSet:     registry.CredentialRef != "",
+		IsDefault:         registry.IsDefault || len(registry.DefaultProjectIDs) > 0,
+		Capabilities:      jsonList(splitCSV(registry.Capabilities)),
+		CreatedBy:         registry.CreatedBy,
+		CreatedAt:         registry.CreatedAt,
 	}
 }
 
@@ -139,23 +143,26 @@ type artifactRegistryInput struct {
 	Namespace    string   `json:"namespace"`
 	Scope        string   `json:"scope"`
 	OwnerRef     string   `json:"ownerRef"`
+	ProjectIDs   []string `json:"projectIds"`
 	IsDefault    bool     `json:"isDefault"`
 	Capabilities []string `json:"capabilities"`
 }
 
 type artifactRegistryOutput struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Provider      string    `json:"provider"`
-	Endpoint      string    `json:"endpoint"`
-	Namespace     string    `json:"namespace"`
-	Scope         string    `json:"scope"`
-	OwnerRef      string    `json:"ownerRef"`
-	CredentialSet bool      `json:"credentialSet"`
-	IsDefault     bool      `json:"isDefault"`
-	Capabilities  []string  `json:"capabilities"`
-	CreatedBy     string    `json:"createdBy"`
-	CreatedAt     time.Time `json:"createdAt"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	Provider          string    `json:"provider"`
+	Endpoint          string    `json:"endpoint"`
+	Namespace         string    `json:"namespace"`
+	Scope             string    `json:"scope"`
+	OwnerRef          string    `json:"ownerRef"`
+	ProjectIDs        []string  `json:"projectIds"`
+	DefaultProjectIDs []string  `json:"defaultProjectIds"`
+	CredentialSet     bool      `json:"credentialSet"`
+	IsDefault         bool      `json:"isDefault"`
+	Capabilities      []string  `json:"capabilities"`
+	CreatedBy         string    `json:"createdBy"`
+	CreatedAt         time.Time `json:"createdAt"`
 }
 
 type registryCredentialInput struct {

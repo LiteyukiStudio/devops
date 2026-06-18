@@ -11,7 +11,6 @@ type Application struct {
 	Slug              string         `gorm:"uniqueIndex:idx_applications_project_slug_active,where:deleted_at IS NULL;index;not null" json:"slug"`
 	Name              string         `gorm:"not null" json:"name"`
 	Icon              string         `gorm:"not null;default:'box'" json:"icon"`
-	ServicePort       int            `json:"servicePort"`
 	DeleteStatus      string         `gorm:"index;not null;default:active" json:"deleteStatus"`
 	DeleteMessage     string         `gorm:"type:text;not null;default:''" json:"deleteMessage"`
 	DeleteStartedAt   *time.Time     `json:"deleteStartedAt"`

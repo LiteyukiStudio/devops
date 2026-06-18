@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -21,9 +22,12 @@ func (h *Handlers) ListProjects(ctx *gin.Context) {
 	baseQuery := h.db.
 		Table("projects").
 		Select("projects.*, project_members.dashboard_order, project_members.last_used_at, project_members.use_count").
-		Joins("join project_members on project_members.project_id = projects.id").
+		Joins("left join project_members on project_members.project_id = projects.id and project_members.user_id = ?", user.ID).
 		Joins("left join project_pins on project_pins.project_id = projects.id and project_pins.user_id = project_members.user_id").
-		Where("project_members.user_id = ?", user.ID)
+		Where("projects.deleted_at is null")
+	if user.Role != "platform_admin" || projectListScope(ctx.Query("scope")) == "related" {
+		baseQuery = baseQuery.Where("project_members.user_id = ?", user.ID)
+	}
 	baseQuery = applySearch(ctx, baseQuery, "projects.name", "projects.slug")
 
 	if ctx.Query("page") != "" || ctx.Query("pageSize") != "" {
@@ -75,11 +79,12 @@ func (h *Handlers) CreateProject(ctx *gin.Context) {
 	}
 
 	project := model.Project{
-		ID:                id.New("prj"),
-		Slug:              input.Slug,
-		Name:              input.Name,
-		Description:       input.Description,
-		NamespaceStrategy: fallback(input.NamespaceStrategy, "project"),
+		ID:                  id.New("prj"),
+		Slug:                input.Slug,
+		Name:                input.Name,
+		Description:         input.Description,
+		NamespaceStrategy:   fallback(input.NamespaceStrategy, "project"),
+		MaxConcurrentBuilds: normalizeBuildConcurrency(input.MaxConcurrentBuilds, defaultProjectBuildConcurrency),
 	}
 
 	if err := h.db.Create(&project).Error; err != nil {
@@ -112,6 +117,9 @@ func (h *Handlers) UpdateProject(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
 
 	var input projectInput
 	if !bindJSON(ctx, &input) {
@@ -130,6 +138,7 @@ func (h *Handlers) UpdateProject(ctx *gin.Context) {
 	project.Name = input.Name
 	project.Description = input.Description
 	project.NamespaceStrategy = fallback(input.NamespaceStrategy, "project")
+	project.MaxConcurrentBuilds = normalizeBuildConcurrency(input.MaxConcurrentBuilds, defaultProjectBuildConcurrency)
 
 	if err := h.db.Save(&project).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
@@ -147,8 +156,23 @@ func (h *Handlers) DeleteProject(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.db.Delete(&project).Error; err != nil {
+	if !deleteStatusCanStart(project.DeleteStatus) {
+		writeErrorCode(ctx, http.StatusConflict, "project.delete_in_progress", "项目空间正在删除中，请等待资源清理完成")
+		return
+	}
+	if err := markResourceDeleting(h.db, &model.Project{}, project.ID); err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !h.enqueueResourceCleanup(ctx.Request.Context(), tasks.ResourceCleanupPayload{
+		ResourceType: "project",
+		ResourceID:   project.ID,
+		ProjectID:    project.ID,
+		ActorID:      user.ID,
+		DeleteData:   true,
+	}) {
+		_ = markResourceDeleteFailed(h.db, &model.Project{}, project.ID, "资源清理任务投递失败，请稍后重试")
+		writeError(ctx, http.StatusServiceUnavailable, "资源清理任务投递失败，请稍后重试")
 		return
 	}
 	h.audit(user.ID, "project.delete", project.ID, true, project.Name)
@@ -297,13 +321,31 @@ func (h *Handlers) ListProjectMembers(ctx *gin.Context) {
 	}
 
 	var members []projectMemberResponse
-	err := h.db.Table("project_members").
+	query := h.db.Table("project_members").
 		Select("project_members.id, project_members.project_id, project_members.user_id, project_members.role, users.email, users.name").
 		Joins("join users on users.id = project_members.user_id").
-		Where("project_members.project_id = ?", ctx.Param("projectId")).
-		Order("project_members.created_at asc").
-		Scan(&members).Error
-	if err != nil {
+		Where("project_members.project_id = ?", ctx.Param("projectId"))
+	query = applySearch(ctx, query, "users.email", "users.name", "project_members.role")
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"email":     "users.email",
+			"name":      "users.name",
+			"role":      "project_members.role",
+			"createdAt": "project_members.created_at",
+		}, "project_members.created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Scan(&members).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(members, total, pagination))
+		return
+	}
+	if err := query.Order("project_members.created_at asc").Scan(&members).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -313,6 +355,9 @@ func (h *Handlers) ListProjectMembers(ctx *gin.Context) {
 func (h *Handlers) CreateProjectMember(ctx *gin.Context) {
 	actor, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin")
 	if !ok {
+		return
+	}
+	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
 
@@ -365,6 +410,9 @@ func (h *Handlers) UpdateProjectMember(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
 
 	var member model.ProjectMember
 	if err := h.db.First(&member, "id = ? and project_id = ?", ctx.Param("memberId"), ctx.Param("projectId")).Error; err != nil {
@@ -398,6 +446,9 @@ func (h *Handlers) UpdateProjectMember(ctx *gin.Context) {
 func (h *Handlers) DeleteProjectMember(ctx *gin.Context) {
 	user, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin")
 	if !ok {
+		return
+	}
+	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
 
@@ -468,6 +519,10 @@ func (h *Handlers) findProjectForCurrentUserWithRoles(ctx *gin.Context, allowedR
 		return project, false
 	}
 
+	if user.Role == "platform_admin" {
+		return project, true
+	}
+
 	var member model.ProjectMember
 	err := h.db.First(&member, "project_id = ? and user_id = ?", project.ID, user.ID).Error
 	if err != nil {
@@ -475,12 +530,19 @@ func (h *Handlers) findProjectForCurrentUserWithRoles(ctx *gin.Context, allowedR
 		return model.Project{}, false
 	}
 
-	if !projectRoleAllowed(member.Role, allowedRoles) {
+	if !projectUserRoleAllowed(user, member.Role, allowedRoles) {
 		writeError(ctx, http.StatusForbidden, "你没有执行该项目操作的权限")
 		return model.Project{}, false
 	}
 
 	return project, true
+}
+
+func projectUserRoleAllowed(user model.User, memberRole string, allowedRoles []string) bool {
+	if user.Role == "platform_admin" {
+		return true
+	}
+	return projectRoleAllowed(memberRole, allowedRoles)
 }
 
 func projectRoleAllowed(role string, allowedRoles []string) bool {
@@ -506,10 +568,11 @@ func (h *Handlers) projectHasAnotherOwner(projectID, memberID string) bool {
 }
 
 type projectInput struct {
-	Slug              string `json:"slug" binding:"required"`
-	Name              string `json:"name" binding:"required"`
-	Description       string `json:"description"`
-	NamespaceStrategy string `json:"namespaceStrategy"`
+	Slug                string `json:"slug" binding:"required"`
+	Name                string `json:"name" binding:"required"`
+	Description         string `json:"description"`
+	NamespaceStrategy   string `json:"namespaceStrategy"`
+	MaxConcurrentBuilds int    `json:"maxConcurrentBuilds"`
 }
 
 type projectOrderInput struct {
@@ -564,6 +627,13 @@ func projectListOrderClause(sortBy string, sortOrder string) string {
 	default:
 		return "coalesce(project_members.last_used_at, projects.created_at) " + order + ", projects.created_at desc"
 	}
+}
+
+func projectListScope(scope string) string {
+	if strings.TrimSpace(scope) == "all" {
+		return "all"
+	}
+	return "related"
 }
 
 func (h *Handlers) recordProjectUsage(userID string, projectID string) {

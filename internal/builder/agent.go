@@ -24,6 +24,8 @@ import (
 var executorRunScript string
 
 const (
+	ResultMarkerPrefix = "::liteyuki-build-result::"
+
 	hookPhasePrePull   = "prePull"
 	hookPhasePostPull  = "postPull"
 	hookPhasePreBuild  = "preBuild"
@@ -45,13 +47,11 @@ type Options struct {
 	APIURL            string
 	Token             string
 	Transport         string
-	AgentID           string
 	Name              string
 	Executor          string
 	ExecutorImage     string
 	Labels            []string
 	MaxConcurrency    int
-	Scopes            []string
 	PollInterval      time.Duration
 	WorkspaceRoot     string
 	WorkspaceHostRoot string
@@ -59,6 +59,8 @@ type Options struct {
 	CacheEnabled      bool
 	CacheTag          string
 	DockerBinary      string
+	Privileged        bool
+	Seccomp           string
 }
 
 type Agent struct {
@@ -99,7 +101,6 @@ func (a *Agent) Run(ctx context.Context) error {
 		agentName = "local-builder"
 	}
 	a.options.Name = agentName
-	a.options.AgentID = agentName
 	a.options.Transport = TransportHTTP
 	transport, err := NewTransport(a.options)
 	if err != nil {
@@ -211,10 +212,8 @@ func (a *Agent) runTask(ctx context.Context, task Task) {
 
 func (a *Agent) heartbeat(ctx context.Context, current int) error {
 	return a.transport.Heartbeat(ctx, Heartbeat{
-		AgentID:            a.options.AgentID,
 		Name:               a.options.Name,
 		Labels:             a.options.Labels,
-		Scopes:             a.options.Scopes,
 		Executor:           a.options.Executor,
 		MaxConcurrency:     a.options.MaxConcurrency,
 		CurrentConcurrency: current,
@@ -316,8 +315,6 @@ func (a *Agent) executeDockerTask(ctx context.Context, task Task, onLog func(str
 	args := []string{
 		"run",
 		"--name", executorContainerName(task.JobID),
-		"--privileged",
-		"--security-opt", "seccomp=unconfined",
 		"--entrypoint", "/bin/sh",
 		"-v", volumeWorkspace + ":/workspace",
 		"-e", "GIT_CLONE_URL=" + task.Repository.CloneURL,
@@ -349,6 +346,7 @@ func (a *Agent) executeDockerTask(ctx context.Context, task Task, onLog func(str
 		"-e", "PRE_PUSH_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePrePush], ","),
 		"-e", "POST_PUSH_HOOK_IDS=" + strings.Join(hookIDsByPhase[hookPhasePostPush], ","),
 	}
+	args = append(args, executorSecurityArgs(a.options)...)
 	buildEnv := normalizedBuildEnv(task.Build.Env)
 	if strings.TrimSpace(a.options.NPMRegistry) != "" {
 		if _, ok := buildEnv["NPM_REGISTRY"]; !ok {
@@ -422,6 +420,20 @@ func (a *Agent) executorVolumeWorkspace(workspace string) string {
 	return filepath.Join(hostRoot, rel)
 }
 
+func executorSecurityArgs(options Options) []string {
+	args := make([]string, 0, 4)
+	if options.Privileged {
+		args = append(args, "--privileged")
+	}
+	seccomp := strings.ToLower(strings.TrimSpace(options.Seccomp))
+	switch seccomp {
+	case "", "default", "docker-default":
+		return args
+	default:
+		return append(args, "--security-opt", "seccomp="+strings.TrimSpace(options.Seccomp))
+	}
+}
+
 func writeHookScripts(workspace string, hooks []HookPayload) (map[string][]string, error) {
 	output := make(map[string][]string, len(buildHookPhases))
 	for _, phase := range buildHookPhases {
@@ -454,6 +466,22 @@ func writeHookScripts(workspace string, hooks []HookPayload) (map[string][]strin
 	return output, nil
 }
 
+func HookIDsByPhase(hooks []HookPayload) map[string][]string {
+	output := make(map[string][]string, len(buildHookPhases))
+	for _, phase := range buildHookPhases {
+		output[phase] = []string{}
+	}
+	for _, hook := range hooks {
+		hookID := strings.TrimSpace(hook.ID)
+		phase := strings.TrimSpace(hook.Phase)
+		if hookID == "" || strings.TrimSpace(hook.Script) == "" || !isBuildHookPhase(phase) {
+			continue
+		}
+		output[phase] = append(output[phase], hookID)
+	}
+	return output
+}
+
 func isBuildHookPhase(phase string) bool {
 	for _, item := range buildHookPhases {
 		if phase == item {
@@ -461,6 +489,10 @@ func isBuildHookPhase(phase string) bool {
 		}
 	}
 	return false
+}
+
+func IsBuildHookPhase(phase string) bool {
+	return isBuildHookPhase(phase)
 }
 
 func hookMetadataEnv(hook HookPayload) string {
@@ -478,6 +510,10 @@ func hookMetadataEnv(hook HookPayload) string {
 		timeoutSeconds,
 		shellQuote(hook.FailurePolicy),
 	)
+}
+
+func HookMetadataEnv(hook HookPayload) string {
+	return hookMetadataEnv(hook)
 }
 
 func shellQuote(value string) string {
@@ -504,12 +540,8 @@ func executorScript() string {
 	return executorRunScript
 }
 
-func defaultAgentID() string {
-	hostname, err := os.Hostname()
-	if err != nil || strings.TrimSpace(hostname) == "" {
-		return "builder-local"
-	}
-	return "builder-" + strings.ToLower(strings.ReplaceAll(hostname, "_", "-"))
+func ExecutorScript() string {
+	return executorScript()
 }
 
 func firstLine(content string, fallback string) string {
@@ -529,11 +561,19 @@ func boolEnvValue(value bool) string {
 	return "false"
 }
 
+func BoolEnvValue(value bool) string {
+	return boolEnvValue(value)
+}
+
 func stringDefault(value string, defaultValue string) string {
 	if strings.TrimSpace(value) != "" {
 		return value
 	}
 	return defaultValue
+}
+
+func StringDefault(value string, defaultValue string) string {
+	return stringDefault(value, defaultValue)
 }
 
 func normalizedBuildEnv(values map[string]string) map[string]string {
@@ -546,6 +586,10 @@ func normalizedBuildEnv(values map[string]string) map[string]string {
 		}
 	}
 	return output
+}
+
+func NormalizedBuildEnv(values map[string]string) map[string]string {
+	return normalizedBuildEnv(values)
 }
 
 func isBuildEnvKey(value string) bool {
@@ -761,8 +805,15 @@ func (s *logStreamer) emitBuildLogLineLocked(line string) {
 }
 
 func (s *logStreamer) emitHookControlLine(line string) (string, bool) {
+	return HandleHookControlLine(line, s.hookLabels, s.onHookLog, s.onHookComplete)
+}
+
+func HandleHookControlLine(line string, hookLabels map[string]string, onHookLog func(string, string) error, onHookComplete func(string, HookResult) error) (string, bool) {
 	line = strings.TrimSpace(line)
-	if strings.HasPrefix(line, "::liteyuki-hook-log::") && s.onHookLog != nil {
+	if strings.HasPrefix(line, ResultMarkerPrefix) {
+		return "", true
+	}
+	if strings.HasPrefix(line, "::liteyuki-hook-log::") && onHookLog != nil {
 		parts := strings.SplitN(strings.TrimPrefix(line, "::liteyuki-hook-log::"), "::", 2)
 		if len(parts) != 2 {
 			return "", true
@@ -772,12 +823,12 @@ func (s *logStreamer) emitHookControlLine(line string) (string, bool) {
 			return "", true
 		}
 		hookLog := string(content)
-		if err := s.onHookLog(parts[0], hookLog); err != nil {
+		if err := onHookLog(parts[0], hookLog); err != nil {
 			log.Printf("builder hook log upload failed: %v", err)
 		}
-		return s.formatHookLog(parts[0], hookLog), true
+		return formatHookLog(parts[0], hookLog, hookLabels), true
 	}
-	if strings.HasPrefix(line, "::liteyuki-hook-complete::") && s.onHookComplete != nil {
+	if strings.HasPrefix(line, "::liteyuki-hook-complete::") && onHookComplete != nil {
 		parts := strings.SplitN(strings.TrimPrefix(line, "::liteyuki-hook-complete::"), "::", 4)
 		if len(parts) != 4 {
 			return "", true
@@ -789,20 +840,24 @@ func (s *logStreamer) emitHookControlLine(line string) (string, bool) {
 			ExitCode:  exitCode,
 			Message:   string(message),
 		}
-		if err := s.onHookComplete(parts[0], result); err != nil {
+		if err := onHookComplete(parts[0], result); err != nil {
 			log.Printf("builder hook status upload failed: %v", err)
 		}
-		return s.formatHookLog(parts[0], result.Message), true
+		return formatHookLog(parts[0], result.Message, hookLabels), true
 	}
 	return "", false
 }
 
 func (s *logStreamer) formatHookLog(hookRunID string, content string) string {
+	return formatHookLog(hookRunID, content, s.hookLabels)
+}
+
+func formatHookLog(hookRunID string, content string, hookLabels map[string]string) string {
 	content = strings.TrimRight(content, "\n")
 	if strings.TrimSpace(content) == "" {
 		return ""
 	}
-	label := s.hookLabels[hookRunID]
+	label := hookLabels[hookRunID]
 	if label == "" {
 		label = hookRunID
 	}
@@ -834,6 +889,10 @@ func hookLabelsByRunID(hooks []HookPayload) map[string]string {
 		}
 	}
 	return labels
+}
+
+func HookLabelsByRunID(hooks []HookPayload) map[string]string {
+	return hookLabelsByRunID(hooks)
 }
 
 type buildkitRawProgress struct {
@@ -922,6 +981,24 @@ func buildkitProgressFromRawJSONLine(line string) Progress {
 		}
 	}
 	return Progress{}
+}
+
+func ProgressFromLogLine(line string) Progress {
+	return buildkitProgressFromRawJSONLine(line)
+}
+
+func ParseResultMarkerLine(line string) (Result, bool) {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, ResultMarkerPrefix) {
+		return Result{}, false
+	}
+	content, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(line, ResultMarkerPrefix))
+	if err != nil {
+		return Result{}, true
+	}
+	var result Result
+	_ = json.Unmarshal(content, &result)
+	return result, true
 }
 
 func plainProgressFromLogLine(line string) Progress {

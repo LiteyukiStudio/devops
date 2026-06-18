@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -64,4 +65,17 @@ func (c *Client) GetDeploymentSnapshot(ctx context.Context, namespace, name stri
 		}
 	}
 	return snapshot, nil
+}
+
+func (c *Client) RestartDeployment(ctx context.Context, namespace, name string) error {
+	deployment, err := c.client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = map[string]string{}
+	}
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().UTC().Format(time.RFC3339Nano)
+	_, err = c.client.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	return err
 }

@@ -6,20 +6,22 @@ import (
 )
 
 type ArtifactRegistry struct {
-	ID            string         `gorm:"primaryKey" json:"id"`
-	Name          string         `gorm:"not null" json:"name"`
-	Provider      string         `gorm:"not null" json:"provider"`
-	Endpoint      string         `gorm:"not null" json:"endpoint"`
-	Namespace     string         `json:"namespace"`
-	Scope         string         `gorm:"index;not null;default:global" json:"scope"`
-	OwnerRef      string         `gorm:"index" json:"ownerRef"`
-	CredentialRef string         `json:"credentialRef"`
-	IsDefault     bool           `gorm:"not null;default:false" json:"isDefault"`
-	Capabilities  string         `json:"capabilities"`
-	CreatedBy     string         `gorm:"index" json:"createdBy"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                string         `gorm:"primaryKey" json:"id"`
+	Name              string         `gorm:"not null" json:"name"`
+	Provider          string         `gorm:"not null" json:"provider"`
+	Endpoint          string         `gorm:"not null" json:"endpoint"`
+	Namespace         string         `json:"namespace"`
+	Scope             string         `gorm:"index;not null;default:global" json:"scope"`
+	OwnerRef          string         `gorm:"index" json:"ownerRef"`
+	ProjectIDs        []string       `gorm:"-" json:"projectIds"`
+	DefaultProjectIDs []string       `gorm:"-" json:"defaultProjectIds"`
+	CredentialRef     string         `json:"credentialRef"`
+	IsDefault         bool           `gorm:"not null;default:false" json:"isDefault"`
+	Capabilities      string         `json:"capabilities"`
+	CreatedBy         string         `gorm:"index" json:"createdBy"`
+	CreatedAt         time.Time      `json:"createdAt"`
+	UpdatedAt         time.Time      `json:"updatedAt"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type RegistryCredential struct {

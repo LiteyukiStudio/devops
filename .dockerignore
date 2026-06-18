@@ -3,9 +3,11 @@
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 bin/
 tmp/
+.local/
 *.db
 *.sqlite
 *.sqlite3
@@ -18,4 +20,3 @@ web/.vite/
 node_modules/
 logs/
 *.log
-

@@ -92,6 +92,28 @@ func TestNormalizedProjectOrderIDsDeduplicatesAndTrims(t *testing.T) {
 	}
 }
 
+func TestNormalizeRepositoryBindingIdentity(t *testing.T) {
+	if owner := normalizeRepositoryBindingOwner(" SnowyKami "); owner != "snowykami" {
+		t.Fatalf("owner = %q", owner)
+	}
+	if repo := normalizeRepositoryBindingRepo(" Neo-Blog.GIT "); repo != "neo-blog" {
+		t.Fatalf("repo = %q", repo)
+	}
+}
+
+func TestResourceCanMutateDuringDeleteAllowsOnlyStableStates(t *testing.T) {
+	for _, status := range []string{"", "active", "delete_failed"} {
+		if !resourceCanMutateDuringDelete(status) {
+			t.Fatalf("expected status %q to allow mutation", status)
+		}
+	}
+	for _, status := range []string{"deleting", "deleted"} {
+		if resourceCanMutateDuringDelete(status) {
+			t.Fatalf("expected status %q to block mutation", status)
+		}
+	}
+}
+
 func TestProjectPinResponseIncludesDashboardOrder(t *testing.T) {
 	project := model.Project{ID: "prj_1", Slug: "demo", Name: "Demo"}
 	pin := model.ProjectPin{ProjectID: "prj_1"}
@@ -110,6 +132,19 @@ func TestDefaultUserProjectNameUsesLanguage(t *testing.T) {
 	en := defaultUserProjectName(model.User{Name: "Liteyuki", Language: "en-US"})
 	if en != "Liteyuki's Project Space" {
 		t.Fatalf("en project name = %q", en)
+	}
+}
+
+func TestPlatformAdminBypassesProjectMemberRoleChecks(t *testing.T) {
+	allowedRoles := []string{"owner"}
+	if !projectUserRoleAllowed(model.User{Role: "platform_admin"}, "", allowedRoles) {
+		t.Fatal("expected platform admin to bypass project member role checks")
+	}
+	if projectUserRoleAllowed(model.User{Role: "user"}, "viewer", allowedRoles) {
+		t.Fatal("expected regular viewer to be blocked from owner-only project operation")
+	}
+	if !projectUserRoleAllowed(model.User{Role: "user"}, "owner", allowedRoles) {
+		t.Fatal("expected project owner to be allowed")
 	}
 }
 
@@ -152,6 +187,16 @@ func TestBuildImageRefAddsNonDockerHubDomainPrefix(t *testing.T) {
 
 	if ref := buildImageRef(registry, run); ref != "harbor.example.com/team/demo-api:release-feature-login" {
 		t.Fatalf("harbor image ref = %q", ref)
+	}
+}
+
+func TestBuildTargetImageRepositoryFallsBackToProjectSlugNamespace(t *testing.T) {
+	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com"}
+	project := model.Project{Slug: "demo"}
+	application := model.Application{Slug: "api"}
+
+	if repository := buildTargetImageRepository(registry, project, application); repository != "harbor.example.com/demo/demo-api" {
+		t.Fatalf("repository = %q", repository)
 	}
 }
 
@@ -268,6 +313,49 @@ func TestAuthProviderResponseHidesStoredClientSecret(t *testing.T) {
 	}
 	if !output.ClientSecretSet {
 		t.Fatal("expected clientSecretSet to be true")
+	}
+}
+
+func TestBuildVariableSetResponseHidesVariablesWithoutInspectPermission(t *testing.T) {
+	h := &Handlers{}
+	set := model.BuildVariableSet{
+		ID:        "bvs_test",
+		Scope:     "global",
+		Variables: `{"PUBLIC_FLAG":"true","API_URL":"https://api.example.com"}`,
+	}
+
+	output := h.buildVariableSetResponseForUser(model.User{ID: "usr_member", Role: "user"}, set)
+
+	if output.CanInspectVariables {
+		t.Fatal("expected regular user to be unable to inspect global build variables")
+	}
+	if output.Variables != "{}" {
+		t.Fatalf("expected variables to be hidden, got %q", output.Variables)
+	}
+	if output.VariableCount != 2 {
+		t.Fatalf("expected variable count to remain visible, got %d", output.VariableCount)
+	}
+}
+
+func TestBuildVariableSetResponseShowsVariablesWithInspectPermission(t *testing.T) {
+	h := &Handlers{}
+	set := model.BuildVariableSet{
+		ID:        "bvs_test",
+		Scope:     "user",
+		OwnerRef:  "usr_owner",
+		Variables: `{"PUBLIC_FLAG":"true"}`,
+	}
+
+	output := h.buildVariableSetResponseForUser(model.User{ID: "usr_owner", Role: "user"}, set)
+
+	if !output.CanInspectVariables {
+		t.Fatal("expected owner to inspect personal build variables")
+	}
+	if output.Variables != set.Variables {
+		t.Fatalf("expected variables to be visible, got %q", output.Variables)
+	}
+	if output.VariableCount != 1 {
+		t.Fatalf("expected variable count to be 1, got %d", output.VariableCount)
 	}
 }
 
@@ -433,9 +521,16 @@ func writeTempKubeconfigFile(t *testing.T, name string, content string) string {
 }
 
 type fakeBuildTaskEnqueuer struct {
+	buildPayload             tasks.BuildRunPayload
 	deployPayload            tasks.DeployRunPayload
 	gatewayPayload           tasks.GatewayApplyPayload
 	applicationDeletePayload tasks.ApplicationDeletePayload
+	resourceCleanupPayload   tasks.ResourceCleanupPayload
+}
+
+func (f *fakeBuildTaskEnqueuer) EnqueueBuildRun(_ context.Context, payload tasks.BuildRunPayload) (*asynq.TaskInfo, error) {
+	f.buildPayload = payload
+	return &asynq.TaskInfo{}, nil
 }
 
 func (f *fakeBuildTaskEnqueuer) EnqueueDeployRun(_ context.Context, payload tasks.DeployRunPayload) (*asynq.TaskInfo, error) {
@@ -450,6 +545,11 @@ func (f *fakeBuildTaskEnqueuer) EnqueueGatewayApply(_ context.Context, payload t
 
 func (f *fakeBuildTaskEnqueuer) EnqueueApplicationDelete(_ context.Context, payload tasks.ApplicationDeletePayload) (*asynq.TaskInfo, error) {
 	f.applicationDeletePayload = payload
+	return &asynq.TaskInfo{}, nil
+}
+
+func (f *fakeBuildTaskEnqueuer) EnqueueResourceCleanup(_ context.Context, payload tasks.ResourceCleanupPayload) (*asynq.TaskInfo, error) {
+	f.resourceCleanupPayload = payload
 	return &asynq.TaskInfo{}, nil
 }
 
@@ -653,6 +753,20 @@ func TestConfiguredAllowedOriginsUsesPublicBaseAndEnv(t *testing.T) {
 	}
 	if containsString(origins, "http://localhost:5173") {
 		t.Fatalf("did not expect development origin in production, got %#v", origins)
+	}
+}
+
+func TestConfiguredAllowedOriginsDefaultsToProductionMode(t *testing.T) {
+	t.Setenv("APP_ENV", "")
+	t.Setenv("PUBLIC_BASE_URL", "")
+	t.Setenv("APP_CORS_ORIGINS", "")
+
+	origins := configuredAllowedOrigins()
+	if containsString(origins, "http://localhost:5173") {
+		t.Fatalf("did not expect development origin when APP_ENV is unset, got %#v", origins)
+	}
+	if containsString(origins, "http://127.0.0.1:5173") {
+		t.Fatalf("did not expect development origin when APP_ENV is unset, got %#v", origins)
 	}
 }
 

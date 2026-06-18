@@ -25,7 +25,6 @@ export function DashboardPage() {
   const projectPins = useQuery({ queryKey: ['project-pins'], queryFn: api.listProjectPins })
   const registries = useQuery({ queryKey: ['registries'], queryFn: () => api.listRegistries() })
   const clusters = useQuery({ queryKey: ['runtime-clusters'], queryFn: () => api.listRuntimeClusters() })
-  const builders = useQuery({ queryKey: ['builder-agents', 'dashboard'], queryFn: () => api.listBuilderAgents({ page: 1, pageSize: 100 }) })
   const projectItems = useMemo(() => projects.data?.items ?? [], [projects.data])
   const visibleProjects = useMemo(() => projectItems.slice(0, PROJECT_AGGREGATION_LIMIT), [projectItems])
   const applicationQueries = useQueries({
@@ -68,7 +67,6 @@ export function DashboardPage() {
     }
   }, [applicationQueries, buildRunQueries, visibleProjects])
 
-  const onlineBuilders = builders.data?.items.filter(builder => builder.status === 'online').length ?? 0
   const healthyClusters = clusters.data?.filter(cluster => cluster.status === 'ready' || cluster.status === 'connected').length ?? 0
   const issueCount = summary.failedBuilds + Math.max(0, (clusters.data?.length ?? 0) - healthyClusters)
   const projectShortcuts = useMemo(() => buildProjectShortcuts(projectPins.data ?? [], projectItems), [projectPins.data, projectItems])
@@ -138,8 +136,7 @@ export function DashboardPage() {
             <div className="mt-3 grid gap-2">
               {summary.failedBuilds > 0 && <LinkedStatusBadge to={failedBuildTarget(summary.recentBuilds)} tone="danger">{t('dashboardPage.failedBuilds', { count: summary.failedBuilds })}</LinkedStatusBadge>}
               {(clusters.data?.length ?? 0) > healthyClusters && <LinkedStatusBadge to="/clusters" tone="warning">{t('dashboardPage.unhealthyClusters', { count: (clusters.data?.length ?? 0) - healthyClusters })}</LinkedStatusBadge>}
-              {onlineBuilders === 0 && <LinkedStatusBadge to="/registries#tab=build-providers" tone="warning">{t('dashboardPage.noOnlineBuilders')}</LinkedStatusBadge>}
-              {issueCount === 0 && onlineBuilders > 0 && (
+              {issueCount === 0 && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 size={16} className="text-emerald-600" />
                   {t('dashboardPage.noIssues')}
@@ -171,7 +168,6 @@ export function DashboardPage() {
           <div className="mt-4 grid gap-3">
             <ReadinessRow icon={<Container size={16} />} label={t('registries')} value={registries.data?.length ?? 0} detail={t('dashboardPage.availableGlobalAndScoped')} to="/registries" tone={(registries.data?.length ?? 0) ? 'success' : 'warning'} />
             <ReadinessRow icon={<Server size={16} />} label={t('clusters')} value={clusters.data?.length ?? 0} detail={t('dashboardPage.availableGlobalAndScoped')} to="/clusters" tone={(clusters.data?.length ?? 0) ? 'success' : 'warning'} />
-            <ReadinessRow icon={<Activity size={16} />} label={t('dashboardPage.builders')} value={`${onlineBuilders}/${builders.data?.items.length ?? 0}`} detail={t('dashboardPage.onlineBuilders')} to="/registries#tab=build-providers" tone={onlineBuilders ? 'success' : 'warning'} />
           </div>
         </Card>
       </div>

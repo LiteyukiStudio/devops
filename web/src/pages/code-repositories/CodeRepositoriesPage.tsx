@@ -1,4 +1,4 @@
-import type { GitAccount, GitProvider, Project } from '@/api/client'
+import type { GitAccount, GitProvider } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
@@ -17,6 +17,7 @@ import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
+import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -31,15 +32,16 @@ const providerSchema = z.object({
   baseUrl: z.string().optional(),
   scope: z.enum(['global', 'project', 'user']),
   ownerRef: z.string(),
+  projectIds: z.array(z.string()),
   authType: z.enum(['oauth', 'pat']),
   clientId: z.string().optional(),
   clientSecret: z.string().optional(),
   enabled: z.boolean(),
 }).superRefine((value, ctx) => {
-  if (value.scope === 'project' && value.ownerRef.trim() === '') {
+  if (value.scope === 'project' && value.projectIds.length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['ownerRef'],
+      path: ['projectIds'],
       message: i18next.t('codeRepositoriesView.ownerProjectRequired'),
     })
   }
@@ -49,6 +51,7 @@ const credentialSchema = z.object({
   providerId: z.string().min(1, i18next.t('codeRepositoriesView.providerRequired')),
   scope: z.enum(['global', 'project', 'user']),
   ownerRef: z.string(),
+  projectIds: z.array(z.string()),
   username: z.string().min(1, i18next.t('codeRepositoriesView.usernameRequired')),
   externalUserId: z.string().optional(),
   avatarUrl: z.string().optional(),
@@ -58,10 +61,10 @@ const credentialSchema = z.object({
   accessScope: z.enum(['personal', 'provider']),
   status: z.enum(['connected', 'expired', 'revoked']),
 }).superRefine((value, ctx) => {
-  if (value.scope === 'project' && value.ownerRef.trim() === '') {
+  if (value.scope === 'project' && value.projectIds.length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['ownerRef'],
+      path: ['projectIds'],
       message: i18next.t('codeRepositoriesView.ownerProjectRequired'),
     })
   }
@@ -74,6 +77,7 @@ const providerDefaults: ProviderForm = {
   authType: 'oauth',
   baseUrl: 'https://github.com',
   ownerRef: '',
+  projectIds: [],
   clientId: '',
   clientSecret: '',
   scope: 'global',
@@ -88,6 +92,7 @@ const credentialDefaults: CredentialForm = {
   avatarUrl: '',
   externalUserId: '',
   ownerRef: '',
+  projectIds: [],
   providerId: '',
   refreshToken: '',
   scope: 'user',
@@ -95,6 +100,8 @@ const credentialDefaults: CredentialForm = {
   status: 'connected',
   username: '',
 }
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 export function CodeRepositoriesPage() {
   const { t } = useTranslation()
@@ -106,8 +113,22 @@ export function CodeRepositoriesPage() {
   const [editingProvider, setEditingProvider] = useState<GitProvider | null>(null)
   const [providerToDelete, setProviderToDelete] = useState<GitProvider | null>(null)
   const [credentialToDelete, setCredentialToDelete] = useState<GitAccount | null>(null)
-  const providers = useQuery({ queryKey: ['git-providers'], queryFn: () => api.listGitProviders() })
-  const credentials = useQuery({ queryKey: ['git-accounts'], queryFn: () => api.listGitAccounts() })
+  const [providerPage, setProviderPage] = useState(1)
+  const [providerPageSize, setProviderPageSize] = useState(10)
+  const [credentialPage, setCredentialPage] = useState(1)
+  const [credentialPageSize, setCredentialPageSize] = useState(10)
+  const providers = useQuery({
+    queryKey: ['git-providers', providerPage, providerPageSize],
+    queryFn: () => api.listGitProvidersPage({ page: providerPage, pageSize: providerPageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+  })
+  const credentials = useQuery({
+    queryKey: ['git-accounts', credentialPage, credentialPageSize],
+    queryFn: () => api.listGitAccountsPage({ page: credentialPage, pageSize: credentialPageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+  })
+  const providerOptions = useQuery({ queryKey: ['git-providers', 'options'], queryFn: () => api.listGitProviders() })
+  const providerItems = useMemo(() => providers.data?.items ?? [], [providers.data?.items])
+  const providerOptionItems = useMemo(() => providerOptions.data ?? [], [providerOptions.data])
+  const credentialItems = useMemo(() => credentials.data?.items ?? [], [credentials.data?.items])
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
   const canManageProviders = user?.permissions.includes('user.manage')
   const projectMap = useMemo(() => {
@@ -132,17 +153,17 @@ export function CodeRepositoriesPage() {
   const providerName = providerForm.watch('name')
   const providerAuthType = providerForm.watch('authType')
   const selectedCredentialProviderId = credentialForm.watch('providerId')
-  const selectedCredentialProvider = (providers.data ?? []).find(provider => provider.id === selectedCredentialProviderId)
+  const selectedCredentialProvider = providerOptionItems.find(provider => provider.id === selectedCredentialProviderId)
   const providerGuide = gitProviderGuide(providerType, providerBaseUrl, providerName)
   const isGithubProvider = providerType === 'github'
   const providerScope = providerForm.watch('scope')
   const credentialScope = credentialForm.watch('scope')
-  const hasGithubProvider = providers.data?.some(provider => provider.type === 'github') ?? false
+  const hasGithubProvider = providerOptionItems.some(provider => provider.type === 'github')
   const hasAnotherGithubProvider = useMemo(() => {
     if (!editingProvider)
       return hasGithubProvider
-    return (providers.data ?? []).some(provider => provider.type === 'github' && provider.id !== editingProvider.id)
-  }, [editingProvider, hasGithubProvider, providers.data])
+    return providerOptionItems.some(provider => provider.type === 'github' && provider.id !== editingProvider.id)
+  }, [editingProvider, hasGithubProvider, providerOptionItems])
 
   useEffect(() => {
     if (!editingProvider) {
@@ -154,6 +175,7 @@ export function CodeRepositoriesPage() {
       baseUrl: editingProvider.baseUrl,
       scope: editingProvider.scope ?? 'user',
       ownerRef: editingProvider.ownerRef,
+      projectIds: editingProvider.projectIds ?? [],
       clientId: editingProvider.clientId,
       clientSecret: '',
       enabled: editingProvider.enabled,
@@ -167,17 +189,18 @@ export function CodeRepositoriesPage() {
       providerForm.setValue('baseUrl', normalizeGitBaseUrl('github'), { shouldDirty: true, shouldValidate: true })
       providerForm.setValue('scope', 'global', { shouldDirty: true, shouldValidate: true })
       providerForm.setValue('ownerRef', '', { shouldDirty: true, shouldValidate: true })
+      providerForm.setValue('projectIds', [], { shouldDirty: true, shouldValidate: true })
     }
   }, [isGithubProvider, providerForm])
 
   useEffect(() => {
     if (providerScope !== 'project')
-      providerForm.setValue('ownerRef', '')
+      providerForm.setValue('projectIds', [])
   }, [providerScope, providerForm])
 
   useEffect(() => {
     if (credentialScope !== 'project')
-      credentialForm.setValue('ownerRef', '')
+      credentialForm.setValue('projectIds', [])
   }, [credentialScope, credentialForm])
 
   const saveProvider = useMutation({
@@ -190,7 +213,8 @@ export function CodeRepositoriesPage() {
         enabled: payload.enabled,
         name: payload.name,
         scope: payload.scope,
-        ownerRef: payload.scope === 'project' ? payload.ownerRef : '',
+        ownerRef: '',
+        projectIds: payload.scope === 'project' ? payload.projectIds : [],
         type: payload.type,
       }
       if (editingProvider)
@@ -222,7 +246,8 @@ export function CodeRepositoriesPage() {
       accessScope: payload.accessScope,
       accessToken: payload.accessToken ?? '',
       avatarUrl: payload.avatarUrl ?? '',
-      ownerRef: payload.scope === 'project' ? payload.ownerRef : '',
+      ownerRef: '',
+      projectIds: payload.scope === 'project' ? payload.projectIds : [],
       externalUserId: payload.externalUserId ?? '',
       providerId: payload.providerId,
       refreshToken: payload.refreshToken ?? '',
@@ -309,22 +334,40 @@ export function CodeRepositoriesPage() {
               ? (
                   <ProvidersPanel
                     canManage={Boolean(canManageProviders)}
-                    providers={providers.data ?? []}
+                    page={providers.data?.page ?? providerPage}
+                    pageSize={providers.data?.pageSize ?? providerPageSize}
+                    providers={providerOptionItems}
                     projectMap={projectMap}
+                    total={providers.data?.total ?? 0}
+                    totalPages={providers.data?.totalPages ?? 0}
                     onDelete={setProviderToDelete}
                     onEdit={(provider) => {
                       setEditingProvider(provider)
                       setProviderDialogOpen(true)
                     }}
+                    onPageChange={setProviderPage}
+                    onPageSizeChange={(pageSize) => {
+                      setProviderPageSize(pageSize)
+                      setProviderPage(1)
+                    }}
                   />
                 )
               : (
                   <CredentialsPanel
-                    credentials={credentials.data ?? []}
-                    providers={providers.data ?? []}
+                    credentials={credentialItems}
+                    page={credentials.data?.page ?? credentialPage}
+                    pageSize={credentials.data?.pageSize ?? credentialPageSize}
+                    providers={providerItems}
                     projectMap={projectMap}
                     refreshPending={refreshCredential.isPending}
+                    total={credentials.data?.total ?? 0}
+                    totalPages={credentials.data?.totalPages ?? 0}
                     onDelete={setCredentialToDelete}
+                    onPageChange={setCredentialPage}
+                    onPageSizeChange={(pageSize) => {
+                      setCredentialPageSize(pageSize)
+                      setCredentialPage(1)
+                    }}
                     onRefresh={credential => refreshCredential.mutate(credential.id)}
                   />
                 )}
@@ -381,13 +424,12 @@ export function CodeRepositoriesPage() {
               </Select>
             </Field>
             {providerScope === 'project' && (
-              <Field error={providerForm.formState.errors.ownerRef?.message} hint={t('codeRepositoriesView.ownerProjectHint')} label={t('codeRepositoriesView.ownerProject')} required>
-                <Select {...providerForm.register('ownerRef')} aria-invalid={Boolean(providerForm.formState.errors.ownerRef)}>
-                  <option value="">{t('codeRepositoriesView.selectProject')}</option>
-                  {(projects.data ?? []).map((project: Project) => (
-                    <option key={project.id} value={project.id}>{project.name}</option>
-                  ))}
-                </Select>
+              <Field error={providerForm.formState.errors.projectIds?.message} hint={t('codeRepositoriesView.ownerProjectHint')} label={t('codeRepositoriesView.ownerProject')} required>
+                <ProjectSpaceMultiSelect
+                  projects={projects.data ?? []}
+                  value={providerForm.watch('projectIds')}
+                  onChange={value => providerForm.setValue('projectIds', value, { shouldDirty: true, shouldValidate: true })}
+                />
               </Field>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -435,7 +477,7 @@ export function CodeRepositoriesPage() {
             <Field error={credentialForm.formState.errors.providerId?.message} label={t('codeRepositoriesView.provider')} required>
               <Select {...credentialForm.register('providerId')} aria-invalid={Boolean(credentialForm.formState.errors.providerId)}>
                 <option value="">{t('codeRepositoriesView.selectProvider')}</option>
-                {(providers.data ?? []).map(provider => (
+                {providerOptionItems.map(provider => (
                   <option key={provider.id} value={provider.id}>{provider.name}</option>
                 ))}
               </Select>
@@ -449,13 +491,12 @@ export function CodeRepositoriesPage() {
               </Select>
             </Field>
             {credentialScope === 'project' && (
-              <Field error={credentialForm.formState.errors.ownerRef?.message} hint={t('codeRepositoriesView.ownerProjectHint')} label={t('codeRepositoriesView.ownerProject')} required>
-                <Select {...credentialForm.register('ownerRef')} aria-invalid={Boolean(credentialForm.formState.errors.ownerRef)}>
-                  <option value="">{t('codeRepositoriesView.selectProject')}</option>
-                  {(projects.data ?? []).map((project: Project) => (
-                    <option key={project.id} value={project.id}>{project.name}</option>
-                  ))}
-                </Select>
+              <Field error={credentialForm.formState.errors.projectIds?.message} hint={t('codeRepositoriesView.ownerProjectHint')} label={t('codeRepositoriesView.ownerProject')} required>
+                <ProjectSpaceMultiSelect
+                  projects={projects.data ?? []}
+                  value={credentialForm.watch('projectIds')}
+                  onChange={value => credentialForm.setValue('projectIds', value, { shouldDirty: true, shouldValidate: true })}
+                />
               </Field>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -516,16 +557,28 @@ export function CodeRepositoriesPage() {
 
 function ProvidersPanel({
   canManage,
+  page,
+  pageSize,
   providers,
   projectMap,
+  total,
+  totalPages,
   onDelete,
   onEdit,
+  onPageChange,
+  onPageSizeChange,
 }: {
   canManage: boolean
+  page: number
+  pageSize: number
   providers: GitProvider[]
   projectMap: Record<string, string>
+  total: number
+  totalPages: number
   onDelete: (provider: GitProvider) => void
   onEdit: (provider: GitProvider) => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -552,7 +605,7 @@ function ProvidersPanel({
           render: provider => (
             <div className="flex flex-wrap gap-2">
               <StatusBadge>{provider.scope}</StatusBadge>
-              {provider.scope === 'project' && provider.ownerRef && <StatusBadge>{projectMap[provider.ownerRef] ?? provider.ownerRef}</StatusBadge>}
+              {projectScopeBadges(provider.projectIds, projectMap)}
             </div>
           ),
         },
@@ -577,6 +630,16 @@ function ProvidersPanel({
       emptyTitle={t('codeRepositoriesView.noProvidersTitle')}
       emptyDescription={t('codeRepositoriesView.noProvidersDescription')}
       items={providers}
+      pagination={{
+        page,
+        pageSize,
+        pageSizeOptions: PAGE_SIZE_OPTIONS,
+        total,
+        totalPages,
+        pageInfoLabel: t('pagination.pageInfo', { page, total, totalPages }),
+        onPageChange,
+        onPageSizeChange,
+      }}
       rowKey={provider => provider.id}
     />
   )
@@ -584,17 +647,29 @@ function ProvidersPanel({
 
 function CredentialsPanel({
   credentials,
+  page,
+  pageSize,
   providers,
   projectMap,
   refreshPending,
+  total,
+  totalPages,
   onDelete,
+  onPageChange,
+  onPageSizeChange,
   onRefresh,
 }: {
   credentials: GitAccount[]
+  page: number
+  pageSize: number
   providers: GitProvider[]
   projectMap: Record<string, string>
   refreshPending: boolean
+  total: number
+  totalPages: number
   onDelete: (credential: GitAccount) => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (pageSize: number) => void
   onRefresh: (credential: GitAccount) => void
 }) {
   const { t } = useTranslation()
@@ -644,7 +719,7 @@ function CredentialsPanel({
               <div className="flex flex-wrap gap-2">
                 <StatusBadge>{credential.accessScope === 'provider' ? t('codeRepositoriesView.providerScope') : t('codeRepositoriesView.personalScope')}</StatusBadge>
                 <StatusBadge>{credential.scope}</StatusBadge>
-                {credential.scope === 'project' && credential.ownerRef && <StatusBadge>{projectMap[credential.ownerRef] ?? credential.ownerRef}</StatusBadge>}
+                {projectScopeBadges(credential.projectIds, projectMap)}
               </div>
             ),
           },
@@ -680,6 +755,16 @@ function CredentialsPanel({
         emptyTitle={t('codeRepositoriesView.noCredentialsTitle')}
         emptyDescription={t('codeRepositoriesView.noCredentialsDescription')}
         items={credentials}
+        pagination={{
+          page,
+          pageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          total,
+          totalPages,
+          pageInfoLabel: t('pagination.pageInfo', { page, total, totalPages }),
+          onPageChange,
+          onPageSizeChange,
+        }}
         rowKey={credential => credential.id}
       />
     </div>
@@ -869,6 +954,12 @@ function CredentialOAuthGuide({ provider }: { provider: GitProvider }) {
 
 function splitText(value?: string) {
   return (value ?? '').split(',').map(item => item.trim()).filter(Boolean)
+}
+
+function projectScopeBadges(projectIds: string[] | undefined, projectMap: Record<string, string>) {
+  return (projectIds ?? []).map(projectId => (
+    <StatusBadge key={projectId}>{projectMap[projectId] ?? projectId}</StatusBadge>
+  ))
 }
 
 function isGitOAuthReady(provider: GitProvider) {

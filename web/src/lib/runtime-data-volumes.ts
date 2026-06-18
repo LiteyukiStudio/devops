@@ -6,18 +6,18 @@ export interface RuntimeDataVolumeRow {
 }
 
 export function defaultRuntimeDataVolumeRow(): RuntimeDataVolumeRow {
-  return { id: crypto.randomUUID(), capacity: '1Gi', mountPath: '/data', name: 'data' }
+  return { id: runtimeDataVolumeRowId(0), capacity: '1Gi', mountPath: '/data', name: 'data' }
 }
 
 export function emptyRuntimeDataVolumeRow(index: number): RuntimeDataVolumeRow {
-  return { id: crypto.randomUUID(), capacity: '1Gi', mountPath: '', name: `data-${index + 1}` }
+  return { id: runtimeDataVolumeRowId(index), capacity: '1Gi', mountPath: '', name: `data-${index + 1}` }
 }
 
 export function parseRuntimeDataVolumes(value?: string, fallbackMountPath = '/data', fallbackCapacity = '1Gi'): RuntimeDataVolumeRow[] {
   const trimmed = value?.trim() ?? ''
   if (!trimmed || trimmed === '[]') {
     return [{
-      id: crypto.randomUUID(),
+      id: runtimeDataVolumeRowId(0),
       capacity: fallbackCapacity || '1Gi',
       mountPath: fallbackMountPath || '/data',
       name: 'data',
@@ -27,7 +27,7 @@ export function parseRuntimeDataVolumes(value?: string, fallbackMountPath = '/da
     const parsed = JSON.parse(trimmed)
     if (Array.isArray(parsed)) {
       const rows = parsed.map((item, index) => ({
-        id: crypto.randomUUID(),
+        id: runtimeDataVolumeRowId(index),
         capacity: String(item?.capacity ?? '1Gi'),
         mountPath: String(item?.mountPath ?? ''),
         name: String(item?.name ?? `data-${index + 1}`),
@@ -50,4 +50,8 @@ export function serializeRuntimeDataVolumes(rows: RuntimeDataVolumeRow[]) {
     }))
     .filter(row => row.name || row.mountPath)
   return volumes.length > 0 ? JSON.stringify(volumes) : ''
+}
+
+function runtimeDataVolumeRowId(index: number) {
+  return `runtime-data-volume-${index}`
 }

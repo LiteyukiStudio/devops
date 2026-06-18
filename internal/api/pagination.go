@@ -36,6 +36,10 @@ func paginationFromQuery(ctx *gin.Context) paginationParams {
 	}
 }
 
+func paginationRequested(ctx *gin.Context) bool {
+	return ctx.Query("page") != "" || ctx.Query("pageSize") != ""
+}
+
 func paginatedResponse[T any](items []T, total int64, pagination paginationParams) gin.H {
 	totalPages := 0
 	if total > 0 {

@@ -7,22 +7,24 @@ import (
 )
 
 type RuntimeCluster struct {
-	ID            string         `gorm:"primaryKey" json:"id"`
-	Name          string         `gorm:"not null" json:"name"`
-	Type          string         `gorm:"not null;default:kubernetes" json:"type"`
-	Endpoint      string         `json:"endpoint"`
-	Scope         string         `gorm:"index;not null;default:global" json:"scope"`
-	OwnerRef      string         `gorm:"index" json:"ownerRef"`
-	KubeconfigRef string         `json:"-"`
-	KubeconfigSet bool           `gorm:"-" json:"kubeconfigSet"`
-	Kubeconfig    string         `gorm:"-" json:"kubeconfig,omitempty"`
-	IsDefault     bool           `gorm:"not null;default:false" json:"isDefault"`
-	Status        string         `gorm:"not null;default:unknown" json:"status"`
-	LastCheckedAt *time.Time     `json:"lastCheckedAt"`
-	CreatedBy     string         `gorm:"index" json:"createdBy"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                  string         `gorm:"primaryKey" json:"id"`
+	Name                string         `gorm:"not null" json:"name"`
+	Type                string         `gorm:"not null;default:kubernetes" json:"type"`
+	Endpoint            string         `json:"endpoint"`
+	Scope               string         `gorm:"index;not null;default:global" json:"scope"`
+	OwnerRef            string         `gorm:"index" json:"ownerRef"`
+	ProjectIDs          []string       `gorm:"-" json:"projectIds"`
+	KubeconfigRef       string         `json:"-"`
+	KubeconfigSet       bool           `gorm:"-" json:"kubeconfigSet"`
+	Kubeconfig          string         `gorm:"-" json:"kubeconfig,omitempty"`
+	IsDefault           bool           `gorm:"not null;default:false" json:"isDefault"`
+	MaxConcurrentBuilds int            `gorm:"not null;default:4" json:"maxConcurrentBuilds"`
+	Status              string         `gorm:"not null;default:unknown" json:"status"`
+	LastCheckedAt       *time.Time     `json:"lastCheckedAt"`
+	CreatedBy           string         `gorm:"index" json:"createdBy"`
+	CreatedAt           time.Time      `json:"createdAt"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type Environment struct {
@@ -72,9 +74,13 @@ type DeploymentTarget struct {
 	ApplicationID        string                        `gorm:"index;not null" json:"applicationId"`
 	EnvironmentID        string                        `gorm:"index;not null" json:"environmentId"`
 	Name                 string                        `gorm:"not null" json:"name"`
+	ServicePort          int                           `gorm:"not null;default:8080" json:"servicePort"`
+	DeleteStatus         string                        `gorm:"index;not null;default:active" json:"deleteStatus"`
+	DeleteMessage        string                        `gorm:"type:text;not null;default:''" json:"deleteMessage"`
+	DeleteStartedAt      *time.Time                    `json:"deleteStartedAt"`
+	DeleteFinishedAt     *time.Time                    `json:"deleteFinishedAt"`
 	SourceType           string                        `gorm:"not null;default:repository" json:"sourceType"`
 	RepositoryBindingID  string                        `gorm:"index" json:"repositoryBindingId"`
-	BuildProviderID      string                        `gorm:"index" json:"buildProviderId"`
 	DockerfilePath       string                        `gorm:"not null;default:Dockerfile" json:"dockerfilePath"`
 	BuildContext         string                        `gorm:"not null;default:." json:"buildContext"`
 	BuildDirectory       string                        `json:"buildDirectory"`
@@ -109,18 +115,22 @@ type DeploymentTarget struct {
 }
 
 type ProjectRuntimeConfigSet struct {
-	ID          string         `gorm:"primaryKey" json:"id"`
-	ProjectID   string         `gorm:"index;not null" json:"projectId"`
-	Name        string         `gorm:"not null" json:"name"`
-	EnvVars     string         `gorm:"type:text;not null;default:''" json:"envVars"`
-	ConfigFiles string         `gorm:"type:text;not null;default:''" json:"configFiles"`
-	SecretRefs  string         `gorm:"type:text;not null;default:''" json:"-"`
-	SecretFiles string         `gorm:"type:text;not null;default:''" json:"-"`
-	Enabled     bool           `gorm:"not null;default:true" json:"enabled"`
-	CreatedBy   string         `gorm:"index" json:"createdBy"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	ID               string         `gorm:"primaryKey" json:"id"`
+	ProjectID        string         `gorm:"index;not null" json:"projectId"`
+	Name             string         `gorm:"not null" json:"name"`
+	EnvVars          string         `gorm:"type:text;not null;default:''" json:"envVars"`
+	ConfigFiles      string         `gorm:"type:text;not null;default:''" json:"configFiles"`
+	SecretRefs       string         `gorm:"type:text;not null;default:''" json:"-"`
+	SecretFiles      string         `gorm:"type:text;not null;default:''" json:"-"`
+	Enabled          bool           `gorm:"not null;default:true" json:"enabled"`
+	DeleteStatus     string         `gorm:"index;not null;default:active" json:"deleteStatus"`
+	DeleteMessage    string         `gorm:"type:text;not null;default:''" json:"deleteMessage"`
+	DeleteStartedAt  *time.Time     `json:"deleteStartedAt"`
+	DeleteFinishedAt *time.Time     `json:"deleteFinishedAt"`
+	CreatedBy        string         `gorm:"index" json:"createdBy"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	UpdatedAt        time.Time      `json:"updatedAt"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type ReleaseLog struct {

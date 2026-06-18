@@ -28,6 +28,14 @@ func main() {
 	options := worker.Options{
 		DeployRolloutTimeoutSeconds: cfg.DeployRolloutTimeoutSeconds,
 		CertManagerClusterIssuer:    cfg.CertManagerClusterIssuer,
+		BuildExecutorImage:          cfg.BuildExecutorImage,
+		BuildNPMRegistry:            cfg.BuildNPMRegistry,
+		BuildCacheEnabled:           cfg.BuildCacheEnabled,
+		BuildCacheTag:               cfg.BuildCacheTag,
+		BuildJobTimeoutSeconds:      cfg.BuildJobTimeoutSeconds,
+		BuildJobTTLSeconds:          cfg.BuildJobTTLSeconds,
+		BuildPrivateEgressCIDRs:     cfg.BuildPrivateEgressCIDRs,
+		BuildBlockedEgressCIDRs:     cfg.BuildBlockedEgressCIDRs,
 	}
 	if err := worker.Run(cfg.RedisAddr, db, options); err != nil {
 		log.Fatalf("run worker: %v", err)

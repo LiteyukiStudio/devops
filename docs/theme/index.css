@@ -1,0 +1,63 @@
+:root {
+  --rp-c-brand: #2f7bf4;
+  --rp-c-brand-dark: #2563eb;
+  --rp-c-brand-darker: #1d4ed8;
+  --rp-c-brand-light: #22c7a9;
+  --rp-c-brand-lighter: #6ee7d8;
+  --rp-c-brand-tint: rgba(47, 123, 244, 0.1);
+
+  --rp-home-hero-name-background: linear-gradient(120deg, #24c7b0 10%, #2f7bf4 50%, #6b5ff2 92%);
+  --rp-home-hero-name-color: transparent;
+  --rp-home-hero-secondary-color: #20b8d8;
+  --rp-c-bg-soft: #f4f8ff;
+}
+
+.dark {
+  --rp-c-brand: #7fb0ff;
+  --rp-c-brand-dark: #9cc3ff;
+  --rp-c-brand-darker: #bdd7ff;
+  --rp-c-brand-light: #35d4ba;
+  --rp-c-brand-lighter: #7be8d9;
+  --rp-c-brand-tint: rgba(127, 176, 255, 0.14);
+  --rp-c-bg-soft: #121a2b;
+}
+
+.rp-home-hero__image-img,
+.rspress-home-hero-image img {
+  border-radius: 0;
+  filter:
+    drop-shadow(0 28px 36px rgba(47, 123, 244, 0.18))
+    drop-shadow(0 10px 22px rgba(34, 199, 169, 0.16));
+  object-fit: contain;
+}
+
+.rspress-home-feature {
+  border-radius: 12px;
+}
+
+.rp-doc h2 {
+  border-top: 1px solid var(--rp-c-divider);
+  padding-top: 24px;
+}
+
+.rp-doc table code,
+.rp-doc li code,
+.rp-doc p code {
+  border-radius: 6px;
+}
+
+.rp-doc .hint {
+  border: 1px solid rgba(47, 123, 244, 0.18);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(47, 123, 244, 0.08), rgba(34, 199, 169, 0.08));
+  padding: 16px 18px;
+}
+
+@media (max-width: 760px) {
+  .rp-home-hero__image-img,
+  .rspress-home-hero-image img {
+    filter:
+      drop-shadow(0 18px 24px rgba(47, 123, 244, 0.16))
+      drop-shadow(0 8px 16px rgba(34, 199, 169, 0.12));
+  }
+}

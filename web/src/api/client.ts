@@ -1,4 +1,127 @@
+import type {
+  AccessToken,
+  Application,
+  ApplicationPayload,
+  ArtifactRegistry,
+  ArtifactRegistryPayload,
+  AuthAdmissionPolicy,
+  AuthProvider,
+  BootstrapStatus,
+  BuildJob,
+  BuildLog,
+  BuildRun,
+  BuildRunListParams,
+  BuildVariableSet,
+  BuildVariableSetPayload,
+  ClusterResource,
+  ClusterResourceEvent,
+  ClusterResourceYAML,
+  ConfigDefinition,
+  ContainerImage,
+  CurrentUser,
+  DeploymentTarget,
+  DeploymentTargetPayload,
+  Environment,
+  ExternalIdentity,
+  GatewayDomainCheckResult,
+  GatewayRoute,
+  GitAccount,
+  GitBranch,
+  GitContentItem,
+  GitFileContent,
+  GitProvider,
+  GitRepository,
+  GitRepositoryBuildOptions,
+  HookRun,
+  HookRunLog,
+  PaginatedResponse,
+  PaginationParams,
+  Project,
+  ProjectHookConfig,
+  ProjectHookConfigPayload,
+  ProjectListParams,
+  ProjectMember,
+  ProjectPin,
+  ProjectRuntimeConfigSet,
+  ProjectRuntimeConfigSetPayload,
+  RegistryCredential,
+  RegistryRepositoryItem,
+  RegistryTagItem,
+  RegistryTestResult,
+  Release,
+  ReleaseLog,
+  ReleaseRuntimeExecResult,
+  ReleaseRuntimeLog,
+  RepositoryBinding,
+  RepositoryBindingPayload,
+  RuntimeCluster,
+  User,
+} from './types'
+
 import i18next from '@/i18n'
+
+export type {
+  AccessToken,
+  Application,
+  ApplicationPayload,
+  ArtifactRegistry,
+  ArtifactRegistryPayload,
+  AuthAdmissionPolicy,
+  AuthProvider,
+  BootstrapStatus,
+  BuildJob,
+  BuildLog,
+  BuildRun,
+  BuildRunListParams,
+  BuildVariableSet,
+  BuildVariableSetPayload,
+  ClusterResource,
+  ClusterResourceEvent,
+  ClusterResourceYAML,
+  ConfigDefinition,
+  ContainerImage,
+  CurrentUser,
+  DeploymentTarget,
+  DeploymentTargetHookBinding,
+  DeploymentTargetPayload,
+  Environment,
+  ExternalIdentity,
+  GatewayDomainCheckResult,
+  GatewayRoute,
+  GitAccount,
+  GitBranch,
+  GitContentItem,
+  GitFileContent,
+  GitProvider,
+  GitRepository,
+  GitRepositoryBuildOptions,
+  HookPhase,
+  HookRun,
+  HookRunLog,
+  PaginatedResponse,
+  PaginationParams,
+  Project,
+  ProjectHookConfig,
+  ProjectHookConfigPayload,
+  ProjectListParams,
+  ProjectListScope,
+  ProjectMember,
+  ProjectPin,
+  ProjectRuntimeConfigSet,
+  ProjectRuntimeConfigSetPayload,
+  RegistryCredential,
+  RegistryRepositoryItem,
+  RegistryTagItem,
+  RegistryTestResult,
+  Release,
+  ReleaseLog,
+  ReleaseRuntimeExecResult,
+  ReleaseRuntimeLog,
+  RepositoryBinding,
+  RepositoryBindingPayload,
+  RuntimeCluster,
+  User,
+} from './types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
@@ -31,735 +154,7 @@ function optionalProjectQuery(projectId?: unknown) {
   return normalized ? `?projectId=${encodeURIComponent(normalized)}` : ''
 }
 
-export interface Project {
-  id: string
-  slug: string
-  name: string
-  description: string
-  namespaceStrategy: string
-  dashboardOrder: number
-  lastUsedAt?: string | null
-  useCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ProjectPin extends Project {
-  pinnedAt: string
-}
-
-export interface ProjectMember {
-  id: string
-  projectId: string
-  userId: string
-  role: 'owner' | 'admin' | 'developer' | 'viewer'
-  email: string
-  name: string
-}
-
-export interface Application {
-  id: string
-  projectId: string
-  slug: string
-  name: string
-  icon: string
-  servicePort: number
-  deleteStatus: 'active' | 'deleting' | 'delete_failed' | 'deleted' | string
-  deleteMessage: string
-  deleteStartedAt?: string | null
-  deleteFinishedAt?: string | null
-  dataRetentionMode: 'retain' | 'retained' | 'deleted' | string
-  createdAt: string
-}
-
-export interface GitProvider {
-  id: string
-  type: 'github' | 'gitea' | 'gitlab'
-  name: string
-  baseUrl: string
-  scope: 'global' | 'project' | 'user'
-  ownerRef: string
-  authType: 'oauth' | 'github-app' | 'pat'
-  clientId: string
-  clientSecretSet: boolean
-  enabled: boolean
-  createdAt: string
-}
-
-export interface GitAccount {
-  id: string
-  userId: string
-  providerId: string
-  scope: 'global' | 'project' | 'user'
-  ownerRef: string
-  externalUserId: string
-  username: string
-  avatarUrl: string
-  scopes: string
-  accessScope: 'personal' | 'provider'
-  accessTokenSet: boolean
-  refreshTokenSet: boolean
-  status: 'connected' | 'expired' | 'revoked'
-  createdAt: string
-}
-
-export interface RepositoryBinding {
-  id: string
-  projectId: string
-  applicationId: string
-  gitProviderId: string
-  gitAccountId: string
-  owner: string
-  repo: string
-  cloneUrl: string
-  defaultBranch: string
-  webhookStatus: 'pending' | 'created' | 'disabled' | 'failed'
-  webhookId: string
-  webhookCallbackUrl: string
-  lastEvent: string
-  lastCommitSha: string
-  lastWebhookAt?: string
-  providerName?: string
-  providerType?: GitProvider['type']
-  accountUsername?: string
-  accountOwnerEmail?: string
-  accountOwnerName?: string
-  applicationName?: string
-  createdAt: string
-}
-
-export type RepositoryBindingPayload = Pick<RepositoryBinding, 'applicationId' | 'gitAccountId' | 'owner' | 'repo' | 'cloneUrl' | 'defaultBranch' | 'webhookStatus'> & {
-  autoConfigureWebhook?: boolean
-}
-
-export interface GitRepository {
-  owner: string
-  name: string
-  fullName: string
-  cloneUrl: string
-  defaultBranch: string
-  private: boolean
-  source: 'accessible' | 'public'
-}
-
-export interface GitBranch {
-  name: string
-  sha: string
-}
-
-export interface GitFileContent {
-  path: string
-  name: string
-  ref: string
-  sha: string
-  content: string
-  encoding: string
-}
-
-export interface GitContentItem {
-  path: string
-  name: string
-  type: 'file' | 'dir' | string
-  sha: string
-}
-
-export interface GitRepositoryBuildOptions {
-  dockerfiles: string[]
-  directories: string[]
-  strategy: string
-  truncated: boolean
-  durationMs: number
-}
-
-export interface ArtifactRegistry {
-  id: string
-  name: string
-  provider: 'harbor' | 'dockerhub' | 'gitea-registry'
-  endpoint: string
-  namespace: string
-  scope: 'global' | 'project' | 'user'
-  ownerRef: string
-  credentialSet: boolean
-  isDefault: boolean
-  capabilities: string[]
-  createdBy: string
-  createdAt: string
-}
-
-export type ArtifactRegistryPayload = Omit<ArtifactRegistry, 'id' | 'namespace' | 'credentialSet' | 'createdBy' | 'createdAt'>
-
-export interface RegistryCredential {
-  id: string
-  registryId: string
-  name: string
-  username: string
-  scope: 'push-pull' | 'push' | 'pull'
-  accessScope: 'personal' | 'registry'
-  passwordSet: boolean
-  tokenSet: boolean
-  createdAt: string
-}
-
-export interface RegistryTestResult {
-  success: boolean
-  statusCode: number
-  message: string
-  endpoint: string
-}
-
-export interface ContainerImage {
-  id: string
-  projectId: string
-  applicationId: string
-  registryId: string
-  repository: string
-  tag: string
-  digest: string
-  imageRef: string
-  sourceCommit: string
-  buildRunId: string
-  sourceType: 'build' | 'manual-image'
-  scanStatus: 'unknown' | 'pending' | 'scanning' | 'passed' | 'failed'
-  createdBy: string
-  createdAt: string
-}
-
-export interface RegistryRepositoryItem {
-  name: string
-  description: string
-  private: boolean
-}
-
-export interface RegistryTagItem {
-  name: string
-  digest: string
-}
-
-export interface BuildProvider {
-  id: string
-  slug: string
-  name: string
-  type: 'platform'
-  scope: 'global' | 'project' | 'user'
-  ownerRef: string
-  config: string
-  enabled: boolean
-  createdBy: string
-  createdAt: string
-}
-
-export interface BuilderAgent {
-  id: string
-  name: string
-  labels: string
-  scopes: string
-  executor: string
-  status: 'online' | 'offline' | string
-  maxConcurrency: number
-  currentConcurrency: number
-  lastHeartbeatAt?: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface BuildVariableSet {
-  id: string
-  name: string
-  scope: 'global' | 'project' | 'user'
-  ownerRef: string
-  variables: string | Record<string, string>
-  secrets: Record<string, boolean>
-  enabled: boolean
-  createdBy: string
-  createdAt: string
-}
-
-export type BuildVariableSetPayload = Omit<BuildVariableSet, 'id' | 'createdBy' | 'createdAt' | 'secrets'> & {
-  secrets: Record<string, string>
-}
-
-export interface ProjectRuntimeConfigSet {
-  id: string
-  projectId: string
-  name: string
-  envVars: string
-  configFiles: string
-  secretRefsSet: boolean
-  secretFilesSet: boolean
-  enabled: boolean
-  createdBy: string
-  createdAt: string
-  affectedDeploymentTargetCount?: number
-}
-
-export type ProjectRuntimeConfigSetPayload = Omit<ProjectRuntimeConfigSet, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'secretRefsSet' | 'secretFilesSet'> & {
-  secretRefs?: string
-  secretFiles?: string
-}
-
-export type HookPhase = 'prePull' | 'postPull' | 'preBuild' | 'postBuild' | 'prePush' | 'postPush' | 'preDeployment' | 'postDeployment'
-
-export interface ProjectHookConfig {
-  id: string
-  projectId: string
-  name: string
-  script: string
-  shell: 'sh' | 'bash'
-  timeoutSeconds: number
-  failurePolicy: 'fail' | 'ignore'
-  createdBy: string
-  createdAt: string
-  updatedAt: string
-}
-
-export type ProjectHookConfigPayload = Omit<ProjectHookConfig, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'updatedAt'>
-
-export interface HookRun {
-  id: string
-  projectId: string
-  hookConfigId: string
-  buildRunId: string
-  buildJobId: string
-  releaseId: string
-  applicationId: string
-  environmentId: string
-  deploymentTargetId: string
-  name: string
-  phase: HookPhase
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'timeout' | 'skipped' | string
-  scriptSnapshot: string
-  shell: ProjectHookConfig['shell']
-  imageRef: string
-  timeoutSeconds: number
-  failurePolicy: ProjectHookConfig['failurePolicy']
-  exitCode: number
-  message: string
-  startedAt?: string | null
-  finishedAt?: string | null
-  createdAt: string
-}
-
-export interface HookRunLog {
-  id?: string
-  hookRunId: string
-  projectId: string
-  content: string
-  createdAt?: string
-  updatedAt?: string
-}
-
-export interface BuildRun {
-  id: string
-  projectId: string
-  applicationId: string
-  deploymentTargetId: string
-  buildProviderId: string
-  buildLabels: string
-  buildVariableSetIds: string | string[]
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled' | 'lost' | 'timeout'
-  triggerType: 'manual' | 'webhook' | 'push' | 'tag' | 'api' | 'retry'
-  sourceBranch: string
-  sourceTag: string
-  sourceCommit: string
-  dockerfilePath: string
-  buildContext: string
-  buildDirectory: string
-  targetRegistryId: string
-  targetImageRef?: string
-  targetRepository: string
-  targetTag: string
-  imageRef: string
-  imageDigest: string
-  cacheConfig: string
-  cpuCoreSeconds: number
-  memoryMbSeconds: number
-  creditCost: number
-  startedAt?: string
-  finishedAt?: string
-  createdBy: string
-  triggeredByName: string
-  triggeredByEmail: string
-  sourceAuthorName: string
-  sourceAuthorEmail: string
-  createdAt: string
-}
-
-export interface DeploymentTargetHookBinding {
-  id?: string
-  projectId?: string
-  applicationId?: string
-  deploymentTargetId?: string
-  hookConfigId: string
-  phase: HookPhase
-  runOrder: number
-  createdAt?: string
-  updatedAt?: string
-}
-
-export interface DeploymentTarget {
-  id: string
-  projectId: string
-  applicationId: string
-  environmentId: string
-  name: string
-  sourceType: 'repository' | 'image'
-  repositoryBindingId: string
-  buildProviderId: string
-  dockerfilePath: string
-  buildContext: string
-  buildDirectory: string
-  targetRegistryId: string
-  targetRepository: string
-  targetTag: string
-  targetImageRef?: string
-  imageRef: string
-  buildLabels: string
-  buildVariableSetIds: string | string[]
-  buildHooksEnabled: boolean
-  buildHookBindings: DeploymentTargetHookBinding[]
-  autoDeploy: boolean
-  branchPattern: string
-  tagPattern: string
-  concurrencyPolicy: 'queue' | 'parallel'
-  runtimeConfigSetIds: string | string[]
-  envVars: string
-  configRefs: string
-  secretRefsSet: boolean
-  configFiles: string
-  secretFilesSet: boolean
-  dataRetentionEnabled: boolean
-  dataCapacity: string
-  dataMountPath: string
-  dataVolumes: string
-  requireApproval: boolean
-  enabled: boolean
-  createdBy: string
-  createdAt: string
-}
-
-export type DeploymentTargetPayload = Omit<DeploymentTarget, 'id' | 'projectId' | 'applicationId' | 'createdBy' | 'createdAt' | 'buildVariableSetIds' | 'runtimeConfigSetIds' | 'secretRefsSet' | 'secretFilesSet'> & {
-  buildVariableSetIds: string | string[]
-  runtimeConfigSetIds: string | string[]
-  secretRefs?: string
-  secretFiles?: string
-}
-
-export type ApplicationPayload = Pick<Application, 'name' | 'slug' | 'icon'> & Partial<Pick<Application, 'servicePort'>>
-
-export interface BuildJob {
-  id: string
-  buildRunId: string
-  projectId: string
-  type: string
-  status: string
-  message: string
-  logRef: string
-  attempts: number
-  leaseUntil?: string | null
-  lastHeartbeatAt?: string | null
-  executorId?: string
-  executorName?: string
-  startedAt?: string
-  finishedAt?: string
-  createdAt: string
-}
-
-export interface BuildLog {
-  id: string
-  buildRunId: string
-  buildJobId: string
-  projectId: string
-  content: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface RuntimeCluster {
-  id: string
-  name: string
-  type: 'kubernetes' | 'k3s' | 'docker-compose'
-  endpoint: string
-  scope: 'global' | 'project' | 'user'
-  ownerRef: string
-  kubeconfig?: string
-  kubeconfigSet: boolean
-  isDefault: boolean
-  status: string
-  lastCheckedAt?: string
-  createdBy: string
-  createdAt: string
-}
-
-export interface ClusterResource {
-  id: string
-  kind: string
-  name: string
-  namespace: string
-  status: string
-  summary: string
-  projectId: string
-  applicationId: string
-  environmentId: string
-  deploymentTargetId: string
-  releaseId: string
-  routeId: string
-  projectName: string
-  applicationName: string
-  deploymentTargetName: string
-  labels: Record<string, string>
-  createdAt: string
-}
-
-export interface ClusterResourceEvent {
-  id: string
-  type: string
-  reason: string
-  message: string
-  source: string
-  count: number
-  firstSeen: string
-  lastSeen: string
-}
-
-export interface Environment {
-  id: string
-  projectId: string
-  name: string
-  slug: string
-  stage: 'dev' | 'test' | 'staging' | 'prod'
-  clusterId: string
-  namespace: string
-  replicas: number
-  cpuRequest: string
-  memoryRequest: string
-  envVars: string
-  configRefs: string
-  secretRefs: string
-  createdBy: string
-  createdAt: string
-}
-
-export interface Release {
-  id: string
-  projectId: string
-  applicationId: string
-  environmentId: string
-  deploymentTargetId: string
-  buildRunId: string
-  imageRef: string
-  type: 'deploy' | 'rollback'
-  status: 'pending' | 'running' | 'succeeded' | 'failed'
-  revision: number
-  rollbackFromId: string
-  message: string
-  startedAt?: string
-  finishedAt?: string
-  createdBy: string
-  createdAt: string
-}
-
-export interface ReleaseLog {
-  id: string
-  releaseId: string
-  projectId: string
-  content: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ReleaseRuntimeLog {
-  pod: string
-  container: string
-  content: string
-}
-
-export interface ReleaseRuntimeExecResult {
-  pod: string
-  container: string
-  stdout: string
-  stderr: string
-  exitCode: number
-}
-
-export interface GatewayRoute {
-  id: string
-  projectId: string
-  applicationId: string
-  environmentId: string
-  deploymentTargetId: string
-  host: string
-  path: string
-  servicePort: number
-  tlsMode: 'http-only' | 'http-challenge' | 'manual-cert'
-  certificateStatus: 'disabled' | 'pending' | 'issued' | 'failed' | 'expired'
-  cnameName: string
-  cnameTarget: string
-  dnsStatus: 'pending' | 'verified' | 'failed'
-  status: 'pending' | 'ready' | 'failed'
-  isDefault: boolean
-  createdBy: string
-  createdAt: string
-}
-
-export interface AccessToken {
-  id: string
-  name: string
-  scope: string
-  expiresAt?: string
-  revokedAt?: string
-  createdAt: string
-}
-
-export interface PaginationParams {
-  page: number
-  pageSize: number
-  search?: string
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-}
-
-export interface BuildRunListParams extends PaginationParams {
-  applicationId?: string
-  deploymentTargetId?: string
-  status?: BuildRun['status']
-  triggerType?: BuildRun['triggerType']
-  sourceBranch?: string
-  createdBy?: string
-}
-
-export interface PaginatedResponse<T> {
-  items: T[]
-  page: number
-  pageSize: number
-  sortBy: string
-  sortOrder: 'asc' | 'desc'
-  total: number
-  totalPages: number
-}
-
-export interface CurrentUser {
-  id: string
-  email: string
-  name: string
-  avatarUrl: string
-  authType: 'local' | 'oidc'
-  role: string
-  language: 'zh-CN' | 'en-US'
-  permissions: string[]
-}
-
-export interface User {
-  id: string
-  email: string
-  name: string
-  authType: 'local' | 'oidc'
-  role: 'platform_admin' | 'user'
-  language: 'zh-CN' | 'en-US'
-  disabled: boolean
-  createdAt: string
-}
-
-export interface AuthProvider {
-  id: string
-  type: 'oidc'
-  name: string
-  enabled: boolean
-  issuerUrl: string
-  clientId: string
-  clientSecretSet: boolean
-  scopes: string
-  groupClaim: string
-  emailClaim: string
-  usernameClaim: string
-  isDefault: boolean
-  createdAt: string
-}
-
-export interface ExternalIdentity {
-  id: string
-  userId: string
-  providerId: string
-  providerName: string
-  subject: string
-  email: string
-  emailVerified: boolean
-  username: string
-  lastLoginAt?: string
-  createdAt: string
-}
-
-export interface AuthAdmissionPolicy {
-  id: string
-  allowLocalLogin: boolean
-  allowOidcLogin: boolean
-  allowedEmailDomains: string[]
-  allowedOidcGroups: string[]
-  invitedEmails: string[]
-  defaultRole: 'platform_admin' | 'user'
-}
-
-export interface ConfigDefinition {
-  key: string
-  label: string
-  description: string
-  type: 'string' | 'textarea'
-  public: boolean
-  default: string
-}
-
-export interface BootstrapStatus {
-  mode: 'development' | 'production'
-  initialized: boolean
-  devLoginEnabled: boolean
-  devLoginHint?: {
-    email: string
-    password: string
-  }
-}
-
-export function oidcStartUrl(providerId: string, mode: 'login' | 'bind', redirect = '/projects') {
-  const params = new URLSearchParams({ mode, redirect })
-  return `${API_BASE_URL}/auth/oidc/${providerId}/start?${params.toString()}`
-}
-
-export function apiBaseOrigin() {
-  if (!API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://')) {
-    return window.location.origin
-  }
-  try {
-    return new URL(API_BASE_URL).origin
-  }
-  catch {
-    return window.location.origin
-  }
-}
-
-export function buildJobLogsStreamUrl(projectId: string, jobId: string, after = 0) {
-  const query = new URLSearchParams({ after: String(Math.max(0, after)) })
-  return `${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/build-jobs/${encodeURIComponent(jobId)}/logs/stream?${query.toString()}`
-}
-
-export function deploymentTargetDataExportUrl(projectId: string, applicationId: string, targetId: string) {
-  return `${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/applications/${encodeURIComponent(applicationId)}/deployment-targets/${encodeURIComponent(targetId)}/data-export`
-}
-
-export function releaseRuntimeTerminalUrl(projectId: string, releaseId: string, container = '') {
-  const base = API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')
-    ? API_BASE_URL
-    : `${window.location.origin}${API_BASE_URL.startsWith('/') ? '' : '/'}${API_BASE_URL}`
-  const url = new URL(`${base}/projects/${encodeURIComponent(projectId)}/releases/${encodeURIComponent(releaseId)}/terminal`)
-  if (container.trim())
-    url.searchParams.set('container', container.trim())
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-  return url.toString()
-}
-
-export function gitOAuthStartUrl(providerId: string, redirect = '/projects', frontendOrigin = window.location.origin, callbackOrigin = apiBaseOrigin()) {
-  const params = new URLSearchParams({ callbackOrigin, frontendOrigin, redirect })
-  return `${API_BASE_URL}/git/providers/${providerId}/oauth/start?${params.toString()}`
-}
-
-function paginationQuery(params: PaginationParams) {
+function paginationQuery(params: PaginationParams & { scope?: string }) {
   const search = new URLSearchParams({
     page: String(params.page),
     pageSize: String(params.pageSize),
@@ -770,6 +165,15 @@ function paginationQuery(params: PaginationParams) {
     search.set('sortOrder', params.sortOrder)
   if (params.search)
     search.set('search', params.search)
+  if (params.scope)
+    search.set('scope', params.scope)
+  return search.toString()
+}
+
+function paginationWithProjectQuery(params: PaginationParams & { projectId?: string }) {
+  const search = new URLSearchParams(paginationQuery(params))
+  if (params.projectId)
+    search.set('projectId', params.projectId)
   return search.toString()
 }
 
@@ -873,6 +277,48 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json()
 }
 
+export function oidcStartUrl(providerId: string, mode: 'login' | 'bind', redirect = '/projects') {
+  const params = new URLSearchParams({ mode, redirect })
+  return `${API_BASE_URL}/auth/oidc/${providerId}/start?${params.toString()}`
+}
+
+export function apiBaseOrigin() {
+  if (!API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://')) {
+    return window.location.origin
+  }
+  try {
+    return new URL(API_BASE_URL).origin
+  }
+  catch {
+    return window.location.origin
+  }
+}
+
+export function buildJobLogsStreamUrl(projectId: string, jobId: string, after = 0) {
+  const query = new URLSearchParams({ after: String(Math.max(0, after)) })
+  return `${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/build-jobs/${encodeURIComponent(jobId)}/logs/stream?${query.toString()}`
+}
+
+export function deploymentTargetDataExportUrl(projectId: string, applicationId: string, targetId: string) {
+  return `${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/applications/${encodeURIComponent(applicationId)}/deployment-targets/${encodeURIComponent(targetId)}/data-export`
+}
+
+export function releaseRuntimeTerminalUrl(projectId: string, releaseId: string, container = '') {
+  const base = API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://')
+    ? API_BASE_URL
+    : `${window.location.origin}${API_BASE_URL.startsWith('/') ? '' : '/'}${API_BASE_URL}`
+  const url = new URL(`${base}/projects/${encodeURIComponent(projectId)}/releases/${encodeURIComponent(releaseId)}/terminal`)
+  if (container.trim())
+    url.searchParams.set('container', container.trim())
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return url.toString()
+}
+
+export function gitOAuthStartUrl(providerId: string, redirect = '/projects', frontendOrigin = window.location.origin, callbackOrigin = apiBaseOrigin()) {
+  const params = new URLSearchParams({ callbackOrigin, frontendOrigin, redirect })
+  return `${API_BASE_URL}/git/providers/${providerId}/oauth/start?${params.toString()}`
+}
+
 export const api = {
   getPublicConfigs: (keys: string[]) =>
     request<Record<string, string>>('/public/configs', { method: 'POST', body: JSON.stringify({ keys }) }),
@@ -911,6 +357,8 @@ export const api = {
     request<Record<string, string>>('/configs', { method: 'PUT', body: JSON.stringify({ values }) }),
   listGitProviders: (projectId?: string) =>
     request<GitProvider[]>(`/git/providers${optionalProjectQuery(projectId)}`),
+  listGitProvidersPage: (params: PaginationParams & { projectId?: string }) =>
+    request<PaginatedResponse<GitProvider>>(`/git/providers?${paginationWithProjectQuery(params)}`),
   createGitProvider: (payload: Omit<GitProvider, 'id' | 'createdAt' | 'clientSecretSet'> & { scope?: GitProvider['scope'], ownerRef?: string, clientSecret?: string }) =>
     request<GitProvider>('/git/providers', { method: 'POST', body: JSON.stringify(payload) }),
   updateGitProvider: (providerId: string, payload: Omit<GitProvider, 'id' | 'createdAt' | 'clientSecretSet'> & { scope?: GitProvider['scope'], ownerRef?: string, clientSecret?: string }) =>
@@ -919,6 +367,8 @@ export const api = {
     request<void>(`/git/providers/${providerId}`, { method: 'DELETE' }),
   listGitAccounts: (projectId?: string) =>
     request<GitAccount[]>(`/git/accounts${optionalProjectQuery(projectId)}`),
+  listGitAccountsPage: (params: PaginationParams & { projectId?: string }) =>
+    request<PaginatedResponse<GitAccount>>(`/git/accounts?${paginationWithProjectQuery(params)}`),
   createGitAccount: (payload: Omit<GitAccount, 'id' | 'userId' | 'scopes' | 'createdAt' | 'accessTokenSet' | 'refreshTokenSet'> & { scope?: GitAccount['scope'], ownerRef?: string, scopes: string[], accessToken?: string, refreshToken?: string }) =>
     request<GitAccount>('/git/accounts', { method: 'POST', body: JSON.stringify(payload) }),
   updateGitAccount: (accountId: string, payload: Omit<GitAccount, 'id' | 'userId' | 'scopes' | 'createdAt' | 'accessTokenSet' | 'refreshTokenSet'> & { scope?: GitAccount['scope'], ownerRef?: string, scopes: string[], accessToken?: string, refreshToken?: string }) =>
@@ -966,15 +416,15 @@ export const api = {
     return request<GitRepositoryBuildOptions>(`/git/accounts/${accountId}/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/build-options${suffix}`)
   },
   listProjects: () => request<Project[]>('/projects'),
-  listProjectsPage: (params: PaginationParams) =>
+  listProjectsPage: (params: ProjectListParams) =>
     request<PaginatedResponse<Project>>(`/projects?${paginationQuery(params)}`),
   listProjectPins: () => request<ProjectPin[]>('/projects/pins'),
   updateProjectOrder: (projectIds: string[]) =>
     request<{ projectIds: string[] }>('/projects/order', { method: 'PUT', body: JSON.stringify({ projectIds }) }),
-  createProject: (payload: Pick<Project, 'slug' | 'name' | 'description'>) =>
+  createProject: (payload: Pick<Project, 'slug' | 'name' | 'description' | 'maxConcurrentBuilds'>) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify(payload) }),
   getProject: (projectId: string) => request<Project>(`/projects/${projectId}`),
-  updateProject: (projectId: string, payload: Pick<Project, 'slug' | 'name' | 'description'>) =>
+  updateProject: (projectId: string, payload: Pick<Project, 'slug' | 'name' | 'description' | 'maxConcurrentBuilds'>) =>
     request<Project>(`/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteProject: (projectId: string) =>
     request<void>(`/projects/${projectId}`, { method: 'DELETE' }),
@@ -983,6 +433,8 @@ export const api = {
   unpinProject: (projectId: string) =>
     request<void>(`/projects/${projectId}/pin`, { method: 'DELETE' }),
   listProjectMembers: (projectId: string) => request<ProjectMember[]>(`/projects/${projectId}/members`),
+  listProjectMembersPage: (projectId: string, params: PaginationParams) =>
+    request<PaginatedResponse<ProjectMember>>(`/projects/${projectId}/members?${paginationQuery(params)}`),
   createProjectMember: (projectId: string, payload: { email: string, role: ProjectMember['role'] }) =>
     request<ProjectMember>(`/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify(payload) }),
   updateProjectMember: (projectId: string, memberId: string, payload: { role: ProjectMember['role'] }) =>
@@ -992,6 +444,8 @@ export const api = {
 
   listApplications: (projectId: string) =>
     request<Application[]>(`/projects/${projectId}/applications`),
+  listApplicationsPage: (projectId: string, params: PaginationParams) =>
+    request<PaginatedResponse<Application>>(`/projects/${projectId}/applications?${paginationQuery(params)}`),
   getApplication: (projectId: string, applicationId: string) =>
     request<Application>(`/projects/${projectId}/applications/${applicationId}`),
   createApplication: (projectId: string, payload: ApplicationPayload) =>
@@ -1002,14 +456,20 @@ export const api = {
     request<Application>(`/projects/${projectId}/applications/${applicationId}`, { method: 'DELETE' }),
   listDeploymentTargets: (projectId: string, applicationId: string) =>
     request<DeploymentTarget[]>(`/projects/${projectId}/applications/${applicationId}/deployment-targets`),
+  listDeploymentTargetsPage: (projectId: string, applicationId: string, params: PaginationParams) =>
+    request<PaginatedResponse<DeploymentTarget>>(`/projects/${projectId}/applications/${applicationId}/deployment-targets?${paginationQuery(params)}`),
   createDeploymentTarget: (projectId: string, applicationId: string, payload: DeploymentTargetPayload) =>
     request<DeploymentTarget>(`/projects/${projectId}/applications/${applicationId}/deployment-targets`, { method: 'POST', body: JSON.stringify(payload) }),
   updateDeploymentTarget: (projectId: string, applicationId: string, targetId: string, payload: DeploymentTargetPayload) =>
     request<DeploymentTarget>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  restartDeploymentTarget: (projectId: string, applicationId: string, targetId: string) =>
+    request<void>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}/restart`, { method: 'POST' }),
   deleteDeploymentTarget: (projectId: string, applicationId: string, targetId: string) =>
     request<void>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}`, { method: 'DELETE' }),
   listRepositoryBindings: (projectId: string) =>
     request<RepositoryBinding[]>(`/projects/${projectId}/repository-bindings`),
+  listRepositoryBindingsPage: (projectId: string, params: PaginationParams) =>
+    request<PaginatedResponse<RepositoryBinding>>(`/projects/${projectId}/repository-bindings?${paginationQuery(params)}`),
   createRepositoryBinding: (projectId: string, payload: RepositoryBindingPayload) =>
     request<RepositoryBinding>(`/projects/${projectId}/repository-bindings`, { method: 'POST', body: JSON.stringify(payload) }),
   updateRepositoryBinding: (projectId: string, bindingId: string, payload: RepositoryBindingPayload) =>
@@ -1023,6 +483,8 @@ export const api = {
 
   listRegistries: (projectId?: string) =>
     request<ArtifactRegistry[]>(`/registries${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
+  listRegistriesPage: (params: PaginationParams & { projectId?: string }) =>
+    request<PaginatedResponse<ArtifactRegistry>>(`/registries?${paginationWithProjectQuery(params)}`),
   createRegistry: (payload: ArtifactRegistryPayload) =>
     request<ArtifactRegistry>('/registries', { method: 'POST', body: JSON.stringify(payload) }),
   updateRegistry: (registryId: string, payload: ArtifactRegistryPayload) =>
@@ -1035,6 +497,8 @@ export const api = {
     request<ArtifactRegistry>(`/projects/${projectId}/registries/default`),
   listRegistryCredentials: (registryId: string) =>
     request<RegistryCredential[]>(`/registries/${registryId}/credentials`),
+  listRegistryCredentialsPage: (registryId: string, params: PaginationParams) =>
+    request<PaginatedResponse<RegistryCredential>>(`/registries/${registryId}/credentials?${paginationQuery(params)}`),
   createRegistryCredential: (registryId: string, payload: { name: string, username: string, password?: string, token?: string, scope: RegistryCredential['scope'], accessScope: RegistryCredential['accessScope'] }) =>
     request<RegistryCredential>(`/registries/${registryId}/credentials`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteRegistryCredential: (registryId: string, credentialId: string) =>
@@ -1058,20 +522,10 @@ export const api = {
   createContainerImage: (payload: Omit<ContainerImage, 'id' | 'createdBy' | 'createdAt' | 'imageRef'>) =>
     request<ContainerImage>('/container-images', { method: 'POST', body: JSON.stringify(payload) }),
 
-  listBuildProviders: (projectId?: string) =>
-    request<BuildProvider[]>(`/build/providers${optionalProjectQuery(projectId)}`),
-  listBuilderAgents: (params: PaginationParams = { page: 1, pageSize: 100 }) =>
-    request<PaginatedResponse<BuilderAgent>>(`/build/builders?${paginationQuery(params)}`),
-  deleteBuilderAgent: (builderId: string) =>
-    request<void>(`/build/builders/${encodeURIComponent(builderId)}`, { method: 'DELETE' }),
-  createBuildProvider: (payload: Omit<BuildProvider, 'id' | 'createdBy' | 'createdAt'>) =>
-    request<BuildProvider>('/build/providers', { method: 'POST', body: JSON.stringify(payload) }),
-  updateBuildProvider: (providerId: string, payload: Omit<BuildProvider, 'id' | 'createdBy' | 'createdAt'>) =>
-    request<BuildProvider>(`/build/providers/${providerId}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteBuildProvider: (providerId: string) =>
-    request<void>(`/build/providers/${providerId}`, { method: 'DELETE' }),
   listBuildVariableSets: (projectId?: string) =>
     request<BuildVariableSet[]>(`/build/variable-sets${optionalProjectQuery(projectId)}`),
+  listBuildVariableSetsPage: (params: PaginationParams & { projectId?: string }) =>
+    request<PaginatedResponse<BuildVariableSet>>(`/build/variable-sets?${paginationWithProjectQuery(params)}`),
   createBuildVariableSet: (payload: BuildVariableSetPayload) =>
     request<BuildVariableSet>('/build/variable-sets', { method: 'POST', body: JSON.stringify(payload) }),
   updateBuildVariableSet: (setId: string, payload: BuildVariableSetPayload) =>
@@ -1080,6 +534,8 @@ export const api = {
     request<void>(`/build/variable-sets/${setId}`, { method: 'DELETE' }),
   listProjectRuntimeConfigSets: (projectId: string) =>
     request<ProjectRuntimeConfigSet[]>(`/projects/${projectId}/runtime-config-sets`),
+  listProjectRuntimeConfigSetsPage: (projectId: string, params: PaginationParams) =>
+    request<PaginatedResponse<ProjectRuntimeConfigSet>>(`/projects/${projectId}/runtime-config-sets?${paginationQuery(params)}`),
   createProjectRuntimeConfigSet: (projectId: string, payload: ProjectRuntimeConfigSetPayload) =>
     request<ProjectRuntimeConfigSet>(`/projects/${projectId}/runtime-config-sets`, { method: 'POST', body: JSON.stringify(payload) }),
   updateProjectRuntimeConfigSet: (projectId: string, setId: string, payload: ProjectRuntimeConfigSetPayload) =>
@@ -1157,6 +613,12 @@ export const api = {
       search.set('namespace', params.namespace)
     return request<ClusterResourceEvent[]>(`/runtime/clusters/${clusterId}/resource-events?${search.toString()}`)
   },
+  getRuntimeClusterResourceYAML: (clusterId: string, params: { kind: string, namespace?: string, name: string }) => {
+    const search = new URLSearchParams({ kind: params.kind, name: params.name })
+    if (params.namespace)
+      search.set('namespace', params.namespace)
+    return request<ClusterResourceYAML>(`/runtime/clusters/${clusterId}/resource-yaml?${search.toString()}`)
+  },
   deleteRuntimeClusterResource: (clusterId: string, params: { kind: string, namespace?: string, name: string }) => {
     const search = new URLSearchParams({ kind: params.kind, name: params.name })
     if (params.namespace)
@@ -1193,14 +655,16 @@ export const api = {
 
   listGatewayRoutes: (projectId: string) =>
     request<GatewayRoute[]>(`/projects/${projectId}/gateway-routes`),
-  createGatewayRoute: (projectId: string, payload: Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget'>) =>
+  listGatewayRoutesPage: (projectId: string, params: PaginationParams) =>
+    request<PaginatedResponse<GatewayRoute>>(`/projects/${projectId}/gateway-routes?${paginationQuery(params)}`),
+  createGatewayRoute: (projectId: string, payload: Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'>) =>
     request<GatewayRoute>(`/projects/${projectId}/gateway-routes`, { method: 'POST', body: JSON.stringify(payload) }),
-  updateGatewayRoute: (projectId: string, routeId: string, payload: Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget'>) =>
+  updateGatewayRoute: (projectId: string, routeId: string, payload: Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'>) =>
     request<GatewayRoute>(`/projects/${projectId}/gateway-routes/${routeId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteGatewayRoute: (projectId: string, routeId: string) =>
     request<void>(`/projects/${projectId}/gateway-routes/${routeId}`, { method: 'DELETE' }),
-  checkGatewayDomain: (projectId: string, host: string) =>
-    request<{ available: boolean, host: string }>(`/projects/${projectId}/gateway-routes/check-domain?host=${encodeURIComponent(host)}`),
+  checkGatewayDomain: (projectId: string, host: string, routeId?: string) =>
+    request<GatewayDomainCheckResult>(`/projects/${projectId}/gateway-routes/check-domain?${new URLSearchParams({ host, ...(routeId ? { routeId } : {}) }).toString()}`),
 
   listAccessTokens: (params: PaginationParams) =>
     request<PaginatedResponse<AccessToken>>(`/access-tokens?${paginationQuery(params)}`),

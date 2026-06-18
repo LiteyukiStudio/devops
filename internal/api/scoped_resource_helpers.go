@@ -2,37 +2,51 @@ package api
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 
+	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func (h *Handlers) normalizeScopedOwner(ctx *gin.Context, user model.User, rawScope, rawOwnerRef, globalError string) (string, string, bool) {
+const (
+	scopedResourceGitProvider      = "git_provider"
+	scopedResourceGitAccount       = "git_account"
+	scopedResourceArtifactRegistry = "artifact_registry"
+	scopedResourceBuildVariableSet = "build_variable_set"
+	scopedResourceRuntimeCluster   = "runtime_cluster"
+)
+
+func (h *Handlers) normalizeScopedOwnerWithProjects(ctx *gin.Context, user model.User, rawScope, rawOwnerRef string, rawProjectIDs []string, globalError string) (string, string, []string, bool) {
 	scope := normalizeOwnerScope(rawScope)
 	ownerRef := strings.TrimSpace(rawOwnerRef)
 	switch scope {
 	case "global":
 		if user.Role != "platform_admin" {
 			writeError(ctx, http.StatusForbidden, globalError)
-			return "", "", false
+			return "", "", nil, false
 		}
-		ownerRef = ""
-	case "project":
-		if ownerRef == "" {
-			writeError(ctx, http.StatusBadRequest, "请选择项目空间")
-			return "", "", false
-		}
-		if _, ok := h.findProjectForCurrentUserWithRolesByID(ctx, ownerRef, "owner", "admin"); !ok {
-			return "", "", false
-		}
+		return scope, "", nil, true
 	case "user":
-		ownerRef = user.ID
+		return scope, user.ID, nil, true
+	case "project":
+		projectIDs := normalizeStringList(rawProjectIDs)
+		if len(projectIDs) == 0 {
+			writeError(ctx, http.StatusBadRequest, "请选择项目空间")
+			return "", "", nil, false
+		}
+		if !h.canManageAllScopedProjects(ctx, user, projectIDs) {
+			return "", "", nil, false
+		}
+		return scope, "", projectIDs, true
+	default:
+		return scope, ownerRef, nil, true
 	}
-	return scope, ownerRef, true
 }
 
-func (h *Handlers) canManageScopedResource(ctx *gin.Context, user model.User, scope, ownerRef, errorMessage string) bool {
+func (h *Handlers) canManageScopedResourceByID(ctx *gin.Context, user model.User, scope, ownerRef, resourceType, resourceID, errorMessage string) bool {
 	switch normalizeOwnerScope(scope) {
 	case "global":
 		if user.Role == "platform_admin" {
@@ -46,7 +60,7 @@ func (h *Handlers) canManageScopedResource(ctx *gin.Context, user model.User, sc
 		if user.Role == "platform_admin" {
 			return true
 		}
-		if _, ok := h.findProjectForCurrentUserWithRolesByID(ctx, ownerRef, "owner", "admin"); ok {
+		if h.canManageAllScopedProjects(ctx, user, h.scopedResourceProjectIDs(resourceType, resourceID)) {
 			return true
 		}
 	}
@@ -54,7 +68,7 @@ func (h *Handlers) canManageScopedResource(ctx *gin.Context, user model.User, sc
 	return false
 }
 
-func (h *Handlers) canInspectScopedResourceConfig(user model.User, scope, ownerRef string) bool {
+func (h *Handlers) canInspectScopedResourceConfigByID(user model.User, scope, ownerRef, resourceType, resourceID string) bool {
 	switch normalizeOwnerScope(scope) {
 	case "global":
 		return user.Role == "platform_admin"
@@ -64,9 +78,35 @@ func (h *Handlers) canInspectScopedResourceConfig(user model.User, scope, ownerR
 		if user.Role == "platform_admin" {
 			return true
 		}
-		var member model.ProjectMember
-		err := h.db.First(&member, "project_id = ? and user_id = ? and role in ?", ownerRef, user.ID, []string{"owner", "admin"}).Error
-		return err == nil
+		for _, projectID := range h.scopedResourceProjectIDs(resourceType, resourceID) {
+			var member model.ProjectMember
+			err := h.db.First(&member, "project_id = ? and user_id = ? and role in ?", projectID, user.ID, []string{"owner", "admin"}).Error
+			if err == nil {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func (h *Handlers) canUseScopedResourceByID(user model.User, scope, ownerRef, resourceType, resourceID string) bool {
+	switch normalizeOwnerScope(scope) {
+	case "global":
+		return true
+	case "user":
+		return ownerRef == user.ID
+	case "project":
+		if user.Role == "platform_admin" {
+			return true
+		}
+		for _, projectID := range h.scopedResourceProjectIDs(resourceType, resourceID) {
+			if h.projects.UserHasProject(user.ID, projectID) {
+				return true
+			}
+		}
+		return false
 	default:
 		return false
 	}
@@ -79,4 +119,129 @@ func normalizeOwnerScope(value string) string {
 	default:
 		return "global"
 	}
+}
+
+func (h *Handlers) applyScopedResourceVisibility(ctx *gin.Context, query *gorm.DB, resourceType string, user model.User, projectID string) (*gorm.DB, bool) {
+	projectID = strings.TrimSpace(projectID)
+	if projectID != "" {
+		if _, ok := h.findProjectForCurrentUserByID(ctx, projectID); !ok {
+			return query, false
+		}
+	}
+
+	conditions := []string{"scope = 'global'", "(scope = 'user' and owner_ref = ?)"}
+	args := []any{user.ID}
+	projectSubquery := h.db.Model(&model.ScopedResourceProjectBinding{}).
+		Select("resource_id").
+		Where("resource_type = ?", resourceType)
+	if projectID != "" {
+		projectSubquery = projectSubquery.Where("project_id = ?", projectID)
+		conditions = append(conditions, "(scope = 'project' and id in (?))")
+		args = append(args, projectSubquery)
+	} else if user.Role == "platform_admin" {
+		conditions = append(conditions, "(scope = 'project' and id in (?))")
+		args = append(args, projectSubquery)
+	} else {
+		projectIDs := h.projectIDsForUser(user.ID)
+		if len(projectIDs) > 0 {
+			projectSubquery = projectSubquery.Where("project_id in ?", projectIDs)
+			conditions = append(conditions, "(scope = 'project' and id in (?))")
+			args = append(args, projectSubquery)
+		}
+	}
+	return query.Where(strings.Join(conditions, " or "), args...), true
+}
+
+func (h *Handlers) replaceScopedResourceProjectBindings(tx *gorm.DB, resourceType, resourceID string, projectIDs []string, defaultProjectIDs []string) error {
+	if err := tx.Where("resource_type = ? and resource_id = ?", resourceType, resourceID).Delete(&model.ScopedResourceProjectBinding{}).Error; err != nil {
+		return err
+	}
+	defaults := map[string]bool{}
+	for _, projectID := range normalizeStringList(defaultProjectIDs) {
+		defaults[projectID] = true
+	}
+	for _, projectID := range normalizeStringList(projectIDs) {
+		binding := model.ScopedResourceProjectBinding{
+			ID:           id.New("srpb"),
+			ResourceType: resourceType,
+			ResourceID:   resourceID,
+			ProjectID:    projectID,
+			IsDefault:    defaults[projectID],
+		}
+		if err := tx.Create(&binding).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *Handlers) scopedResourceProjectIDs(resourceType, resourceID string) []string {
+	var bindings []model.ScopedResourceProjectBinding
+	if err := h.db.Where("resource_type = ? and resource_id = ?", resourceType, resourceID).Order("project_id asc").Find(&bindings).Error; err != nil {
+		return nil
+	}
+	result := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		result = append(result, binding.ProjectID)
+	}
+	return result
+}
+
+func (h *Handlers) scopedResourceProjectIDMap(resourceType string, resourceIDs []string) map[string][]string {
+	result := map[string][]string{}
+	resourceIDs = normalizeStringList(resourceIDs)
+	if len(resourceIDs) == 0 {
+		return result
+	}
+	var bindings []model.ScopedResourceProjectBinding
+	if err := h.db.Where("resource_type = ? and resource_id in ?", resourceType, resourceIDs).Order("project_id asc").Find(&bindings).Error; err != nil {
+		return result
+	}
+	for _, binding := range bindings {
+		result[binding.ResourceID] = append(result[binding.ResourceID], binding.ProjectID)
+	}
+	return result
+}
+
+func (h *Handlers) scopedResourceDefaultProjectIDMap(resourceType string, resourceIDs []string) map[string][]string {
+	result := map[string][]string{}
+	resourceIDs = normalizeStringList(resourceIDs)
+	if len(resourceIDs) == 0 {
+		return result
+	}
+	var bindings []model.ScopedResourceProjectBinding
+	if err := h.db.Where("resource_type = ? and resource_id in ? and is_default = ?", resourceType, resourceIDs, true).Order("project_id asc").Find(&bindings).Error; err != nil {
+		return result
+	}
+	for _, binding := range bindings {
+		result[binding.ResourceID] = append(result[binding.ResourceID], binding.ProjectID)
+	}
+	return result
+}
+
+func (h *Handlers) canManageAllScopedProjects(ctx *gin.Context, user model.User, projectIDs []string) bool {
+	projectIDs = normalizeStringList(projectIDs)
+	if len(projectIDs) == 0 {
+		return false
+	}
+	for _, projectID := range projectIDs {
+		if user.Role == "platform_admin" {
+			var project model.Project
+			if err := h.db.First(&project, "id = ?", projectID).Error; err != nil {
+				writeError(ctx, http.StatusNotFound, "project not found")
+				return false
+			}
+			continue
+		}
+		if _, ok := h.findProjectForCurrentUserWithRolesByID(ctx, projectID, "owner", "admin"); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func sortedProjectIDs(projectIDs []string) []string {
+	result := normalizeStringList(projectIDs)
+	sort.Strings(result)
+	return result
 }

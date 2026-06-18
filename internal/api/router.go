@@ -1,16 +1,22 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 
+	"github.com/LiteyukiStudio/devops/internal/config"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func NewRouter(db *gorm.DB) *gin.Engine {
+	return NewRouterWithStaticFS(db, nil)
+}
+
+func NewRouterWithStaticFS(db *gorm.DB, staticFS fs.FS) *gin.Engine {
 	if debugLogEnabled() {
 		gin.SetMode(gin.DebugMode)
 		debugLog("api log level set to debug")
@@ -81,26 +87,10 @@ func NewRouter(db *gorm.DB) *gin.Engine {
 		v1.GET("/container-images", handlers.ListContainerImages)
 		v1.POST("/container-images", handlers.CreateContainerImage)
 
-		v1.GET("/build/providers", handlers.ListBuildProviders)
-		v1.POST("/build/providers", handlers.CreateBuildProvider)
-		v1.PUT("/build/providers/:providerId", handlers.UpdateBuildProvider)
-		v1.DELETE("/build/providers/:providerId", handlers.DeleteBuildProvider)
-		v1.GET("/build/builders", handlers.ListBuilderAgents)
-		v1.DELETE("/build/builders/:builderId", handlers.DeleteBuilderAgent)
 		v1.GET("/build/variable-sets", handlers.ListBuildVariableSets)
 		v1.POST("/build/variable-sets", handlers.CreateBuildVariableSet)
 		v1.PUT("/build/variable-sets/:setId", handlers.UpdateBuildVariableSet)
 		v1.DELETE("/build/variable-sets/:setId", handlers.DeleteBuildVariableSet)
-		v1.POST("/builder/heartbeat", handlers.BuilderHeartbeat)
-		v1.POST("/builder/tasks/claim", handlers.ClaimBuilderTask)
-		v1.POST("/builder/tasks/:jobId/renew", handlers.RenewBuilderTask)
-		v1.POST("/builder/tasks/:jobId/logs", handlers.AppendBuilderTaskLogs)
-		v1.POST("/builder/tasks/:jobId/progress", handlers.ProgressBuilderTask)
-		v1.POST("/builder/tasks/:jobId/complete", handlers.CompleteBuilderTask)
-		v1.POST("/builder/tasks/:jobId/fail", handlers.FailBuilderTask)
-		v1.GET("/builder/tasks/:jobId/cancelled", handlers.GetBuilderTaskCancelled)
-		v1.POST("/builder/hooks/:runId/logs", handlers.AppendBuilderHookRunLogs)
-		v1.POST("/builder/hooks/:runId/complete", handlers.CompleteBuilderHookRun)
 
 		v1.GET("/runtime/clusters", handlers.ListRuntimeClusters)
 		v1.POST("/runtime/clusters", handlers.CreateRuntimeCluster)
@@ -109,6 +99,7 @@ func NewRouter(db *gorm.DB) *gin.Engine {
 		v1.POST("/runtime/clusters/:clusterId/test", handlers.TestRuntimeCluster)
 		v1.GET("/runtime/clusters/:clusterId/resources", handlers.ListRuntimeClusterResources)
 		v1.DELETE("/runtime/clusters/:clusterId/resources", handlers.DeleteRuntimeClusterResource)
+		v1.GET("/runtime/clusters/:clusterId/resource-yaml", handlers.GetRuntimeClusterResourceYAML)
 		v1.GET("/runtime/clusters/:clusterId/resource-events", handlers.ListRuntimeClusterResourceEvents)
 
 		v1.GET("/projects", handlers.ListProjects)
@@ -145,6 +136,7 @@ func NewRouter(db *gorm.DB) *gin.Engine {
 		v1.GET("/projects/:projectId/applications/:applicationId/deployment-targets", handlers.ListDeploymentTargets)
 		v1.POST("/projects/:projectId/applications/:applicationId/deployment-targets", handlers.CreateDeploymentTarget)
 		v1.PUT("/projects/:projectId/applications/:applicationId/deployment-targets/:targetId", handlers.UpdateDeploymentTarget)
+		v1.POST("/projects/:projectId/applications/:applicationId/deployment-targets/:targetId/restart", handlers.RestartDeploymentTarget)
 		v1.GET("/projects/:projectId/applications/:applicationId/deployment-targets/:targetId/data-export", handlers.ExportDeploymentTargetData)
 		v1.DELETE("/projects/:projectId/applications/:applicationId/deployment-targets/:targetId", handlers.DeleteDeploymentTarget)
 		v1.GET("/projects/:projectId/build-runs", handlers.ListBuildRuns)
@@ -185,6 +177,7 @@ func NewRouter(db *gorm.DB) *gin.Engine {
 		v1.DELETE("/access-tokens/:tokenId", handlers.RevokeAccessToken)
 	}
 
+	registerStaticUI(router, staticFS)
 	return router
 }
 
@@ -281,7 +274,7 @@ func configuredAllowedOrigins() []string {
 	if publicBase := originFromURL(os.Getenv("PUBLIC_BASE_URL")); publicBase != "" {
 		origins = append(origins, publicBase)
 	}
-	if configRuntimeMode() == "development" {
+	if config.RuntimeMode() == "development" {
 		origins = append(origins,
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
@@ -305,12 +298,4 @@ func originFromURL(raw string) string {
 		return ""
 	}
 	return strings.TrimRight(parsed.Scheme+"://"+parsed.Host, "/")
-}
-
-func configRuntimeMode() string {
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
-	if mode == "production" {
-		return "production"
-	}
-	return "development"
 }

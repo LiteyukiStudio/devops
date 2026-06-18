@@ -4,7 +4,7 @@ const RELATIVE_TIME_THRESHOLD_MS = 10 * 60 * 60 * 1000
 
 /**
  * 统一的“智能时间”显示：10 小时内显示相对时间，超过后显示带年份绝对时间。
- * 用于构建运行时间、Builder 心跳、任务更新时间等需要快速判断新鲜度的场景。
+ * 用于构建运行时间、任务更新时间等需要快速判断新鲜度的场景。
  */
 export function formatSmartDateTime(value: string | undefined, t: TFunction, fallback = '-') {
   const date = parseDateTime(value)

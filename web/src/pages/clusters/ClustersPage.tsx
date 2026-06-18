@@ -1,6 +1,6 @@
 import type { ClusterResource, ClusterResourceEvent, CurrentUser, RuntimeCluster } from '@/api/client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
+import { Copy, FileCode2, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,8 @@ import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { FormField as Field } from '@/components/common/form-field'
-import { StatusValueBadge } from '@/components/common/status-badge'
+import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
+import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -22,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { inspectKubeconfig, selectSingleKubeconfigContext } from '@/lib/kubeconfig'
 
 type ClusterForm = Omit<RuntimeCluster, 'id' | 'createdBy' | 'createdAt' | 'kubeconfigSet' | 'lastCheckedAt'> & { kubeconfig?: string }
 
@@ -29,8 +31,10 @@ const clusterDefaults: ClusterForm = {
   endpoint: '',
   isDefault: false,
   kubeconfig: '',
+  maxConcurrentBuilds: 4,
   name: '',
   ownerRef: '',
+  projectIds: [],
   scope: 'global',
   status: 'unknown',
   type: 'kubernetes',
@@ -47,8 +51,10 @@ export function ClustersPage() {
   const [resourceToDelete, setResourceToDelete] = useState<ClusterResource | null>(null)
   const [resourcesToDelete, setResourcesToDelete] = useState<ClusterResource[]>([])
   const [eventResource, setEventResource] = useState<ClusterResource | null>(null)
+  const [yamlResource, setYamlResource] = useState<ClusterResource | null>(null)
   const [selectedResourceClusterId, setSelectedResourceClusterId] = useState('')
   const [selectedResourceKeys, setSelectedResourceKeys] = useState<string[]>([])
+  const [selectedKubeconfigContext, setSelectedKubeconfigContext] = useState('')
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
   const clusters = useQuery({ queryKey: ['runtime-clusters'], queryFn: () => api.listRuntimeClusters() })
   const projectMap = useMemo(() => Object.fromEntries((projects.data ?? []).map(project => [project.id, project])), [projects.data])
@@ -77,19 +83,47 @@ export function ClustersPage() {
     }),
     enabled: Boolean(selectedResourceCluster?.id && eventResource),
   })
+  const resourceYAML = useQuery({
+    queryKey: ['runtime-cluster-resource-yaml', selectedResourceCluster?.id, yamlResource?.kind, yamlResource?.namespace, yamlResource?.name],
+    queryFn: () => api.getRuntimeClusterResourceYAML(selectedResourceCluster?.id ?? '', {
+      kind: yamlResource?.kind ?? '',
+      namespace: yamlResource?.namespace,
+      name: yamlResource?.name ?? '',
+    }),
+    enabled: Boolean(selectedResourceCluster?.id && yamlResource),
+  })
   const form = useForm<ClusterForm>({ defaultValues: clusterDefaults, mode: 'onChange' })
   const scope = form.watch('scope')
   const canEditKubeconfig = !editingCluster || canInspectClusterKubeconfig(editingCluster, user?.id, user?.role)
+  const kubeconfigValue = form.watch('kubeconfig') ?? ''
+  const kubeconfigInspection = useMemo(() => inspectKubeconfig(kubeconfigValue), [kubeconfigValue])
+  const kubeconfigContextSelectionRequired = canEditKubeconfig && kubeconfigInspection.contexts.length > 1
+  const effectiveKubeconfigContext = useMemo(() => {
+    if (!canEditKubeconfig || kubeconfigInspection.contexts.length === 0)
+      return ''
+    if (kubeconfigInspection.contexts.some(context => context.name === selectedKubeconfigContext))
+      return selectedKubeconfigContext
+    return kubeconfigInspection.currentContext || kubeconfigInspection.contexts[0]?.name || ''
+  }, [canEditKubeconfig, kubeconfigInspection, selectedKubeconfigContext])
 
   useEffect(() => {
     if (scope !== 'global')
       form.setValue('isDefault', false, { shouldDirty: true, shouldValidate: true })
     if (scope === 'user')
       form.setValue('ownerRef', '', { shouldDirty: true, shouldValidate: true })
+    if (scope !== 'project')
+      form.setValue('projectIds', [], { shouldDirty: true, shouldValidate: true })
   }, [form, scope])
 
   const saveCluster = useMutation({
-    mutationFn: (values: ClusterForm) => editingCluster ? api.updateRuntimeCluster(editingCluster.id, values) : api.createRuntimeCluster(values),
+    mutationFn: (values: ClusterForm) => {
+      const payload = {
+        ...values,
+        ownerRef: '',
+        projectIds: values.scope === 'project' ? values.projectIds : [],
+      }
+      return editingCluster ? api.updateRuntimeCluster(editingCluster.id, payload) : api.createRuntimeCluster(payload)
+    },
     onSuccess: () => {
       toast.success(t(editingCluster ? 'deploymentsPage.clusterUpdated' : 'deploymentsPage.clusterCreated'))
       setDialogOpen(false)
@@ -152,19 +186,47 @@ export function ClustersPage() {
 
   function openDialog(cluster?: RuntimeCluster) {
     setEditingCluster(cluster ?? null)
+    setSelectedKubeconfigContext('')
     form.reset(cluster
       ? {
           endpoint: cluster.endpoint,
           isDefault: cluster.isDefault,
-          kubeconfig: cluster.kubeconfig ?? '',
+          kubeconfig: '',
+          maxConcurrentBuilds: cluster.maxConcurrentBuilds || 4,
           name: cluster.name,
           ownerRef: cluster.ownerRef,
+          projectIds: cluster.projectIds ?? [],
           scope: cluster.scope,
           status: cluster.status,
           type: cluster.type,
         }
       : clusterDefaults)
     setDialogOpen(true)
+  }
+
+  function submitCluster(values: ClusterForm) {
+    let kubeconfig = values.kubeconfig ?? ''
+    if (canEditKubeconfig && kubeconfig.trim() !== '') {
+      if (kubeconfigInspection.error) {
+        toast.error(t('clustersPage.kubeconfigParseFailed'))
+        return
+      }
+      if (kubeconfigContextSelectionRequired && !effectiveKubeconfigContext) {
+        toast.error(t('clustersPage.kubeconfigContextRequired'))
+        return
+      }
+      try {
+        kubeconfig = selectSingleKubeconfigContext(kubeconfig, effectiveKubeconfigContext)
+      }
+      catch {
+        toast.error(t('clustersPage.kubeconfigContextInvalid'))
+        return
+      }
+    }
+    const maxConcurrentBuilds = Number.isFinite(values.maxConcurrentBuilds) && values.maxConcurrentBuilds > 0
+      ? Math.floor(values.maxConcurrentBuilds)
+      : 4
+    saveCluster.mutate({ ...values, kubeconfig, maxConcurrentBuilds })
   }
 
   return (
@@ -182,10 +244,12 @@ export function ClustersPage() {
           <div className="flex flex-wrap items-center gap-2">
             {activeTab === 'clusters'
               ? (
-                  <Button onClick={() => openDialog()}>
-                    <Plus className="size-4" />
-                    {t('deploymentsPage.createCluster')}
-                  </Button>
+                  <>
+                    <Button onClick={() => openDialog()}>
+                      <Plus className="size-4" />
+                      {t('deploymentsPage.createCluster')}
+                    </Button>
+                  </>
                 )
               : (
                   <>
@@ -238,6 +302,7 @@ export function ClustersPage() {
               { key: 'type', header: t('common.type'), render: item => clusterTypeLabel(item.type, t) },
               { key: 'scope', header: t('common.scope'), render: item => scopeLabel(item, projectMap, t) },
               { key: 'default', header: t('clustersPage.defaultCluster'), render: item => item.isDefault ? t('common.yes') : t('common.no') },
+              { key: 'buildConcurrency', header: t('clustersPage.maxConcurrentBuilds'), render: item => item.maxConcurrentBuilds || 4 },
               { key: 'status', header: t('common.status'), render: item => <StatusValueBadge value={item.status} /> },
               { key: 'actions', header: t('common.actions'), className: 'text-right whitespace-nowrap', render: item => (
                 canManageCluster(item, user?.id, user?.role)
@@ -270,6 +335,7 @@ export function ClustersPage() {
               user={user}
               onDeleteResource={setResourceToDelete}
               onOpenEvents={setEventResource}
+              onOpenYAML={setYamlResource}
               onSelectionChange={setSelectedResourceKeys}
             />
           </TabsContent>
@@ -282,7 +348,7 @@ export function ClustersPage() {
             <DialogTitle>{editingCluster ? t('deploymentsPage.editCluster') : t('deploymentsPage.createCluster')}</DialogTitle>
             <DialogDescription>{t('clustersPage.dialogDescription')}</DialogDescription>
           </DialogHeader>
-          <form className="flex min-h-0 min-w-0 flex-1 flex-col" onSubmit={form.handleSubmit(values => saveCluster.mutate(values))}>
+          <form className="flex min-h-0 min-w-0 flex-1 flex-col" onSubmit={form.handleSubmit(submitCluster)}>
             <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">
               <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
                 <Field label={t('common.name')} required><Input {...form.register('name', { required: true })} /></Field>
@@ -295,16 +361,26 @@ export function ClustersPage() {
                 </Field>
                 {scope === 'project' && (
                   <Field label={t('projectSpaces.title')} required>
-                    <Select {...form.register('ownerRef', { required: true })}>
-                      <option value="">{t('common.select')}</option>
-                      {(projects.data ?? []).map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-                    </Select>
+                    <ProjectSpaceMultiSelect
+                      projects={projects.data ?? []}
+                      value={form.watch('projectIds')}
+                      onChange={value => form.setValue('projectIds', value, { shouldDirty: true, shouldValidate: true })}
+                    />
                   </Field>
                 )}
                 <Field label={t('common.type')}>
                   <Select {...form.register('type')}>
                     <option value="kubernetes">{t('deploymentsPage.typeKubernetes')}</option>
                   </Select>
+                </Field>
+                <Field hint={t('clustersPage.maxConcurrentBuildsHint')} label={t('clustersPage.maxConcurrentBuilds')} required>
+                  <Input
+                    {...form.register('maxConcurrentBuilds', { min: 1, required: true, valueAsNumber: true })}
+                    inputMode="numeric"
+                    min={1}
+                    placeholder="4"
+                    type="number"
+                  />
                 </Field>
                 <Field hint={canEditKubeconfig ? t('clustersPage.kubeconfigHint') : t('clustersPage.kubeconfigRestrictedHint')} label={t('deploymentsPage.kubeconfig')} required={!editingCluster}>
                   <Controller
@@ -314,7 +390,7 @@ export function ClustersPage() {
                     render={({ field }) => (
                       <div className="min-w-0 max-w-full overflow-x-hidden">
                         <CodeEditor
-                          ariaInvalid={Boolean(form.formState.errors.kubeconfig)}
+                          ariaInvalid={Boolean(form.formState.errors.kubeconfig) || kubeconfigInspection.error}
                           className="w-full"
                           height="22rem"
                           language="yaml"
@@ -323,6 +399,33 @@ export function ClustersPage() {
                           value={field.value ?? ''}
                           onChange={field.onChange}
                         />
+                        {canEditKubeconfig && kubeconfigInspection.error && (
+                          <p className="mt-2 text-sm text-danger">{t('clustersPage.kubeconfigParseFailed')}</p>
+                        )}
+                        {canEditKubeconfig && kubeconfigInspection.contexts.length === 1 && (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {t('clustersPage.kubeconfigSingleContext', { context: kubeconfigInspection.contexts[0].name })}
+                          </p>
+                        )}
+                        {kubeconfigContextSelectionRequired && (
+                          <div className="mt-3 grid gap-2">
+                            <label className="text-sm font-medium text-foreground" htmlFor="cluster-kubeconfig-context">
+                              {t('clustersPage.kubeconfigContextLabel')}
+                            </label>
+                            <Select
+                              id="cluster-kubeconfig-context"
+                              value={effectiveKubeconfigContext}
+                              onChange={event => setSelectedKubeconfigContext(event.target.value)}
+                            >
+                              {kubeconfigInspection.contexts.map(context => (
+                                <option key={context.name} value={context.name}>
+                                  {kubeconfigContextOptionLabel(context)}
+                                </option>
+                              ))}
+                            </Select>
+                            <p className="text-xs text-muted-foreground">{t('clustersPage.kubeconfigContextHint')}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   />
@@ -336,7 +439,7 @@ export function ClustersPage() {
               </div>
             </div>
             <DialogFooter className="shrink-0 border-t border-border p-5 pt-4">
-              <Button disabled={!form.formState.isValid || saveCluster.isPending} type="submit">{t('common.save')}</Button>
+              <Button disabled={!form.formState.isValid || saveCluster.isPending || kubeconfigInspection.error || (kubeconfigContextSelectionRequired && !effectiveKubeconfigContext)} type="submit">{t('common.save')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -380,11 +483,39 @@ export function ClustersPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={Boolean(yamlResource)} onOpenChange={open => !open && setYamlResource(null)}>
+        <DialogContent className="flex max-h-[min(88vh,46rem)] w-[min(92vw,64rem)] max-w-[92vw] min-w-0 flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border p-5 pb-4">
+            <DialogTitle>{t('clustersPage.resourceYamlTitle')}</DialogTitle>
+            <DialogDescription>
+              {yamlResource ? t('clustersPage.resourceYamlDescription', { kind: yamlResource.kind, namespace: yamlResource.namespace || '-', name: yamlResource.name }) : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            {resourceYAML.isFetching
+              ? (
+                  <EmptyState
+                    title={t('common.loading')}
+                    description={t('clustersPage.resourceYamlLoading')}
+                  />
+                )
+              : (
+                  <CodeEditor
+                    height="32rem"
+                    language="yaml"
+                    readOnly
+                    value={resourceYAML.data?.yaml ?? ''}
+                    onChange={() => {}}
+                  />
+                )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function ClusterResourcesPanel({ items, loading, selectedCluster, selectedResourceKeys, tab, user, onDeleteResource, onOpenEvents, onSelectionChange }: {
+function ClusterResourcesPanel({ items, loading, selectedCluster, selectedResourceKeys, tab, user, onDeleteResource, onOpenEvents, onOpenYAML, onSelectionChange }: {
   items: ClusterResource[]
   loading: boolean
   selectedCluster?: RuntimeCluster
@@ -393,6 +524,7 @@ function ClusterResourcesPanel({ items, loading, selectedCluster, selectedResour
   user?: CurrentUser
   onDeleteResource: (resource: ClusterResource) => void
   onOpenEvents: (resource: ClusterResource) => void
+  onOpenYAML: (resource: ClusterResource) => void
   onSelectionChange: (keys: string[]) => void
 }) {
   const { t } = useTranslation()
@@ -416,17 +548,23 @@ function ClusterResourcesPanel({ items, loading, selectedCluster, selectedResour
           ? []
           : [{ key: 'namespace', header: t('deploymentsPage.namespace'), className: 'w-44 whitespace-nowrap', render: (item: ClusterResource) => <TruncatedResourceText className="max-w-44 font-mono text-sm" value={item.namespace || '-'} /> }]),
         { key: 'status', header: t('common.status'), className: 'w-28 whitespace-nowrap', render: item => <StatusValueBadge value={normalizeClusterResourceStatus(item.status)} /> },
+        { key: 'updatedAt', header: t('clustersPage.resourceUpdatedAt'), className: 'w-32 whitespace-nowrap', render: item => formatSmartDateTime(item.updatedAt || item.createdAt, t) },
         { key: 'owner', header: t('clustersPage.resourceOwner'), className: 'min-w-56', render: item => <TruncatedResourceText className="max-w-72 text-sm" value={clusterResourceOwner(item)} /> },
         { key: 'summary', header: t('clustersPage.resourceSummary'), className: 'min-w-64', render: item => <TruncatedResourceText className="max-w-80 text-sm text-muted-foreground" value={item.summary || '-'} /> },
         {
           key: 'actions',
           header: t('common.actions'),
-          className: 'w-40 whitespace-nowrap text-right',
+          className: 'w-52 min-w-52 whitespace-nowrap text-right',
+          sticky: 'right',
           render: item => (
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => onOpenEvents(item)}>
                 <ScrollText className="size-4" />
                 {t('clustersPage.viewEvents')}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onOpenYAML(item)}>
+                <FileCode2 className="size-4" />
+                {t('clustersPage.viewYaml')}
               </Button>
               {canDeleteClusterResource(user, item) && (
                 <Button size="sm" variant="ghost" onClick={() => onDeleteResource(item)}>
@@ -492,6 +630,11 @@ function clusterResourceDisplayName(item: ClusterResource) {
   return item.name
 }
 
+function kubeconfigContextOptionLabel(context: { cluster: string, name: string, namespace: string, server: string }) {
+  const details = [context.cluster, context.server, context.namespace].filter(Boolean).join(' · ')
+  return details ? `${context.name} (${details})` : context.name
+}
+
 function clusterResourceName(item: ClusterResource, includeNamespace: boolean) {
   if (includeNamespace)
     return clusterResourceDisplayName(item)
@@ -539,7 +682,8 @@ function ClusterResourceEventsList({ events, loading }: { events: ClusterResourc
 function clusterResourceOwner(item: ClusterResource) {
   const project = item.projectName?.trim() || item.projectId?.trim()
   const application = item.applicationName?.trim() || item.applicationId?.trim()
-  return [project, application].filter(Boolean).join(' / ') || '-'
+  const deploymentTarget = item.deploymentTargetName?.trim() || item.deploymentTargetId?.trim()
+  return [project, application, deploymentTarget].filter(Boolean).join(' / ') || '-'
 }
 
 function normalizeClusterResourceStatus(status: string) {
@@ -576,8 +720,15 @@ function clusterTypeLabel(type: RuntimeCluster['type'], t: (key: string, options
 }
 
 function scopeLabel(cluster: RuntimeCluster, projectMap: Record<string, { name: string }>, t: (key: string, options?: Record<string, unknown>) => string) {
-  if (cluster.scope === 'project')
-    return projectMap[cluster.ownerRef]?.name ?? cluster.ownerRef
+  if (cluster.scope === 'project') {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {(cluster.projectIds ?? []).map(projectId => (
+          <StatusBadge key={projectId}>{projectMap[projectId]?.name ?? projectId}</StatusBadge>
+        ))}
+      </div>
+    )
+  }
   if (cluster.scope === 'user')
     return t('codeRepositoriesView.scopeUser')
   return t('codeRepositoriesView.scopeGlobal')

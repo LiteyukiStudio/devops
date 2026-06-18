@@ -25,13 +25,14 @@ type Handlers struct {
 	branchCache         *gitBranchCache
 	registrySearchCache *registrySearchCache
 	taskClient          taskEnqueuer
-	builderToken        string
 }
 
 type taskEnqueuer interface {
+	EnqueueBuildRun(ctx context.Context, payload tasks.BuildRunPayload) (*asynq.TaskInfo, error)
 	EnqueueDeployRun(ctx context.Context, payload tasks.DeployRunPayload) (*asynq.TaskInfo, error)
 	EnqueueGatewayApply(ctx context.Context, payload tasks.GatewayApplyPayload) (*asynq.TaskInfo, error)
 	EnqueueApplicationDelete(ctx context.Context, payload tasks.ApplicationDeletePayload) (*asynq.TaskInfo, error)
+	EnqueueResourceCleanup(ctx context.Context, payload tasks.ResourceCleanupPayload) (*asynq.TaskInfo, error)
 }
 
 func NewHandlers(db *gorm.DB) *Handlers {
@@ -44,7 +45,6 @@ func NewHandlers(db *gorm.DB) *Handlers {
 	if cfg.RedisAddr != "" {
 		handlers.taskClient = tasks.NewClient(cfg.RedisAddr)
 	}
-	handlers.builderToken = cfg.BuilderToken
 	handlers.secrets = secret.NewStore(db, handlers.audit)
 	return handlers
 }

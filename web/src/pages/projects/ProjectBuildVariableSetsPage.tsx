@@ -39,6 +39,7 @@ export interface ProjectBuildVariableSetsPageHandle {
 
 const emptyRow = (): KeyValueRow => ({ id: crypto.randomUUID(), key: '', value: '' })
 const variableSetDefaults: VariableSetForm = { enabled: true, name: '', secrets: [emptyRow()], variables: [emptyRow()] }
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 export function ProjectBuildVariableSetsPage({ projectId, ref }: { projectId: string, ref?: Ref<ProjectBuildVariableSetsPageHandle> }) {
   const { t } = useTranslation()
@@ -46,15 +47,22 @@ export function ProjectBuildVariableSetsPage({ projectId, ref }: { projectId: st
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingSet, setEditingSet] = useState<BuildVariableSet | null>(null)
   const [setToDelete, setSetToDelete] = useState<BuildVariableSet | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const form = useForm<VariableSetForm>({ defaultValues: variableSetDefaults, mode: 'onChange' })
-  const variableSets = useQuery({ queryKey: ['build-variable-sets', projectId], queryFn: () => api.listBuildVariableSets(projectId), enabled: Boolean(projectId) })
+  const variableSets = useQuery({
+    queryKey: ['build-variable-sets', projectId, page, pageSize],
+    queryFn: () => api.listBuildVariableSetsPage({ projectId, page, pageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+    enabled: Boolean(projectId),
+  })
 
   const saveVariableSet = useMutation({
     mutationFn: (values: VariableSetForm) => {
       const payload = {
         enabled: values.enabled,
         name: values.name,
-        ownerRef: projectId,
+        ownerRef: '',
+        projectIds: [projectId],
         scope: 'project' as const,
         secrets: buildVariableRowsToRecord(values.secrets),
         variables: buildVariableRowsToRecord(values.variables),
@@ -116,21 +124,44 @@ export function ProjectBuildVariableSetsPage({ projectId, ref }: { projectId: st
       <DataList
         columns={[
           { key: 'name', header: t('common.name'), className: 'min-w-40 px-4 py-3 align-middle', render: item => <span className="block truncate whitespace-nowrap" title={item.name}>{item.name}</span> },
-          { key: 'variables', header: t('buildsPage.variables'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => t('buildsPage.variableCount', { count: buildVariableCount(item.variables) }) },
+          { key: 'variables', header: t('buildsPage.variables'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => t('buildsPage.variableCount', { count: item.variableCount ?? buildVariableCount(item.variables) }) },
           { key: 'secrets', header: t('buildsPage.secrets'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => t('buildsPage.secretCount', { count: Object.keys(item.secrets ?? {}).length }) },
           { key: 'enabled', header: t('common.status'), className: 'w-28 whitespace-nowrap px-4 py-3 align-middle', render: item => <StatusValueBadge value={item.enabled ? 'enabled' : 'disabled'} /> },
           { key: 'actions', header: t('common.actions'), className: 'w-[1%] whitespace-nowrap px-4 py-3 text-right align-middle', render: item => (
             <div className="flex justify-end gap-2">
-              <EditActionButton label={t('common.edit')} onClick={() => openDialog(item)} />
-              <Button size="sm" variant="ghost" onClick={() => setSetToDelete(item)}>
-                <Trash2 className="size-4" />
-                {t('common.delete')}
-              </Button>
+              {item.canInspectVariables
+                ? (
+                    <>
+                      <EditActionButton label={t('common.edit')} onClick={() => openDialog(item)} />
+                      <Button size="sm" variant="ghost" onClick={() => setSetToDelete(item)}>
+                        <Trash2 className="size-4" />
+                        {t('common.delete')}
+                      </Button>
+                    </>
+                  )
+                : <span className="text-sm text-muted-foreground">{t('buildsPage.variableSetReadOnly')}</span>}
             </div>
           ) },
         ]}
         emptyTitle={t('buildsPage.emptyVariableSets')}
-        items={variableSets.data ?? []}
+        items={variableSets.data?.items ?? []}
+        pagination={{
+          page: variableSets.data?.page ?? page,
+          pageSize: variableSets.data?.pageSize ?? pageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          total: variableSets.data?.total ?? 0,
+          totalPages: variableSets.data?.totalPages ?? 0,
+          pageInfoLabel: t('pagination.pageInfo', {
+            page: variableSets.data?.page ?? page,
+            totalPages: variableSets.data?.totalPages ?? 0,
+            total: variableSets.data?.total ?? 0,
+          }),
+          onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(1)
+          },
+        }}
         rowKey={item => item.id}
         variant="plain"
       />

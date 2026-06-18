@@ -16,10 +16,8 @@ import (
 type HTTPTransport struct {
 	apiURL         string
 	token          string
-	agentID        string
 	name           string
 	labels         []string
-	scopes         []string
 	executor       string
 	maxConcurrency int
 	client         *http.Client
@@ -35,10 +33,8 @@ func NewHTTPTransport(options Options) (*HTTPTransport, error) {
 	return &HTTPTransport{
 		apiURL:         strings.TrimRight(options.APIURL, "/"),
 		token:          strings.TrimSpace(options.Token),
-		agentID:        strings.TrimSpace(options.AgentID),
 		name:           strings.TrimSpace(options.Name),
 		labels:         options.Labels,
-		scopes:         options.Scopes,
 		executor:       strings.TrimSpace(options.Executor),
 		maxConcurrency: options.MaxConcurrency,
 		client:         &http.Client{Timeout: 30 * time.Second},
@@ -52,10 +48,8 @@ func (t *HTTPTransport) Heartbeat(ctx context.Context, heartbeat Heartbeat) erro
 func (t *HTTPTransport) Claim(ctx context.Context, currentConcurrency int) (Task, error) {
 	var task Task
 	err := t.post(ctx, "/api/v1/builder/tasks/claim", Heartbeat{
-		AgentID:            t.agentID,
 		Name:               t.name,
 		Labels:             t.labels,
-		Scopes:             t.scopes,
 		Executor:           t.executor,
 		MaxConcurrency:     t.maxConcurrency,
 		CurrentConcurrency: currentConcurrency,
@@ -129,14 +123,12 @@ func (t *HTTPTransport) Close() error {
 
 func (t *HTTPTransport) taskPath(jobID string, leaseToken string, action string) string {
 	values := url.Values{}
-	values.Set("agentId", t.agentID)
 	values.Set("leaseToken", leaseToken)
 	return fmt.Sprintf("/api/v1/builder/tasks/%s/%s?%s", url.PathEscape(jobID), action, values.Encode())
 }
 
 func (t *HTTPTransport) hookPath(hookRunID string, leaseToken string, action string) string {
 	values := url.Values{}
-	values.Set("agentId", t.agentID)
 	values.Set("leaseToken", leaseToken)
 	return fmt.Sprintf("/api/v1/builder/hooks/%s/%s?%s", url.PathEscape(hookRunID), action, values.Encode())
 }
@@ -175,7 +167,6 @@ func (t *HTTPTransport) post(ctx context.Context, path string, payload any, outp
 
 func (t *HTTPTransport) cancelled(ctx context.Context, jobID string, leaseToken string) (bool, error) {
 	values := url.Values{}
-	values.Set("agentId", t.agentID)
 	values.Set("leaseToken", leaseToken)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/builder/tasks/%s/cancelled?%s", t.apiURL, url.PathEscape(jobID), values.Encode()), nil)
 	if err != nil {

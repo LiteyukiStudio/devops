@@ -12,6 +12,7 @@ import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
+import { HoverText } from '@/components/common/hover-text'
 import { RuntimeConfigFilesEditor } from '@/components/common/runtime-config-files-editor'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,24 @@ const runtimeConfigDefaults: ProjectRuntimeConfigSetPayload = {
   secretFiles: '',
   secretRefs: '',
 }
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
+function RuntimeConfigSetSummary({ item }: { item: ProjectRuntimeConfigSet }) {
+  const deleteFailedMessage = item.deleteStatus === 'delete_failed' ? item.deleteMessage?.trim() : ''
+  return (
+    <div className="min-w-0">
+      <span className="block truncate whitespace-nowrap" title={item.name}>{item.name}</span>
+      {item.deleteStatus && item.deleteStatus !== 'active' && (
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          <StatusValueBadge labelKeyPrefix="apps.deleteStatuses" value={item.deleteStatus} />
+          {deleteFailedMessage && (
+            <HoverText className="flex-1 text-xs text-muted-foreground" value={deleteFailedMessage} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function ProjectRuntimeConfigSetsPage({ projectId, ref }: { projectId: string, ref?: Ref<ProjectRuntimeConfigSetsPageHandle> }) {
   const { t } = useTranslation()
@@ -42,8 +61,14 @@ export function ProjectRuntimeConfigSetsPage({ projectId, ref }: { projectId: st
   const [configFilesValid, setConfigFilesValid] = useState(true)
   const [secretFilesValid, setSecretFilesValid] = useState(true)
   const [setToDelete, setSetToDelete] = useState<ProjectRuntimeConfigSet | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const form = useForm<ProjectRuntimeConfigSetPayload>({ defaultValues: runtimeConfigDefaults, mode: 'onChange' })
-  const configSets = useQuery({ queryKey: ['runtime-config-sets', projectId], queryFn: () => api.listProjectRuntimeConfigSets(projectId), enabled: Boolean(projectId) })
+  const configSets = useQuery({
+    queryKey: ['runtime-config-sets', projectId, page, pageSize],
+    queryFn: () => api.listProjectRuntimeConfigSetsPage(projectId, { page, pageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+    enabled: Boolean(projectId),
+  })
 
   const saveConfigSet = useMutation({
     mutationFn: (values: ProjectRuntimeConfigSetPayload) => editingSet
@@ -116,22 +141,42 @@ export function ProjectRuntimeConfigSetsPage({ projectId, ref }: { projectId: st
       </div>
       <DataList
         columns={[
-          { key: 'name', header: t('common.name'), className: 'min-w-48 px-4 py-3 align-middle', render: item => <span className="block truncate whitespace-nowrap" title={item.name}>{item.name}</span> },
+          { key: 'name', header: t('common.name'), className: 'min-w-48 px-4 py-3 align-middle', render: item => <RuntimeConfigSetSummary item={item} /> },
           { key: 'configFiles', header: t('runtimeConfigSets.configFiles'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => t('runtimeConfigSets.configFileState', { count: runtimeConfigFileCount(item.configFiles) }) },
           { key: 'secretFiles', header: t('runtimeConfigSets.secretFiles'), className: 'w-32 whitespace-nowrap px-4 py-3 align-middle', render: item => item.secretFilesSet ? t('runtimeConfigSets.configured') : t('runtimeConfigSets.notConfigured') },
           { key: 'enabled', header: t('common.status'), className: 'w-28 whitespace-nowrap px-4 py-3 align-middle', render: item => <StatusValueBadge value={item.enabled ? 'enabled' : 'disabled'} /> },
-          { key: 'actions', header: t('common.actions'), className: 'w-[1%] whitespace-nowrap px-4 py-3 text-right align-middle', render: item => (
-            <div className="flex justify-end gap-2">
-              <EditActionButton label={t('common.edit')} onClick={() => openDialog(item)} />
-              <Button size="sm" variant="ghost" onClick={() => setSetToDelete(item)}>
-                <Trash2 className="size-4" />
-                {t('common.delete')}
-              </Button>
-            </div>
-          ) },
+          { key: 'actions', header: t('common.actions'), className: 'w-[1%] whitespace-nowrap px-4 py-3 text-right align-middle', render: (item) => {
+            const deleting = item.deleteStatus === 'deleting'
+            return (
+              <div className="flex justify-end gap-2">
+                <EditActionButton disabled={deleting} label={t('common.edit')} onClick={() => openDialog(item)} />
+                <Button disabled={deleting} size="sm" variant="ghost" onClick={() => setSetToDelete(item)}>
+                  <Trash2 className="size-4" />
+                  {t('common.delete')}
+                </Button>
+              </div>
+            )
+          } },
         ]}
         emptyTitle={t('runtimeConfigSets.emptyTitle')}
-        items={configSets.data ?? []}
+        items={configSets.data?.items ?? []}
+        pagination={{
+          page: configSets.data?.page ?? page,
+          pageSize: configSets.data?.pageSize ?? pageSize,
+          pageSizeOptions: PAGE_SIZE_OPTIONS,
+          total: configSets.data?.total ?? 0,
+          totalPages: configSets.data?.totalPages ?? 0,
+          pageInfoLabel: t('pagination.pageInfo', {
+            page: configSets.data?.page ?? page,
+            totalPages: configSets.data?.totalPages ?? 0,
+            total: configSets.data?.total ?? 0,
+          }),
+          onPageChange: setPage,
+          onPageSizeChange: (nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(1)
+          },
+        }}
         rowKey={item => item.id}
         variant="plain"
       />

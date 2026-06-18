@@ -1,0 +1,17 @@
+[
+  {
+    "type": "file",
+    "name": "deployment",
+    "label": "功能地图"
+  },
+  {
+    "type": "file",
+    "name": "configuration",
+    "label": "配置与连接"
+  },
+  {
+    "type": "file",
+    "name": "diagnostics",
+    "label": "状态与排障"
+  }
+]
