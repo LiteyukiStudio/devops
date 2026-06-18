@@ -20,13 +20,16 @@ func registerStaticUI(router *gin.Engine, staticFS fs.FS) {
 			return
 		}
 		target := staticUIPath(ctx.Request.URL.Path)
+		if target == "index.html" {
+			serveStaticUIIndex(ctx, staticFS)
+			return
+		}
 		if staticUIFileExists(staticFS, target) {
 			ctx.Request.URL.Path = "/" + target
 			fileServer.ServeHTTP(ctx.Writer, ctx.Request)
 			return
 		}
-		ctx.Request.URL.Path = "/index.html"
-		fileServer.ServeHTTP(ctx.Writer, ctx.Request)
+		serveStaticUIIndex(ctx, staticFS)
 	})
 }
 
@@ -49,4 +52,13 @@ func staticUIPath(rawPath string) string {
 func staticUIFileExists(files fs.FS, name string) bool {
 	info, err := fs.Stat(files, name)
 	return err == nil && !info.IsDir()
+}
+
+func serveStaticUIIndex(ctx *gin.Context, staticFS fs.FS) {
+	data, err := fs.ReadFile(staticFS, "index.html")
+	if err != nil {
+		ctx.Status(http.StatusNotFound)
+		return
+	}
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", data)
 }

@@ -136,6 +136,7 @@
 - [x] 环境文件按运行边界拆分：`.env` 只保留基础模式开关，`.env.development` 面向宿主机进程，`.env.worker` 面向 worker 容器，并提供对应 `.example` 模板。
 - [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 继续使用 `.env.worker` 服务开发联调。
 - [x] 新增 GitHub Actions 容器发布工作流：仅构建 `linux/amd64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；分支发布 `nightly`，`v*` tag 发布版本 tag，稳定版本 tag 额外发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
+- [x] 修复内嵌 SPA 根路径和 fallback 被 Go FileServer 重定向到 `./` 的问题：`index.html` 改为直接返回，避免服务端根路径出现不必要 301。
 
 ## 3. 认证、权限与登录
 

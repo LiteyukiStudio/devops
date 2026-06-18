@@ -1,72 +1,38 @@
 # Configuration Reference
 
-This page explains the configuration used when starting the platform. For a first deployment, keep the defaults. Adjust these values when you connect a public domain, production mode, build cluster, or registry.
+For containerized deployment, inject settings through environment variables.
 
-## Configuration files
+Read Basic first. Use Advanced only when you need it.
 
-| File | Purpose | Best for |
-| --- | --- | --- |
-| `.env` | Keeps only the base runtime mode, such as `APP_ENV=development`. | Read by both local processes and Compose. |
-| `.env.worker` | Worker container settings, interpreted from inside the Compose network. | Worker in `docker compose up -d` and `docker-compose-dev.yaml`. |
-| `.env.development` | Host development settings, interpreted from the host network. | `go run ./cmd/api` or `go run ./cmd/worker`. |
+## API Settings
 
-<div class="hint">
-Inside a container, `localhost` means the container itself. When Worker runs in Compose, use service names such as `postgres` and `redis`.
-</div>
-
-## Shared settings
-
-Both API and Worker read these settings.
-
-| Key | Default | Meaning | Change when |
+| Type | Key | Default | Purpose and when to change |
 | --- | --- | --- | --- |
-| `APP_ENV` | `development` | Runtime mode. `development` enables local convenience behavior; production mode requires admin bootstrap. | Deploying to a real environment. |
-| `LOG_LEVEL` | `debug` | Log level. | Production usually uses `info`. |
-| `SECRET_ENCRYPTION_KEY` | Empty | Encrypts Git client secrets, tokens, registry credentials, and other sensitive values. | Required in production; keep it stable across restarts. |
-| `DATABASE_URL` | `postgres://devops:devops@postgres:5432/devops?sslmode=disable` | PostgreSQL connection string. | Using an external database, or host development with `localhost:5432`. |
-| `REDIS_ADDR` | `redis:6379` | Redis address. | Using an external Redis, or host development with `localhost:6379`. |
-| `ENV_FILE` | Empty | Extra override file read after `.env` and the mode-specific file. | Temporary local overrides, for example `ENV_FILE=.env.local go run ./cmd/api`. |
+| Basic | `APP_ENV` | `development` | Runtime mode; set `production` when going live. |
+| Basic | `SECRET_ENCRYPTION_KEY` | Empty | Secret encryption key; required and stable in production. |
+| Basic | `DATABASE_URL` | `postgres://devops:devops@postgres:5432/devops?sslmode=disable` | PostgreSQL URL; change when using another database or credential. |
+| Basic | `REDIS_ADDR` | `redis:6379` | Redis address; change when using external Redis. |
+| Basic | `PUBLIC_BASE_URL` | `http://localhost:8088` | Public platform URL; change for public domain, HTTPS, or reverse proxy. |
+| Advanced | `API_ADDR` | `:8080` | API listen address; change for custom container ports. |
+| Advanced | `APP_CORS_ORIGINS` | `http://localhost:8088` | Allowed frontend origins; change when frontend and API use different origins. |
+| Advanced | `LOG_LEVEL` | `debug` | Log level; production usually uses `info`. |
 
-## API settings
+## Worker Settings
 
-| Key | Compose default | Meaning | Change when |
+| Type | Key | Default | Purpose and when to change |
 | --- | --- | --- | --- |
-| `API_ADDR` | `:8080` | API listen address inside the container. | Usually keep it; change only for custom container networking or ports. |
-| `PUBLIC_BASE_URL` | `http://localhost:8088` | Public platform URL used for OIDC callbacks, Git webhook callbacks, and public frontend links. | You have a public domain, reverse proxy, or HTTPS endpoint. |
-| `APP_CORS_ORIGINS` | `http://localhost:8088` | Frontend origins allowed to call the API. Separate multiple origins with commas. | Frontend and API use different domains or ports. |
-
-## Worker settings
-
-| Key | Default | Meaning | Change when |
-| --- | --- | --- | --- |
-| `DEPLOY_ROLLOUT_TIMEOUT_SECONDS` | `600` | Timeout while waiting for Kubernetes rollout after release. | Applications start slowly or image pulls take longer. |
-| `CERT_MANAGER_CLUSTER_ISSUER` | `letsencrypt-http01` | cert-manager ClusterIssuer used for certificate requests. | Your cluster uses a different Issuer name. |
-| `BUILD_EXECUTOR_IMAGE` | `moby/buildkit:v0.24.0-rootless` | BuildKit rootless image used by build Jobs. | You need an internal image mirror or a different BuildKit version. |
-| `BUILD_JOB_TIMEOUT_SECONDS` | `5400` | Timeout for one build Job. | Large projects need longer build time. |
-| `BUILD_JOB_TTL_SECONDS` | `3600` | How long completed build Jobs / Pods stay around. | You want a longer log inspection window. |
-| `BUILD_CACHE_ENABLED` | `false` | Enables build cache. | You want faster repeated builds and your registry supports the cache flow. |
-| `BUILD_CACHE_TAG` | `buildcache` | Tag used for build cache. | You need to isolate cache by environment or project. |
-| `BUILD_NPM_REGISTRY` | Empty | npm registry injected into Node builds. | You use an internal npm mirror. |
-| `BUILD_PRIVATE_EGRESS_CIDRS` | Empty | Private CIDRs build Jobs may access. Separate multiple values with commas. | Builds need access to internal registries or mirrors. |
-| `BUILD_BLOCKED_EGRESS_CIDRS` | Empty | Extra CIDRs build Jobs must not access. Separate multiple values with commas. | You need stricter build network isolation. |
-
-## Docker Compose settings
-
-| Key | Default | Meaning | Change when |
-| --- | --- | --- | --- |
-| `DEVOPS_IMAGE_TAG` | `nightly` | API / Worker image tag. Images are `liteyukistudio/devops-api:${DEVOPS_IMAGE_TAG}` and `liteyukistudio/devops-worker:${DEVOPS_IMAGE_TAG}`. | Pinning a release, rolling back, or testing a specific tag. |
-| `8088:8080` | Host port `8088` | Host port used to open the console. | Port `8088` is occupied, or you want another entry port. |
-| `POSTGRES_DB` | `devops` | Built-in PostgreSQL database name. | Usually keep it; for external DBs, change `DATABASE_URL` instead. |
-| `POSTGRES_USER` | `devops` | Built-in PostgreSQL username. | Only when keeping the built-in PostgreSQL and changing credentials. |
-| `POSTGRES_PASSWORD` | `devops` | Built-in PostgreSQL password. | For production, prefer an external database or change this to a strong password. |
-
-## Minimal production checklist
-
-| Key | Recommendation |
-| --- | --- |
-| `APP_ENV` | Set to `production`. |
-| `SECRET_ENCRYPTION_KEY` | Use a stable random value; do not change it during restarts or upgrades. |
-| `PUBLIC_BASE_URL` | Use the real external HTTPS URL. |
-| `APP_CORS_ORIGINS` | Keep only trusted frontend origins. |
-| `DATABASE_URL` | Use a reliable PostgreSQL instance with backups. |
-| `DEVOPS_IMAGE_TAG` | Use an explicit release tag instead of relying on `nightly` long term. |
+| Basic | `APP_ENV` | `development` | Runtime mode; keep it aligned with API. |
+| Basic | `SECRET_ENCRYPTION_KEY` | Empty | Decrypts saved secrets; must match API. |
+| Basic | `DATABASE_URL` | `postgres://devops:devops@postgres:5432/devops?sslmode=disable` | PostgreSQL URL; point to the same database as API. |
+| Basic | `REDIS_ADDR` | `redis:6379` | Redis address; point to the same Redis as API. |
+| Basic | `BUILD_EXECUTOR_IMAGE` | `moby/buildkit:v0.24.0-rootless` | BuildKit image; change when the build cluster cannot pull the default image. |
+| Advanced | `LOG_LEVEL` | `debug` | Log level; production usually uses `info`. |
+| Advanced | `DEPLOY_ROLLOUT_TIMEOUT_SECONDS` | `600` | Release wait timeout; increase for slow-starting apps. |
+| Advanced | `CERT_MANAGER_CLUSTER_ISSUER` | `letsencrypt-http01` | Certificate Issuer name; change when your cluster uses another name. |
+| Advanced | `BUILD_JOB_TIMEOUT_SECONDS` | `5400` | Build timeout; increase for large projects. |
+| Advanced | `BUILD_JOB_TTL_SECONDS` | `3600` | Completed build Pod retention; increase for a longer log window. |
+| Advanced | `BUILD_CACHE_ENABLED` | `false` | Build cache switch; enable for faster repeated builds. |
+| Advanced | `BUILD_CACHE_TAG` | `buildcache` | Build cache tag; change to isolate cache. |
+| Advanced | `BUILD_NPM_REGISTRY` | Empty | npm registry; set when using an internal mirror. |
+| Advanced | `BUILD_PRIVATE_EGRESS_CIDRS` | Empty | Private CIDRs builds may access; set for internal registries or mirrors. |
+| Advanced | `BUILD_BLOCKED_EGRESS_CIDRS` | Empty | CIDRs builds must not access; set for stricter isolation. |

@@ -36,8 +36,7 @@
 }
 
 .rp-doc h2 {
-  border-top: 1px solid var(--rp-c-divider);
-  padding-top: 24px;
+  padding-top: 8px;
 }
 
 .rp-doc table code,
