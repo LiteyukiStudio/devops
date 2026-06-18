@@ -10,7 +10,7 @@ pnpm install
 
 ## Get started
 
-Start the dev server (default: `http://127.0.0.1:5274`):
+Start the dev server (default: `http://localhost:5274`):
 
 ```bash
 pnpm run dev
@@ -22,7 +22,7 @@ Build the website for production:
 pnpm run build
 ```
 
-Preview the production build locally (default: `http://127.0.0.1:5274`):
+Preview the production build locally (default: `http://localhost:5274`):
 
 ```bash
 pnpm run preview

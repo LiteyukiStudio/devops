@@ -6,6 +6,11 @@
   },
   {
     "type": "file",
+    "name": "configuration-reference",
+    "label": "Configuration Reference"
+  },
+  {
+    "type": "file",
     "name": "product",
     "label": "First Visit"
   },

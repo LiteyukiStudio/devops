@@ -6,6 +6,11 @@
   },
   {
     "type": "file",
+    "name": "configuration-reference",
+    "label": "配置项详解"
+  },
+  {
+    "type": "file",
     "name": "product",
     "label": "第一次进入平台"
   },

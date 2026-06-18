@@ -23,8 +23,6 @@ services:
 
   api:
     image: liteyukistudio/devops-api:${DEVOPS_IMAGE_TAG:-nightly}
-    extra_hosts:
-      - "dev.minikube.local:host-gateway"
     environment:
       API_ADDR: :8080
       APP_ENV: ${APP_ENV:-development}
@@ -44,8 +42,6 @@ services:
 
   worker:
     image: liteyukistudio/devops-worker:${DEVOPS_IMAGE_TAG:-nightly}
-    extra_hosts:
-      - "dev.minikube.local:host-gateway"
     environment:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-debug}

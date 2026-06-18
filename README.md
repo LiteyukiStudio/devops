@@ -101,10 +101,12 @@ pnpm --dir web dev
 
 ### 本地 minikube 部署联调
 
-当 API / worker 运行在 Docker Compose 容器中时，集群 kubeconfig 不要使用宿主机专用的 `https://127.0.0.1:<port>` 和外链证书文件路径。推荐为本地 minikube 预留统一域名：
+当 API / worker 运行在 Docker Compose 容器中时，集群 kubeconfig 不要使用宿主机专用的 `https://127.0.0.1:<port>` 和外链证书文件路径。默认 `docker-compose*.yaml` 不内置本地 minikube 域名映射；只有需要在容器内访问宿主机 minikube apiserver 时，再用本地 override 追加。
+
+推荐为本地 minikube 预留统一域名：
 
 - 宿主机 `/etc/hosts`：`127.0.0.1 dev.minikube.local`
-- Docker Compose 容器：`docker-compose*.yaml` 已将 `dev.minikube.local` 解析到宿主机网关
+- Docker Compose 容器：通过本地 override 将 `dev.minikube.local` 解析到宿主机网关
 - minikube apiserver 证书：启动 profile 时需要把 `dev.minikube.local` 加入 apiserver SAN
 
 示例：
@@ -112,6 +114,21 @@ pnpm --dir web dev
 ```bash
 minikube -p liteyuki-devops start --apiserver-names=dev.minikube.local
 kubectl config view --raw --minify --flatten > /tmp/liteyuki-devops.kubeconfig
+```
+
+如果 worker 跑在 Compose 容器里，可以新建不提交的 `docker-compose-minikube.override.yaml`：
+
+```yaml
+services:
+  worker:
+    extra_hosts:
+      - "dev.minikube.local:host-gateway"
+```
+
+再启动：
+
+```bash
+docker compose -f docker-compose-dev.yaml -f docker-compose-minikube.override.yaml up -d --build
 ```
 
 然后将导出的 kubeconfig 中的 server 改为 `https://dev.minikube.local:<apiserver-port>`，再保存到平台运行集群配置。`--flatten` 必须保留，用于把 `certificate-authority-data`、`client-certificate-data` 和 `client-key-data` 内联到 kubeconfig，避免 worker 容器读取不到宿主机证书文件。

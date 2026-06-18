@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "rspress build",
-    "dev": "rspress dev --host 127.0.0.1 --port 5274",
-    "preview": "rspress preview --host 127.0.0.1 --port 5274"
+    "dev": "rspress dev --host localhost --port 5274",
+    "preview": "rspress preview --host localhost --port 5274"
   },
   "dependencies": {
     "@rspress/core": "^2.0.14"
