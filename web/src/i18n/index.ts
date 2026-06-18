@@ -9,9 +9,26 @@ const resources = {
   'en-US': { translation: enUS },
 }
 
+type SupportedLanguage = 'zh-CN' | 'en-US'
+
 function detectBrowserLanguage() {
-  const languages = [localStorage.getItem('liteyuki-language'), ...navigator.languages, navigator.language].filter(Boolean)
-  return languages.some(language => language?.toLowerCase().startsWith('en')) ? 'en-US' : 'zh-CN'
+  const storedLanguage = normalizeLanguage(localStorage.getItem('liteyuki-language'))
+  if (storedLanguage)
+    return storedLanguage
+
+  const browserLanguages = [...navigator.languages, navigator.language].filter(Boolean)
+  return browserLanguages.map(normalizeLanguage).find(Boolean) ?? 'zh-CN'
+}
+
+function normalizeLanguage(language?: string | null): SupportedLanguage | undefined {
+  const normalized = language?.trim().toLowerCase()
+  if (!normalized)
+    return undefined
+  if (normalized === 'zh-cn' || normalized === 'zh' || normalized.startsWith('zh-'))
+    return 'zh-CN'
+  if (normalized === 'en-us' || normalized === 'en' || normalized.startsWith('en-'))
+    return 'en-US'
+  return undefined
 }
 
 i18next.use(initReactI18next).init({

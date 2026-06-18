@@ -15,12 +15,13 @@ import (
 )
 
 type configDefinition struct {
-	Key         string `json:"key"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Public      bool   `json:"public"`
-	Default     string `json:"default"`
+	Key         string   `json:"key"`
+	Label       string   `json:"label"`
+	Description string   `json:"description"`
+	Type        string   `json:"type"`
+	Public      bool     `json:"public"`
+	Default     string   `json:"default"`
+	Options     []string `json:"options,omitempty"`
 }
 
 var configDefinitions = []configDefinition{
@@ -63,6 +64,15 @@ var configDefinitions = []configDefinition{
 		Type:        "string",
 		Public:      false,
 		Default:     "apps.local",
+	},
+	{
+		Key:         "gateway.publicScheme",
+		Label:       "访问链接协议",
+		Description: "控制台展示和打开访问入口时使用的默认协议。外层 CDN 已经提供 HTTPS 时可选择 https；这不会让平台自动申请证书。",
+		Type:        "select",
+		Public:      false,
+		Default:     "http",
+		Options:     []string{"http", "https"},
 	},
 	{
 		Key:         "security.egress.domainAllowList",
@@ -208,6 +218,10 @@ func (h *Handlers) UpdateConfigs(ctx *gin.Context) {
 			writeError(ctx, http.StatusBadRequest, err.Error())
 			return
 		}
+		if definition := configDefinitionByKey(key); definition != nil && len(definition.Options) > 0 && !configOptionAllowed(value, definition.Options) {
+			writeError(ctx, http.StatusBadRequest, fmt.Sprintf("invalid config value for %s", key))
+			return
+		}
 		row := model.AppConfig{Key: key, Value: value, UpdatedAt: time.Now()}
 		if err := h.db.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "key"}},
@@ -248,8 +262,21 @@ func knownConfigKeys() []string {
 }
 
 func isKnownConfigKey(key string) bool {
+	return configDefinitionByKey(key) != nil
+}
+
+func configDefinitionByKey(key string) *configDefinition {
 	for _, definition := range configDefinitions {
 		if definition.Key == key {
+			return &definition
+		}
+	}
+	return nil
+}
+
+func configOptionAllowed(value string, options []string) bool {
+	for _, option := range options {
+		if value == option {
 			return true
 		}
 	}

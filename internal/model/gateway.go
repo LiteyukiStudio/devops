@@ -27,6 +27,7 @@ type GatewayRoute struct {
 	DeleteStartedAt    *time.Time     `json:"deleteStartedAt"`
 	DeleteFinishedAt   *time.Time     `json:"deleteFinishedAt"`
 	IsDefault          bool           `gorm:"not null;default:false" json:"isDefault"`
+	AccessURL          string         `gorm:"-" json:"accessUrl"`
 	CreatedBy          string         `gorm:"index" json:"createdBy"`
 	CreatedAt          time.Time      `json:"createdAt"`
 	UpdatedAt          time.Time      `json:"updatedAt"`

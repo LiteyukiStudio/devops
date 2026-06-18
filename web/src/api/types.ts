@@ -559,6 +559,7 @@ export interface GatewayRoute {
   certificateStatus: 'disabled' | 'pending' | 'issued' | 'failed' | 'expired'
   cnameName: string
   cnameTarget: string
+  accessUrl: string
   dnsStatus: 'pending' | 'verified' | 'failed'
   status: 'pending' | 'ready' | 'active' | 'disabled' | 'failed'
   enabled: boolean
@@ -691,9 +692,10 @@ export interface ConfigDefinition {
   key: string
   label: string
   description: string
-  type: 'string' | 'textarea'
+  type: 'string' | 'textarea' | 'select'
   public: boolean
   default: string
+  options?: string[]
 }
 
 export interface BootstrapStatus {

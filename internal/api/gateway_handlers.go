@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -37,14 +38,14 @@ func (h *Handlers) ListGatewayRoutes(ctx *gin.Context) {
 			writeError(ctx, http.StatusInternalServerError, err.Error())
 			return
 		}
-		ctx.JSON(http.StatusOK, paginatedResponse(routes, total, pagination))
+		ctx.JSON(http.StatusOK, paginatedResponse(h.gatewayRoutesWithAccessURL(routes), total, pagination))
 		return
 	}
 	if err := query.Find(&routes).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, routes)
+	ctx.JSON(http.StatusOK, h.gatewayRoutesWithAccessURL(routes))
 }
 
 func (h *Handlers) CreateGatewayRoute(ctx *gin.Context) {
@@ -77,7 +78,7 @@ func (h *Handlers) CreateGatewayRoute(ctx *gin.Context) {
 		writeError(ctx, http.StatusServiceUnavailable, "网关任务投递失败，请稍后重试")
 		return
 	}
-	ctx.JSON(http.StatusCreated, route)
+	ctx.JSON(http.StatusCreated, h.gatewayRouteWithAccessURL(route))
 }
 
 func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
@@ -130,7 +131,7 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 		writeError(ctx, http.StatusServiceUnavailable, "网关任务投递失败，请稍后重试")
 		return
 	}
-	ctx.JSON(http.StatusOK, route)
+	ctx.JSON(http.StatusOK, h.gatewayRouteWithAccessURL(route))
 }
 
 func (h *Handlers) DeleteGatewayRoute(ctx *gin.Context) {
@@ -353,6 +354,49 @@ func (h *Handlers) gatewayRootDomain() string {
 		rootDomain = "apps.local"
 	}
 	return rootDomain
+}
+
+func (h *Handlers) gatewayPublicScheme() string {
+	switch strings.ToLower(strings.TrimSpace(h.configValue("gateway.publicScheme"))) {
+	case "https":
+		return "https"
+	default:
+		return "http"
+	}
+}
+
+func (h *Handlers) gatewayRouteWithAccessURL(route model.GatewayRoute) model.GatewayRoute {
+	route.AccessURL = gatewayRouteAccessURL(route, h.gatewayPublicScheme())
+	return route
+}
+
+func (h *Handlers) gatewayRoutesWithAccessURL(routes []model.GatewayRoute) []model.GatewayRoute {
+	result := make([]model.GatewayRoute, len(routes))
+	for index, route := range routes {
+		result[index] = h.gatewayRouteWithAccessURL(route)
+	}
+	return result
+}
+
+func gatewayRouteAccessURL(route model.GatewayRoute, scheme string) string {
+	host := strings.TrimSpace(route.Host)
+	if host == "" {
+		return ""
+	}
+	if scheme != "https" {
+		scheme = "http"
+	}
+	pathValue := strings.TrimSpace(route.Path)
+	if pathValue == "" {
+		pathValue = "/"
+	}
+	if !strings.HasPrefix(pathValue, "/") {
+		pathValue = "/" + pathValue
+	}
+	if pathValue == "/" {
+		pathValue = ""
+	}
+	return (&url.URL{Scheme: scheme, Host: host, Path: pathValue}).String()
 }
 
 func (h *Handlers) gatewayHostExists(host, routeID string) bool {

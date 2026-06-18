@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { gatewayDeploymentTargetLabel } from './application-config-utils'
 
-type RouteForm = Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'>
+type RouteForm = Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'accessUrl' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'>
 
 const routeDefaults: RouteForm = { applicationId: '', certificateStatus: 'disabled', deploymentTargetId: '', dnsStatus: 'pending', enabled: true, environmentId: '', host: '', isDefault: false, path: '/', servicePort: 8080, status: 'pending', tlsMode: 'http-only' }
 
@@ -160,9 +160,10 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, envi
 
 function GatewayRouteSummary({ item }: { item: GatewayRoute }) {
   const deleteFailedMessage = item.deleteStatus === 'delete_failed' ? item.deleteMessage?.trim() : ''
+  const displayUrl = item.accessUrl?.trim() || item.host
   return (
     <div className="min-w-0">
-      <span className="block truncate">{item.host}</span>
+      <span className="block truncate" title={displayUrl}>{displayUrl}</span>
       {item.deleteStatus && item.deleteStatus !== 'active' && (
         <div className="mt-1 flex min-w-0 items-center gap-2">
           <StatusValueBadge labelKeyPrefix="apps.deleteStatuses" value={item.deleteStatus} />

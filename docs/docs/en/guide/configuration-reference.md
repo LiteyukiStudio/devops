@@ -19,6 +19,10 @@ Read Basic first. Use Advanced only when you need it.
 
 OIDC identity provider Redirect URI is generated from `PUBLIC_BASE_URL`, and the admin identity provider form shows a copyable value. Admission policy requires OIDC to return a non-empty email and `email_verified=true` by default. For trusted internal identity providers that cannot return the standard `email_verified` claim, disable “Require verified OIDC email” in the admission policy; the platform still requires a non-empty email.
 
+Before login, the frontend picks the first supported language from the browser language preference list. The supported languages are currently `zh-CN` and `en-US`. After login, the account language preference wins and is cached locally so the next page load uses the same language immediately.
+
+The public route link scheme is managed in Admin Settings / Gateway as `gateway.publicScheme`, defaulting to `http`. Set it to `https` when an outer CDN or reverse proxy already terminates HTTPS. It only changes console display and link targets; it does not request certificates.
+
 ## Worker Settings
 
 | Type | Key | Default | Purpose and when to change |

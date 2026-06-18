@@ -203,6 +203,8 @@ function latestReleaseForTarget(releases: Release[], target: DeploymentTarget) {
 }
 
 function routeDisplayUrl(route: GatewayRoute) {
+  if (route.accessUrl?.trim())
+    return route.accessUrl.trim()
   const host = route.host.trim()
   if (!host)
     return '-'

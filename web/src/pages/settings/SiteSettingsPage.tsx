@@ -11,6 +11,7 @@ import { FormField as Field } from '@/components/common/form-field'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -97,7 +98,7 @@ export function SiteSettingsPage() {
 }
 
 interface ConfigSectionProps {
-  definitions: Array<{ key: string, label: string, description: string, type: 'string' | 'textarea' }>
+  definitions: Array<{ key: string, label: string, description: string, type: 'string' | 'textarea' | 'select', options?: string[] }>
   form: ReturnType<typeof useForm<Record<string, unknown>>>
 }
 
@@ -111,7 +112,15 @@ function ConfigSection({ definitions, form }: ConfigSectionProps) {
         <Field key={definition.key} hint={definition.description} label={definition.label}>
           {definition.type === 'textarea'
             ? <Textarea className="min-h-28 resize-y font-mono text-sm" {...form.register(definition.key)} />
-            : <Input {...form.register(definition.key)} />}
+            : definition.type === 'select'
+              ? (
+                  <Select {...form.register(definition.key)}>
+                    {(definition.options ?? []).map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </Select>
+                )
+              : <Input {...form.register(definition.key)} />}
           <p className="text-xs font-normal text-muted-foreground">
             {definition.key}
             {' · '}

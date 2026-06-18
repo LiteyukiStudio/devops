@@ -41,3 +41,5 @@ For a first run, deploy an existing image before wiring Git providers and automa
 ## Routes
 
 Routes connect domain, path, TLS, and backend service. After creating one, the platform shows apply status and checks so you can verify the service is reachable.
+
+The site-level “public route link scheme” only controls whether the console displays and opens route links with `http` or `https`. If an outer CDN or reverse proxy already terminates HTTPS, set it to `https` while keeping the route TLS mode as HTTP-only, so the platform does not request an in-cluster certificate.
