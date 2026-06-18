@@ -272,7 +272,7 @@ func ipListedBy(ip net.IP, list []string) (bool, string) {
 			return true, item
 		}
 		_, cidr, err := net.ParseCIDR(item)
-		if err == nil && cidr.Contains(ip) {
+		if err == nil && cidrContainsSameFamily(cidr, ip) {
 			return true, item
 		}
 	}
@@ -292,11 +292,36 @@ func isPrivateOrSpecialIP(ip net.IP) bool {
 func inCIDRs(ip net.IP, cidrs []string) bool {
 	for _, item := range cidrs {
 		_, cidr, err := net.ParseCIDR(item)
-		if err == nil && cidr.Contains(ip) {
+		if err == nil && cidrContainsSameFamily(cidr, ip) {
 			return true
 		}
 	}
 	return false
+}
+
+func cidrContainsSameFamily(cidr *net.IPNet, ip net.IP) bool {
+	normalizedIP := normalizeIPForCIDR(cidr, ip)
+	if normalizedIP == nil {
+		return false
+	}
+	return cidr.Contains(normalizedIP)
+}
+
+func normalizeIPForCIDR(cidr *net.IPNet, ip net.IP) net.IP {
+	if cidr == nil || ip == nil {
+		return nil
+	}
+	_, bits := cidr.Mask.Size()
+	if bits == 32 {
+		return ip.To4()
+	}
+	if bits != 128 {
+		return nil
+	}
+	if ip.To4() != nil {
+		return nil
+	}
+	return ip.To16()
 }
 
 func egressDebug(format string, args ...any) {

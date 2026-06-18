@@ -100,6 +100,29 @@ func TestIPBlockErrorIncludesMatchedRule(t *testing.T) {
 	}
 }
 
+func TestIPv4DoesNotMatchIPv4MappedIPv6CIDR(t *testing.T) {
+	policy := AdminEgressPolicy()
+	policy.IPBlockList = []string{"::ffff:0:0/96"}
+
+	if err := policy.ValidateHostPort("20.205.243.166", 443); err != nil {
+		t.Fatalf("plain IPv4 should not match IPv4-mapped IPv6 CIDR: %v", err)
+	}
+}
+
+func TestCIDRBlockListMatchesSameIPFamily(t *testing.T) {
+	policy := AdminEgressPolicy()
+	policy.IPBlockList = []string{"20.205.243.0/24"}
+
+	if err := policy.ValidateHostPort("20.205.243.166", 443); !errors.Is(err, ErrBlockedByPolicy) {
+		t.Fatalf("IPv4 CIDR should block IPv4 target, got %v", err)
+	}
+
+	policy.IPBlockList = []string{"2001:db8::/32"}
+	if err := policy.ValidateHostPort("2001:db8::1", 443); !errors.Is(err, ErrBlockedByPolicy) {
+		t.Fatalf("IPv6 CIDR should block IPv6 target, got %v", err)
+	}
+}
+
 func TestEgressPolicyForRole(t *testing.T) {
 	if EgressPolicyForRole("user").AllowPrivateNetwork {
 		t.Fatal("normal user should not be allowed to access private network")
