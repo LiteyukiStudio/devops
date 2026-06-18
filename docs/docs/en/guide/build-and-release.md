@@ -2,13 +2,18 @@
 
 This page covers the most common Docker Compose startup issues. Deeper build and cluster issues are covered in the Use section.
 
-## `.env.worker` is missing
+## Verify a specific image tag
 
-If startup reports `env file .env.worker not found`, run:
+The default `docker-compose.yaml` uses the `nightly` images. To verify an RC or stable release, set `DEVOPS_IMAGE_TAG` before starting:
 
 ```bash
-cp .env.worker.example .env.worker
-docker compose up -d --build
+DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
+```
+
+If you want to build images from the current source tree instead of pulling DockerHub images, use the source-build Compose file:
+
+```bash
+docker compose -f docker-compose-build.yaml up -d --build
 ```
 
 ## Port `8088` is occupied

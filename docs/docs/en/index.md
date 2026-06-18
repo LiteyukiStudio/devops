@@ -18,7 +18,7 @@ hero:
     alt: Liteyuki DevOps mascot
 features:
   - title: Start: Docker Compose deploy
-    details: Prepare .env.worker, run docker compose up -d --build, then open localhost:8088 to enter the console.
+    details: Pull liteyukistudio images by default, run docker compose up -d, then open localhost:8088 to enter the console.
     link: /guide/getting-started
   - title: Use: feature map
     details: Project spaces, applications, deployment targets, Releases, and routes follow the daily delivery workflow.

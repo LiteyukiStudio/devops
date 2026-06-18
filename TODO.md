@@ -132,10 +132,10 @@
 - [x] 提供完整 docker compose 运行编排。
 - [x] 拆分开发依赖和完整部署的 compose 边界：开发依赖使用独立项目名并暴露 PG/Redis，完整部署的 PG/Redis 仅走容器内网络，避免端口和容器项目名冲突。
 - [x] 明确本地开发拓扑：前端、API、worker 优先在宿主机运行，PG/Redis 由 dev compose 提供；构建联调使用部署配置所选运行集群的 Kubernetes Job。
-- [x] 将 compose 场景收敛为两份：`docker-compose-dev.yaml` 启动 PG/Redis/worker 用于开发联调，`docker-compose.yaml` 保留完整部署栈。
+- [x] 将 compose 场景收敛为三份：`docker-compose-dev.yaml` 启动 PG/Redis/worker 用于开发联调，`docker-compose.yaml` 使用 DockerHub 镜像启动完整部署栈，`docker-compose-build.yaml` 从当前源码构建完整部署栈。
 - [x] 环境文件按运行边界拆分：`.env` 只保留基础模式开关，`.env.development` 面向宿主机进程，`.env.worker` 面向 worker 容器，并提供对应 `.example` 模板。
-- [x] `docker-compose-dev.yaml` 和 `docker-compose.yaml` 的 worker 显式读取 `.env.worker`，Compose 文件只保留具体拓扑需要覆盖的 API 地址等少量差异。
-- [x] 新增 GitHub Actions 多架构容器发布工作流：仅构建 `linux/amd64` 和 `linux/arm64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；`v*` tag 发布版本 tag 和 `latest`，分支发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
+- [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 继续使用 `.env.worker` 服务开发联调。
+- [x] 新增 GitHub Actions 容器发布工作流：仅构建 `linux/amd64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；分支发布 `nightly`，`v*` tag 发布版本 tag，稳定版本 tag 额外发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
 
 ## 3. 认证、权限与登录
 

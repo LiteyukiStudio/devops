@@ -18,7 +18,7 @@ hero:
     alt: Liteyuki DevOps mascot
 features:
   - title: 开始：Docker Compose 部署
-    details: 先准备 .env.worker，再用 docker compose up -d --build 启动完整平台，打开 localhost:8088 即可进入控制台。
+    details: 默认拉取 liteyukistudio 镜像，用 docker compose up -d 启动完整平台，打开 localhost:8088 即可进入控制台。
     link: /guide/getting-started
   - title: 使用：功能地图
     details: 用项目空间管理团队和资源，用应用、部署配置、Release 和访问入口串起日常交付。

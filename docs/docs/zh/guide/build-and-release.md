@@ -2,13 +2,18 @@
 
 这里先放 Docker Compose 部署最常见的问题。复杂的构建和集群问题放在“使用”里慢慢查。
 
-## `.env.worker` 不存在
+## 想验证指定镜像版本
 
-如果启动时报 `env file .env.worker not found`，先执行：
+默认 `docker-compose.yaml` 使用 `nightly` 镜像。验证 RC 或稳定版本时，在启动命令前设置 `DEVOPS_IMAGE_TAG`：
 
 ```bash
-cp .env.worker.example .env.worker
-docker compose up -d --build
+DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
+```
+
+如果你要从当前源码构建镜像，而不是拉取 DockerHub 镜像，使用源码构建 compose：
+
+```bash
+docker compose -f docker-compose-build.yaml up -d --build
 ```
 
 ## 端口 `8088` 被占用

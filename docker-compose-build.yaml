@@ -22,7 +22,12 @@ services:
       retries: 20
 
   api:
-    image: liteyukistudio/devops-api:${DEVOPS_IMAGE_TAG:-nightly}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-embed-web
+      args:
+        TARGET: api
     extra_hosts:
       - "dev.minikube.local:host-gateway"
     environment:
@@ -43,7 +48,11 @@ services:
       - "8088:8080"
 
   worker:
-    image: liteyukistudio/devops-worker:${DEVOPS_IMAGE_TAG:-nightly}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TARGET: worker
     extra_hosts:
       - "dev.minikube.local:host-gateway"
     environment:

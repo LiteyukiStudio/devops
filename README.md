@@ -147,7 +147,8 @@ docker compose -f docker-compose-dev.yaml up -d --build
 | 文件 | 用途 | 对外端口 | 适合场景 |
 | --- | --- | --- | --- |
 | `docker-compose-dev.yaml` | 启动 PostgreSQL / Redis / worker | `5432`, `6379` | 默认开发联调，Vite 和 API 在宿主机跑 |
-| `docker-compose.yaml` | 完整平台部署栈 | `8088` | 完整部署验收 |
+| `docker-compose.yaml` | 使用 DockerHub 镜像启动完整平台部署栈 | `8088` | 完整部署验收 / RC 镜像验证 |
+| `docker-compose-build.yaml` | 从当前源码构建并启动完整平台部署栈 | `8088` | 本地镜像构建验证 |
 
 常用命令：
 
@@ -155,23 +156,38 @@ docker compose -f docker-compose-dev.yaml up -d --build
 # 开发联调：PG/Redis/worker
 docker compose -f docker-compose-dev.yaml up -d --build
 
-# 完整容器化部署
-docker compose up -d --build
+# 使用 DockerHub 镜像启动完整平台
+docker compose up -d
+
+# 从当前源码构建完整平台
+docker compose -f docker-compose-build.yaml up -d --build
 ```
 
 开发 compose 使用独立项目名 `liteyuki-devops-dev`，会占用宿主机 `5432` / `6379`。完整部署栈的 PostgreSQL / Redis 只在容器网络内访问，不占用宿主机数据库和缓存端口。
 
 ## 容器运行
 
-构建并启动完整平台：
+使用 DockerHub 镜像启动完整平台：
 
 ```bash
-docker compose up --build
+docker compose up -d
+```
+
+默认使用 `liteyukistudio/devops-api:${DEVOPS_IMAGE_TAG:-nightly}` 和 `liteyukistudio/devops-worker:${DEVOPS_IMAGE_TAG:-nightly}`。需要验证指定版本时可以覆盖镜像 tag：
+
+```bash
+DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
+```
+
+如需从当前源码构建镜像并启动完整平台，使用：
+
+```bash
+docker compose -f docker-compose-build.yaml up -d --build
 ```
 
 完整平台 compose 内置 PostgreSQL / Redis 只在容器网络内访问，不占用宿主机 `5432` / `6379`，避免和开发依赖冲突；对外只暴露 API 的 `8088`。API 镜像内嵌前端 SPA 静态文件，根路径和前端路由由后端 fallback 到 `index.html`，`/api/*` 和 `/healthz` 继续走后端接口。
 
-发布工作流只构建 `linux/amd64` 和 `linux/arm64` 两种架构容器镜像，并发布到 DockerHub：`liteyukistudio/devops-api`、`liteyukistudio/devops-worker`。`devops-api` 使用 Go `embed` 内嵌前端构建产物，不再维护独立前端 Dockerfile 或 nginx 前端镜像，也不额外发布 GitHub Release 二进制产物。推送 `v*` tag 时发布版本 tag 和 `latest`，推送 `main` / `dev` 时发布 `latest`。
+发布工作流只构建 `linux/amd64` 容器镜像，并发布到 DockerHub：`liteyukistudio/devops-api`、`liteyukistudio/devops-worker`。`devops-api` 使用 Go `embed` 内嵌前端构建产物，不再维护独立前端 Dockerfile 或 nginx 前端镜像，也不额外发布 GitHub Release 二进制产物。推送 `main` / `dev` 时发布 `nightly`；推送 `v*` tag 时发布版本 tag；只有稳定版本 tag（如 `v0.1.0`）额外发布 `latest`。
 
 访问前端：
 
@@ -194,7 +210,7 @@ worker
   -> build job pod / BuildKit
 ```
 
-Worker 构建参数通过 `.env.worker` 或进程环境配置：
+完整 compose 已内联 API / worker 运行环境变量，生产部署时可以通过宿主机环境变量覆盖密钥、域名、镜像 tag 和构建参数。Worker 构建参数示例：
 
 ```env
 BUILD_EXECUTOR_IMAGE=moby/buildkit:v0.24.0-rootless
@@ -217,7 +233,7 @@ BUILD_BLOCKED_EGRESS_CIDRS=
 | `APP_ENV=production` | 禁用开发默认管理员；没有平台管理员时需访问 `/bootstrap` 初始化 |
 | 未设置 `APP_ENV` | 默认按生产模式处理 |
 
-配置加载顺序为：先读取 `.env`，再根据 `APP_ENV` 读取 `.env.development` 或 `.env.production`，最后读取 `ENV_FILE` 指定的文件作为覆盖。`.env.development` 面向宿主机进程，`.env.worker` 面向 Compose 容器。开发模式需要在 `.env` 或进程环境里显式设置 `APP_ENV=development`：
+配置加载顺序为：先读取 `.env`，再根据 `APP_ENV` 读取 `.env.development` 或 `.env.production`，最后读取 `ENV_FILE` 指定的文件作为覆盖。`.env.development` 面向宿主机进程，`.env.worker` 面向 `docker-compose-dev.yaml` 中的 worker 容器；完整部署的 `docker-compose.yaml` 和 `docker-compose-build.yaml` 已内联 API / worker 环境变量。开发模式需要在 `.env` 或进程环境里显式设置 `APP_ENV=development`：
 
 ```bash
 go run ./cmd/api

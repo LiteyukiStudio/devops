@@ -2,25 +2,32 @@
 
 This page does one thing: get Liteyuki DevOps running and open the console.
 
-## Prepare environment files
+## Choose an image tag
 
-The current full deployment path uses the repository root `docker-compose.yaml`. Prepare the worker environment file first:
+The current full deployment path uses the repository root `docker-compose.yaml` and pulls DockerHub images by default:
 
-```bash
-cp .env.worker.example .env.worker
+```text
+liteyukistudio/devops-api:nightly
+liteyukistudio/devops-worker:nightly
 ```
 
-If you already have Kubernetes, registry, or build settings, you can edit `.env.worker` later. For a first run, keep the defaults.
+To verify a specific release, set `DEVOPS_IMAGE_TAG` before starting, for example `v0.1.0-rc.1`.
 
 ## Start the platform
 
 Run this from the repository root:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 This starts PostgreSQL, Redis, API, and worker. The API image already embeds the web console, so you do not need to start Vite separately.
+
+If you want to build images from the current source tree instead of pulling DockerHub images, run:
+
+```bash
+docker compose -f docker-compose-build.yaml up -d --build
+```
 
 ## Open the console
 

@@ -52,7 +52,7 @@ EXPOSE 8080
 ENTRYPOINT ["/app/app"]
 
 # 普通运行镜像：用于 api / worker 等不需要内嵌前端的目标。
-FROM alpine:3.22
+FROM alpine:3.22 AS runtime
 
 # 保持与 embed_web runtime 相同的基础运行环境，降低不同镜像目标的差异。
 RUN apk add --no-cache ca-certificates docker-cli git && addgroup -S app && adduser -S app -G app
