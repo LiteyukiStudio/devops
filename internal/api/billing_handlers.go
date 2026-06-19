@@ -98,6 +98,63 @@ func (h *Handlers) ListBillingUsageRecords(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, paginatedResponse(records, total, pagination))
 }
 
+func (h *Handlers) ListBillingApplicationSpend(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	projectIDs, ok := h.billingProjectIDsForUser(ctx, user)
+	if !ok {
+		return
+	}
+	pagination := paginationFromQuery(ctx)
+	if len(projectIDs) == 0 {
+		ctx.JSON(http.StatusOK, paginatedResponse([]billingApplicationSpendItem{}, 0, pagination))
+		return
+	}
+
+	grouped := h.db.Table("billing_usage_records as usage").
+		Select("usage.project_id, usage.application_id").
+		Where("usage.project_id in ? AND usage.status = ?", projectIDs, "settled").
+		Group("usage.project_id, usage.application_id")
+	var total int64
+	if err := h.db.Table("(?) as grouped", grouped).Count(&total).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var items []billingApplicationSpendItem
+	query := h.db.Table("billing_usage_records as usage").
+		Select(`
+			usage.project_id,
+			projects.name AS project_name,
+			projects.slug AS project_slug,
+			usage.application_id,
+			COALESCE(applications.name, '') AS application_name,
+			COALESCE(applications.slug, '') AS application_slug,
+			COALESCE(SUM(usage.amount_credits), 0) AS amount_credits,
+			COALESCE(SUM(CASE WHEN usage.meter LIKE 'build.%' THEN usage.amount_credits ELSE 0 END), 0) AS build_credits,
+			COALESCE(SUM(CASE WHEN usage.meter LIKE 'runtime.%' THEN usage.amount_credits ELSE 0 END), 0) AS runtime_credits,
+			COALESCE(SUM(CASE WHEN usage.meter LIKE 'storage.%' THEN usage.amount_credits ELSE 0 END), 0) AS storage_credits,
+			COALESCE(SUM(CASE WHEN usage.meter LIKE 'gateway.%' THEN usage.amount_credits ELSE 0 END), 0) AS gateway_credits,
+			COALESCE(SUM(CASE WHEN usage.meter NOT LIKE 'build.%' AND usage.meter NOT LIKE 'runtime.%' AND usage.meter NOT LIKE 'storage.%' AND usage.meter NOT LIKE 'gateway.%' THEN usage.amount_credits ELSE 0 END), 0) AS other_credits
+		`).
+		Joins("JOIN projects ON projects.id = usage.project_id").
+		Joins("LEFT JOIN applications ON applications.id = usage.application_id").
+		Where("usage.project_id in ? AND usage.status = ?", projectIDs, "settled").
+		Group("usage.project_id, projects.name, projects.slug, usage.application_id, applications.name, applications.slug")
+	orderBy := orderByClause(pagination, map[string]string{
+		"amountCredits":   "amount_credits",
+		"projectName":     "project_name",
+		"applicationName": "application_name",
+	}, "amount_credits")
+	if err := query.Order(orderBy).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&items).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, paginatedResponse(items, total, pagination))
+}
+
 func (h *Handlers) ListBillingRateRules(ctx *gin.Context) {
 	user, ok := h.currentUser(ctx)
 	if !ok {
@@ -270,14 +327,25 @@ func (h *Handlers) CreateExternalBillingTransaction(ctx *gin.Context) {
 }
 
 func (h *Handlers) billingProjectIDsForUser(ctx *gin.Context, user model.User) ([]string, bool) {
-	var memberships []model.ProjectMember
-	if err := h.db.Find(&memberships, "user_id = ?", user.ID).Error; err != nil {
-		writeError(ctx, http.StatusInternalServerError, err.Error())
-		return nil, false
-	}
 	allowed := map[string]bool{}
-	for _, membership := range memberships {
-		allowed[membership.ProjectID] = true
+	if user.Role == "platform_admin" {
+		var projects []model.Project
+		if err := h.db.Select("id").Find(&projects).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return nil, false
+		}
+		for _, project := range projects {
+			allowed[project.ID] = true
+		}
+	} else {
+		var memberships []model.ProjectMember
+		if err := h.db.Find(&memberships, "user_id = ?", user.ID).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return nil, false
+		}
+		for _, membership := range memberships {
+			allowed[membership.ProjectID] = true
+		}
 	}
 	requested := make([]string, 0)
 	for _, rawProjectIDs := range ctx.QueryArray("projectIds") {
@@ -310,6 +378,21 @@ type updateBillingRateRuleInput struct {
 	Meter          string `json:"meter"`
 	CreditsPerUnit string `json:"creditsPerUnit"`
 	Enabled        bool   `json:"enabled"`
+}
+
+type billingApplicationSpendItem struct {
+	ProjectID       string          `json:"projectId"`
+	ProjectName     string          `json:"projectName"`
+	ProjectSlug     string          `json:"projectSlug"`
+	ApplicationID   string          `json:"applicationId"`
+	ApplicationName string          `json:"applicationName"`
+	ApplicationSlug string          `json:"applicationSlug"`
+	AmountCredits   decimal.Decimal `json:"amountCredits"`
+	BuildCredits    decimal.Decimal `json:"buildCredits"`
+	RuntimeCredits  decimal.Decimal `json:"runtimeCredits"`
+	StorageCredits  decimal.Decimal `json:"storageCredits"`
+	GatewayCredits  decimal.Decimal `json:"gatewayCredits"`
+	OtherCredits    decimal.Decimal `json:"otherCredits"`
 }
 
 type billingWalletTransactionInput struct {

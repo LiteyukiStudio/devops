@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -524,7 +525,8 @@ func (r *Runner) followBuildJob(ctx context.Context, client kubernetes.Interface
 				return result, nil
 			}
 			if kubeJob.Status.Failed > 0 {
-				return result, errors.New(firstNonEmpty(result.Message, "kubernetes build job failed"))
+				message := r.buildKubernetesJobFailureMessage(ctx, client, namespace, jobName, firstNonEmpty(result.Message, "kubernetes build job failed"))
+				return result, errors.New(message)
 			}
 		}
 	}
@@ -628,6 +630,108 @@ func buildPodStartupError(pod corev1.Pod) error {
 		}
 	}
 	return nil
+}
+
+func (r *Runner) buildKubernetesJobFailureMessage(ctx context.Context, client kubernetes.Interface, namespace string, jobName string, fallback string) string {
+	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "job-name=" + jobName})
+	if err != nil || len(pods.Items) == 0 {
+		return fallback
+	}
+	messages := make([]string, 0, 4)
+	for _, pod := range pods.Items {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		if message := buildPodFailureMessage(pod); message != "" {
+			messages = append(messages, message)
+		}
+		if eventMessage := buildPodEventFailureMessage(ctx, client, namespace, pod.Name); eventMessage != "" {
+			messages = append(messages, eventMessage)
+		}
+	}
+	if len(messages) == 0 {
+		return fallback
+	}
+	return fallback + ": " + strings.Join(messages, "; ")
+}
+
+func buildPodFailureMessage(pod corev1.Pod) string {
+	parts := make([]string, 0, 4)
+	if pod.Status.Phase != "" {
+		parts = append(parts, "pod="+string(pod.Status.Phase))
+	}
+	if pod.Status.Reason != "" {
+		parts = append(parts, "reason="+pod.Status.Reason)
+	}
+	if pod.Status.Message != "" {
+		parts = append(parts, "message="+strings.TrimSpace(pod.Status.Message))
+	}
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name != "executor" {
+			continue
+		}
+		if status.State.Terminated != nil {
+			terminated := status.State.Terminated
+			containerParts := []string{fmt.Sprintf("executor terminated: reason=%s", firstNonEmpty(terminated.Reason, "Error")), fmt.Sprintf("exitCode=%d", terminated.ExitCode)}
+			if terminated.Message != "" {
+				containerParts = append(containerParts, "message="+strings.TrimSpace(terminated.Message))
+			}
+			parts = append(parts, strings.Join(containerParts, " "))
+		}
+		if status.State.Waiting != nil {
+			waiting := status.State.Waiting
+			containerParts := []string{"executor waiting: reason=" + firstNonEmpty(waiting.Reason, "Waiting")}
+			if waiting.Message != "" {
+				containerParts = append(containerParts, "message="+strings.TrimSpace(waiting.Message))
+			}
+			parts = append(parts, strings.Join(containerParts, " "))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "pod " + pod.Name + " " + strings.Join(parts, ", ")
+}
+
+func buildPodEventFailureMessage(ctx context.Context, client kubernetes.Interface, namespace string, podName string) string {
+	events, err := client.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName})
+	if err != nil || len(events.Items) == 0 {
+		return ""
+	}
+	items := make([]corev1.Event, 0, len(events.Items))
+	for _, event := range events.Items {
+		if event.Type != corev1.EventTypeWarning && event.Reason != "Failed" && event.Reason != "BackOff" && event.Reason != "Evicted" {
+			continue
+		}
+		items = append(items, event)
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		left := eventTime(items[i])
+		right := eventTime(items[j])
+		return left.Before(right)
+	})
+	latest := items[len(items)-1]
+	message := strings.TrimSpace(latest.Message)
+	if message == "" {
+		message = latest.Reason
+	}
+	return "event " + firstNonEmpty(latest.Reason, "Warning") + ": " + message
+}
+
+func eventTime(event corev1.Event) time.Time {
+	if !event.LastTimestamp.IsZero() {
+		return event.LastTimestamp.Time
+	}
+	if !event.EventTime.IsZero() {
+		return event.EventTime.Time
+	}
+	if !event.FirstTimestamp.IsZero() {
+		return event.FirstTimestamp.Time
+	}
+	return event.CreationTimestamp.Time
 }
 
 var errBuildRunCanceled = errors.New("build run canceled")

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { BillingLedgerEntry, BillingUsageRecord, Project } from '@/api/client'
+import type { BillingApplicationSpend, BillingLedgerEntry, BillingUsageRecord, Project } from '@/api/client'
 import type { DataListColumn } from '@/components/common/data-list'
 import type { StatusTone } from '@/components/common/status-tone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -32,8 +32,9 @@ export function BillingPage() {
   const { user } = useSession()
   const queryClient = useQueryClient()
   const billingDisplay = useBillingDisplay(i18n.language)
-  const [activeTab, setActiveTab] = useState('ledger')
+  const [activeTab, setActiveTab] = useState('application-spend')
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+  const [applicationSpendPage, setApplicationSpendPage] = useState(1)
   const [ledgerPage, setLedgerPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
   const [transactionOpen, setTransactionOpen] = useState(false)
@@ -54,6 +55,16 @@ export function BillingPage() {
   const summaryQuery = useQuery({
     queryKey: ['billing', 'summary', selectedProjectIds],
     queryFn: () => api.getBillingSummary(projectIds),
+  })
+  const applicationSpendQuery = useQuery({
+    queryKey: ['billing', 'application-spend', selectedProjectIds, applicationSpendPage],
+    queryFn: () => api.listBillingApplicationSpend({
+      page: applicationSpendPage,
+      pageSize: PAGE_SIZE,
+      projectIds,
+      sortBy: 'amountCredits',
+      sortOrder: 'desc',
+    }),
   })
   const ledgerQuery = useQuery({
     queryKey: ['billing', 'ledger', selectedProjectIds, ledgerPage],
@@ -94,15 +105,67 @@ export function BillingPage() {
 
   function handleProjectFilterChange(projectIds: string[]) {
     setSelectedProjectIds(projectIds)
+    setApplicationSpendPage(1)
     setLedgerPage(1)
     setUsagePage(1)
   }
 
   const scopeLabel = selectedProjectIds.length > 0
     ? t('billingPage.selectedProjects', { count: selectedProjectIds.length })
-    : t('billingPage.allRelatedProjects')
+    : t(canManageBilling ? 'billingPage.allProjectSpaces' : 'billingPage.allRelatedProjects')
   const summary = summaryQuery.data
   const balanceStatus = normalizeBalanceStatus(summary?.balanceStatus)
+
+  const applicationSpendColumns = useMemo<DataListColumn<BillingApplicationSpend>[]>(() => [
+    {
+      key: 'project',
+      header: t('billingPage.project'),
+      className: 'min-w-56',
+      render: item => <ProjectCell project={projectMap.get(item.projectId)} fallbackName={item.projectName} fallbackSlug={item.projectSlug} unknownLabel={t('billingPage.unknownProject')} />,
+    },
+    {
+      key: 'application',
+      header: t('billingPage.application'),
+      className: 'min-w-52',
+      render: item => <ApplicationCell item={item} unassignedLabel={t('billingPage.unassignedApplication')} />,
+    },
+    {
+      key: 'amount',
+      header: t('billingPage.amount'),
+      className: 'w-40',
+      render: item => <SpendAmount value={item.amountCredits} billingDisplay={billingDisplay} strong />,
+    },
+    {
+      key: 'build',
+      header: t('billingPage.buildSpend'),
+      className: 'w-32',
+      render: item => <SpendAmount value={item.buildCredits} billingDisplay={billingDisplay} />,
+    },
+    {
+      key: 'runtime',
+      header: t('billingPage.runtimeSpend'),
+      className: 'w-32',
+      render: item => <SpendAmount value={item.runtimeCredits} billingDisplay={billingDisplay} />,
+    },
+    {
+      key: 'storage',
+      header: t('billingPage.storageSpend'),
+      className: 'w-32',
+      render: item => <SpendAmount value={item.storageCredits} billingDisplay={billingDisplay} />,
+    },
+    {
+      key: 'gateway',
+      header: t('billingPage.gatewaySpend'),
+      className: 'w-32',
+      render: item => <SpendAmount value={item.gatewayCredits} billingDisplay={billingDisplay} />,
+    },
+    {
+      key: 'other',
+      header: t('billingPage.otherSpend'),
+      className: 'w-32',
+      render: item => <SpendAmount value={item.otherCredits} billingDisplay={billingDisplay} />,
+    },
+  ], [billingDisplay, projectMap, t])
 
   const ledgerColumns = useMemo<DataListColumn<BillingLedgerEntry>[]>(() => [
     {
@@ -230,6 +293,47 @@ export function BillingPage() {
         </Card>
       )}
 
+      <Card className="rounded-2xl p-4">
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{t('billingPage.scopeTitle')}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {scopeLabel}
+              {' · '}
+              {t('billingPage.projectScopeHint')}
+            </p>
+          </div>
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+            <div className="w-full sm:w-80">
+              <ProjectSpaceMultiSelect
+                disabled={projectsQuery.isLoading}
+                projects={projectItems}
+                value={selectedProjectIds}
+                onChange={handleProjectFilterChange}
+              />
+            </div>
+            {selectedProjectIds.length > 0 && (
+              <Button className="h-11 rounded-2xl" type="button" variant="outline" onClick={() => handleProjectFilterChange([])}>
+                {t('billingPage.clearProjectFilter')}
+              </Button>
+            )}
+            {canManageBilling && (
+              <Button
+                className="h-11 rounded-2xl"
+                type="button"
+                onClick={() => {
+                  setTransactionProjectId(selectedProjectIds[0] ?? projectItems[0]?.id ?? '')
+                  setTransactionOpen(true)
+                }}
+              >
+                <Plus size={16} />
+                {t('billingPage.createWalletTransaction')}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+
       <div className="grid gap-3 md:grid-cols-4">
         <MetricCard
           icon={<Coins className="size-5" />}
@@ -289,49 +393,34 @@ export function BillingPage() {
 
       <ContentTabs
         tabs={[
+          { label: t('billingPage.applicationSpendTitle'), value: 'application-spend' },
           { label: t('billingPage.ledgerTitle'), value: 'ledger' },
           { label: t('billingPage.usageTitle'), value: 'usage' },
         ]}
-        tools={(
-          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div className="w-full sm:w-80">
-              <ProjectSpaceMultiSelect
-                disabled={projectsQuery.isLoading}
-                projects={projectItems}
-                value={selectedProjectIds}
-                onChange={handleProjectFilterChange}
-              />
-            </div>
-            {selectedProjectIds.length > 0 && (
-              <Button className="h-11 rounded-2xl" type="button" variant="outline" onClick={() => handleProjectFilterChange([])}>
-                {t('billingPage.clearProjectFilter')}
-              </Button>
-            )}
-            {canManageBilling && (
-              <Button
-                className="h-11 rounded-2xl"
-                type="button"
-                onClick={() => {
-                  setTransactionProjectId(selectedProjectIds[0] ?? projectItems[0]?.id ?? '')
-                  setTransactionOpen(true)
-                }}
-              >
-                <Plus size={16} />
-                {t('billingPage.createWalletTransaction')}
-              </Button>
-            )}
-          </div>
-        )}
         value={activeTab}
         onValueChange={setActiveTab}
       >
-        <p className="text-sm text-muted-foreground">
-          {t('billingPage.filters')}
-          {' · '}
-          {scopeLabel}
-          {' · '}
-          {t('billingPage.projectScopeHint')}
-        </p>
+        <TabsContent value="application-spend">
+          <DataList
+            columns={applicationSpendColumns}
+            emptyDescription={t('billingPage.emptyApplicationSpendDescription')}
+            emptyTitle={t('billingPage.emptyApplicationSpendTitle')}
+            items={applicationSpendQuery.data?.items ?? []}
+            pagination={{
+              page: applicationSpendQuery.data?.page ?? applicationSpendPage,
+              pageInfoLabel: t('billingPage.applicationSpendPageInfo', {
+                page: applicationSpendQuery.data?.page ?? applicationSpendPage,
+                total: applicationSpendQuery.data?.total ?? 0,
+                totalPages: applicationSpendQuery.data?.totalPages ?? 1,
+              }),
+              pageSize: applicationSpendQuery.data?.pageSize ?? PAGE_SIZE,
+              total: applicationSpendQuery.data?.total ?? 0,
+              totalPages: applicationSpendQuery.data?.totalPages ?? 1,
+              onPageChange: setApplicationSpendPage,
+            }}
+            rowKey={item => `${item.projectId}:${item.applicationId || 'unassigned'}`}
+          />
+        </TabsContent>
         <TabsContent value="ledger">
           <DataList
             columns={ledgerColumns}
@@ -461,11 +550,48 @@ function MetricCard({ icon, label, loading, value }: { icon: ReactNode, label: s
   )
 }
 
-function ProjectCell({ project, unknownLabel }: { project?: Project, unknownLabel: string }) {
+function ProjectCell({
+  fallbackName,
+  fallbackSlug,
+  project,
+  unknownLabel,
+}: {
+  fallbackName?: string
+  fallbackSlug?: string
+  project?: Project
+  unknownLabel: string
+}) {
+  const name = project?.name || fallbackName || unknownLabel
+  const slug = project?.slug || fallbackSlug || '-'
   return (
     <span className="block min-w-0">
-      <span className="block truncate font-medium">{project?.name ?? unknownLabel}</span>
-      <span className="block truncate text-xs text-muted-foreground">{project?.slug ?? '-'}</span>
+      <span className="block truncate font-medium">{name}</span>
+      <span className="block truncate text-xs text-muted-foreground">{slug}</span>
+    </span>
+  )
+}
+
+function ApplicationCell({ item, unassignedLabel }: { item: BillingApplicationSpend, unassignedLabel: string }) {
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate font-medium">{item.applicationName || unassignedLabel}</span>
+      <span className="block truncate text-xs text-muted-foreground">{item.applicationSlug || '-'}</span>
+    </span>
+  )
+}
+
+function SpendAmount({
+  billingDisplay,
+  strong = false,
+  value,
+}: {
+  billingDisplay: ReturnType<typeof useBillingDisplay>
+  strong?: boolean
+  value: string
+}) {
+  return (
+    <span className={cn('tabular-nums text-foreground', strong && 'font-semibold')}>
+      {billingDisplay.formatAmountWithUnit(value)}
     </span>
   )
 }

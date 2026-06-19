@@ -16,6 +16,11 @@
   },
   {
     "type": "file",
+    "name": "billing",
+    "label": "Billing and Spend Analysis"
+  },
+  {
+    "type": "file",
     "name": "workspace",
     "label": "Next Steps"
   },

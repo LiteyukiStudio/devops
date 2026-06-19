@@ -16,6 +16,11 @@
   },
   {
     "type": "file",
+    "name": "billing",
+    "label": "账单与费用分析"
+  },
+  {
+    "type": "file",
     "name": "workspace",
     "label": "部署后下一步"
   },

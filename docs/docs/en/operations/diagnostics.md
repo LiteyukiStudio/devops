@@ -11,6 +11,8 @@ Check the build record:
 - Dependency download failures.
 - Registry push credentials.
 
+When a build record shows `kubernetes build job failed`, the platform enriches the message with the build Pod status and recent Kubernetes Events. Common fields include `executor terminated`, `exitCode=137`, `OOMKilled`, `Evicted`, and `BackOff`. `exitCode=137` / `OOMKilled` usually means the build environment ran out of memory; increase the build environment size in the deployment target and retry.
+
 If Git and registry connections are not ready yet, deploy an existing image first to verify the second half of the delivery path.
 
 ## Release did not succeed

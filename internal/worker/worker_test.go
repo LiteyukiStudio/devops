@@ -382,6 +382,51 @@ func TestWaitForBuildPodReturnsFatalStartupError(t *testing.T) {
 	}
 }
 
+func TestBuildKubernetesJobFailureMessageIncludesPodTerminationAndEvent(t *testing.T) {
+	now := metav1.Now()
+	client := fake.NewSimpleClientset(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "build-job-pod",
+				Namespace: "ns-demo",
+				Labels:    map[string]string{"job-name": "build-job"},
+			},
+			Status: corev1.PodStatus{
+				Phase:  corev1.PodFailed,
+				Reason: "OOMKilled",
+				ContainerStatuses: []corev1.ContainerStatus{{
+					Name: "executor",
+					State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+						Reason:   "OOMKilled",
+						ExitCode: 137,
+					}},
+				}},
+			},
+		},
+		&corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{Name: "build-job-pod.1", Namespace: "ns-demo"},
+			InvolvedObject: corev1.ObjectReference{
+				Kind:      "Pod",
+				Namespace: "ns-demo",
+				Name:      "build-job-pod",
+			},
+			Type:          corev1.EventTypeWarning,
+			Reason:        "BackOff",
+			Message:       "Back-off restarting failed container executor",
+			LastTimestamp: now,
+		},
+	)
+	runner := NewRunner(nil, Options{})
+
+	message := runner.buildKubernetesJobFailureMessage(context.Background(), client, "ns-demo", "build-job", "kubernetes build job failed")
+
+	for _, expected := range []string{"kubernetes build job failed", "OOMKilled", "exitCode=137", "Back-off restarting failed container executor"} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("message %q missing %q", message, expected)
+		}
+	}
+}
+
 func TestGatewayIngressSpecTargetsApplicationService(t *testing.T) {
 	spec := gatewayIngressSpec(
 		model.GatewayRoute{ID: "gwr_ABC_123", Host: "api.example.com", Path: "api", ServicePort: 8080, TLSMode: "http-challenge"},

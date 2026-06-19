@@ -35,6 +35,8 @@ services:
         TARGET: worker
     env_file:
       - .env.worker
+    extra_hosts:
+      - "dev.minikube.local:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

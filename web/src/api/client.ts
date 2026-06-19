@@ -6,6 +6,7 @@ import type {
   ArtifactRegistryPayload,
   AuthAdmissionPolicy,
   AuthProvider,
+  BillingApplicationSpend,
   BillingLedgerEntry,
   BillingListParams,
   BillingRateRule,
@@ -76,6 +77,7 @@ export type {
   ArtifactRegistryPayload,
   AuthAdmissionPolicy,
   AuthProvider,
+  BillingApplicationSpend,
   BillingLedgerEntry,
   BillingListParams,
   BillingRateRule,
@@ -460,6 +462,8 @@ export const api = {
     request<PaginatedResponse<Project>>(`/projects?${paginationQuery(params)}`),
   getBillingSummary: (projectIds?: string[]) =>
     request<BillingSummary>(`/billing/summary${billingSummaryQuery(projectIds)}`),
+  listBillingApplicationSpend: (params: BillingListParams) =>
+    request<PaginatedResponse<BillingApplicationSpend>>(`/billing/application-spend?${billingQuery(params)}`),
   listBillingLedgerEntries: (params: BillingListParams) =>
     request<PaginatedResponse<BillingLedgerEntry>>(`/billing/ledger?${billingQuery(params)}`),
   listBillingUsageRecords: (params: BillingListParams) =>

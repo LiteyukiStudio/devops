@@ -610,6 +610,21 @@ export interface BillingSpendCategory {
   amountCredits: string
 }
 
+export interface BillingApplicationSpend {
+  projectId: string
+  projectName: string
+  projectSlug: string
+  applicationId: string
+  applicationName: string
+  applicationSlug: string
+  amountCredits: string
+  buildCredits: string
+  runtimeCredits: string
+  storageCredits: string
+  gatewayCredits: string
+  otherCredits: string
+}
+
 export interface BillingRateRule {
   id: string
   meter: string
