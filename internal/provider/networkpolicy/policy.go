@@ -40,15 +40,34 @@ func BuildPolicyWithPublicSources(namespace string) BuildPolicy {
 	return policy
 }
 
+func PermissiveBuildPolicy(namespace string) BuildPolicy {
+	return BuildPolicy{
+		Name:      "liteyuki-build-egress",
+		Namespace: namespace,
+		PodLabels: map[string]string{
+			"liteyuki.devops/scope": "build",
+		},
+		Egress: []EgressRule{{}},
+	}
+}
+
 func BuildPolicyWithPrivateEgress(namespace string, privateCIDRs []string) BuildPolicy {
-	return BuildPolicyWithEgressControls(namespace, privateCIDRs, nil)
+	return BuildPolicyWithPrivateEgressPorts(namespace, privateCIDRs, nil)
+}
+
+func BuildPolicyWithPrivateEgressPorts(namespace string, privateCIDRs []string, privatePorts []int) BuildPolicy {
+	return BuildPolicyWithEgressControlsAndPorts(namespace, privateCIDRs, privatePorts, nil)
 }
 
 func BuildPolicyWithEgressControls(namespace string, privateCIDRs []string, blockedCIDRs []string) BuildPolicy {
+	return BuildPolicyWithEgressControlsAndPorts(namespace, privateCIDRs, nil, blockedCIDRs)
+}
+
+func BuildPolicyWithEgressControlsAndPorts(namespace string, privateCIDRs []string, privatePorts []int, blockedCIDRs []string) BuildPolicy {
 	policy := BuildPolicyWithPublicSources(namespace)
 	policy.Egress = RestrictedBuildPolicy(namespace).Egress
 	policy.Egress = append(policy.Egress, PublicSourceEgressRulesWithBlocked(blockedCIDRs)...)
-	policy.Egress = append(policy.Egress, PrivateRegistryEgressRulesWithBlocked(privateCIDRs, blockedCIDRs)...)
+	policy.Egress = append(policy.Egress, PrivateRegistryEgressRulesWithPortsAndBlocked(privateCIDRs, privatePorts, blockedCIDRs)...)
 	return policy
 }
 
@@ -100,24 +119,47 @@ func PublicSourceEgressRulesWithBlocked(blockedCIDRs []string) []EgressRule {
 }
 
 func PrivateRegistryEgressRules(cidrs []string) []EgressRule {
-	return PrivateRegistryEgressRulesWithBlocked(cidrs, nil)
+	return PrivateRegistryEgressRulesWithPorts(cidrs, nil)
+}
+
+func PrivateRegistryEgressRulesWithPorts(cidrs []string, privatePorts []int) []EgressRule {
+	return PrivateRegistryEgressRulesWithPortsAndBlocked(cidrs, privatePorts, nil)
 }
 
 func PrivateRegistryEgressRulesWithBlocked(cidrs []string, blockedCIDRs []string) []EgressRule {
+	return PrivateRegistryEgressRulesWithPortsAndBlocked(cidrs, nil, blockedCIDRs)
+}
+
+func PrivateRegistryEgressRulesWithPortsAndBlocked(cidrs []string, privatePorts []int, blockedCIDRs []string) []EgressRule {
 	rules := make([]EgressRule, 0, len(cidrs))
+	ports := privateEgressPorts(privatePorts)
 	for _, cidr := range cidrs {
 		cidr = strings.TrimSpace(cidr)
 		if cidr == "" {
 			continue
 		}
 		rules = append(rules, EgressRule{
-			To: []Peer{{CIDR: cidr, Except: containedBlockedCIDRs(cidr, blockedCIDRs)}},
-			Ports: []Port{
-				{Protocol: "TCP", Number: 443},
-			},
+			To:    []Peer{{CIDR: cidr, Except: containedBlockedCIDRs(cidr, blockedCIDRs)}},
+			Ports: ports,
 		})
 	}
 	return rules
+}
+
+func privateEgressPorts(values []int) []Port {
+	seen := map[int]bool{}
+	ports := make([]Port, 0, len(values))
+	for _, value := range values {
+		if value < 1 || value > 65535 || seen[value] {
+			continue
+		}
+		seen[value] = true
+		ports = append(ports, Port{Protocol: "TCP", Number: value})
+	}
+	if len(ports) == 0 {
+		return []Port{{Protocol: "TCP", Number: 443}}
+	}
+	return ports
 }
 
 func appendCIDRs(base []string, extra ...string) []string {

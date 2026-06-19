@@ -23,11 +23,13 @@ type Runner struct {
 	certManagerClusterIssuer    string
 	buildExecutorImage          string
 	buildNPMRegistry            string
+	buildEgressMode             string
 	buildCacheEnabled           bool
 	buildCacheTag               string
 	buildJobTimeoutSeconds      int64
 	buildJobTTLSeconds          int64
 	buildPrivateEgressCIDRs     []string
+	buildPrivateEgressPorts     []int
 	buildBlockedEgressCIDRs     []string
 	dnsResolver                 dnsprovider.Resolver
 	taskClient                  *tasks.Client
@@ -45,11 +47,13 @@ type Options struct {
 	CertManagerClusterIssuer    string
 	BuildExecutorImage          string
 	BuildNPMRegistry            string
+	BuildEgressMode             string
 	BuildCacheEnabled           bool
 	BuildCacheTag               string
 	BuildJobTimeoutSeconds      int64
 	BuildJobTTLSeconds          int64
 	BuildPrivateEgressCIDRs     []string
+	BuildPrivateEgressPorts     []int
 	BuildBlockedEgressCIDRs     []string
 }
 
@@ -164,6 +168,10 @@ func NewRunner(db *gorm.DB, options Options) *Runner {
 	if buildCacheTag == "" {
 		buildCacheTag = "buildcache"
 	}
+	buildEgressMode := strings.ToLower(strings.TrimSpace(options.BuildEgressMode))
+	if buildEgressMode != "restricted" {
+		buildEgressMode = "permissive"
+	}
 	buildJobTimeoutSeconds := options.BuildJobTimeoutSeconds
 	if buildJobTimeoutSeconds <= 0 {
 		buildJobTimeoutSeconds = 5400
@@ -179,11 +187,13 @@ func NewRunner(db *gorm.DB, options Options) *Runner {
 		certManagerClusterIssuer:    certManagerClusterIssuer,
 		buildExecutorImage:          buildExecutorImage,
 		buildNPMRegistry:            strings.TrimSpace(options.BuildNPMRegistry),
+		buildEgressMode:             buildEgressMode,
 		buildCacheEnabled:           options.BuildCacheEnabled,
 		buildCacheTag:               buildCacheTag,
 		buildJobTimeoutSeconds:      buildJobTimeoutSeconds,
 		buildJobTTLSeconds:          buildJobTTLSeconds,
 		buildPrivateEgressCIDRs:     append([]string(nil), options.BuildPrivateEgressCIDRs...),
+		buildPrivateEgressPorts:     append([]int(nil), options.BuildPrivateEgressPorts...),
 		buildBlockedEgressCIDRs:     append([]string(nil), options.BuildBlockedEgressCIDRs...),
 		dnsResolver:                 dnsprovider.NewNetResolver(),
 		namespaceFactory: func(kubeconfig string) (kubeprovider.NamespaceManager, error) {

@@ -496,8 +496,32 @@ func (m *recordingNamespaceManager) EnsureBuildPolicy(_ context.Context, policy 
 
 func TestEnsureProjectNamespaceAppliesBuildEgressPolicy(t *testing.T) {
 	manager := &recordingNamespaceManager{}
+	runner := NewRunner(nil, Options{})
+	runner.kubernetesManagerFactory = func(model.Environment) (kubeprovider.NamespaceManager, error) {
+		return manager, nil
+	}
+
+	if err := runner.ensureProjectNamespace(context.Background(), "ns-demo", model.Project{ID: "prj_demo"}, model.Environment{}); err != nil {
+		t.Fatalf("ensureProjectNamespace returned error: %v", err)
+	}
+	if len(manager.policies) != 1 {
+		t.Fatalf("policies = %#v", manager.policies)
+	}
+	policy := manager.policies[0]
+	if policy.Name != "liteyuki-build-egress" || policy.Namespace != "ns-demo" || policy.PodLabels[kubeprovider.ScopeLabel] != buildJobScope {
+		t.Fatalf("policy = %#v", policy)
+	}
+	if len(policy.Egress) != 1 || len(policy.Egress[0].To) != 0 || len(policy.Egress[0].Ports) != 0 {
+		t.Fatalf("expected permissive egress rule, got %#v", policy.Egress)
+	}
+}
+
+func TestEnsureProjectNamespaceAppliesRestrictedBuildEgressPolicy(t *testing.T) {
+	manager := &recordingNamespaceManager{}
 	runner := NewRunner(nil, Options{
+		BuildEgressMode:         "restricted",
 		BuildPrivateEgressCIDRs: []string{"10.20.0.0/16"},
+		BuildPrivateEgressPorts: []int{443, 5000},
 		BuildBlockedEgressCIDRs: []string{"169.254.169.254/32", "10.96.0.0/12"},
 	})
 	runner.kubernetesManagerFactory = func(model.Environment) (kubeprovider.NamespaceManager, error) {
@@ -516,6 +540,10 @@ func TestEnsureProjectNamespaceAppliesBuildEgressPolicy(t *testing.T) {
 	}
 	if len(policy.Egress) < 4 {
 		t.Fatalf("expected dns, public, and private egress rules, got %#v", policy.Egress)
+	}
+	privateRule := policy.Egress[len(policy.Egress)-1]
+	if privateRule.To[0].CIDR != "10.20.0.0/16" || len(privateRule.Ports) != 2 || privateRule.Ports[0].Number != 443 || privateRule.Ports[1].Number != 5000 {
+		t.Fatalf("private egress rule = %#v", privateRule)
 	}
 }
 

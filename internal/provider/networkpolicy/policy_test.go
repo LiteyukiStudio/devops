@@ -32,6 +32,19 @@ func TestRestrictedBuildPolicyAllowsOnlyDNSByDefault(t *testing.T) {
 	}
 }
 
+func TestPermissiveBuildPolicyAllowsAllEgress(t *testing.T) {
+	policy := PermissiveBuildPolicy("liteyuki-build")
+	if policy.Name != "liteyuki-build-egress" || policy.Namespace != "liteyuki-build" {
+		t.Fatalf("policy = %#v", policy)
+	}
+	if len(policy.Egress) != 1 {
+		t.Fatalf("egress = %#v", policy.Egress)
+	}
+	if len(policy.Egress[0].To) != 0 || len(policy.Egress[0].Ports) != 0 {
+		t.Fatalf("permissive egress = %#v", policy.Egress[0])
+	}
+}
+
 func TestBuildPolicyWithPublicSourcesAllowsPublicHTTPAndHTTPS(t *testing.T) {
 	policy := BuildPolicyWithPublicSources("liteyuki-build")
 	if len(policy.Egress) != 3 {
@@ -59,6 +72,23 @@ func TestPrivateRegistryEgressRulesAllowOnlyTCP443(t *testing.T) {
 	}
 	if len(rules[0].Ports) != 1 || rules[0].Ports[0].Protocol != "TCP" || rules[0].Ports[0].Number != 443 {
 		t.Fatalf("ports = %#v", rules[0].Ports)
+	}
+}
+
+func TestPrivateRegistryEgressRulesAllowConfiguredTCPPorts(t *testing.T) {
+	rules := PrivateRegistryEgressRulesWithPorts([]string{"10.20.0.0/16"}, []int{443, 5000, 8081, 5000, 0})
+	if len(rules) != 1 {
+		t.Fatalf("rules = %#v", rules)
+	}
+	ports := rules[0].Ports
+	expected := []int{443, 5000, 8081}
+	if len(ports) != len(expected) {
+		t.Fatalf("ports = %#v", ports)
+	}
+	for index, port := range ports {
+		if port.Protocol != "TCP" || port.Number != expected[index] {
+			t.Fatalf("ports = %#v", ports)
+		}
 	}
 }
 

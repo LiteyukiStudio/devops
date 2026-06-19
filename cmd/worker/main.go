@@ -30,11 +30,13 @@ func main() {
 		CertManagerClusterIssuer:    cfg.CertManagerClusterIssuer,
 		BuildExecutorImage:          cfg.BuildExecutorImage,
 		BuildNPMRegistry:            cfg.BuildNPMRegistry,
+		BuildEgressMode:             cfg.BuildEgressMode,
 		BuildCacheEnabled:           cfg.BuildCacheEnabled,
 		BuildCacheTag:               cfg.BuildCacheTag,
 		BuildJobTimeoutSeconds:      cfg.BuildJobTimeoutSeconds,
 		BuildJobTTLSeconds:          cfg.BuildJobTTLSeconds,
 		BuildPrivateEgressCIDRs:     cfg.BuildPrivateEgressCIDRs,
+		BuildPrivateEgressPorts:     cfg.BuildPrivateEgressPorts,
 		BuildBlockedEgressCIDRs:     cfg.BuildBlockedEgressCIDRs,
 	}
 	if err := worker.Run(cfg.RedisAddr, db, options); err != nil {

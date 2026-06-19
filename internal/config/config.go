@@ -18,11 +18,13 @@ type Config struct {
 	RedisAddr                   string
 	BuildExecutorImage          string
 	BuildNPMRegistry            string
+	BuildEgressMode             string
 	BuildCacheEnabled           bool
 	BuildCacheTag               string
 	BuildJobTimeoutSeconds      int64
 	BuildJobTTLSeconds          int64
 	BuildPrivateEgressCIDRs     []string
+	BuildPrivateEgressPorts     []int
 	BuildBlockedEgressCIDRs     []string
 	DeployRolloutTimeoutSeconds int64
 	CertManagerClusterIssuer    string
@@ -37,11 +39,13 @@ func Load() Config {
 		RedisAddr:                   env("REDIS_ADDR", "localhost:6379"),
 		BuildExecutorImage:          env("BUILD_EXECUTOR_IMAGE", "moby/buildkit:v0.24.0-rootless"),
 		BuildNPMRegistry:            env("BUILD_NPM_REGISTRY", ""),
+		BuildEgressMode:             buildEgressMode(env("BUILD_EGRESS_MODE", "permissive")),
 		BuildCacheEnabled:           envBool("BUILD_CACHE_ENABLED", false),
 		BuildCacheTag:               env("BUILD_CACHE_TAG", "buildcache"),
 		BuildJobTimeoutSeconds:      int64(envInt("BUILD_JOB_TIMEOUT_SECONDS", 5400)),
 		BuildJobTTLSeconds:          int64(envInt("BUILD_JOB_TTL_SECONDS", 3600)),
 		BuildPrivateEgressCIDRs:     envList("BUILD_PRIVATE_EGRESS_CIDRS"),
+		BuildPrivateEgressPorts:     envPortList("BUILD_PRIVATE_EGRESS_PORTS", []int{443}),
 		BuildBlockedEgressCIDRs:     append(defaultBuildBlockedEgressCIDRs(), envList("BUILD_BLOCKED_EGRESS_CIDRS")...),
 		DeployRolloutTimeoutSeconds: int64(envInt("DEPLOY_ROLLOUT_TIMEOUT_SECONDS", 600)),
 		CertManagerClusterIssuer:    env("CERT_MANAGER_CLUSTER_ISSUER", "letsencrypt-http01"),
@@ -149,6 +153,37 @@ func envList(key string) []string {
 		}
 	}
 	return values
+}
+
+func envPortList(key string, fallback []int) []int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return append([]int(nil), fallback...)
+	}
+	parts := strings.Split(raw, ",")
+	values := make([]int, 0, len(parts))
+	seen := map[int]bool{}
+	for _, part := range parts {
+		value, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || value < 1 || value > 65535 || seen[value] {
+			continue
+		}
+		seen[value] = true
+		values = append(values, value)
+	}
+	if len(values) == 0 {
+		return append([]int(nil), fallback...)
+	}
+	return values
+}
+
+func buildEgressMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "restricted":
+		return "restricted"
+	default:
+		return "permissive"
+	}
 }
 
 func defaultBuildBlockedEgressCIDRs() []string {

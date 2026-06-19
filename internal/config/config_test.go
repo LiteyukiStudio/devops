@@ -87,6 +87,52 @@ func TestLoadBuildPrivateEgressCIDRs(t *testing.T) {
 	}
 }
 
+func TestLoadBuildEgressModeDefaultsToPermissive(t *testing.T) {
+	resetEnvLoader(t)
+	unsetEnv(t, "BUILD_EGRESS_MODE")
+
+	cfg := Load()
+	if cfg.BuildEgressMode != "permissive" {
+		t.Fatalf("BuildEgressMode = %q", cfg.BuildEgressMode)
+	}
+}
+
+func TestLoadBuildEgressModeSupportsRestricted(t *testing.T) {
+	resetEnvLoader(t)
+	t.Setenv("BUILD_EGRESS_MODE", "restricted")
+
+	cfg := Load()
+	if cfg.BuildEgressMode != "restricted" {
+		t.Fatalf("BuildEgressMode = %q", cfg.BuildEgressMode)
+	}
+}
+
+func TestLoadBuildPrivateEgressPortsDefaultsTo443(t *testing.T) {
+	resetEnvLoader(t)
+	unsetEnv(t, "BUILD_PRIVATE_EGRESS_PORTS")
+
+	cfg := Load()
+	if len(cfg.BuildPrivateEgressPorts) != 1 || cfg.BuildPrivateEgressPorts[0] != 443 {
+		t.Fatalf("BuildPrivateEgressPorts = %#v", cfg.BuildPrivateEgressPorts)
+	}
+}
+
+func TestLoadBuildPrivateEgressPorts(t *testing.T) {
+	resetEnvLoader(t)
+	t.Setenv("BUILD_PRIVATE_EGRESS_PORTS", "443, 5000, 8081, bad, 0, 5000, 65536")
+
+	cfg := Load()
+	expected := []int{443, 5000, 8081}
+	if len(cfg.BuildPrivateEgressPorts) != len(expected) {
+		t.Fatalf("BuildPrivateEgressPorts = %#v", cfg.BuildPrivateEgressPorts)
+	}
+	for index, value := range expected {
+		if cfg.BuildPrivateEgressPorts[index] != value {
+			t.Fatalf("BuildPrivateEgressPorts = %#v", cfg.BuildPrivateEgressPorts)
+		}
+	}
+}
+
 func TestLoadBuildBlockedEgressCIDRsIncludesMetadataDefault(t *testing.T) {
 	resetEnvLoader(t)
 	t.Setenv("BUILD_BLOCKED_EGRESS_CIDRS", "10.96.0.0/12")

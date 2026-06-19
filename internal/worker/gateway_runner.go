@@ -75,7 +75,10 @@ func (r *Runner) ensureProjectNamespace(ctx context.Context, namespace string, p
 	if err := manager.EnsureNamespace(ctx, namespace, kubeprovider.ProjectNamespaceLabels(project.ID)); err != nil {
 		return err
 	}
-	return manager.EnsureBuildPolicy(ctx, networkpolicy.BuildPolicyWithEgressControls(namespace, r.buildPrivateEgressCIDRs, r.buildBlockedEgressCIDRs))
+	if r.buildEgressMode != "restricted" {
+		return manager.EnsureBuildPolicy(ctx, networkpolicy.PermissiveBuildPolicy(namespace))
+	}
+	return manager.EnsureBuildPolicy(ctx, networkpolicy.BuildPolicyWithEgressControlsAndPorts(namespace, r.buildPrivateEgressCIDRs, r.buildPrivateEgressPorts, r.buildBlockedEgressCIDRs))
 }
 
 func (r *Runner) applyGatewayIngress(ctx context.Context, route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string) error {
