@@ -61,18 +61,6 @@ func RestrictedBuildPolicy(namespace string) BuildPolicy {
 		},
 		Egress: []EgressRule{
 			{
-				To: []Peer{
-					{CIDR: "0.0.0.0/0"},
-					{CIDR: "::/0"},
-					{
-						NamespaceLabels: map[string]string{
-							"kubernetes.io/metadata.name": "kube-system",
-						},
-						PodLabels: map[string]string{
-							"k8s-app": "kube-dns",
-						},
-					},
-				},
 				Ports: []Port{
 					{Protocol: "UDP", Number: 53},
 					{Protocol: "TCP", Number: 53},
