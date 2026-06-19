@@ -545,19 +545,17 @@ function MetricCard({ fiatValue, icon, label, loading, value }: { fiatValue?: st
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <div className="mt-1 flex min-w-0 items-baseline gap-2">
-          <span className="min-w-0 truncate text-2xl font-semibold tabular-nums">
-            {loading ? '-' : value}
-          </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="shrink-0 text-sm text-muted-foreground">{label}</p>
           {!loading && fiatValue && (
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              (
+            <span className="min-w-0 truncate text-xs tabular-nums text-muted-foreground/80">
               {fiatValue}
-              )
             </span>
           )}
         </div>
+        <p className="mt-1 truncate text-2xl font-semibold tabular-nums">
+          {loading ? '-' : value}
+        </p>
       </div>
     </Card>
   )
