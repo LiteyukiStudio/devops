@@ -167,6 +167,8 @@ const deploymentsPage = {
   webConsoleCommandPlaceholder: 'Enter a command, for example env | sort',
   webConsoleContainerHint: 'Leave empty to use the first container in the Pod.',
   webConsoleContainerPlaceholder: 'Default container',
+  fullscreen: 'Fullscreen',
+  exitFullscreen: 'Exit fullscreen',
   webConsoleTarget: 'Pod {{pod}} / container {{container}} / exit code {{exitCode}}',
   webConsoleReady: 'Terminal ready. Enter a command and press Enter to run it.',
   webConsoleConnecting: 'Connecting to the runtime container terminal...',

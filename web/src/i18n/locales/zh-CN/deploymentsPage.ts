@@ -167,6 +167,8 @@ const deploymentsPage = {
   webConsoleCommandPlaceholder: '输入命令，例如 env | sort',
   webConsoleContainerHint: '留空时使用 Pod 的第一个容器。',
   webConsoleContainerPlaceholder: '默认容器',
+  fullscreen: '全屏',
+  exitFullscreen: '退出全屏',
   webConsoleTarget: 'Pod {{pod}} / 容器 {{container}} / 退出码 {{exitCode}}',
   webConsoleReady: '终端已就绪，输入命令后按 Enter 执行。',
   webConsoleConnecting: '正在连接运行容器终端...',

@@ -3,6 +3,7 @@ import accountPage from './zh-CN/accountPage'
 import apps from './zh-CN/apps'
 import auth from './zh-CN/auth'
 import authProvidersPage from './zh-CN/authProvidersPage'
+import billingPage from './zh-CN/billingPage'
 import bootstrap from './zh-CN/bootstrap'
 import buildsPage from './zh-CN/buildsPage'
 import clustersPage from './zh-CN/clustersPage'
@@ -64,6 +65,7 @@ const zhCN = {
   usersPage,
   projectHooks,
   authProvidersPage,
+  billingPage,
 }
 
 export default zhCN

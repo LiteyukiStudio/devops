@@ -12,6 +12,12 @@ const errors = {
   application: {
     delete_in_progress: '应用正在删除中，请等待资源清理完成或删除失败后重试。',
   },
+  billing: {
+    project_forbidden: '没有访问该项目空间账单的权限',
+    rate_rule_invalid_price: '计费规则单价必须是非负数',
+    rate_rule_meter_required: '计费规则缺少 Meter',
+    rate_rule_unknown: '未知的计费规则 Meter',
+  },
   config: {
     admin: { required: '请确认当前账号具有平台管理员权限。' },
   },

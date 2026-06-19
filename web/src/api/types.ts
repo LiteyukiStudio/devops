@@ -588,6 +588,64 @@ export interface AccessToken {
   createdAt: string
 }
 
+export interface BillingSummary {
+  balanceCredits: string
+  todaySpend: string
+  monthSpend: string
+}
+
+export interface BillingRateRule {
+  id: string
+  meter: string
+  unit: string
+  creditsPerUnit: string
+  enabled: boolean
+  description: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BillingRateRulePayload {
+  meter: string
+  creditsPerUnit: string
+  enabled: boolean
+}
+
+export interface BillingLedgerEntry {
+  id: string
+  projectId: string
+  type: 'debit' | 'credit' | 'adjustment' | string
+  amountCredits: string
+  balanceAfterCredits: string
+  reason: string
+  meter: string
+  usageRecordId: string
+  resourceType: string
+  resourceId: string
+  description: string
+  createdBy: string
+  createdAt: string
+}
+
+export interface BillingUsageRecord {
+  id: string
+  projectId: string
+  applicationId: string
+  meter: string
+  quantity: string
+  unit: string
+  amountCredits: string
+  resourceType: string
+  resourceId: string
+  periodStart: string
+  periodEnd: string
+  status: 'pending' | 'settled' | 'failed' | string
+  metadata: string
+  settledAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PaginationParams {
   page: number
   pageSize: number
@@ -609,6 +667,12 @@ export interface BuildRunListParams extends PaginationParams {
   triggerType?: BuildRun['triggerType']
   sourceBranch?: string
   createdBy?: string
+}
+
+export interface BillingListParams extends PaginationParams {
+  projectIds?: string[]
+  type?: string
+  meter?: string
 }
 
 export interface PaginatedResponse<T> {

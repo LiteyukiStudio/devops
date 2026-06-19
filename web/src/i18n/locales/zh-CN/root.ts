@@ -6,6 +6,7 @@ const root = {
   codeRepositories: '代码库',
   registries: '镜像站',
   clusters: '集群资源',
+  billing: '账单',
   builds: '构建',
   deployments: '部署',
   gatewayRoutes: '访问',

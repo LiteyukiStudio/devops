@@ -6,6 +6,7 @@ const root = {
   codeRepositories: 'Code Repositories',
   registries: 'Registries',
   clusters: 'Cluster Resources',
+  billing: 'Billing',
   builds: 'Builds',
   deployments: 'Deployments',
   gatewayRoutes: 'Access',

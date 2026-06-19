@@ -6,6 +6,12 @@ import type {
   ArtifactRegistryPayload,
   AuthAdmissionPolicy,
   AuthProvider,
+  BillingLedgerEntry,
+  BillingListParams,
+  BillingRateRule,
+  BillingRateRulePayload,
+  BillingSummary,
+  BillingUsageRecord,
   BootstrapStatus,
   BuildJob,
   BuildLog,
@@ -69,6 +75,12 @@ export type {
   ArtifactRegistryPayload,
   AuthAdmissionPolicy,
   AuthProvider,
+  BillingLedgerEntry,
+  BillingListParams,
+  BillingRateRule,
+  BillingRateRulePayload,
+  BillingSummary,
+  BillingUsageRecord,
   BootstrapStatus,
   BuildJob,
   BuildLog,
@@ -194,6 +206,29 @@ function buildRunListQuery(params: BuildRunListParams) {
   if (params.createdBy)
     search.set('createdBy', params.createdBy)
   return search.toString()
+}
+
+function billingQuery(params: BillingListParams) {
+  const search = new URLSearchParams(paginationQuery(params))
+  for (const projectId of params.projectIds ?? []) {
+    if (projectId)
+      search.append('projectIds', projectId)
+  }
+  if (params.type)
+    search.set('type', params.type)
+  if (params.meter)
+    search.set('meter', params.meter)
+  return search.toString()
+}
+
+function billingSummaryQuery(projectIds?: string[]) {
+  const search = new URLSearchParams()
+  for (const projectId of projectIds ?? []) {
+    if (projectId)
+      search.append('projectIds', projectId)
+  }
+  const query = search.toString()
+  return query ? `?${query}` : ''
 }
 
 function translatedErrorMessage(code: string) {
@@ -421,6 +456,15 @@ export const api = {
   listProjects: () => request<Project[]>('/projects'),
   listProjectsPage: (params: ProjectListParams) =>
     request<PaginatedResponse<Project>>(`/projects?${paginationQuery(params)}`),
+  getBillingSummary: (projectIds?: string[]) =>
+    request<BillingSummary>(`/billing/summary${billingSummaryQuery(projectIds)}`),
+  listBillingLedgerEntries: (params: BillingListParams) =>
+    request<PaginatedResponse<BillingLedgerEntry>>(`/billing/ledger?${billingQuery(params)}`),
+  listBillingUsageRecords: (params: BillingListParams) =>
+    request<PaginatedResponse<BillingUsageRecord>>(`/billing/usage-records?${billingQuery(params)}`),
+  listBillingRateRules: () => request<BillingRateRule[]>('/billing/rate-rules'),
+  updateBillingRateRules: (rules: BillingRateRulePayload[]) =>
+    request<BillingRateRule[]>('/billing/rate-rules', { method: 'PUT', body: JSON.stringify({ rules }) }),
   listProjectPins: () => request<ProjectPin[]>('/projects/pins'),
   updateProjectOrder: (projectIds: string[]) =>
     request<{ projectIds: string[] }>('/projects/order', { method: 'PUT', body: JSON.stringify({ projectIds }) }),

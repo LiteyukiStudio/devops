@@ -3,7 +3,7 @@ import type { ArtifactRegistry, BuildRun, DeploymentTarget, DeploymentTargetPayl
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { Download, Eye, FileCode2, MoreHorizontal, Package, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Save, Terminal, Trash2 } from 'lucide-react'
+import { Download, Eye, FileCode2, Maximize2, Minimize2, MoreHorizontal, Package, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Save, Terminal, Trash2 } from 'lucide-react'
 import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -135,6 +135,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   const [logView, setLogView] = useState<'deployment' | 'runtime'>('deployment')
   const [consoleRelease, setConsoleRelease] = useState<Release | null>(null)
   const [consoleContainer, setConsoleContainer] = useState('')
+  const [consoleFullscreen, setConsoleFullscreen] = useState(false)
   const [targetToDelete, setTargetToDelete] = useState<DeploymentTarget | null>(null)
   const [runtimeConfigDialogOpen, setRuntimeConfigDialogOpen] = useState(false)
   const [editingRuntimeConfigSet, setEditingRuntimeConfigSet] = useState<ProjectRuntimeConfigSet | null>(null)
@@ -1213,18 +1214,31 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
         onOpenChange={(open) => {
           if (!open) {
             setConsoleRelease(null)
+            setConsoleFullscreen(false)
           }
         }}
       >
-        <DialogContent className="max-w-5xl p-0">
-          <DialogHeader>
+        <DialogContent className={consoleFullscreen ? 'h-screen max-h-screen w-screen max-w-none rounded-none border-0 p-0' : 'max-w-5xl p-0'}>
+          <DialogHeader className={consoleFullscreen ? 'sr-only' : undefined}>
             <div className="border-b border-border px-5 py-4">
               <DialogTitle>{t('deploymentsPage.webConsole')}</DialogTitle>
               <DialogDescription>{t('deploymentsPage.webConsoleDescription')}</DialogDescription>
             </div>
           </DialogHeader>
-          <div className="grid gap-4 px-5 pb-5">
-            <div className="overflow-hidden rounded-md border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-xl">
+          <div className={consoleFullscreen ? 'flex h-screen min-h-0 bg-zinc-950 p-0' : 'grid gap-4 px-5 pb-5'}>
+            <div className={consoleFullscreen ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100' : 'overflow-hidden rounded-md border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-xl'}>
+              {consoleFullscreen && (
+                <Button
+                  className="absolute right-4 top-4 z-20 border-zinc-700 bg-zinc-900/90 text-zinc-100 shadow-lg hover:bg-zinc-800 hover:text-zinc-100"
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConsoleFullscreen(false)}
+                >
+                  <Minimize2 className="size-4" />
+                  {t('deploymentsPage.exitFullscreen')}
+                </Button>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-4 py-2">
                 <div className="flex items-center gap-2">
                   <span className="size-3 rounded-full bg-red-500" />
@@ -1232,17 +1246,33 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                   <span className="size-3 rounded-full bg-emerald-500" />
                   <span className="ml-2 font-mono text-xs text-zinc-400">{consoleRelease?.id ?? '-'}</span>
                 </div>
-                <label className="flex min-w-0 items-center gap-2 font-mono text-xs text-zinc-400">
-                  <span>{t('deploymentsPage.container')}</span>
-                  <input
-                    className="h-7 w-32 rounded border border-zinc-700 bg-zinc-950 px-2 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-                    placeholder={t('deploymentsPage.webConsoleContainerPlaceholder')}
-                    value={consoleContainer}
-                    onChange={event => setConsoleContainer(event.target.value)}
-                  />
-                </label>
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 pr-0 sm:pr-0">
+                  <label className="flex min-w-0 items-center gap-2 font-mono text-xs text-zinc-400">
+                    <span>{t('deploymentsPage.container')}</span>
+                    <input
+                      className="h-7 w-32 rounded border border-zinc-700 bg-zinc-950 px-2 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
+                      placeholder={t('deploymentsPage.webConsoleContainerPlaceholder')}
+                      value={consoleContainer}
+                      onChange={event => setConsoleContainer(event.target.value)}
+                    />
+                  </label>
+                  {!consoleFullscreen && (
+                    <Button
+                      className="h-7 border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100 hover:bg-zinc-800 hover:text-zinc-100"
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                      onClick={() => setConsoleFullscreen(true)}
+                    >
+                      <Maximize2 className="size-3.5" />
+                      {t('deploymentsPage.fullscreen')}
+                    </Button>
+                  )}
+                </div>
               </div>
-              <ApplicationRuntimeTerminalPanel container={consoleContainer} projectId={projectId} release={consoleRelease} />
+              <div className={consoleFullscreen ? 'min-h-0 flex-1' : undefined}>
+                <ApplicationRuntimeTerminalPanel container={consoleContainer} fullscreen={consoleFullscreen} projectId={projectId} release={consoleRelease} />
+              </div>
             </div>
           </div>
         </DialogContent>

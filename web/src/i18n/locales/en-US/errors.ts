@@ -12,6 +12,12 @@ const errors = {
   application: {
     delete_in_progress: 'The application is being deleted. Wait for resource cleanup to finish, or retry after deletion fails.',
   },
+  billing: {
+    project_forbidden: 'You do not have access to this project space billing data',
+    rate_rule_invalid_price: 'Billing rule price must be a non-negative number',
+    rate_rule_meter_required: 'Billing rule meter is required',
+    rate_rule_unknown: 'Unknown billing rule meter',
+  },
   config: {
     admin: { required: 'Confirm that the current account has platform administrator permission.' },
   },

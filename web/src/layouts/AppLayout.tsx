@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Container, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, Server, Settings, ShieldCheck, Users } from 'lucide-react'
+import { Container, CreditCard, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, Server, Settings, ShieldCheck, Users } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -41,6 +41,7 @@ const navSections = [
       { to: '/code-repositories', labelKey: 'codeRepositories', icon: GitBranch },
       { to: '/registries', labelKey: 'registries', icon: Container },
       { to: '/clusters', labelKey: 'clusters', icon: Server },
+      { to: '/billing', labelKey: 'billing', icon: CreditCard },
     ],
   },
   {
@@ -69,6 +70,7 @@ const pageMetaRules = [
   { match: (pathname: string) => pathname === '/code-repositories', titleKey: 'codeRepositories', descriptionKey: 'codeRepositoriesPage.description' },
   { match: (pathname: string) => pathname === '/registries', titleKey: 'registries', descriptionKey: 'registriesPage.description' },
   { match: (pathname: string) => pathname === '/clusters', titleKey: 'clusters', descriptionKey: 'clustersPage.description' },
+  { match: (pathname: string) => pathname === '/billing', titleKey: 'billing', descriptionKey: 'billingPage.description' },
   { match: (pathname: string) => pathname === '/settings/account' || pathname === '/settings/security', titleKey: 'account', descriptionKey: 'accountPage.description' },
   { match: (pathname: string) => pathname === '/settings/auth-providers', titleKey: 'authProvidersPage.title', descriptionKey: 'authProvidersPage.description' },
   { match: (pathname: string) => pathname === '/settings/users', titleKey: 'usersPage.title', descriptionKey: 'usersPage.description' },

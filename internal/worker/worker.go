@@ -85,6 +85,7 @@ func Run(redisAddr string, db *gorm.DB, options Options) error {
 	mux.HandleFunc(tasks.TypeResourceCleanup, runner.withTaskEvents(runner.handleResourceCleanup))
 	mux.HandleFunc(tasks.TypeGitAccountRefresh, runner.withTaskEvents(runner.handleGitAccountRefresh))
 	mux.HandleFunc(tasks.TypeSyncStatus, runner.withTaskEvents(runner.handleSyncStatus))
+	mux.HandleFunc(tasks.TypeBillingRuntime, runner.withTaskEvents(runner.handleBillingRuntime))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

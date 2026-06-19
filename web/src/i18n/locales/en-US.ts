@@ -3,6 +3,7 @@ import accountPage from './en-US/accountPage'
 import apps from './en-US/apps'
 import auth from './en-US/auth'
 import authProvidersPage from './en-US/authProvidersPage'
+import billingPage from './en-US/billingPage'
 import bootstrap from './en-US/bootstrap'
 import buildsPage from './en-US/buildsPage'
 import clustersPage from './en-US/clustersPage'
@@ -64,6 +65,7 @@ const enUS = {
   registriesPage,
   projectHooks,
   authProvidersPage,
+  billingPage,
 }
 
 export default enUS

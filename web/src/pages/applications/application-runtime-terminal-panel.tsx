@@ -6,7 +6,17 @@ import { useTranslation } from 'react-i18next'
 import { releaseRuntimeTerminalUrl } from '@/api/client'
 import '@xterm/xterm/css/xterm.css'
 
-export function ApplicationRuntimeTerminalPanel({ container, projectId, release }: { container: string, projectId: string, release: Release | null }) {
+export function ApplicationRuntimeTerminalPanel({
+  container,
+  fullscreen = false,
+  projectId,
+  release,
+}: {
+  container: string
+  fullscreen?: boolean
+  projectId: string
+  release: Release | null
+}) {
   const { t } = useTranslation()
   const terminalRef = useRef<HTMLDivElement | null>(null)
 
@@ -112,8 +122,8 @@ export function ApplicationRuntimeTerminalPanel({ container, projectId, release 
   }, [container, projectId, release, t])
 
   return (
-    <div className="p-3">
-      <div ref={terminalRef} className="h-[28rem] overflow-hidden rounded border border-zinc-800 bg-slate-950 p-2" />
+    <div className={fullscreen ? 'flex h-full min-h-0 p-3 pt-2' : 'p-3'}>
+      <div ref={terminalRef} className={fullscreen ? 'min-h-0 flex-1 overflow-hidden rounded border border-zinc-800 bg-slate-950 p-2' : 'h-[28rem] overflow-hidden rounded border border-zinc-800 bg-slate-950 p-2'} />
     </div>
   )
 }

@@ -103,6 +103,11 @@ const projectSpaces = {
   deleteDescription: 'Applications under {{name}} will lose their entry points. Confirm to continue.',
   deleteConfirmationLabel: 'Type {{name}} to confirm deletion',
   deleteConfirmationHint: 'The project space name must match before you can continue.',
+  deleteFailedReasons: {
+    kubeconfigInvalid: 'Runtime cluster kubeconfig is invalid',
+    clusterUnreachable: 'Runtime cluster connection failed',
+    generic: 'View failure details',
+  },
   editAria: 'Edit project space',
   deleteAria: 'Delete project space',
 }

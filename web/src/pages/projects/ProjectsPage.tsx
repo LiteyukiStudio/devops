@@ -212,7 +212,8 @@ export function ProjectsPage() {
           {
             key: 'actions',
             header: t('common.actions'),
-            className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
+            className: 'w-64 min-w-64 whitespace-nowrap px-4 py-3 align-middle text-right',
+            sticky: 'right',
             render: (project) => {
               const deleting = project.deleteStatus === 'deleting'
               return (
@@ -380,7 +381,9 @@ function ProjectSummary({ project }: { project: Project }) {
           <div className="mt-1 flex min-w-0 items-center gap-2">
             <StatusValueBadge labelKeyPrefix="apps.deleteStatuses" value={project.deleteStatus} />
             {deleteFailedMessage && (
-              <HoverText className="flex-1 text-xs text-muted-foreground" value={deleteFailedMessage} />
+              <HoverText className="max-w-60 flex-1 text-xs text-muted-foreground" value={deleteFailedMessage}>
+                {compactProjectDeleteMessage(deleteFailedMessage, t)}
+              </HoverText>
             )}
           </div>
         )}
@@ -390,4 +393,15 @@ function ProjectSummary({ project }: { project: Project }) {
       </div>
     </div>
   )
+}
+
+function compactProjectDeleteMessage(message: string, t: (key: string, options?: Record<string, unknown>) => string) {
+  const normalized = message.trim()
+  if (!normalized)
+    return ''
+  if (normalized.includes('kubeconfig') || normalized.includes('KUBERNETES_MASTER'))
+    return t('projectSpaces.deleteFailedReasons.kubeconfigInvalid')
+  if (normalized.includes('connection refused') || normalized.includes('connect:'))
+    return t('projectSpaces.deleteFailedReasons.clusterUnreachable')
+  return t('projectSpaces.deleteFailedReasons.generic')
 }

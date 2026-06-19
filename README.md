@@ -11,9 +11,9 @@
 <p align="center">
   <a href="docs/">文档站</a>
   ·
-  <a href="docs-legacy/01-产品与一体化方案.md">产品方案</a>
+  <a href="notes/01-产品与一体化方案.md">产品方案</a>
   ·
-  <a href="docs-legacy/07-代码健康检查SOP.md">代码健康 SOP</a>
+  <a href="notes/07-代码健康检查SOP.md">代码健康 SOP</a>
   ·
   <a href="TODO.md">开发计划</a>
   ·
@@ -231,16 +231,18 @@ worker
 
 ```env
 BUILD_EXECUTOR_IMAGE=moby/buildkit:v0.24.0-rootless
+BUILD_EGRESS_MODE=permissive
 BUILD_JOB_TIMEOUT_SECONDS=5400
 BUILD_JOB_TTL_SECONDS=3600
 BUILD_CACHE_ENABLED=false
 BUILD_CACHE_TAG=buildcache
 BUILD_NPM_REGISTRY=
 BUILD_PRIVATE_EGRESS_CIDRS=
+BUILD_PRIVATE_EGRESS_PORTS=443
 BUILD_BLOCKED_EGRESS_CIDRS=
 ```
 
-构建 Job 不挂载宿主机 Docker socket，不默认 privileged，不持有平台 API token，并显式使用受限 ServiceAccount。Git token、Registry 凭据和构建密钥通过一次性 Kubernetes Secret 注入到 Job，Job 完成后 worker 会删除临时 Secret，Pod/Job 按 TTL 保留日志窗口。Worker 会为项目命名空间应用构建出站 NetworkPolicy；默认允许 DNS 和公开 HTTP/HTTPS，`BUILD_PRIVATE_EGRESS_CIDRS` 可放行内网 registry/镜像源 TCP 443，`BUILD_BLOCKED_EGRESS_CIDRS` 可追加禁止访问的 CIDR。
+构建 Job 不挂载宿主机 Docker socket，不默认 privileged，不持有平台 API token，并显式使用受限 ServiceAccount。Git token、Registry 凭据和构建密钥通过一次性 Kubernetes Secret 注入到 Job，Job 完成后 worker 会删除临时 Secret，Pod/Job 按 TTL 保留日志窗口。Worker 会为项目命名空间应用构建出站 NetworkPolicy；默认 `permissive` 模式放行构建出站，优先保证不同 CNI 和镜像站能正常构建。需要强隔离时可改为 `BUILD_EGRESS_MODE=restricted`，再用 `BUILD_PRIVATE_EGRESS_CIDRS`、`BUILD_PRIVATE_EGRESS_PORTS` 和 `BUILD_BLOCKED_EGRESS_CIDRS` 控制内网白名单。
 
 ## 运行模式
 
@@ -276,7 +278,7 @@ openapi/                OpenAPI 定义
 web/                    Vite + React 前端
 web/public/             静态资源，包含 SVG logo / favicon
 docs/                   Rspress 文档站源码
-docs-legacy/            产品方案、场景记录和代码健康 SOP
+notes/                  产品方案、场景记录和代码健康 SOP
 ```
 
 ## 品牌资产
@@ -291,8 +293,8 @@ docs-legacy/            产品方案、场景记录和代码健康 SOP
 推荐阅读顺序：
 
 1. [文档站](docs/)
-2. [产品与一体化方案](docs-legacy/01-产品与一体化方案.md)
-3. [代码健康检查 SOP](docs-legacy/07-代码健康检查SOP.md)
+2. [产品与一体化方案](notes/01-产品与一体化方案.md)
+3. [代码健康检查 SOP](notes/07-代码健康检查SOP.md)
 4. [TODO](TODO.md)
 5. [AI 开发规范](AGENTS.md)
 

@@ -35,10 +35,12 @@ The public route link scheme is managed in Admin Settings / Gateway as `gateway.
 | Advanced | `LOG_LEVEL` | `debug` | Log level; production usually uses `info`. |
 | Advanced | `DEPLOY_ROLLOUT_TIMEOUT_SECONDS` | `600` | Release wait timeout; increase for slow-starting apps. |
 | Advanced | `CERT_MANAGER_CLUSTER_ISSUER` | `letsencrypt-http01` | Certificate Issuer name; change when your cluster uses another name. |
+| Advanced | `BUILD_EGRESS_MODE` | `permissive` | Build egress mode; set to `restricted` when strong isolation is required. |
 | Advanced | `BUILD_JOB_TIMEOUT_SECONDS` | `5400` | Build timeout; increase for large projects. |
 | Advanced | `BUILD_JOB_TTL_SECONDS` | `3600` | Completed build Pod retention; increase for a longer log window. |
 | Advanced | `BUILD_CACHE_ENABLED` | `false` | Build cache switch; enable for faster repeated builds. |
 | Advanced | `BUILD_CACHE_TAG` | `buildcache` | Build cache tag; change to isolate cache. |
 | Advanced | `BUILD_NPM_REGISTRY` | Empty | npm registry; set when using an internal mirror. |
-| Advanced | `BUILD_PRIVATE_EGRESS_CIDRS` | Empty | Extra private HTTPS CIDRs builds may access; set for internal registries or mirrors. DNS allows port 53 to any destination by default. |
-| Advanced | `BUILD_BLOCKED_EGRESS_CIDRS` | Empty | Extra CIDRs builds must not access; set for stricter isolation. |
+| Advanced | `BUILD_PRIVATE_EGRESS_CIDRS` | Empty | Extra private CIDRs in `restricted` mode. |
+| Advanced | `BUILD_PRIVATE_EGRESS_PORTS` | `443` | Private allowlist ports in `restricted` mode; use ports like `5000` or `8081` for non-standard registries. |
+| Advanced | `BUILD_BLOCKED_EGRESS_CIDRS` | Empty | Extra blocked CIDRs in `restricted` mode. |

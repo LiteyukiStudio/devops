@@ -30,6 +30,11 @@ const projectSpaces = {
   deleteDescription: '项目空间 {{name}} 下的应用也会失去入口，请确认后继续。',
   deleteConfirmationLabel: '请输入 {{name}} 以确认删除',
   deleteConfirmationHint: '必须完整匹配项目空间名称后才能继续。',
+  deleteFailedReasons: {
+    kubeconfigInvalid: '运行集群 kubeconfig 无效',
+    clusterUnreachable: '运行集群连接失败',
+    generic: '查看失败详情',
+  },
   editAria: '编辑项目空间',
   deleteAria: '删除项目空间',
   apps: '应用',

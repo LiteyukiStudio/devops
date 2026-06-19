@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LiteyukiStudio/devops/internal/billing"
 	"github.com/LiteyukiStudio/devops/internal/builder"
 	"github.com/LiteyukiStudio/devops/internal/buildruntime"
 	"github.com/LiteyukiStudio/devops/internal/id"
@@ -128,9 +129,11 @@ func (r *Runner) handleBuildRun(ctx context.Context, task *asynq.Task) error {
 	result, err := r.followBuildJob(ctx, client, namespace, jobName, job, taskPayload.Build.Hooks, resolved.SensitiveValues)
 	if err != nil {
 		if errors.Is(err, errBuildRunCanceled) {
+			r.settleBuildUsage(job.ID, run.ID, run.ProjectID, environment)
 			return nil
 		}
 		_ = r.failBuildJob(job, run, err.Error())
+		r.settleBuildUsage(job.ID, run.ID, run.ProjectID, environment)
 		return err
 	}
 	if strings.TrimSpace(result.ImageRef) == "" {
@@ -140,10 +143,40 @@ func (r *Runner) handleBuildRun(ctx context.Context, task *asynq.Task) error {
 	if err != nil {
 		return err
 	}
+	r.settleBuildUsage(job.ID, run.ID, run.ProjectID, environment)
 	if completedRun.ID != "" {
 		r.enqueueAutoDeploymentsForBuildRun(ctx, completedRun)
 	}
 	return nil
+}
+
+func (r *Runner) settleBuildUsage(jobID string, runID string, projectID string, environment model.Environment) {
+	var run model.BuildRun
+	if err := r.db.First(&run, "id = ? and project_id = ?", runID, projectID).Error; err != nil {
+		return
+	}
+	var job model.BuildJob
+	if err := r.db.First(&job, "id = ? and build_run_id = ? and project_id = ?", jobID, runID, projectID).Error; err != nil {
+		return
+	}
+	finishedAt := time.Now()
+	if run.FinishedAt != nil {
+		finishedAt = *run.FinishedAt
+	}
+	err := (billing.Service{DB: r.db}).SettleBuildRun(billing.BuildUsageInput{
+		Run:         run,
+		Job:         job,
+		Environment: environment,
+		FinishedAt:  finishedAt,
+	})
+	if err != nil && !errors.Is(err, billing.ErrAlreadySettled) {
+		message := strings.TrimSpace(job.Message)
+		if message != "" {
+			message += "; "
+		}
+		message += "billing settlement failed: " + err.Error()
+		_ = r.db.Model(&model.BuildJob{}).Where("id = ? and project_id = ?", job.ID, projectID).Update("message", message).Error
+	}
 }
 
 func buildJobCanStart(status string) bool {

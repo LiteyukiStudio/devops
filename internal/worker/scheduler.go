@@ -23,6 +23,7 @@ func periodicTaskSpecs() ([]periodicTaskSpec, error) {
 	return []periodicTaskSpec{
 		{Cron: "@every 5m", Task: gitRefreshTask, Queue: tasks.QueueLight, Timeout: 10 * time.Minute},
 		{Cron: "@every 1m", Task: asynq.NewTask(tasks.TypeSyncStatus, []byte("{}")), Queue: tasks.QueueLight, Timeout: 5 * time.Minute},
+		{Cron: "@every 10m", Task: asynq.NewTask(tasks.TypeBillingRuntime, []byte("{}")), Queue: tasks.QueueLight, Timeout: 5 * time.Minute},
 	}, nil
 }
 

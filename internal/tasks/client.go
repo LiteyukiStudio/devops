@@ -18,6 +18,7 @@ const (
 	TypeResourceCleanup   = "resource:cleanup"
 	TypeGitAccountRefresh = "git:accounts:refresh"
 	TypeSyncStatus        = "sync:status"
+	TypeBillingRuntime    = "billing:runtime"
 
 	QueueDeploy = "deploy"
 	QueueBuild  = "build"

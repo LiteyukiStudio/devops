@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { TooltipProvider } from './components/ui/tooltip'
 import { AppLayout } from './layouts/AppLayout'
 import { ApplicationConfigPage } from './pages/applications/ApplicationConfigPage'
+import { BillingPage } from './pages/billing/BillingPage'
 import { BootstrapPage } from './pages/bootstrap/BootstrapPage'
 import { ClustersPage } from './pages/clusters/ClustersPage'
 import { CodeRepositoriesPage } from './pages/code-repositories/CodeRepositoriesPage'
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/code-repositories" element={<CodeRepositoriesPage />} />
           <Route path="/registries" element={<RegistriesPage />} />
           <Route path="/clusters" element={<ClustersPage />} />
+          <Route path="/billing" element={<BillingPage />} />
           <Route path="/access-tokens" element={<Navigate to="/settings/account" replace />} />
           <Route path="/settings/security" element={<Navigate to="/settings/account" replace />} />
           <Route path="/settings/account" element={<AccountPage />} />

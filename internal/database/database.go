@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/LiteyukiStudio/devops/internal/billing"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ func Migrate(db *gorm.DB) error {
 	if err := cleanupApplicationDeliveryColumns(db); err != nil {
 		return err
 	}
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&model.User{},
 		&model.UserSession{},
 		&model.UserRememberToken{},
@@ -31,6 +32,7 @@ func Migrate(db *gorm.DB) error {
 		&model.Project{},
 		&model.ProjectMember{},
 		&model.ProjectPin{},
+		&model.ProjectWallet{},
 		&model.ProjectHookConfig{},
 		&model.HookRun{},
 		&model.HookRunLog{},
@@ -51,6 +53,9 @@ func Migrate(db *gorm.DB) error {
 		&model.BuildRun{},
 		&model.BuildJob{},
 		&model.BuildLog{},
+		&model.BillingRateRule{},
+		&model.BillingUsageRecord{},
+		&model.BillingLedgerEntry{},
 		&model.RuntimeCluster{},
 		&model.Environment{},
 		&model.Release{},
@@ -59,7 +64,10 @@ func Migrate(db *gorm.DB) error {
 		&model.DeploymentTarget{},
 		&model.GatewayRoute{},
 		&model.AppConfig{},
-	)
+	); err != nil {
+		return err
+	}
+	return (billing.Service{DB: db}).EnsureDefaultRateRules()
 }
 
 func cleanupApplicationDeliveryColumns(db *gorm.DB) error {

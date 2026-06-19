@@ -1,3 +1,4 @@
+import type { BillingRateRule, BillingRateRulePayload, ConfigDefinition } from '@/api/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -30,6 +31,7 @@ export function SiteSettingsPage() {
   const siteDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('site.')), [definitions.data])
   const gatewayDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('gateway.')), [definitions.data])
   const securityDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('security.')), [definitions.data])
+  const billingDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('billing.')), [definitions.data])
   const resolvedValues = useMemo(() => {
     const nextValues: Record<string, string> = {}
     for (const definition of definitions.data ?? [])
@@ -66,6 +68,7 @@ export function SiteSettingsPage() {
             { value: 'brand', label: t('settings.siteConfigTitle') },
             { value: 'gateway', label: t('settings.gatewayConfigTitle') },
             { value: 'security', label: t('settings.securityEgressTitle') },
+            { value: 'billing', label: t('settings.billingConfigTitle') },
           ]}
           tools={(
             <Button disabled={save.isPending || !form.formState.isValid} form="site-settings-form" type="submit">
@@ -91,6 +94,14 @@ export function SiteSettingsPage() {
               <ConfigSection definitions={securityDefinitions} form={form} />
             </Card>
           </TabsContent>
+          <TabsContent value="billing">
+            <div className="grid max-w-5xl gap-4">
+              <Card className="p-4">
+                <ConfigSection definitions={billingDefinitions} form={form} />
+              </Card>
+              <BillingRateRulesSection />
+            </div>
+          </TabsContent>
         </ContentTabs>
       </form>
     </div>
@@ -98,7 +109,7 @@ export function SiteSettingsPage() {
 }
 
 interface ConfigSectionProps {
-  definitions: Array<{ key: string, label: string, description: string, type: 'string' | 'textarea' | 'select', default: string, options?: string[] }>
+  definitions: ConfigDefinition[]
   form: ReturnType<typeof useForm<Record<string, unknown>>>
 }
 
@@ -123,6 +134,117 @@ function ConfigSection({ definitions, form }: ConfigSectionProps) {
         </Field>
       ))}
     </div>
+  )
+}
+
+function BillingRateRulesSection() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const rateRules = useQuery({ queryKey: ['billing-rate-rules'], queryFn: api.listBillingRateRules })
+  const [drafts, setDrafts] = useState<Record<string, BillingRateRulePayload>>({})
+
+  const save = useMutation({
+    mutationFn: (rules: BillingRateRulePayload[]) => api.updateBillingRateRules(rules),
+    onSuccess: (rules) => {
+      toast.success(t('settings.billingRateRulesSaved'))
+      setDrafts({})
+      queryClient.setQueryData(['billing-rate-rules'], rules)
+      queryClient.invalidateQueries({ queryKey: ['billing-rate-rules'] })
+    },
+    onError: error => toast.error(error.message),
+  })
+
+  if (rateRules.isError)
+    return <ErrorState title={t('settings.billingRateRulesFailedTitle')} description={t('settings.billingRateRulesFailedDescription')} />
+
+  const rules = rateRules.data ?? []
+  const payload = rules
+    .map(rule => drafts[rule.meter] ?? billingRateRulePayloadFromRule(rule))
+    .filter((rule): rule is BillingRateRulePayload => Boolean(rule))
+
+  return (
+    <Card className="p-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">{t('settings.billingRateRulesTitle')}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{t('settings.billingRateRulesDescription')}</p>
+        </div>
+        <Button disabled={save.isPending || rules.length === 0} type="button" onClick={() => save.mutate(payload)}>
+          <Save size={16} />
+          {t('settings.saveBillingRateRules')}
+        </Button>
+      </div>
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="bg-muted/70 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-3 font-medium">{t('settings.billingRateMeter')}</th>
+              <th className="px-3 py-3 font-medium">{t('settings.billingRateUnit')}</th>
+              <th className="px-3 py-3 font-medium">{t('settings.billingRatePrice')}</th>
+              <th className="px-3 py-3 font-medium">{t('settings.billingRateEnabled')}</th>
+              <th className="px-3 py-3 font-medium">{t('settings.billingRateDescription')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map(rule => (
+              <BillingRateRuleRow
+                key={rule.meter}
+                rule={rule}
+                value={drafts[rule.meter]}
+                onChange={nextRule => setDrafts(current => ({ ...current, [rule.meter]: nextRule }))}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+function billingRateRulePayloadFromRule(rule: BillingRateRule): BillingRateRulePayload {
+  return {
+    meter: rule.meter,
+    creditsPerUnit: rule.creditsPerUnit,
+    enabled: rule.enabled,
+  }
+}
+
+function BillingRateRuleRow({ rule, value, onChange }: {
+  rule: BillingRateRule
+  value?: BillingRateRulePayload
+  onChange: (value: BillingRateRulePayload) => void
+}) {
+  const { t } = useTranslation()
+  const draft = value ?? billingRateRulePayloadFromRule(rule)
+
+  return (
+    <tr className="border-t">
+      <td className="px-3 py-3 font-mono text-xs text-foreground">{rule.meter}</td>
+      <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{rule.unit}</td>
+      <td className="px-3 py-3">
+        <Input
+          className="w-36"
+          inputMode="decimal"
+          min="0"
+          step="0.0001"
+          type="number"
+          value={draft.creditsPerUnit}
+          onChange={event => onChange({ ...draft, creditsPerUnit: event.target.value })}
+        />
+      </td>
+      <td className="px-3 py-3">
+        <Select value={String(draft.enabled)} onValueChange={nextValue => onChange({ ...draft, enabled: nextValue === 'true' })}>
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">{t('common.enabled')}</SelectItem>
+            <SelectItem value="false">{t('common.disabled')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="px-3 py-3 text-muted-foreground">{rule.description}</td>
+    </tr>
   )
 }
 

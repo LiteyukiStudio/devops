@@ -1,0 +1,200 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/LiteyukiStudio/devops/internal/billing"
+	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
+)
+
+func (h *Handlers) GetBillingSummary(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	projectIDs, ok := h.billingProjectIDsForUser(ctx, user)
+	if !ok {
+		return
+	}
+	summary, err := (billing.Service{DB: h.db}).Summary(projectIDs, time.Now())
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, summary)
+}
+
+func (h *Handlers) ListBillingLedgerEntries(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	projectIDs, ok := h.billingProjectIDsForUser(ctx, user)
+	if !ok {
+		return
+	}
+	pagination := paginationFromQuery(ctx)
+	query := h.db.Where("project_id in ?", projectIDs)
+	if entryType := strings.TrimSpace(ctx.Query("type")); entryType != "" {
+		query = query.Where("type = ?", entryType)
+	}
+	var total int64
+	if err := query.Model(&model.BillingLedgerEntry{}).Count(&total).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var entries []model.BillingLedgerEntry
+	orderBy := orderByClause(pagination, map[string]string{
+		"createdAt":     "created_at",
+		"amountCredits": "amount_credits",
+		"reason":        "reason",
+	}, "created_at")
+	if err := query.Order(orderBy).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&entries).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, paginatedResponse(entries, total, pagination))
+}
+
+func (h *Handlers) ListBillingUsageRecords(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	projectIDs, ok := h.billingProjectIDsForUser(ctx, user)
+	if !ok {
+		return
+	}
+	pagination := paginationFromQuery(ctx)
+	query := h.db.Where("project_id in ?", projectIDs)
+	if meter := strings.TrimSpace(ctx.Query("meter")); meter != "" {
+		query = query.Where("meter = ?", meter)
+	}
+	var total int64
+	if err := query.Model(&model.BillingUsageRecord{}).Count(&total).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var records []model.BillingUsageRecord
+	orderBy := orderByClause(pagination, map[string]string{
+		"createdAt":     "created_at",
+		"amountCredits": "amount_credits",
+		"meter":         "meter",
+	}, "created_at")
+	if err := query.Order(orderBy).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&records).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, paginatedResponse(records, total, pagination))
+}
+
+func (h *Handlers) ListBillingRateRules(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	if user.Role != "platform_admin" {
+		writeErrorKey(ctx, http.StatusForbidden, user.Language, "config.admin.required")
+		return
+	}
+
+	rules, err := (billing.Service{DB: h.db}).ListRateRules()
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, rules)
+}
+
+func (h *Handlers) UpdateBillingRateRules(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	if user.Role != "platform_admin" {
+		writeErrorKey(ctx, http.StatusForbidden, user.Language, "config.admin.required")
+		return
+	}
+
+	var input updateBillingRateRulesInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	updates := make([]billing.RateRuleUpdate, 0, len(input.Rules))
+	for _, rule := range input.Rules {
+		meter := strings.TrimSpace(rule.Meter)
+		if meter == "" {
+			writeErrorCode(ctx, http.StatusBadRequest, "billing.rate_rule_meter_required", "billing rate rule meter is required")
+			return
+		}
+		creditsPerUnit, err := decimal.NewFromString(strings.TrimSpace(rule.CreditsPerUnit))
+		if err != nil || creditsPerUnit.IsNegative() {
+			writeErrorCode(ctx, http.StatusBadRequest, "billing.rate_rule_invalid_price", "billing rate rule price must be a non-negative decimal")
+			return
+		}
+		updates = append(updates, billing.RateRuleUpdate{
+			Meter:          meter,
+			CreditsPerUnit: creditsPerUnit,
+			Enabled:        rule.Enabled,
+		})
+	}
+	rules, err := (billing.Service{DB: h.db}).UpdateRateRules(updates)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		writeErrorCode(ctx, http.StatusBadRequest, "billing.rate_rule_unknown", "unknown billing rate rule meter")
+		return
+	}
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, rules)
+}
+
+func (h *Handlers) billingProjectIDsForUser(ctx *gin.Context, user model.User) ([]string, bool) {
+	var memberships []model.ProjectMember
+	if err := h.db.Find(&memberships, "user_id = ?", user.ID).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return nil, false
+	}
+	allowed := map[string]bool{}
+	for _, membership := range memberships {
+		allowed[membership.ProjectID] = true
+	}
+	requested := make([]string, 0)
+	for _, rawProjectIDs := range ctx.QueryArray("projectIds") {
+		requested = append(requested, strings.Split(rawProjectIDs, ",")...)
+	}
+	requested = normalizeStringList(requested)
+	if len(requested) == 0 {
+		ids := make([]string, 0, len(allowed))
+		for projectID := range allowed {
+			ids = append(ids, projectID)
+		}
+		return ids, true
+	}
+	ids := make([]string, 0, len(requested))
+	for _, projectID := range requested {
+		if !allowed[projectID] {
+			writeErrorCode(ctx, http.StatusForbidden, "billing.project_forbidden", "current user cannot access the requested project billing")
+			return nil, false
+		}
+		ids = append(ids, projectID)
+	}
+	return ids, true
+}
+
+type updateBillingRateRulesInput struct {
+	Rules []updateBillingRateRuleInput `json:"rules"`
+}
+
+type updateBillingRateRuleInput struct {
+	Meter          string `json:"meter"`
+	CreditsPerUnit string `json:"creditsPerUnit"`
+	Enabled        bool   `json:"enabled"`
+}

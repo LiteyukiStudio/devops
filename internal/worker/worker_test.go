@@ -48,14 +48,40 @@ func TestPeriodicTaskSpecsIncludeGitRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("periodicTaskSpecs returned error: %v", err)
 	}
-	found := false
+	foundGitRefresh := false
+	foundRuntimeBilling := false
 	for _, spec := range specs {
 		if spec.Task.Type() == tasks.TypeGitAccountRefresh {
-			found = spec.Cron == "@every 5m" && spec.Queue == tasks.QueueLight
+			foundGitRefresh = spec.Cron == "@every 5m" && spec.Queue == tasks.QueueLight
+		}
+		if spec.Task.Type() == tasks.TypeBillingRuntime {
+			foundRuntimeBilling = spec.Cron == "@every 10m" && spec.Queue == tasks.QueueLight
 		}
 	}
-	if !found {
+	if !foundGitRefresh || !foundRuntimeBilling {
 		t.Fatalf("specs = %#v", specs)
+	}
+}
+
+func TestCompletedHourlyWindowsReturnsOnlyCompleteHours(t *testing.T) {
+	now := time.Date(2026, 6, 19, 15, 27, 30, 0, time.FixedZone("UTC+8", 8*3600))
+	windows := completedHourlyWindows(now, 2)
+	if len(windows) != 2 {
+		t.Fatalf("windows = %#v", windows)
+	}
+	if !windows[0].Start.Equal(time.Date(2026, 6, 19, 5, 0, 0, 0, time.UTC)) || !windows[1].End.Equal(time.Date(2026, 6, 19, 7, 0, 0, 0, time.UTC)) {
+		t.Fatalf("windows = %#v", windows)
+	}
+}
+
+func TestRuntimeBillingEffectivePeriodProratesWindowStart(t *testing.T) {
+	windowStart := time.Date(2026, 6, 19, 6, 0, 0, 0, time.UTC)
+	windowEnd := windowStart.Add(time.Hour)
+	targetCreatedAt := windowStart.Add(10 * time.Minute)
+	releaseStart := windowStart.Add(25 * time.Minute)
+	start, end, ok := runtimeBillingEffectivePeriod(windowStart, windowEnd, targetCreatedAt, releaseStart)
+	if !ok || !start.Equal(releaseStart) || !end.Equal(windowEnd) {
+		t.Fatalf("period = %s %s %v", start, end, ok)
 	}
 }
 
