@@ -3,7 +3,7 @@ import type { Application } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { LayoutDashboard, Plus, Save, Trash2 } from 'lucide-react'
+import { LayoutDashboard, MoreHorizontal, Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { useImperativeHandle, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -23,6 +23,7 @@ import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { APPLICATION_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
@@ -186,38 +187,66 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, p
             className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
             render: (application) => {
               const deleting = application.deleteStatus === 'deleting'
+              const openEditDialog = () => {
+                setEditingApplication(application)
+                resetApplicationForm(application)
+                setDialogOpen(true)
+              }
+              const openDeleteDialog = () => {
+                setApplicationToDelete(application)
+                setDeleteConfirmation('')
+              }
               return (
-                <div className="flex justify-end gap-2">
-                  <Link
-                    aria-label={t('apps.openDetailAria')}
-                    aria-disabled={deleting}
-                    className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, size: 'sm', variant: 'ghost' })}
-                    to={`/projects/${projectId}/apps/${application.id}`}
-                  >
-                    <LayoutDashboard size={16} />
-                    {t('apps.openDetail')}
-                  </Link>
-                  <EditActionButton
-                    aria-label={t('apps.editAria')}
-                    label={t('edit')}
-                    disabled={deleting}
-                    onClick={() => {
-                      setEditingApplication(application)
-                      resetApplicationForm(application)
-                      setDialogOpen(true)
-                    }}
-                  />
-                  <Button
-                    aria-label={t('apps.deleteAria')}
-                    disabled={deleting}
-                    variant="ghost"
-                    onClick={() => {
-                      setApplicationToDelete(application)
-                      setDeleteConfirmation('')
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </Button>
+                <div className="flex justify-end">
+                  <div className="hidden justify-end gap-2 sm:flex">
+                    <Link
+                      aria-label={t('apps.openDetailAria')}
+                      aria-disabled={deleting}
+                      className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, size: 'sm', variant: 'ghost' })}
+                      to={`/projects/${projectId}/apps/${application.id}`}
+                    >
+                      <LayoutDashboard size={16} />
+                      {t('apps.openDetail')}
+                    </Link>
+                    <EditActionButton
+                      aria-label={t('apps.editAria')}
+                      label={t('edit')}
+                      disabled={deleting}
+                      onClick={openEditDialog}
+                    />
+                    <Button
+                      aria-label={t('apps.deleteAria')}
+                      disabled={deleting}
+                      variant="ghost"
+                      onClick={openDeleteDialog}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button aria-label={t('common.actions')} className="sm:hidden" size="icon" variant="ghost">
+                        <MoreHorizontal size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild disabled={deleting}>
+                        <Link className={deleting ? 'pointer-events-none opacity-50' : undefined} to={`/projects/${projectId}/apps/${application.id}`}>
+                          <LayoutDashboard size={16} />
+                          {t('apps.openDetail')}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={deleting} onSelect={openEditDialog}>
+                        <Pencil size={16} />
+                        {t('edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem disabled={deleting} variant="destructive" onSelect={openDeleteDialog}>
+                        <Trash2 size={16} />
+                        {t('common.delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )
             },

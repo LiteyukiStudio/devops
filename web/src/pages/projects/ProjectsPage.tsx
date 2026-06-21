@@ -2,7 +2,7 @@ import type { Project, ProjectListScope } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { FolderKanban, Plus, Trash2 } from 'lucide-react'
+import { FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -23,6 +23,7 @@ import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect as Select } from '@/components/ui/native-select'
@@ -216,37 +217,65 @@ export function ProjectsPage() {
             sticky: 'right',
             render: (project) => {
               const deleting = project.deleteStatus === 'deleting'
+              const openEditDialog = () => {
+                setEditingProject(project)
+                form.reset({
+                  name: project.name,
+                  slug: project.slug,
+                  description: project.description,
+                  maxConcurrentBuilds: project.maxConcurrentBuilds || 2,
+                })
+                setDialogOpen(true)
+              }
+              const openDeleteDialog = () => {
+                setProjectToDelete(project)
+                setDeleteConfirmation('')
+              }
               return (
-                <div className="flex justify-end gap-2">
-                  <Link aria-disabled={deleting} className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, variant: 'ghost' })} to={`/projects/${project.id}`}>
-                    {t('projectSpaces.openWorkspace')}
-                  </Link>
-                  <EditActionButton
-                    aria-label={t('projectSpaces.editAria')}
-                    disabled={deleting}
-                    label={t('edit')}
-                    onClick={() => {
-                      setEditingProject(project)
-                      form.reset({
-                        name: project.name,
-                        slug: project.slug,
-                        description: project.description,
-                        maxConcurrentBuilds: project.maxConcurrentBuilds || 2,
-                      })
-                      setDialogOpen(true)
-                    }}
-                  />
-                  <Button
-                    aria-label={t('projectSpaces.deleteAria')}
-                    disabled={deleting}
-                    variant="ghost"
-                    onClick={() => {
-                      setProjectToDelete(project)
-                      setDeleteConfirmation('')
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </Button>
+                <div className="flex justify-end">
+                  <div className="hidden justify-end gap-2 sm:flex">
+                    <Link aria-disabled={deleting} className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, variant: 'ghost' })} to={`/projects/${project.id}`}>
+                      {t('projectSpaces.openWorkspace')}
+                    </Link>
+                    <EditActionButton
+                      aria-label={t('projectSpaces.editAria')}
+                      disabled={deleting}
+                      label={t('edit')}
+                      onClick={openEditDialog}
+                    />
+                    <Button
+                      aria-label={t('projectSpaces.deleteAria')}
+                      disabled={deleting}
+                      variant="ghost"
+                      onClick={openDeleteDialog}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button aria-label={t('common.actions')} className="sm:hidden" size="icon" variant="ghost">
+                        <MoreHorizontal size={16} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild disabled={deleting}>
+                        <Link className={deleting ? 'pointer-events-none opacity-50' : undefined} to={`/projects/${project.id}`}>
+                          <FolderKanban size={16} />
+                          {t('projectSpaces.openWorkspace')}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={deleting} onSelect={openEditDialog}>
+                        <Pencil size={16} />
+                        {t('edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem disabled={deleting} variant="destructive" onSelect={openDeleteDialog}>
+                        <Trash2 size={16} />
+                        {t('common.delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )
             },
