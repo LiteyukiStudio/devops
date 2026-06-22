@@ -63,6 +63,7 @@ export interface AppTemplate {
   description: string
   category: string
   icon: string
+  popularityWeight: number
   image: string
   version: string
   servicePort: number

@@ -1,12 +1,13 @@
 # App Marketplace
 
-The app marketplace installs common infrastructure apps into project spaces from templates. The MVP includes Redis, PostgreSQL, MySQL, and RabbitMQ for quick cache, database, and queue setup.
+The app marketplace installs common infrastructure apps into project spaces from templates. The MVP includes Redis, Valkey, Memcached, PostgreSQL, MySQL, MariaDB, MongoDB, RabbitMQ, Garage, Grafana, Uptime Kuma, Memos, IT-Tools, Excalidraw, Verdaccio, Docker Registry, pgAdmin4, Meilisearch, and Bytebase for quick cache, database, queue, object storage, observability, and small-team tooling setup.
 
 Installing a template creates:
 
 - An application.
 - An image-based deployment target.
 - Template-defined environment variables, secret variables, and runtime data volumes.
+- Template-defined config files and secret files; sensitive files are written into Kubernetes Secrets.
 - An optional first Release; deployment is enabled by default.
 
 Secret parameters are written to the platform secret store. Deployment targets keep secret references only, and plaintext values are not echoed back to the frontend.
@@ -21,8 +22,10 @@ Secret parameters are written to the platform secret store. Deployment targets k
 
 After a successful install, the page navigates to the new application's deployment tab.
 
+The template list supports category filtering, template name or image search, and sorting by popularity weight or name in ascending or descending order. The default view sorts by platform-defined popularity weight descending. Built-in templates intentionally skip PHP applications such as Adminer and phpMyAdmin for now.
+
 ## Current Limits
 
-The MVP only enables templates whose images can run with their default command. Images that require custom command or args are not installable yet; MinIO will be enabled after deployment targets support startup commands.
+The MVP only enables templates whose images can run with their default command. Garage is provided as a single-node lightweight object storage template; the platform generates its base config file. Multi-node layout initialization, bucket/key outputs, and richer connection details will be added with the later template outputs work.
 
 Marketplace templates are loaded from backend-embedded JSON. Future third-party marketplaces can reuse the same schema, with backend-side fetching, validation, and caching.

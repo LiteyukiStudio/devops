@@ -1,8 +1,16 @@
 const appTemplatesPage = {
-  description: '从预设模板一键安装 Redis、PostgreSQL、MySQL 等常用基础应用。',
+  description: '从预设模板一键安装数据库、缓存、监控、工具和轻量协作应用。',
   heroTitle: '应用市场',
   heroDescription: '选择一个内置模板，填写少量参数后安装到项目空间；平台会创建应用、部署配置，并按需立即发布。',
-  searchPlaceholder: '搜索模板、镜像或分类',
+  searchPlaceholder: '搜索模板或镜像',
+  categoryFilter: '分类筛选',
+  allCategories: '全部分类',
+  sortBy: '排序字段',
+  sortByPopularity: '热度',
+  sortByName: '名称 A-Z',
+  sortOrder: '排序顺序',
+  sortDesc: '倒序',
+  sortAsc: '顺序',
   loading: '正在加载应用模板...',
   emptyTitle: '没有找到模板',
   emptyDescription: '换个关键词试试，或等待管理员添加更多模板。',
@@ -30,8 +38,16 @@ const appTemplatesPage = {
   port: '端口',
   resources: '资源',
   categories: {
+    cache: '缓存',
+    collaboration: '协作',
     database: '数据库',
+    databaseTool: '数据库工具',
+    developerTool: '开发工具',
     middleware: '中间件',
+    objectStorage: '对象存储',
+    observability: '监控观测',
+    registry: '制品仓库',
+    search: '搜索',
   },
   stageOptions: {
     prod: '生产',
@@ -44,6 +60,11 @@ const appTemplatesPage = {
     database: '数据库名',
     password: '密码',
     rootPassword: 'Root 密码',
+    rpcSecret: 'RPC 密钥',
+    adminToken: '管理 Token',
+    metricsToken: '指标 Token',
+    masterKey: '主密钥',
+    email: '邮箱',
   },
   templates: {
     redis: {
@@ -55,8 +76,53 @@ const appTemplatesPage = {
     mysql: {
       description: '经典关系型数据库，使用单容器快速安装。',
     },
+    mongodb: {
+      description: '面向 JSON 类数据和灵活 schema 的文档数据库。',
+    },
+    mariadb: {
+      description: '兼容 MySQL 的关系型数据库，适合轻量单容器运行。',
+    },
+    valkey: {
+      description: '兼容 Redis 的内存数据存储，适合缓存和轻量队列。',
+    },
+    memcached: {
+      description: '极简高速内存缓存服务，适合简单 key-value 缓存。',
+    },
     rabbitmq: {
       description: '用于异步任务、事件和轻量消息队列的消息中间件。',
+    },
+    meilisearch: {
+      description: '轻量全文搜索引擎，适合应用内搜索和索引场景。',
+    },
+    grafana: {
+      description: '指标仪表盘和可视化平台，适合监控数据展示。',
+    },
+    'uptime-kuma': {
+      description: '自托管可用性监控，用于站点、API 和内部服务巡检。',
+    },
+    memos: {
+      description: '小团队自托管笔记和知识片段工具。',
+    },
+    'it-tools': {
+      description: '浏览器里的开发和运维小工具集合。',
+    },
+    excalidraw: {
+      description: '简单易用的白板工具，适合画图、草图和产品说明。',
+    },
+    verdaccio: {
+      description: '私有 npm 兼容包仓库，适合内部 JavaScript 包分发。',
+    },
+    'docker-registry': {
+      description: '私有 OCI 镜像仓库，适合内部容器镜像分发。',
+    },
+    pgadmin4: {
+      description: 'PostgreSQL 的 Web 管理控制台。',
+    },
+    bytebase: {
+      description: '面向小团队的数据库变更、评审和发布工作流。',
+    },
+    garage: {
+      description: '轻量 S3 兼容对象存储，适合项目文件和构建产物存放。',
     },
   },
 }

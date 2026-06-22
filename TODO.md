@@ -272,9 +272,9 @@
 
 ## 4.2 应用模板市场
 
-目标：提供轻量应用市场 / 应用模板能力，优先覆盖 Redis、PostgreSQL、MySQL、MinIO、RabbitMQ 等基础设施。用户在项目空间内选择模板，填写应用名称、短名、密码、容量等少量字段后，一键生成应用、部署配置、运行配置、Secret、数据卷和可选访问入口。第一版不做复杂商店和在线安装，模板数量少，使用 JSON 目录即可；后续兼容第三方模板市场时继续沿用同一份 JSON schema。
+目标：提供轻量应用市场 / 应用模板能力，优先覆盖 Redis、PostgreSQL、MySQL、MariaDB、MongoDB、Garage、RabbitMQ、监控、工具和轻量协作应用。用户在项目空间内选择模板，填写应用名称、短名、密码、容量等少量字段后，一键生成应用、部署配置、运行配置、Secret、数据卷和可选访问入口。第一版不做复杂商店和在线安装，模板数量少，使用 JSON 目录即可；后续兼容第三方模板市场时继续沿用同一份 JSON schema。
 
-- [x] 定义应用模板 JSON schema：MVP 包含 `id/slug/name/description/category/icon/image/version/servicePort/defaultResources/env/secretEnv/values`；图标缺失或加载失败时前端 fallback 到 `/app-templates/icons/fallback.svg`。
+- [x] 定义应用模板 JSON schema：MVP 包含 `id/slug/name/description/category/icon/popularityWeight/image/version/servicePort/defaultResources/env/secretEnv/configFiles/secretFiles/values`；图标缺失或加载失败时前端 fallback 到 `/app-templates/icons/fallback.svg`。
 - [x] 设计模板来源加载策略：内置模板从仓库内 JSON 读取；后续第三方模板市场只需要提供同 schema 的远程 JSON 列表，平台后端负责拉取、校验、缓存和禁用不可信字段。
 - [x] 建立模板安全边界：MVP 只暴露后端内置模板；普通用户只能安装已内置模板；模板不允许用户自由写命令、宿主机挂载或特权字段；密钥类输入只能进入 Secret，不回显。
 - [x] 实现模板渲染服务：按用户输入渲染镜像、端口、资源规格、数据卷、ConfigMap 和 Secret；所有变量替换统一走后端模板渲染组件，避免业务里散落字符串替换。
@@ -283,9 +283,11 @@
 - [x] 内置 Redis 模板：镜像 `redis:7-alpine`，端口 `6379`，默认 `500m/512Mi/1`，默认数据卷 `/data`。
 - [x] 内置 PostgreSQL 模板：镜像 `postgres:16-alpine`，端口 `5432`，默认数据卷 `/var/lib/postgresql/data`，输入 `POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD`。
 - [x] 内置 MySQL 模板：镜像 `mysql:8.4`，端口 `3306`，输入数据库名、用户名、root 密码和用户密码，数据卷挂载到 MySQL 数据目录。
-- [ ] 内置 MinIO 模板：镜像 `minio/minio`，输入 root 用户和密码，配置数据目录和控制台端口；默认不创建公网访问入口，只输出内网服务地址。
+- [x] 内置 MariaDB 模板：镜像 `mariadb:11.4`，端口 `3306`，输入数据库名、用户名、root 密码和用户密码，数据卷挂载到 MariaDB 数据目录。
+- [x] 内置 Garage 模板：镜像 `dxflrs/garage:v1.1.0`，端口 `3900`，单节点轻量对象存储，敏感配置通过 Secret 文件挂载到 `/etc/garage.toml`。
 - [x] 内置 RabbitMQ 模板：镜像 `rabbitmq:3-management-alpine`，输入默认用户和密码；公网管理入口默认关闭。
-- [x] 前端新增“应用市场”入口：支持查看模板、展示图标、描述、默认镜像、默认资源和持久化容量；模板图标缺失或加载失败时展示无图标 fallback。
+- [x] 扩充非 PHP 容器应用模板：参考 1Panel 应用商店收录范围，新增 MongoDB、Valkey、Memcached、pgAdmin4、Meilisearch、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry 和 Bytebase。
+- [x] 前端新增“应用市场”入口：支持查看模板、展示图标、描述、完整镜像名称、默认资源和持久化容量；支持分类筛选、按热度权重或名称排序，并支持顺序/倒序；模板图标缺失或加载失败时展示无图标 fallback。
 - [ ] 项目空间内新增“从模板安装”入口：安装弹窗只展示模板 schema 里的必要字段，默认短名按 `{templateSlug}-{随机字符}` 生成，密码支持自动生成和复制。
 - [ ] 安装完成页展示连接信息：按模板 outputs 展示内网服务域名、端口和建议环境变量，敏感字段默认隐藏并提供复制按钮。
 - [x] 为模板市场补充 i18n：模板市场页面、安装表单、安装状态和模板描述走前端 i18n。

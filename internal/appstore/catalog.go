@@ -20,6 +20,7 @@ type Template struct {
 	Description          string            `json:"description"`
 	Category             string            `json:"category"`
 	Icon                 string            `json:"icon"`
+	PopularityWeight     int               `json:"popularityWeight"`
 	Image                string            `json:"image"`
 	Version              string            `json:"version"`
 	ServicePort          int               `json:"servicePort"`
@@ -31,7 +32,14 @@ type Template struct {
 	DataCapacity         string            `json:"dataCapacity"`
 	Env                  map[string]string `json:"env"`
 	SecretEnv            map[string]string `json:"secretEnv"`
+	ConfigFiles          []ConfigFile      `json:"configFiles"`
+	SecretFiles          []ConfigFile      `json:"secretFiles"`
 	Values               []ValueDefinition `json:"values"`
+}
+
+type ConfigFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 type ValueDefinition struct {
@@ -45,9 +53,11 @@ type ValueDefinition struct {
 }
 
 type RenderedTemplate struct {
-	Values    map[string]string
-	Env       map[string]string
-	SecretEnv map[string]string
+	Values      map[string]string
+	Env         map[string]string
+	SecretEnv   map[string]string
+	ConfigFiles []ConfigFile
+	SecretFiles []ConfigFile
 }
 
 var placeholderPattern = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_]+)\s*\}\}`)
@@ -99,9 +109,11 @@ func Render(template Template, input map[string]string) (RenderedTemplate, error
 		}
 	}
 	rendered := RenderedTemplate{
-		Values:    values,
-		Env:       renderStringMap(template.Env, values),
-		SecretEnv: renderStringMap(template.SecretEnv, values),
+		Values:      values,
+		Env:         renderStringMap(template.Env, values),
+		SecretEnv:   renderStringMap(template.SecretEnv, values),
+		ConfigFiles: renderConfigFiles(template.ConfigFiles, values),
+		SecretFiles: renderConfigFiles(template.SecretFiles, values),
 	}
 	return rendered, nil
 }
@@ -109,15 +121,30 @@ func Render(template Template, input map[string]string) (RenderedTemplate, error
 func renderStringMap(source map[string]string, values map[string]string) map[string]string {
 	output := map[string]string{}
 	for key, value := range source {
-		output[key] = placeholderPattern.ReplaceAllStringFunc(value, func(match string) string {
-			parts := placeholderPattern.FindStringSubmatch(match)
-			if len(parts) != 2 {
-				return match
-			}
-			return values[parts[1]]
+		output[key] = renderTemplateString(value, values)
+	}
+	return output
+}
+
+func renderConfigFiles(source []ConfigFile, values map[string]string) []ConfigFile {
+	output := make([]ConfigFile, 0, len(source))
+	for _, file := range source {
+		output = append(output, ConfigFile{
+			Path:    strings.TrimSpace(file.Path),
+			Content: renderTemplateString(file.Content, values),
 		})
 	}
 	return output
+}
+
+func renderTemplateString(value string, values map[string]string) string {
+	return placeholderPattern.ReplaceAllStringFunc(value, func(match string) string {
+		parts := placeholderPattern.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		return values[parts[1]]
+	})
 }
 
 func randomSecret() string {

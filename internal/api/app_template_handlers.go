@@ -215,6 +215,15 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return templateInstallPlan{}, false
 	}
+	configFilesContent, ok := templateConfigFiles(ctx, rendered.ConfigFiles)
+	if !ok {
+		return templateInstallPlan{}, false
+	}
+	secretFilesContent, secretFileEntries, ok := h.templateSecretFiles(ctx, user.ID, installationID, rendered.SecretFiles)
+	if !ok {
+		return templateInstallPlan{}, false
+	}
+	secretEntries = append(secretEntries, secretFileEntries...)
 	clusterID := strings.TrimSpace(input.ClusterID)
 	if clusterID == "" {
 		clusterID = h.defaultRuntimeClusterID()
@@ -265,6 +274,8 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 		ConcurrencyPolicy:    "queue",
 		EnvVars:              string(envContent),
 		SecretRefs:           string(secretRefsContent),
+		ConfigFiles:          configFilesContent,
+		SecretFiles:          secretFilesContent,
 		DataRetentionEnabled: template.DataRetentionEnabled,
 		DataCapacity:         dataCapacity,
 		DataMountPath:        dataMountPath,
@@ -331,6 +342,59 @@ func templateSecretRefs(ctx *gin.Context, userID string, installationID string, 
 		entries = append(entries, entry)
 	}
 	return output, entries, true
+}
+
+func templateConfigFiles(ctx *gin.Context, files []appstore.ConfigFile) (string, bool) {
+	if len(files) == 0 {
+		return "", true
+	}
+	content, err := json.Marshal(files)
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return "", false
+	}
+	return normalizeRuntimeConfigFilesInput(ctx, string(content))
+}
+
+func (h *Handlers) templateSecretFiles(ctx *gin.Context, userID string, installationID string, files []appstore.ConfigFile) (string, []model.SecretValue, bool) {
+	if len(files) == 0 {
+		return "", nil, true
+	}
+	refs := map[string]string{}
+	entries := []model.SecretValue{}
+	for _, file := range files {
+		filePath, ok := normalizeRuntimeConfigFilePathInput(ctx, file.Path)
+		if !ok {
+			return "", nil, false
+		}
+		if _, exists := refs[filePath]; exists {
+			writeError(ctx, http.StatusBadRequest, "密钥文件路径不能重复")
+			return "", nil, false
+		}
+		content := strings.TrimSpace(file.Content)
+		if content == "" {
+			continue
+		}
+		cipherRef := secret.Encrypt(content)
+		if cipherRef == "" {
+			writeError(ctx, http.StatusInternalServerError, "密钥加密失败")
+			return "", nil, false
+		}
+		entry := model.SecretValue{
+			ID:        id.New("sec"),
+			CipherRef: cipherRef,
+			CreatedBy: userID,
+			Resource:  "app_template:" + installationID + ":file:" + filePath,
+		}
+		refs[filePath] = "secret-id:" + entry.ID
+		entries = append(entries, entry)
+	}
+	content, err := json.Marshal(refs)
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return "", nil, false
+	}
+	return string(content), entries, true
 }
 
 func (h *Handlers) defaultRuntimeClusterID() string {

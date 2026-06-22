@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { ProjectSpaceSelect } from '@/components/common/project-space-select'
 import { StatusBadge } from '@/components/common/status-badge'
+import { UnitInput } from '@/components/common/unit-input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -21,10 +22,13 @@ import { cn } from '@/lib/utils'
 const FALLBACK_ICON = '/app-templates/icons/fallback.svg'
 
 export function AppTemplatesPage() {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('all')
+  const [sortBy, setSortBy] = useState<'popularity' | 'name'>('popularity')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null)
   const [projectId, setProjectId] = useState('')
   const [form, setForm] = useState<AppTemplateInstallPayload>(emptyInstallPayload())
@@ -44,14 +48,36 @@ export function AppTemplatesPage() {
       setProjectId(projectItems[0].id)
   }, [projectId, projectItems])
 
-  const filteredTemplates = useMemo(() => {
+  const categoryOptions = useMemo(() => {
+    const categories = new Set((templates.data ?? []).map(template => template.category).filter(Boolean))
+    return Array.from(categories).sort((a, b) =>
+      t(`appTemplatesPage.categories.${a}`, { defaultValue: a }).localeCompare(
+        t(`appTemplatesPage.categories.${b}`, { defaultValue: b }),
+        i18n.language,
+      ),
+    )
+  }, [i18n.language, t, templates.data])
+
+  const sortedTemplates = useMemo(() => {
     const keyword = search.trim().toLowerCase()
     const items = templates.data ?? []
-    if (!keyword)
-      return items
-    return items.filter(template => [template.name, template.slug, template.image, template.category]
-      .some(value => value.toLowerCase().includes(keyword)))
-  }, [search, templates.data])
+    const categoryFiltered = category === 'all'
+      ? items
+      : items.filter(template => template.category === category)
+    const filtered = keyword
+      ? categoryFiltered.filter(template => [template.name, template.slug, template.image]
+          .some(value => value.toLowerCase().includes(keyword)))
+      : categoryFiltered
+    const direction = sortOrder === 'asc' ? 1 : -1
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameResult = a.name.localeCompare(b.name, i18n.language)
+        return nameResult === 0 ? a.slug.localeCompare(b.slug) : direction * nameResult
+      }
+      const popularityResult = (a.popularityWeight ?? 0) - (b.popularityWeight ?? 0)
+      return popularityResult === 0 ? a.name.localeCompare(b.name, i18n.language) : direction * popularityResult
+    })
+  }, [category, i18n.language, search, sortBy, sortOrder, templates.data])
 
   const installTemplate = useMutation({
     mutationFn: (payload: AppTemplateInstallPayload & { templateId: string, projectId: string }) =>
@@ -89,11 +115,24 @@ export function AppTemplatesPage() {
 
   return (
     <div className="grid gap-5">
-      <Card className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:items-center">
+      <Card className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_12rem_18rem_10rem_10rem] xl:items-center">
         <div className="min-w-0">
           <h2 className="text-base font-semibold">{t('appTemplatesPage.heroTitle')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('appTemplatesPage.heroDescription')}</p>
         </div>
+        <Select
+          aria-label={t('appTemplatesPage.categoryFilter')}
+          className="h-11 rounded-full"
+          value={category}
+          onChange={event => setCategory(event.target.value)}
+        >
+          <option value="all">{t('appTemplatesPage.allCategories')}</option>
+          {categoryOptions.map(item => (
+            <option key={item} value={item}>
+              {t(`appTemplatesPage.categories.${item}`, { defaultValue: item })}
+            </option>
+          ))}
+        </Select>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -103,16 +142,34 @@ export function AppTemplatesPage() {
             onChange={event => setSearch(event.target.value)}
           />
         </div>
+        <Select
+          aria-label={t('appTemplatesPage.sortBy')}
+          className="h-11 rounded-full"
+          value={sortBy}
+          onChange={event => setSortBy(event.target.value as typeof sortBy)}
+        >
+          <option value="popularity">{t('appTemplatesPage.sortByPopularity')}</option>
+          <option value="name">{t('appTemplatesPage.sortByName')}</option>
+        </Select>
+        <Select
+          aria-label={t('appTemplatesPage.sortOrder')}
+          className="h-11 rounded-full"
+          value={sortOrder}
+          onChange={event => setSortOrder(event.target.value as typeof sortOrder)}
+        >
+          <option value="desc">{t('appTemplatesPage.sortDesc')}</option>
+          <option value="asc">{t('appTemplatesPage.sortAsc')}</option>
+        </Select>
       </Card>
 
       {templates.isError && <ErrorState title={templates.error.message} />}
       {templates.isLoading && <EmptyState title={t('appTemplatesPage.loading')} variant="plain" />}
-      {templates.isSuccess && filteredTemplates.length === 0 && (
+      {templates.isSuccess && sortedTemplates.length === 0 && (
         <EmptyState description={t('appTemplatesPage.emptyDescription')} title={t('appTemplatesPage.emptyTitle')} />
       )}
-      {filteredTemplates.length > 0 && (
+      {sortedTemplates.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredTemplates.map(template => (
+          {sortedTemplates.map(template => (
             <TemplateCard key={template.id} template={template} onInstall={() => openInstallDialog(template)} />
           ))}
         </div>
@@ -163,14 +220,13 @@ function TemplateCard({ template, onInstall }: { template: AppTemplate, onInstal
         </div>
       </div>
       <div className="grid gap-2 text-sm text-muted-foreground">
-        <TemplateFact label={t('appTemplatesPage.image')} value={template.image} />
         <TemplateFact label={t('appTemplatesPage.port')} value={String(template.servicePort)} />
         <TemplateFact label={t('appTemplatesPage.resources')} value={`${template.defaultCPU} / ${template.defaultMemory}`} />
       </div>
       <div className="mt-auto flex items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <CategoryIcon className="size-4" />
-          {template.version}
+        <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground" title={template.image}>
+          <CategoryIcon className="size-4 shrink-0" />
+          <span className="min-w-0 break-all font-mono">{template.image}</span>
         </span>
         <Button className="rounded-full" type="button" onClick={onInstall}>
           <Rocket className="size-4" />
@@ -221,12 +277,12 @@ function InstallTemplateDialog({
   const canSubmit = Boolean(template && projectId && form.applicationName.trim() && form.applicationSlug.trim() && !installing)
   return (
     <Dialog open={Boolean(template)} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="max-h-[min(92vh,54rem)] max-w-4xl overflow-hidden p-0">
-        <DialogHeader className="border-b border-border px-6 py-5">
+      <DialogContent className="flex max-h-[min(92vh,54rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5">
           <DialogTitle>{t('appTemplatesPage.installDialogTitle', { name: template?.name ?? '' })}</DialogTitle>
           <DialogDescription>{t('appTemplatesPage.installDialogDescription')}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
           <div className="grid gap-5 md:grid-cols-2">
             <Field label={t('projectSpaces.title')}>
               <ProjectSpaceSelect
@@ -267,18 +323,46 @@ function InstallTemplateDialog({
                 ))}
               </Select>
             </Field>
-            <Field label={t('appTemplatesPage.replicas')}>
-              <Input min={1} type="number" value={form.replicas} onChange={event => onUpdate('replicas', Number(event.target.value || 1))} />
-            </Field>
-            <Field label={t('appTemplatesPage.cpu')}>
-              <Input value={form.cpuRequest} onChange={event => onUpdate('cpuRequest', event.target.value)} />
-            </Field>
-            <Field label={t('appTemplatesPage.memory')}>
-              <Input value={form.memoryRequest} onChange={event => onUpdate('memoryRequest', event.target.value)} />
-            </Field>
-            <Field label={t('appTemplatesPage.dataCapacity')}>
-              <Input disabled={!template?.dataRetentionEnabled} value={form.dataCapacity} onChange={event => onUpdate('dataCapacity', event.target.value)} />
-            </Field>
+            <div className="grid gap-5 md:col-span-2 md:grid-cols-4">
+              <Field label={t('appTemplatesPage.replicas')}>
+                <Input min={1} type="number" value={form.replicas} onChange={event => onUpdate('replicas', Number(event.target.value || 1))} />
+              </Field>
+              <Field label={t('appTemplatesPage.cpu')}>
+                <UnitInput
+                  unitSelectLabel={t('appTemplatesPage.cpu')}
+                  units={[
+                    { label: 'm', value: 'm' },
+                    { label: t('deploymentsPage.cpuUnits.core'), value: '' },
+                  ]}
+                  value={form.cpuRequest}
+                  onChange={value => onUpdate('cpuRequest', value)}
+                />
+              </Field>
+              <Field label={t('appTemplatesPage.memory')}>
+                <UnitInput
+                  unitSelectLabel={t('appTemplatesPage.memory')}
+                  units={[
+                    { label: 'Mi', value: 'Mi' },
+                    { label: 'Gi', value: 'Gi' },
+                  ]}
+                  value={form.memoryRequest}
+                  onChange={value => onUpdate('memoryRequest', value)}
+                />
+              </Field>
+              <Field label={t('appTemplatesPage.dataCapacity')}>
+                <UnitInput
+                  disabled={!template?.dataRetentionEnabled}
+                  inputProps={{ placeholder: t('deploymentsPage.dataCapacityPlaceholder') }}
+                  unitSelectLabel={t('appTemplatesPage.dataCapacity')}
+                  units={[
+                    { label: 'Mi', value: 'Mi' },
+                    { label: 'Gi', value: 'Gi' },
+                  ]}
+                  value={form.dataCapacity}
+                  onChange={value => onUpdate('dataCapacity', value)}
+                />
+              </Field>
+            </div>
           </div>
 
           {template && template.values.length > 0 && (
@@ -320,7 +404,7 @@ function InstallTemplateDialog({
             </span>
           </label>
         </div>
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border bg-surface px-6 py-4">
           <Button disabled={installing} type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
           <Button disabled={!canSubmit} type="button" onClick={onSubmit}>
             <PackageOpen className={cn('size-4', installing && 'animate-pulse')} />

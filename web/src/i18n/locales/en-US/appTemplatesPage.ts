@@ -1,8 +1,16 @@
 const appTemplatesPage = {
-  description: 'Install common infrastructure apps such as Redis, PostgreSQL, and MySQL from presets.',
+  description: 'Install databases, caches, observability tools, developer tools, and lightweight collaboration apps from presets.',
   heroTitle: 'App Marketplace',
   heroDescription: 'Pick a built-in template, fill in a few values, and install it into a project space. The platform creates the application, deployment target, and optional first release.',
-  searchPlaceholder: 'Search templates, images, or categories',
+  searchPlaceholder: 'Search templates or images',
+  categoryFilter: 'Category Filter',
+  allCategories: 'All Categories',
+  sortBy: 'Sort Field',
+  sortByPopularity: 'Popularity',
+  sortByName: 'Name A-Z',
+  sortOrder: 'Sort Order',
+  sortDesc: 'Descending',
+  sortAsc: 'Ascending',
   loading: 'Loading app templates...',
   emptyTitle: 'No templates found',
   emptyDescription: 'Try another keyword, or wait for administrators to add more templates.',
@@ -30,8 +38,16 @@ const appTemplatesPage = {
   port: 'Port',
   resources: 'Resources',
   categories: {
+    cache: 'Cache',
+    collaboration: 'Collaboration',
     database: 'Database',
+    databaseTool: 'Database Tool',
+    developerTool: 'Developer Tool',
     middleware: 'Middleware',
+    objectStorage: 'Object Storage',
+    observability: 'Observability',
+    registry: 'Registry',
+    search: 'Search',
   },
   stageOptions: {
     prod: 'Production',
@@ -44,6 +60,11 @@ const appTemplatesPage = {
     database: 'Database',
     password: 'Password',
     rootPassword: 'Root Password',
+    rpcSecret: 'RPC Secret',
+    adminToken: 'Admin Token',
+    metricsToken: 'Metrics Token',
+    masterKey: 'Master Key',
+    email: 'Email',
   },
   templates: {
     redis: {
@@ -55,8 +76,53 @@ const appTemplatesPage = {
     mysql: {
       description: 'Classic relational database with a simple single-container setup.',
     },
+    mongodb: {
+      description: 'Document database for JSON-like application data and flexible schemas.',
+    },
+    mariadb: {
+      description: 'MySQL-compatible relational database with a lightweight single-container setup.',
+    },
+    valkey: {
+      description: 'Redis-compatible in-memory data store for cache and lightweight queues.',
+    },
+    memcached: {
+      description: 'Tiny memory cache service for simple high-speed key-value caching.',
+    },
     rabbitmq: {
       description: 'Message broker for asynchronous jobs, events, and lightweight queues.',
+    },
+    meilisearch: {
+      description: 'Lightweight full-text search engine for application search and indexing.',
+    },
+    grafana: {
+      description: 'Metrics dashboard and visualization platform for observability data.',
+    },
+    'uptime-kuma': {
+      description: 'Self-hosted uptime monitor for websites, APIs, and internal services.',
+    },
+    memos: {
+      description: 'Lightweight self-hosted notes and knowledge snippets for small teams.',
+    },
+    'it-tools': {
+      description: 'Handy browser-based utility toolbox for developers and operators.',
+    },
+    excalidraw: {
+      description: 'Simple whiteboard for diagrams, sketches, and product notes.',
+    },
+    verdaccio: {
+      description: 'Private npm-compatible package registry for internal JavaScript packages.',
+    },
+    'docker-registry': {
+      description: 'Private OCI image registry for internal container image distribution.',
+    },
+    pgadmin4: {
+      description: 'Web management console for PostgreSQL servers and databases.',
+    },
+    bytebase: {
+      description: 'Database schema change and review workflow for small engineering teams.',
+    },
+    garage: {
+      description: 'Lightweight S3-compatible object storage for project files and artifacts.',
     },
   },
 }

@@ -1,12 +1,13 @@
 # 应用市场
 
-应用市场用于把常见基础设施按模板安装到项目空间。第一版内置 Redis、PostgreSQL、MySQL 和 RabbitMQ，适合快速准备缓存、数据库和消息队列。
+应用市场用于把常见基础设施按模板安装到项目空间。第一版内置 Redis、Valkey、Memcached、PostgreSQL、MySQL、MariaDB、MongoDB、RabbitMQ、Garage、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry、pgAdmin4、Meilisearch 和 Bytebase，适合快速准备缓存、数据库、消息队列、对象存储、监控和小团队工具。
 
 模板安装会创建：
 
 - 一个应用。
 - 一个镜像来源的部署配置。
 - 按模板声明的环境变量、密钥变量和运行数据卷。
+- 按模板声明的配置文件和密钥文件；敏感文件会写入 Kubernetes Secret。
 - 可选的首个 Release；默认会立即投递部署任务。
 
 密钥类参数只写入平台密钥存储，部署配置中保存的是密钥引用，不会在前端回显明文。
@@ -21,8 +22,10 @@
 
 安装成功后，页面会跳转到新应用的部署页。
 
+模板列表支持按分类筛选、按模板名称或镜像搜索、按热度权重或名称排序，也支持顺序 / 倒序切换。默认按平台内置热度权重倒序展示。当前内置模板暂不收录 PHP 应用，例如 Adminer 和 phpMyAdmin。
+
 ## 当前限制
 
-MVP 模板只支持镜像默认启动即可运行的应用。需要自定义 command/args 的镜像暂不放入可安装模板，例如 MinIO 会等部署配置支持启动命令后再启用。
+MVP 模板只支持镜像默认启动即可运行的应用。Garage 当前作为单节点轻量对象存储模板提供，平台会生成基础配置文件；多节点 layout 初始化、bucket/key 输出和更完整的连接信息会在后续模板 outputs 能力中补齐。
 
 应用市场模板来自后端内置 JSON。后续第三方模板市场可以继续复用同一份 schema，由后端负责拉取、校验和缓存。
