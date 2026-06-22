@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -261,12 +262,29 @@ func normalizeApplicationIcon(value string) string {
 	if normalized == "" {
 		return "box"
 	}
-	for _, icon := range applicationIconNames {
-		if normalized == icon {
-			return normalized
-		}
+	if isApplicationIconReference(normalized) {
+		return normalized
 	}
 	return "box"
+}
+
+func isApplicationIconReference(value string) bool {
+	if value == "" || len(value) > 512 || strings.ContainsAny(value, "\r\n\t") {
+		return false
+	}
+	for _, icon := range applicationIconNames {
+		if value == icon {
+			return true
+		}
+	}
+	if strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") {
+		return true
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	return parsed.Scheme == "https" || parsed.Scheme == "http"
 }
 
 var applicationIconNames = []string{

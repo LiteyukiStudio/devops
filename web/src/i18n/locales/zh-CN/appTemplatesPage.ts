@@ -25,6 +25,8 @@ const appTemplatesPage = {
   applicationSlug: '应用标识',
   deploymentName: '部署配置',
   stage: '阶段',
+  imageRef: '镜像地址',
+  imageRefHint: '默认使用模板镜像；如果你有 Harbor、DockerHub 代理或私有镜像，可以改成自己的完整镜像地址。',
   replicas: '副本数',
   cpu: 'CPU',
   memory: '内存',

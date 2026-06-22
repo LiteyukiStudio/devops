@@ -21,6 +21,7 @@ type appTemplateInstallInput struct {
 	Stage           string            `json:"stage"`
 	ClusterID       string            `json:"clusterId"`
 	Namespace       string            `json:"namespace"`
+	ImageRef        string            `json:"imageRef"`
 	Replicas        int               `json:"replicas"`
 	CPURequest      string            `json:"cpuRequest"`
 	MemoryRequest   string            `json:"memoryRequest"`
@@ -244,6 +245,14 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 	if deploymentName == "" {
 		deploymentName = "default"
 	}
+	imageRef := strings.TrimSpace(input.ImageRef)
+	if imageRef == "" {
+		imageRef = strings.TrimSpace(template.Image)
+	}
+	if imageRef == "" {
+		writeError(ctx, http.StatusBadRequest, "镜像地址不能为空")
+		return templateInstallPlan{}, false
+	}
 
 	application := model.Application{
 		ID:                applicationID,
@@ -268,7 +277,7 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 		MemoryRequest:        memoryRequest,
 		ServicePort:          fallbackInt(template.ServicePort, 8080),
 		SourceType:           "image",
-		ImageRef:             strings.TrimSpace(template.Image),
+		ImageRef:             imageRef,
 		BuildCPURequest:      defaultBuildCPURequest,
 		BuildMemoryRequest:   defaultBuildMemoryRequest,
 		ConcurrencyPolicy:    "queue",
@@ -462,6 +471,9 @@ func fallbackTemplateSlug(slug string, appID string) string {
 }
 
 func templateApplicationIcon(template appstore.Template) string {
+	if icon := strings.TrimSpace(template.Icon); isApplicationIconReference(icon) {
+		return icon
+	}
 	switch strings.TrimSpace(template.Category) {
 	case "database":
 		return "database"

@@ -274,7 +274,7 @@ function InstallTemplateDialog({
   onUpdate: <K extends keyof AppTemplateInstallPayload>(key: K, value: AppTemplateInstallPayload[K]) => void
 }) {
   const { t } = useTranslation()
-  const canSubmit = Boolean(template && projectId && form.applicationName.trim() && form.applicationSlug.trim() && !installing)
+  const canSubmit = Boolean(template && projectId && form.applicationName.trim() && form.applicationSlug.trim() && form.imageRef.trim() && !installing)
   return (
     <Dialog open={Boolean(template)} onOpenChange={open => !open && onClose()}>
       <DialogContent className="flex max-h-[min(92vh,54rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0">
@@ -323,6 +323,15 @@ function InstallTemplateDialog({
                 ))}
               </Select>
             </Field>
+            <div className="md:col-span-2">
+              <Field label={t('appTemplatesPage.imageRef')} required>
+                <Input
+                  value={form.imageRef}
+                  onChange={event => onUpdate('imageRef', event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">{t('appTemplatesPage.imageRefHint')}</p>
+              </Field>
+            </div>
             <div className="grid gap-5 md:col-span-2 md:grid-cols-4">
               <Field label={t('appTemplatesPage.replicas')}>
                 <Input min={1} type="number" value={form.replicas} onChange={event => onUpdate('replicas', Number(event.target.value || 1))} />
@@ -436,6 +445,7 @@ function emptyInstallPayload(): AppTemplateInstallPayload {
     stage: 'prod',
     clusterId: '',
     namespace: '',
+    imageRef: '',
     replicas: 1,
     cpuRequest: '1',
     memoryRequest: '1Gi',
@@ -451,6 +461,7 @@ function payloadFromTemplate(template: AppTemplate): AppTemplateInstallPayload {
     ...emptyInstallPayload(),
     applicationName: template.name,
     applicationSlug: normalizeSlugInput(`${template.slug}-${suffix}`).slice(0, 20),
+    imageRef: template.image,
     replicas: template.defaultReplicas || 1,
     cpuRequest: template.defaultCPU || '1',
     memoryRequest: template.defaultMemory || '1Gi',

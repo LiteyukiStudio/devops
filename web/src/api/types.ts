@@ -99,6 +99,7 @@ export interface AppTemplateInstallPayload {
   stage: string
   clusterId: string
   namespace: string
+  imageRef: string
   replicas: number
   cpuRequest: string
   memoryRequest: string

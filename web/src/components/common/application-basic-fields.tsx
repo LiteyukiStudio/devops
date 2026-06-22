@@ -1,5 +1,4 @@
 import type { UseFormRegisterReturn } from 'react-hook-form'
-import type { ApplicationIconName } from '@/components/common/application-icons'
 import { useTranslation } from 'react-i18next'
 import { ApplicationIconPicker } from '@/components/common/application-icon-picker'
 import { FormField as Field } from '@/components/common/form-field'
@@ -20,7 +19,7 @@ export function ApplicationBasicFields({
   icon?: string
   nameError?: string
   nameField: UseFormRegisterReturn<'name'>
-  onIconChange: (icon: ApplicationIconName) => void
+  onIconChange: (icon: string) => void
   slugError?: string
   slugField: UseFormRegisterReturn<'slug'>
   slugMaxLength?: number

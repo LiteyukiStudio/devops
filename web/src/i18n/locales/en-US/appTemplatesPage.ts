@@ -25,6 +25,8 @@ const appTemplatesPage = {
   applicationSlug: 'Application Slug',
   deploymentName: 'Deployment Target',
   stage: 'Stage',
+  imageRef: 'Image Reference',
+  imageRefHint: 'Defaults to the template image. If you use Harbor, a DockerHub proxy, or a private registry, replace it with your full image reference.',
   replicas: 'Replicas',
   cpu: 'CPU',
   memory: 'Memory',

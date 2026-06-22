@@ -287,7 +287,7 @@
 - [x] 内置 Garage 模板：镜像 `dxflrs/garage:v1.1.0`，端口 `3900`，单节点轻量对象存储，敏感配置通过 Secret 文件挂载到 `/etc/garage.toml`。
 - [x] 内置 RabbitMQ 模板：镜像 `rabbitmq:3-management-alpine`，输入默认用户和密码；公网管理入口默认关闭。
 - [x] 扩充非 PHP 容器应用模板：参考 1Panel 应用商店收录范围，新增 MongoDB、Valkey、Memcached、pgAdmin4、Meilisearch、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry 和 Bytebase。
-- [x] 前端新增“应用市场”入口：支持查看模板、展示图标、描述、完整镜像名称、默认资源和持久化容量；支持分类筛选、按热度权重或名称排序，并支持顺序/倒序；模板图标缺失或加载失败时展示无图标 fallback。
+- [x] 前端新增“应用市场”入口：支持查看模板、展示图标、描述、完整镜像名称、默认资源和持久化容量；支持分类筛选、按热度权重或名称排序，并支持顺序/倒序；安装时默认预填模板镜像，并允许用户替换为 Harbor、DockerHub 代理或私有镜像地址；安装后的应用默认使用模板图标，应用图标字段兼容内置图标名、站内资源路径和 `http(s)` 图片地址；模板图标缺失或加载失败时展示无图标 fallback。
 - [ ] 项目空间内新增“从模板安装”入口：安装弹窗只展示模板 schema 里的必要字段，默认短名按 `{templateSlug}-{随机字符}` 生成，密码支持自动生成和复制。
 - [ ] 安装完成页展示连接信息：按模板 outputs 展示内网服务域名、端口和建议环境变量，敏感字段默认隐藏并提供复制按钮。
 - [x] 为模板市场补充 i18n：模板市场页面、安装表单、安装状态和模板描述走前端 i18n。

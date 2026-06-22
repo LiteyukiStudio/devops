@@ -49,7 +49,7 @@ interface ApplicationsPageProps {
   ref?: Ref<ApplicationsPageHandle>
 }
 
-export function ApplicationsPage({ embedded = false, projectId: projectIdProp, projectName: projectNameProp, ref }: ApplicationsPageProps = {}) {
+export function ApplicationsPage({ embedded = false, projectId: projectIdProp, ref }: ApplicationsPageProps = {}) {
   const { t } = useTranslation()
   const { projectId: routeProjectId = '' } = useParams()
   const projectId = projectIdProp ?? routeProjectId
@@ -66,13 +66,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, p
     queryFn: () => api.listApplicationsPage(projectId, { page, pageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
     enabled: Boolean(projectId),
   })
-  const project = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: () => api.getProject(projectId),
-    enabled: Boolean(projectId) && !projectNameProp,
-  })
-  const resolvedProjectName = projectNameProp ?? project.data?.name ?? ''
-  const deleteConfirmationTarget = applicationToDelete && resolvedProjectName ? `${resolvedProjectName}/${applicationToDelete.name}` : ''
+  const deleteConfirmationTarget = applicationToDelete?.name ?? ''
   const deleteConfirmationMatches = deleteConfirmation === deleteConfirmationTarget
   const form = useForm<ApplicationFormInput, undefined, ApplicationForm>({
     resolver: zodResolver(schema),

@@ -4,7 +4,7 @@ The app marketplace installs common infrastructure apps into project spaces from
 
 Installing a template creates:
 
-- An application.
+- An application, with the template icon applied by default. Application icons support preset icon names, site-local asset paths, or `http(s)` image URLs.
 - An image-based deployment target.
 - Template-defined environment variables, secret variables, and runtime data volumes.
 - Template-defined config files and secret files; sensitive files are written into Kubernetes Secrets.
@@ -16,7 +16,7 @@ Secret parameters are written to the platform secret store. Deployment targets k
 
 1. Open “App Marketplace”.
 2. Pick a template and click “Install”.
-3. Select a project space and confirm the application name, slug, runtime cluster, CPU, memory, replicas, and data capacity.
+3. Select a project space and confirm the application name, slug, runtime cluster, image reference, CPU, memory, replicas, and data capacity. The image reference is prefilled from the template and can be replaced with a Harbor, DockerHub proxy, or private registry image.
 4. Fill in template parameters. Auto-generated passwords can be left empty; the backend generates them.
 5. Keep “Deploy after install” enabled, or disable it and release manually from the application deployment page later.
 

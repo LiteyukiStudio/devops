@@ -115,3 +115,18 @@ export function isApplicationIconName(value: string): value is ApplicationIconNa
 export function normalizeApplicationIconName(value?: string) {
   return value && isApplicationIconName(value) ? value : 'box'
 }
+
+export function isApplicationIconImage(value?: string) {
+  const normalized = value?.trim()
+  if (!normalized)
+    return false
+  if (normalized.startsWith('/') && !normalized.startsWith('//'))
+    return true
+  try {
+    const url = new URL(normalized)
+    return url.protocol === 'https:' || url.protocol === 'http:'
+  }
+  catch {
+    return false
+  }
+}
