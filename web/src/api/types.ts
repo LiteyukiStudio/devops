@@ -46,6 +46,73 @@ export interface Application {
   createdAt: string
 }
 
+export interface AppTemplateValueDefinition {
+  key: string
+  label: string
+  description: string
+  default: string
+  required: boolean
+  secret: boolean
+  autoGenerate: boolean
+}
+
+export interface AppTemplate {
+  id: string
+  slug: string
+  name: string
+  description: string
+  category: string
+  icon: string
+  image: string
+  version: string
+  servicePort: number
+  defaultReplicas: number
+  defaultCPU: string
+  defaultMemory: string
+  dataRetentionEnabled: boolean
+  dataMountPath: string
+  dataCapacity: string
+  values: AppTemplateValueDefinition[]
+}
+
+export interface AppTemplateInstallation {
+  id: string
+  templateId: string
+  templateVersion: string
+  projectId: string
+  applicationId: string
+  deploymentTargetId: string
+  releaseId: string
+  status: string
+  message: string
+  valuesSnapshot: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AppTemplateInstallPayload {
+  applicationName: string
+  applicationSlug: string
+  deploymentName: string
+  stage: string
+  clusterId: string
+  namespace: string
+  replicas: number
+  cpuRequest: string
+  memoryRequest: string
+  dataCapacity: string
+  installNow: boolean
+  values: Record<string, string>
+}
+
+export interface AppTemplateInstallResponse {
+  installation: AppTemplateInstallation
+  application: Application
+  deploymentTarget: DeploymentTarget
+  release?: Release
+}
+
 export interface GitProvider {
   id: string
   type: 'github' | 'gitea' | 'gitlab'

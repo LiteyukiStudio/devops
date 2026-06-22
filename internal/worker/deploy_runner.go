@@ -114,6 +114,7 @@ func (r *Runner) applyApplicationResources(ctx context.Context, release model.Re
 	if err != nil {
 		return err
 	}
+	deploymentTarget.SecretRefs = r.resolveRuntimeSecretRefsRaw(deploymentTarget.SecretRefs)
 	deploymentTarget.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(deploymentTarget.SecretFiles)
 	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, runtimeConfigSets, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {
@@ -132,6 +133,7 @@ func (r *Runner) applyApplicationRuntimeConfig(ctx context.Context, release mode
 	if err != nil {
 		return err
 	}
+	deploymentTarget.SecretRefs = r.resolveRuntimeSecretRefsRaw(deploymentTarget.SecretRefs)
 	deploymentTarget.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(deploymentTarget.SecretFiles)
 	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, runtimeConfigSets, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {

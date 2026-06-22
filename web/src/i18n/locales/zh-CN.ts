@@ -1,5 +1,6 @@
 import accessTokens from './zh-CN/accessTokens'
 import accountPage from './zh-CN/accountPage'
+import appTemplatesPage from './zh-CN/appTemplatesPage'
 import apps from './zh-CN/apps'
 import auth from './zh-CN/auth'
 import authProvidersPage from './zh-CN/authProvidersPage'
@@ -62,6 +63,7 @@ const zhCN = {
   registriesPage,
   settings,
   accountPage,
+  appTemplatesPage,
   usersPage,
   projectHooks,
   authProvidersPage,

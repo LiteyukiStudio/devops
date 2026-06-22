@@ -21,6 +21,11 @@
   },
   {
     "type": "file",
+    "name": "app-marketplace",
+    "label": "应用市场"
+  },
+  {
+    "type": "file",
     "name": "workspace",
     "label": "部署后下一步"
   },

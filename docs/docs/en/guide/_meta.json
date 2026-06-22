@@ -21,6 +21,11 @@
   },
   {
     "type": "file",
+    "name": "app-marketplace",
+    "label": "App Marketplace"
+  },
+  {
+    "type": "file",
     "name": "workspace",
     "label": "Next Steps"
   },

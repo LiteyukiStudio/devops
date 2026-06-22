@@ -4,6 +4,7 @@ const root = {
   projects: '项目空间',
   applications: '应用',
   codeRepositories: '代码库',
+  appTemplates: '应用市场',
   registries: '镜像站',
   clusters: '集群资源',
   billing: '账单',

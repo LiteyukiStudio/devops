@@ -4,6 +4,7 @@ const root = {
   projects: 'Project Spaces',
   applications: 'Applications',
   codeRepositories: 'Code Repositories',
+  appTemplates: 'App Marketplace',
   registries: 'Registries',
   clusters: 'Cluster Resources',
   billing: 'Billing',

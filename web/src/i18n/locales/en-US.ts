@@ -1,5 +1,6 @@
 import accessTokens from './en-US/accessTokens'
 import accountPage from './en-US/accountPage'
+import appTemplatesPage from './en-US/appTemplatesPage'
 import apps from './en-US/apps'
 import auth from './en-US/auth'
 import authProvidersPage from './en-US/authProvidersPage'
@@ -48,6 +49,7 @@ const enUS = {
   accessTokens,
   settings,
   accountPage,
+  appTemplatesPage,
   buildsPage,
   runtimeConfigSets,
   runtimeConfigFilesEditor,

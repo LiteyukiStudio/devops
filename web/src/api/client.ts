@@ -1,6 +1,9 @@
 import type {
   AccessToken,
   Application,
+  AppTemplate,
+  AppTemplateInstallPayload,
+  AppTemplateInstallResponse,
   ApplicationPayload,
   ArtifactRegistry,
   ArtifactRegistryPayload,
@@ -73,6 +76,9 @@ import i18next from '@/i18n'
 export type {
   AccessToken,
   Application,
+  AppTemplate,
+  AppTemplateInstallPayload,
+  AppTemplateInstallResponse,
   ApplicationPayload,
   ArtifactRegistry,
   ArtifactRegistryPayload,
@@ -467,6 +473,9 @@ export const api = {
   listProjects: () => request<Project[]>('/projects'),
   listProjectsPage: (params: ProjectListParams) =>
     request<PaginatedResponse<Project>>(`/projects?${paginationQuery(params)}`),
+  listAppTemplates: () => request<AppTemplate[]>('/app-templates'),
+  installAppTemplate: (projectId: string, templateId: string, payload: AppTemplateInstallPayload) =>
+    request<AppTemplateInstallResponse>(`/projects/${projectId}/app-templates/${encodeURIComponent(templateId)}/install`, { method: 'POST', body: JSON.stringify(payload) }),
   getBillingSummary: (projectIds?: string[]) =>
     request<BillingSummary>(`/billing/summary${billingSummaryQuery(projectIds)}`),
   listBillingApplicationSpend: (params: BillingListParams) =>

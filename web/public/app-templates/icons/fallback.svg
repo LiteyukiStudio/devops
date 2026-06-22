@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Application template">
+  <rect width="24" height="24" rx="6" fill="#EEF2F7"/>
+  <path fill="#64748B" d="M6.5 7.25A2.25 2.25 0 0 1 8.75 5h6.5a2.25 2.25 0 0 1 2.25 2.25v9.5A2.25 2.25 0 0 1 15.25 19h-6.5a2.25 2.25 0 0 1-2.25-2.25v-9.5Zm2.25-.75a.75.75 0 0 0-.75.75v9.5c0 .414.336.75.75.75h6.5a.75.75 0 0 0 .75-.75v-9.5a.75.75 0 0 0-.75-.75h-6.5Z"/>
+  <path fill="#94A3B8" d="M10 9h4v1.5h-4V9Zm0 3h4v1.5h-4V12Z"/>
+</svg>

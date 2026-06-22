@@ -103,6 +103,8 @@ func NewRouterWithStaticFS(db *gorm.DB, staticFS fs.FS) *gin.Engine {
 		v1.GET("/runtime/clusters/:clusterId/resource-yaml", handlers.GetRuntimeClusterResourceYAML)
 		v1.GET("/runtime/clusters/:clusterId/resource-events", handlers.ListRuntimeClusterResourceEvents)
 
+		v1.GET("/app-templates", handlers.ListAppTemplates)
+
 		v1.GET("/projects", handlers.ListProjects)
 		v1.GET("/projects/pins", handlers.ListProjectPins)
 		v1.PUT("/projects/order", handlers.UpdateProjectOrder)
@@ -123,6 +125,7 @@ func NewRouterWithStaticFS(db *gorm.DB, staticFS fs.FS) *gin.Engine {
 		v1.DELETE("/projects/:projectId/hooks/:hookId", handlers.DeleteProjectHookConfig)
 		v1.GET("/projects/:projectId/hook-runs", handlers.ListProjectHookRuns)
 		v1.GET("/projects/:projectId/hook-runs/:runId/logs", handlers.GetProjectHookRunLog)
+		v1.POST("/projects/:projectId/app-templates/:templateId/install", handlers.InstallAppTemplate)
 
 		v1.GET("/projects/:projectId/members", handlers.ListProjectMembers)
 		v1.POST("/projects/:projectId/members", handlers.CreateProjectMember)

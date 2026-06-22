@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { TooltipProvider } from './components/ui/tooltip'
 import { AppLayout } from './layouts/AppLayout'
 import { ApplicationConfigPage } from './pages/applications/ApplicationConfigPage'
+import { AppTemplatesPage } from './pages/app-templates/AppTemplatesPage'
 import { BillingPage } from './pages/billing/BillingPage'
 import { BootstrapPage } from './pages/bootstrap/BootstrapPage'
 import { ClustersPage } from './pages/clusters/ClustersPage'
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/projects/:projectId/apps" element={<ProjectRootRedirect />} />
           <Route path="/projects/:projectId/repositories" element={<ProjectAppsRedirect />} />
           <Route path="/projects/:projectId/apps/:applicationId" element={<ApplicationConfigPage />} />
+          <Route path="/app-templates" element={<AppTemplatesPage />} />
           <Route path="/code-repositories" element={<CodeRepositoriesPage />} />
           <Route path="/registries" element={<RegistriesPage />} />
           <Route path="/clusters" element={<ClustersPage />} />
