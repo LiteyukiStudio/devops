@@ -20,6 +20,7 @@
 ## 后端
 
 - PostgreSQL，不使用 SQLite。
+- API 启动时会执行内嵌的 `migrations/*.up.sql`；已有但没有 `schema_migrations` 的旧库会先接入到 008，再继续执行后续迁移。
 - Secret 和 Token 不明文落业务表。
 - 外部平台能力由后端 provider/service/API 适配，前端不编排第三方平台 API。
 - 长耗时任务进入 worker，不在 HTTP 请求中同步执行。

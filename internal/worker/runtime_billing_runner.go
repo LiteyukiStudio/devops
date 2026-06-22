@@ -30,7 +30,7 @@ func (r *Runner) settleRuntimeUsageWindows(ctx context.Context, now time.Time) e
 	}
 	var targets []model.DeploymentTarget
 	if err := r.db.
-		Where("enabled = ? and delete_status = ?", true, "active").
+		Where("enabled = ? and delete_status in ?", true, []string{"active", ""}).
 		Order("created_at asc").
 		Find(&targets).Error; err != nil {
 		return err
@@ -119,7 +119,7 @@ func (r *Runner) runtimeBillingTargetContext(target model.DeploymentTarget) (mod
 
 func (r *Runner) canUseLegacyReleaseForRuntimeBilling(target model.DeploymentTarget) bool {
 	query := r.db.Model(&model.DeploymentTarget{}).
-		Where("project_id = ? and application_id = ? and enabled = ? and delete_status = ?", target.ProjectID, target.ApplicationID, true, "active")
+		Where("project_id = ? and application_id = ? and enabled = ? and delete_status in ?", target.ProjectID, target.ApplicationID, true, []string{"active", ""})
 	if strings.TrimSpace(target.EnvironmentID) != "" {
 		query = query.Where("environment_id = ?", strings.TrimSpace(target.EnvironmentID))
 	}

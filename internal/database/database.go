@@ -19,6 +19,9 @@ func Open(databaseURL string) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
+	if err := runSQLMigrations(db); err != nil {
+		return err
+	}
 	if err := cleanupApplicationDeliveryColumns(db); err != nil {
 		return err
 	}
@@ -68,6 +71,9 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	if err := migrateUserBillingOwnership(db); err != nil {
+		return err
+	}
+	if err := normalizeLegacyDeleteStatus(db); err != nil {
 		return err
 	}
 	if err := backfillReleaseDeploymentTargets(db); err != nil {
@@ -176,6 +182,32 @@ WHERE idempotency_key <> ''`,
 	}
 }
 
+func normalizeLegacyDeleteStatus(db *gorm.DB) error {
+	for _, statement := range legacyDeleteStatusStatements() {
+		if err := db.Exec(statement).Error; err != nil {
+			return fmt.Errorf("normalize legacy delete status: %w", err)
+		}
+	}
+	return nil
+}
+
+func legacyDeleteStatusStatements() []string {
+	return []string{
+		`UPDATE deployment_targets
+SET delete_status = 'active'
+WHERE delete_status = ''
+  AND deleted_at IS NULL`,
+		`UPDATE applications
+SET delete_status = 'active'
+WHERE delete_status = ''
+  AND deleted_at IS NULL`,
+		`UPDATE projects
+SET delete_status = 'active'
+WHERE delete_status = ''
+  AND deleted_at IS NULL`,
+	}
+}
+
 func backfillReleaseDeploymentTargets(db *gorm.DB) error {
 	statement := `UPDATE releases AS rel
 SET deployment_target_id = target.id
@@ -185,7 +217,7 @@ WHERE rel.deployment_target_id = ''
   AND rel.application_id = target.application_id
   AND rel.environment_id = target.environment_id
   AND target.enabled = true
-  AND target.delete_status = 'active'
+  AND target.delete_status IN ('active', '')
   AND (
     SELECT COUNT(*)
     FROM deployment_targets AS candidate
@@ -193,7 +225,7 @@ WHERE rel.deployment_target_id = ''
       AND candidate.application_id = rel.application_id
       AND candidate.environment_id = rel.environment_id
       AND candidate.enabled = true
-      AND candidate.delete_status = 'active'
+      AND candidate.delete_status IN ('active', '')
   ) = 1`
 	if err := db.Exec(statement).Error; err != nil {
 		return fmt.Errorf("backfill release deployment targets: %w", err)

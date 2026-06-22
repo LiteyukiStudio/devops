@@ -6,6 +6,8 @@ Project spaces are the source of spend. Charges are deducted from the current bi
 
 For legacy releases without a deployment target reference, the platform backfills or bills them only when the matching deployment target is unambiguous.
 
+Legacy deployment targets without a delete status are normalized as active when they are not deleted.
+
 The top balance, today spend, month spend, and pending spend cards are user-account summaries. The project-space selector lives in the detail toolbar and filters the monthly categories, spend analysis, ledger, and usage records below it. With no selection, regular users see their own billed ledger; platform administrators see all billing data.
 
 Platform administrators can also configure a real-world currency unit and conversion ratio in site settings. The top summary cards show the converted amount after credits, for example `1,012.24 Credits (1.01 CNY)`. This is display-only conversion; the ledger still settles in credits.
