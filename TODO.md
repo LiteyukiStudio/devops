@@ -25,6 +25,7 @@
 - [x] 定义 API 与 Worker 的任务投递和状态回写约定。
 - [x] 建立异步任务基础队列。
 - [x] 定义 OpenAPI 基础结构。
+- [x] 后端提供 Swagger UI 调试入口：运行中的 API 暴露 `/openapi.yaml` 和 `/swagger`，便于查看接口规格和发起开发调试请求。
 - [x] 初始化 Vite + React + TypeScript。
 - [x] 接入 Tailwind CSS。
 - [x] 接入 shadcn/ui。
@@ -636,6 +637,7 @@
 - [x] 集群资源支持查看只读 Kubernetes YAML：后端实时读取平台 managed 对象并校验资源归属，前端使用 YAML CodeEditor 展示；Secret 值必须脱敏。
 - [x] `DataList` 支持 sticky 列；集群资源页将右侧操作列固定在可视区，其他信息列保留横向滚动。
 - [x] 集群资源页新增资源“更新时间”列，后端基于 Kubernetes managedFields 最新写入时间并 fallback 到创建时间，前端复用智能相对时间格式展示。
+- [x] 集群资源工作负载页按 Deployment 聚合展示，Pod 作为 Deployment 子行展开查看，Pod 子行不参与顶层分页。
 - [ ] 前端提供集群、命名空间、项目空间、应用筛选和手动刷新；空状态说明“只展示平台管理资源”。
 - [x] 集群资源归属展示补齐部署配置名称：Workload、Pod、Service、Ingress、ConfigMap、Secret 当前只显示“项目空间 / 应用”，应显示“项目空间 / 应用 / 部署配置”，避免用户无法判断同一应用多部署配置资源来源。
 - [ ] 资源详情抽屉展示 labels/annotations 摘要、状态条件、关联业务对象和 Events，不展示 Secret data。

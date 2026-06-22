@@ -5,28 +5,28 @@ pageType: home
 hero:
   name: Liteyuki DevOps
   text: Code once, deploy anywhere.
-  tagline: 从本地启动到线上发布，把构建、部署和访问管理收进一条清晰的交付路径。
+  tagline: 先把平台跑起来，再把项目部署出去。构建、发布、访问入口和状态都在一条清晰路径里。
   actions:
     - theme: brand
       text: 快速开始
       link: /guide/getting-started
     - theme: alt
-      text: 查看功能
-      link: /operations/deployment
+      text: 部署项目
+      link: /operations/deploy-web-project
   image:
     src: /brand/mascot-liteyuki-catgirl-alpha.webp
     alt: Liteyuki DevOps mascot
 features:
-  - title: 开始：Docker Compose 部署
-    details: 默认拉取 liteyukistudio 镜像，用 docker compose up -d 启动完整平台，打开 localhost:8088 即可进入控制台。
+  - title: 部署平台
+    details: 用 docker compose up -d 启动 PostgreSQL、Redis、API 和 worker，打开 localhost:8088 进入控制台。
     link: /guide/getting-started
-  - title: 使用：功能地图
-    details: 用项目空间管理团队和资源，用应用、部署配置、Release 和访问入口串起日常交付。
-    link: /operations/deployment
-  - title: 使用：配置与排障
-    details: Git Provider、镜像站、运行集群和密钥分开管理，状态页帮助你定位构建、发布和访问问题。
-    link: /operations/configuration
-  - title: 开发：本地工作流
-    details: 开发者可以用 docker-compose-dev.yaml 承载依赖，在宿主机运行 API 和 Web，改动时同步维护文档站。
-    link: /developer/architecture
+  - title: 部署一个 Web 项目
+    details: 按项目空间、应用、部署配置、构建、Release 和访问入口的顺序，把示例项目发布上线。
+    link: /operations/deploy-web-project
+  - title: 连接外部系统
+    details: 运行集群、镜像站、Git Provider 和密钥分开配置，先连最少依赖，再逐步打开自动化。
+    link: /guide/workspace
+  - title: 排查失败状态
+    details: 从构建日志、Release 日志、集群事件和访问入口检查入手，快速定位问题发生在哪一段。
+    link: /operations/diagnostics
 ---

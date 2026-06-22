@@ -58,6 +58,9 @@ func (h *Handlers) ListRuntimeClusterResources(ctx *gin.Context) {
 		return
 	}
 	if paginationRequested(ctx) {
+		if isWorkloadResourceKind(options.Kind) {
+			responses = groupWorkloadPodResponses(responses)
+		}
 		pagination := paginationFromQuery(ctx)
 		pagination.SortBy = normalizeClusterResourceSortBy(pagination.SortBy)
 		sortClusterResourceResponses(responses, pagination)

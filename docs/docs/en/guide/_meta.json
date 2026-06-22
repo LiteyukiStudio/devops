@@ -2,32 +2,22 @@
   {
     "type": "file",
     "name": "getting-started",
-    "label": "Quick Docker Compose Deploy"
+    "label": "Deploy the Platform"
+  },
+  {
+    "type": "file",
+    "name": "product",
+    "label": "Initialize Console"
+  },
+  {
+    "type": "file",
+    "name": "workspace",
+    "label": "Connect Cluster and Registry"
   },
   {
     "type": "file",
     "name": "configuration-reference",
     "label": "Configuration Reference"
-  },
-  {
-    "type": "file",
-    "name": "product",
-    "label": "First Visit"
-  },
-  {
-    "type": "file",
-    "name": "billing",
-    "label": "Billing and Spend Analysis"
-  },
-  {
-    "type": "file",
-    "name": "app-marketplace",
-    "label": "App Marketplace"
-  },
-  {
-    "type": "file",
-    "name": "workspace",
-    "label": "Next Steps"
   },
   {
     "type": "file",

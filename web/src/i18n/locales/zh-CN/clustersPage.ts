@@ -32,6 +32,8 @@ const clustersPage = {
   selectAllResources: '选择当前页可删除资源',
   selectResource: '选择资源 {{name}}',
   selectedResources: '已选择 {{count}} 个可删除资源',
+  expandWorkloadPods: '展开 Pod',
+  collapseWorkloadPods: '收起 Pod',
   viewEvents: '事件',
   viewYaml: 'YAML',
   resourceYamlTitle: '资源 YAML',

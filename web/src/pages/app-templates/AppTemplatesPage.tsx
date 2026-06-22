@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { AppTemplate, AppTemplateInstallPayload, Project, RuntimeCluster } from '@/api/client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Box, Database, ExternalLink, PackageOpen, Rocket, Search } from 'lucide-react'
+import { Box, Database, Link2, PackageOpen, Rocket, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -229,7 +229,7 @@ function TemplateCard({ template, onInstall }: { template: AppTemplate, onInstal
           <div className="flex items-center gap-2">
             <TemplateSourceLink
               href={template.officialWebsite}
-              icon={<ExternalLink className="size-4" />}
+              icon={<Link2 className="size-4" />}
               label={t('appTemplatesPage.officialWebsite')}
             />
             <TemplateSourceLink

@@ -1,6 +1,6 @@
 import type { ClusterResource, ClusterResourceEvent, CurrentUser, RuntimeCluster } from '@/api/client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, FileCode2, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, FileCode2, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -51,6 +51,12 @@ type ClusterResourcePagination = {
   pageSizeOptions: number[]
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
+}
+
+type ClusterResourceRow = ClusterResource & {
+  depth?: number
+  hasChildren?: boolean
+  parentId?: string
 }
 
 export function ClustersPage() {
@@ -582,9 +588,38 @@ function ClusterResourcesPanel({ items, loading, pagination, selectedCluster, se
   onSelectionChange: (keys: string[]) => void
 }) {
   const { t } = useTranslation()
-  const itemKeys = new Set(items.map(item => item.id))
+  const [expandedResourceKeys, setExpandedResourceKeys] = useState<string[]>([])
+  const expandedResourceKeySet = useMemo(() => new Set(expandedResourceKeys), [expandedResourceKeys])
+  const rowItems = useMemo<ClusterResourceRow[]>(() => {
+    if (tab !== 'workloads')
+      return items
+    return items.flatMap((item) => {
+      const children = item.children ?? []
+      const parent: ClusterResourceRow = { ...item, hasChildren: children.length > 0 }
+      if (!expandedResourceKeySet.has(item.id))
+        return [parent]
+      return [
+        parent,
+        ...children.map(child => ({ ...child, depth: 1, parentId: item.id })),
+      ]
+    })
+  }, [expandedResourceKeySet, items, tab])
+  useEffect(() => {
+    if (tab !== 'workloads')
+      return
+    const validKeys = new Set(items.map(item => item.id))
+    setExpandedResourceKeys(keys => keys.filter(key => validKeys.has(key)))
+  }, [items, tab])
+  const itemKeys = new Set(rowItems.map(item => item.id))
   const visibleSelectedResourceKeys = selectedResourceKeys.filter(key => itemKeys.has(key))
-  const selectedResources = items.filter(item => visibleSelectedResourceKeys.includes(item.id) && canDeleteClusterResource(user, item))
+  const selectedResources = rowItems.filter(item => visibleSelectedResourceKeys.includes(item.id) && canDeleteClusterResource(user, item) && !item.parentId)
+  const toggleResourceExpansion = (resource: ClusterResourceRow) => {
+    setExpandedResourceKeys((keys) => {
+      if (keys.includes(resource.id))
+        return keys.filter(key => key !== resource.id)
+      return [...keys, resource.id]
+    })
+  }
   if (!selectedCluster) {
     return (
       <EmptyState
@@ -597,7 +632,31 @@ function ClusterResourcesPanel({ items, loading, pagination, selectedCluster, se
     <DataList
       columns={[
         { key: 'kind', header: t('clustersPage.resourceKind'), className: 'w-32 whitespace-nowrap', render: item => item.kind },
-        { key: 'name', header: t('common.name'), className: 'min-w-56 whitespace-nowrap', render: item => <TruncatedResourceText className="max-w-72 font-mono text-sm" value={clusterResourceName(item, tab === 'namespaces')} /> },
+        {
+          key: 'name',
+          header: t('common.name'),
+          className: 'min-w-56 whitespace-nowrap',
+          render: item => (
+            <div className={`flex min-w-0 items-center gap-2 ${item.depth ? 'pl-8' : ''}`}>
+              {tab === 'workloads' && !item.parentId && (
+                item.hasChildren
+                  ? (
+                      <button
+                        aria-label={expandedResourceKeySet.has(item.id) ? t('clustersPage.collapseWorkloadPods') : t('clustersPage.expandWorkloadPods')}
+                        className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        type="button"
+                        onClick={() => toggleResourceExpansion(item)}
+                      >
+                        {expandedResourceKeySet.has(item.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                      </button>
+                    )
+                  : <span className="size-6 shrink-0" />
+              )}
+              {tab === 'workloads' && item.parentId && <span className="h-px w-5 shrink-0 border-t border-border" />}
+              <TruncatedResourceText className={`${item.parentId ? 'max-w-64 text-muted-foreground' : 'max-w-72'} font-mono text-sm`} value={clusterResourceName(item, tab === 'namespaces')} />
+            </div>
+          ),
+        },
         ...(tab === 'namespaces'
           ? []
           : [{ key: 'namespace', header: t('deploymentsPage.namespace'), className: 'w-44 whitespace-nowrap', render: (item: ClusterResource) => <TruncatedResourceText className="max-w-44 font-mono text-sm" value={item.namespace || '-'} /> }]),
@@ -632,11 +691,11 @@ function ClusterResourcesPanel({ items, loading, pagination, selectedCluster, se
       ]}
       emptyDescription={loading ? t('common.loading') : t('clustersPage.resourceEmptyDescription')}
       emptyTitle={loading ? t('common.loading') : t(`clustersPage.${tab}EmptyTitle`)}
-      items={items}
+      items={rowItems}
       pagination={pagination}
       rowKey={item => item.id}
       selection={{
-        isRowSelectable: item => canDeleteClusterResource(user, item),
+        isRowSelectable: item => canDeleteClusterResource(user, item) && !item.parentId,
         selectAllLabel: t('clustersPage.selectAllResources'),
         selectedKeys: visibleSelectedResourceKeys,
         selectedLabel: t('clustersPage.selectedResources', { count: selectedResources.length }),

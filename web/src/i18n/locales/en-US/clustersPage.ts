@@ -32,6 +32,8 @@ const clustersPage = {
   selectAllResources: 'Select deletable resources on this page',
   selectResource: 'Select resource {{name}}',
   selectedResources: '{{count}} deletable resources selected',
+  expandWorkloadPods: 'Expand Pods',
+  collapseWorkloadPods: 'Collapse Pods',
   viewEvents: 'Events',
   viewYaml: 'YAML',
   resourceYamlTitle: 'Resource YAML',

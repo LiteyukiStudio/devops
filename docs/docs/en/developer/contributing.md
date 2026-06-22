@@ -21,6 +21,7 @@
 
 - Use PostgreSQL, not SQLite.
 - API startup runs embedded `migrations/*.up.sql`; legacy databases without `schema_migrations` are adopted at 008 before later migrations run.
+- The running API serves the bundled OpenAPI document at `/openapi.yaml` and Swagger UI at `/swagger`.
 - Do not store secrets or tokens as plaintext in business tables.
 - External platform capabilities are adapted through backend providers, services, and APIs. The frontend must not orchestrate third-party APIs.
 - Long-running work goes to workers, not synchronous HTTP requests.

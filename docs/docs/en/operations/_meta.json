@@ -1,18 +1,28 @@
 [
   {
     "type": "file",
-    "name": "deployment",
-    "label": "Feature Map"
-  },
-  {
-    "type": "file",
     "name": "deploy-web-project",
     "label": "Deploy a Web Project"
   },
   {
     "type": "file",
+    "name": "deployment",
+    "label": "Feature Map"
+  },
+  {
+    "type": "file",
+    "name": "app-marketplace",
+    "label": "App Marketplace"
+  },
+  {
+    "type": "file",
     "name": "configuration",
     "label": "Settings and Connections"
+  },
+  {
+    "type": "file",
+    "name": "billing",
+    "label": "Billing and Spend"
   },
   {
     "type": "file",

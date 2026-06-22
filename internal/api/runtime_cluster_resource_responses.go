@@ -14,24 +14,25 @@ type clusterResourceYAMLResponse struct {
 }
 
 type clusterResourceResponse struct {
-	ID                   string            `json:"id"`
-	Kind                 string            `json:"kind"`
-	Name                 string            `json:"name"`
-	Namespace            string            `json:"namespace"`
-	Status               string            `json:"status"`
-	Summary              string            `json:"summary"`
-	ProjectID            string            `json:"projectId"`
-	ApplicationID        string            `json:"applicationId"`
-	EnvironmentID        string            `json:"environmentId"`
-	DeploymentTargetID   string            `json:"deploymentTargetId"`
-	ReleaseID            string            `json:"releaseId"`
-	RouteID              string            `json:"routeId"`
-	ProjectName          string            `json:"projectName"`
-	ApplicationName      string            `json:"applicationName"`
-	DeploymentTargetName string            `json:"deploymentTargetName"`
-	Labels               map[string]string `json:"labels"`
-	CreatedAt            time.Time         `json:"createdAt"`
-	UpdatedAt            time.Time         `json:"updatedAt"`
+	ID                   string                    `json:"id"`
+	Kind                 string                    `json:"kind"`
+	Name                 string                    `json:"name"`
+	Namespace            string                    `json:"namespace"`
+	Status               string                    `json:"status"`
+	Summary              string                    `json:"summary"`
+	ProjectID            string                    `json:"projectId"`
+	ApplicationID        string                    `json:"applicationId"`
+	EnvironmentID        string                    `json:"environmentId"`
+	DeploymentTargetID   string                    `json:"deploymentTargetId"`
+	ReleaseID            string                    `json:"releaseId"`
+	RouteID              string                    `json:"routeId"`
+	ProjectName          string                    `json:"projectName"`
+	ApplicationName      string                    `json:"applicationName"`
+	DeploymentTargetName string                    `json:"deploymentTargetName"`
+	Labels               map[string]string         `json:"labels"`
+	CreatedAt            time.Time                 `json:"createdAt"`
+	UpdatedAt            time.Time                 `json:"updatedAt"`
+	Children             []clusterResourceResponse `json:"children,omitempty"`
 }
 
 func (h *Handlers) clusterResourceResponses(items []kubeprovider.ResourceSnapshot) ([]clusterResourceResponse, error) {
@@ -179,6 +180,77 @@ func sortClusterResourceResponses(items []clusterResourceResponse, pagination pa
 		}
 		return compareClusterResourceTieBreaker(items[i], items[j]) < 0
 	})
+}
+
+func groupWorkloadPodResponses(items []clusterResourceResponse) []clusterResourceResponse {
+	deployments := make([]clusterResourceResponse, 0, len(items))
+	pods := make([]clusterResourceResponse, 0)
+	orphans := make([]clusterResourceResponse, 0)
+	deploymentIndexByTarget := make(map[string]int)
+
+	for _, item := range items {
+		switch strings.ToLower(strings.TrimSpace(item.Kind)) {
+		case "deployment":
+			item.Children = nil
+			deployments = append(deployments, item)
+			if key := workloadTargetKey(item); key != "" {
+				deploymentIndexByTarget[key] = len(deployments) - 1
+			}
+		case "pod":
+			pods = append(pods, item)
+		default:
+			orphans = append(orphans, item)
+		}
+	}
+
+	for _, pod := range pods {
+		if index, ok := findDeploymentForPod(deployments, pod); ok {
+			deployments[index].Children = append(deployments[index].Children, pod)
+			continue
+		}
+		if key := workloadTargetKey(pod); key != "" {
+			if index, ok := deploymentIndexByTarget[key]; ok {
+				deployments[index].Children = append(deployments[index].Children, pod)
+				continue
+			}
+		}
+		orphans = append(orphans, pod)
+	}
+
+	childSort := paginationParams{SortBy: "updatedAt", SortOrder: "desc"}
+	for index := range deployments {
+		sortClusterResourceResponses(deployments[index].Children, childSort)
+	}
+	return append(deployments, orphans...)
+}
+
+func workloadTargetKey(item clusterResourceResponse) string {
+	targetID := strings.TrimSpace(item.DeploymentTargetID)
+	if targetID == "" {
+		return ""
+	}
+	return strings.TrimSpace(item.Namespace) + "\x00" + targetID
+}
+
+func findDeploymentForPod(deployments []clusterResourceResponse, pod clusterResourceResponse) (int, bool) {
+	for index, deployment := range deployments {
+		if strings.TrimSpace(deployment.Namespace) != strings.TrimSpace(pod.Namespace) {
+			continue
+		}
+		if strings.HasPrefix(strings.TrimSpace(pod.Name), strings.TrimSpace(deployment.Name)+"-") {
+			return index, true
+		}
+	}
+	return 0, false
+}
+
+func isWorkloadResourceKind(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "workload", "workloads":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeClusterResourceSortBy(sortBy string) string {

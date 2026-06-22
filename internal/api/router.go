@@ -188,6 +188,7 @@ func NewRouterWithStaticFS(db *gorm.DB, staticFS fs.FS) *gin.Engine {
 		v1.DELETE("/access-tokens/:tokenId", handlers.RevokeAccessToken)
 	}
 
+	registerSwaggerUI(router)
 	registerStaticUI(router, staticFS)
 	return router
 }

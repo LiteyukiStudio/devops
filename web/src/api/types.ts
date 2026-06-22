@@ -568,6 +568,7 @@ export interface ClusterResource {
   labels: Record<string, string>
   createdAt: string
   updatedAt: string
+  children?: ClusterResource[]
 }
 
 export interface ClusterResourceEvent {

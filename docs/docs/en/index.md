@@ -5,28 +5,28 @@ pageType: home
 hero:
   name: Liteyuki DevOps
   text: Code once, deploy anywhere.
-  tagline: From local startup to production release, keep builds, deployments, and access in one clear delivery path.
+  tagline: Start the platform first, then ship your project. Builds, releases, routes, and status stay in one clear path.
   actions:
     - theme: brand
       text: Get Started
       link: /guide/getting-started
     - theme: alt
-      text: See Features
-      link: /operations/deployment
+      text: Deploy a Project
+      link: /operations/deploy-web-project
   image:
     src: /brand/mascot-liteyuki-catgirl-alpha.webp
     alt: Liteyuki DevOps mascot
 features:
-  - title: "Start: Docker Compose deploy"
-    details: Pull liteyukistudio images by default, run docker compose up -d, then open localhost:8088 to enter the console.
+  - title: Deploy the platform
+    details: Run docker compose up -d to start PostgreSQL, Redis, API, and worker, then open localhost:8088.
     link: /guide/getting-started
-  - title: "Use: feature map"
-    details: Project spaces, applications, deployment targets, Releases, and routes follow the daily delivery workflow.
-    link: /operations/deployment
-  - title: "Use: settings and status"
-    details: Git providers, registries, runtime clusters, and secrets are managed separately, with status pages for build, release, and access issues.
-    link: /operations/configuration
-  - title: "Develop: local workflow"
-    details: Developers can use docker-compose-dev.yaml for dependencies, run API and Web on the host, and update docs with feature changes.
-    link: /developer/architecture
+  - title: Deploy a web project
+    details: Follow project space, application, deployment target, build, Release, and route to publish the example project.
+    link: /operations/deploy-web-project
+  - title: Connect external systems
+    details: Configure runtime clusters, registries, Git providers, and secrets separately. Start small, then enable automation.
+    link: /guide/workspace
+  - title: Troubleshoot failed states
+    details: Use build logs, Release logs, cluster events, and route checks to find where the delivery path failed.
+    link: /operations/diagnostics
 ---
