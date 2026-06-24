@@ -696,13 +696,16 @@ export interface BillingSpendCategory {
   amountCredits: string
 }
 
-export interface BillingApplicationSpend {
+export interface BillingDeploymentSpend {
   projectId: string
   projectName: string
   projectSlug: string
   applicationId: string
   applicationName: string
   applicationSlug: string
+  deploymentTargetId: string
+  deploymentTargetName: string
+  deploymentTargetStage: string
   amountCredits: string
   buildCredits: string
   runtimeCredits: string

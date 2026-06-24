@@ -9,7 +9,7 @@ import type {
   ArtifactRegistryPayload,
   AuthAdmissionPolicy,
   AuthProvider,
-  BillingApplicationSpend,
+  BillingDeploymentSpend,
   BillingLedgerEntry,
   BillingListParams,
   BillingRateRule,
@@ -85,7 +85,7 @@ export type {
   ArtifactRegistryPayload,
   AuthAdmissionPolicy,
   AuthProvider,
-  BillingApplicationSpend,
+  BillingDeploymentSpend,
   BillingLedgerEntry,
   BillingListParams,
   BillingRateRule,
@@ -494,8 +494,8 @@ export const api = {
     request<AppTemplateInstallResponse>(`/projects/${projectId}/app-templates/${encodeURIComponent(templateId)}/install`, { method: 'POST', body: JSON.stringify(payload) }),
   getBillingSummary: (projectIds?: string[]) =>
     request<BillingSummary>(`/billing/summary${billingSummaryQuery(projectIds)}`),
-  listBillingApplicationSpend: (params: BillingListParams) =>
-    request<PaginatedResponse<BillingApplicationSpend>>(`/billing/application-spend?${billingQuery(params)}`),
+  listBillingDeploymentSpend: (params: BillingListParams) =>
+    request<PaginatedResponse<BillingDeploymentSpend>>(`/billing/deployment-spend?${billingQuery(params)}`),
   listBillingLedgerEntries: (params: BillingListParams) =>
     request<PaginatedResponse<BillingLedgerEntry>>(`/billing/ledger?${billingQuery(params)}`),
   listBillingUsageRecords: (params: BillingListParams) =>

@@ -153,7 +153,7 @@ func (h *Handlers) ListBillingUsageRecords(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, paginatedResponse(records, total, pagination))
 }
 
-func (h *Handlers) ListBillingApplicationSpend(ctx *gin.Context) {
+func (h *Handlers) ListBillingDeploymentSpend(ctx *gin.Context) {
 	user, ok := h.currentUser(ctx)
 	if !ok {
 		return
@@ -164,14 +164,17 @@ func (h *Handlers) ListBillingApplicationSpend(ctx *gin.Context) {
 	}
 	pagination := paginationFromQuery(ctx)
 	if len(scope.UserIDs) == 0 {
-		ctx.JSON(http.StatusOK, paginatedResponse([]billingApplicationSpendItem{}, 0, pagination))
+		ctx.JSON(http.StatusOK, paginatedResponse([]billingDeploymentSpendItem{}, 0, pagination))
 		return
 	}
 
+	deploymentTargetIDSQL := billingDeploymentTargetIDSQL()
 	grouped := h.db.Table("billing_usage_records as usage").
-		Select("usage.project_id, usage.application_id").
+		Select("usage.project_id, usage.application_id, "+deploymentTargetIDSQL+" AS deployment_target_id").
+		Joins("LEFT JOIN build_runs ON build_runs.id = usage.resource_id AND usage.resource_type = ?", billing.ResourceTypeBuildRun).
+		Joins("LEFT JOIN gateway_routes ON gateway_routes.id = split_part(usage.resource_id, ':', 1) AND usage.resource_type = ?", billing.ResourceTypeGateway).
 		Where("usage.billed_user_id in ? AND usage.status = ?", scope.UserIDs, "settled").
-		Group("usage.project_id, usage.application_id")
+		Group("usage.project_id, usage.application_id, " + deploymentTargetIDSQL)
 	if scope.FilterProjectIDs {
 		grouped = grouped.Where("usage.project_id in ?", scope.ProjectIDs)
 	}
@@ -181,7 +184,7 @@ func (h *Handlers) ListBillingApplicationSpend(ctx *gin.Context) {
 		return
 	}
 
-	var items []billingApplicationSpendItem
+	var items []billingDeploymentSpendItem
 	query := h.db.Table("billing_usage_records as usage").
 		Select(`
 			usage.project_id,
@@ -190,6 +193,9 @@ func (h *Handlers) ListBillingApplicationSpend(ctx *gin.Context) {
 			usage.application_id,
 			COALESCE(applications.name, '') AS application_name,
 			COALESCE(applications.slug, '') AS application_slug,
+			`+deploymentTargetIDSQL+` AS deployment_target_id,
+			COALESCE(deployment_targets.name, '') AS deployment_target_name,
+			COALESCE(deployment_targets.stage, '') AS deployment_target_stage,
 			COALESCE(SUM(usage.amount_credits), 0) AS amount_credits,
 			COALESCE(SUM(CASE WHEN usage.meter LIKE 'build.%' THEN usage.amount_credits ELSE 0 END), 0) AS build_credits,
 			COALESCE(SUM(CASE WHEN usage.meter LIKE 'runtime.%' THEN usage.amount_credits ELSE 0 END), 0) AS runtime_credits,
@@ -199,21 +205,34 @@ func (h *Handlers) ListBillingApplicationSpend(ctx *gin.Context) {
 		`).
 		Joins("JOIN projects ON projects.id = usage.project_id").
 		Joins("LEFT JOIN applications ON applications.id = usage.application_id").
+		Joins("LEFT JOIN build_runs ON build_runs.id = usage.resource_id AND usage.resource_type = ?", billing.ResourceTypeBuildRun).
+		Joins("LEFT JOIN gateway_routes ON gateway_routes.id = split_part(usage.resource_id, ':', 1) AND usage.resource_type = ?", billing.ResourceTypeGateway).
+		Joins("LEFT JOIN deployment_targets ON deployment_targets.id = "+deploymentTargetIDSQL).
 		Where("usage.billed_user_id in ? AND usage.status = ?", scope.UserIDs, "settled").
-		Group("usage.project_id, projects.name, projects.slug, usage.application_id, applications.name, applications.slug")
+		Group("usage.project_id, projects.name, projects.slug, usage.application_id, applications.name, applications.slug, " + deploymentTargetIDSQL + ", deployment_targets.name, deployment_targets.stage")
 	if scope.FilterProjectIDs {
 		query = query.Where("usage.project_id in ?", scope.ProjectIDs)
 	}
 	orderBy := orderByClause(pagination, map[string]string{
-		"amountCredits":   "amount_credits",
-		"projectName":     "project_name",
-		"applicationName": "application_name",
+		"amountCredits":        "amount_credits",
+		"projectName":          "project_name",
+		"applicationName":      "application_name",
+		"deploymentTargetName": "deployment_target_name",
 	}, "amount_credits")
 	if err := query.Order(orderBy).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&items).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 	ctx.JSON(http.StatusOK, paginatedResponse(items, total, pagination))
+}
+
+func billingDeploymentTargetIDSQL() string {
+	return `CASE
+		WHEN usage.resource_type = 'build_run' THEN COALESCE(build_runs.deployment_target_id, '')
+		WHEN usage.resource_type IN ('runtime_target', 'storage_volume') THEN split_part(usage.resource_id, ':', 1)
+		WHEN usage.resource_type = 'gateway_route' THEN COALESCE(gateway_routes.deployment_target_id, '')
+		ELSE ''
+	END`
 }
 
 func (h *Handlers) ListBillingRateRules(ctx *gin.Context) {
@@ -573,19 +592,22 @@ type billingUsageRecordItem struct {
 	UpdatedAt       time.Time       `json:"updatedAt"`
 }
 
-type billingApplicationSpendItem struct {
-	ProjectID       string          `json:"projectId"`
-	ProjectName     string          `json:"projectName"`
-	ProjectSlug     string          `json:"projectSlug"`
-	ApplicationID   string          `json:"applicationId"`
-	ApplicationName string          `json:"applicationName"`
-	ApplicationSlug string          `json:"applicationSlug"`
-	AmountCredits   decimal.Decimal `json:"amountCredits"`
-	BuildCredits    decimal.Decimal `json:"buildCredits"`
-	RuntimeCredits  decimal.Decimal `json:"runtimeCredits"`
-	StorageCredits  decimal.Decimal `json:"storageCredits"`
-	GatewayCredits  decimal.Decimal `json:"gatewayCredits"`
-	OtherCredits    decimal.Decimal `json:"otherCredits"`
+type billingDeploymentSpendItem struct {
+	ProjectID             string          `json:"projectId"`
+	ProjectName           string          `json:"projectName"`
+	ProjectSlug           string          `json:"projectSlug"`
+	ApplicationID         string          `json:"applicationId"`
+	ApplicationName       string          `json:"applicationName"`
+	ApplicationSlug       string          `json:"applicationSlug"`
+	DeploymentTargetID    string          `json:"deploymentTargetId"`
+	DeploymentTargetName  string          `json:"deploymentTargetName"`
+	DeploymentTargetStage string          `json:"deploymentTargetStage"`
+	AmountCredits         decimal.Decimal `json:"amountCredits"`
+	BuildCredits          decimal.Decimal `json:"buildCredits"`
+	RuntimeCredits        decimal.Decimal `json:"runtimeCredits"`
+	StorageCredits        decimal.Decimal `json:"storageCredits"`
+	GatewayCredits        decimal.Decimal `json:"gatewayCredits"`
+	OtherCredits          decimal.Decimal `json:"otherCredits"`
 }
 
 type billingWalletTransactionInput struct {

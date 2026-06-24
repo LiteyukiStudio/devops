@@ -174,7 +174,7 @@ func NewRouterWithStaticFS(db *gorm.DB, staticFS fs.FS) *gin.Engine {
 		v1.POST("/projects/:projectId/repository-bindings/:bindingId/webhook/reconfigure", handlers.ReconfigureRepositoryWebhook)
 
 		v1.GET("/billing/summary", handlers.GetBillingSummary)
-		v1.GET("/billing/application-spend", handlers.ListBillingApplicationSpend)
+		v1.GET("/billing/deployment-spend", handlers.ListBillingDeploymentSpend)
 		v1.GET("/billing/ledger", handlers.ListBillingLedgerEntries)
 		v1.GET("/billing/usage-records", handlers.ListBillingUsageRecords)
 		v1.GET("/billing/rate-rules", handlers.ListBillingRateRules)

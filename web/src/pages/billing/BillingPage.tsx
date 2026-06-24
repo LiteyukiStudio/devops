@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { BillingApplicationSpend, BillingLedgerEntry, BillingUsageRecord, Project, User } from '@/api/client'
+import type { BillingDeploymentSpend, BillingLedgerEntry, BillingUsageRecord, Project, User } from '@/api/client'
 import type { DataListColumn } from '@/components/common/data-list'
 import type { StatusTone } from '@/components/common/status-tone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -33,9 +33,9 @@ export function BillingPage() {
   const { user } = useSession()
   const queryClient = useQueryClient()
   const billingDisplay = useBillingDisplay(i18n.language)
-  const [activeTab, setActiveTab] = useState('application-spend')
+  const [activeTab, setActiveTab] = useState('deployment-spend')
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>(readCachedBillingProjectScope)
-  const [applicationSpendPage, setApplicationSpendPage] = useState(1)
+  const [deploymentSpendPage, setDeploymentSpendPage] = useState(1)
   const [ledgerPage, setLedgerPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
   const [transactionOpen, setTransactionOpen] = useState(false)
@@ -67,10 +67,10 @@ export function BillingPage() {
     queryKey: ['billing', 'summary', 'scope', selectedProjectIds],
     queryFn: () => api.getBillingSummary(projectIds),
   })
-  const applicationSpendQuery = useQuery({
-    queryKey: ['billing', 'application-spend', selectedProjectIds, applicationSpendPage],
-    queryFn: () => api.listBillingApplicationSpend({
-      page: applicationSpendPage,
+  const deploymentSpendQuery = useQuery({
+    queryKey: ['billing', 'deployment-spend', selectedProjectIds, deploymentSpendPage],
+    queryFn: () => api.listBillingDeploymentSpend({
+      page: deploymentSpendPage,
       pageSize: PAGE_SIZE,
       projectIds,
       sortBy: 'amountCredits',
@@ -117,7 +117,7 @@ export function BillingPage() {
   function handleProjectFilterChange(projectIds: string[]) {
     setSelectedProjectIds(projectIds)
     writeCachedBillingProjectScope(projectIds)
-    setApplicationSpendPage(1)
+    setDeploymentSpendPage(1)
     setLedgerPage(1)
     setUsagePage(1)
   }
@@ -158,7 +158,7 @@ export function BillingPage() {
     </>
   )
 
-  const applicationSpendColumns = useMemo<DataListColumn<BillingApplicationSpend>[]>(() => [
+  const deploymentSpendColumns = useMemo<DataListColumn<BillingDeploymentSpend>[]>(() => [
     {
       key: 'project',
       header: t('billingPage.project'),
@@ -170,6 +170,12 @@ export function BillingPage() {
       header: t('billingPage.application'),
       className: 'min-w-52',
       render: item => <ApplicationCell item={item} unassignedLabel={t('billingPage.unassignedApplication')} />,
+    },
+    {
+      key: 'deploymentTarget',
+      header: t('billingPage.deploymentTarget'),
+      className: 'min-w-48',
+      render: item => <DeploymentTargetCell item={item} unassignedLabel={t('billingPage.unassignedDeploymentTarget')} />,
     },
     {
       key: 'amount',
@@ -414,7 +420,7 @@ export function BillingPage() {
 
       <ContentTabs
         tabs={[
-          { label: t('billingPage.applicationSpendTitle'), value: 'application-spend' },
+          { label: t('billingPage.deploymentSpendTitle'), value: 'deployment-spend' },
           { label: t('billingPage.ledgerTitle'), value: 'ledger' },
           { label: t('billingPage.usageTitle'), value: 'usage' },
         ]}
@@ -422,25 +428,25 @@ export function BillingPage() {
         value={activeTab}
         onValueChange={setActiveTab}
       >
-        <TabsContent value="application-spend">
+        <TabsContent value="deployment-spend">
           <DataList
-            columns={applicationSpendColumns}
-            emptyDescription={t('billingPage.emptyApplicationSpendDescription')}
-            emptyTitle={t('billingPage.emptyApplicationSpendTitle')}
-            items={applicationSpendQuery.data?.items ?? []}
+            columns={deploymentSpendColumns}
+            emptyDescription={t('billingPage.emptyDeploymentSpendDescription')}
+            emptyTitle={t('billingPage.emptyDeploymentSpendTitle')}
+            items={deploymentSpendQuery.data?.items ?? []}
             pagination={{
-              page: applicationSpendQuery.data?.page ?? applicationSpendPage,
-              pageInfoLabel: t('billingPage.applicationSpendPageInfo', {
-                page: applicationSpendQuery.data?.page ?? applicationSpendPage,
-                total: applicationSpendQuery.data?.total ?? 0,
-                totalPages: applicationSpendQuery.data?.totalPages ?? 1,
+              page: deploymentSpendQuery.data?.page ?? deploymentSpendPage,
+              pageInfoLabel: t('billingPage.deploymentSpendPageInfo', {
+                page: deploymentSpendQuery.data?.page ?? deploymentSpendPage,
+                total: deploymentSpendQuery.data?.total ?? 0,
+                totalPages: deploymentSpendQuery.data?.totalPages ?? 1,
               }),
-              pageSize: applicationSpendQuery.data?.pageSize ?? PAGE_SIZE,
-              total: applicationSpendQuery.data?.total ?? 0,
-              totalPages: applicationSpendQuery.data?.totalPages ?? 1,
-              onPageChange: setApplicationSpendPage,
+              pageSize: deploymentSpendQuery.data?.pageSize ?? PAGE_SIZE,
+              total: deploymentSpendQuery.data?.total ?? 0,
+              totalPages: deploymentSpendQuery.data?.totalPages ?? 1,
+              onPageChange: setDeploymentSpendPage,
             }}
-            rowKey={item => `${item.projectId}:${item.applicationId || 'unassigned'}`}
+            rowKey={item => `${item.projectId}:${item.applicationId || 'unassigned'}:${item.deploymentTargetId || 'unassigned'}`}
           />
         </TabsContent>
         <TabsContent value="ledger">
@@ -602,7 +608,7 @@ function ProjectCell({
   )
 }
 
-type BillingApplicationRef = Pick<BillingApplicationSpend, 'applicationName' | 'applicationSlug'> & {
+type BillingApplicationRef = Pick<BillingDeploymentSpend, 'applicationName' | 'applicationSlug'> & {
   applicationId?: string
 }
 
@@ -611,6 +617,19 @@ function ApplicationCell({ item, unassignedLabel }: { item: BillingApplicationRe
     <span className="block min-w-0">
       <span className="block truncate font-medium">{item.applicationName || unassignedLabel}</span>
       <span className="block truncate text-xs text-muted-foreground">{item.applicationSlug || '-'}</span>
+    </span>
+  )
+}
+
+type BillingDeploymentTargetRef = Pick<BillingDeploymentSpend, 'deploymentTargetName' | 'deploymentTargetStage'> & {
+  deploymentTargetId?: string
+}
+
+function DeploymentTargetCell({ item, unassignedLabel }: { item: BillingDeploymentTargetRef, unassignedLabel: string }) {
+  return (
+    <span className="block min-w-0">
+      <span className="block truncate font-medium">{item.deploymentTargetName || unassignedLabel}</span>
+      <span className="block truncate text-xs text-muted-foreground">{item.deploymentTargetStage || item.deploymentTargetId || '-'}</span>
     </span>
   )
 }

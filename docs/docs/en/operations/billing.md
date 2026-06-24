@@ -14,9 +14,11 @@ Platform administrators can also configure a real-world currency unit and conver
 
 ## Spend analysis
 
-Spend analysis groups settled usage by project space and application. It shows total spend plus build, runtime, storage, gateway, and other spend.
+Spend analysis groups settled usage by project space, application, and deployment config. It shows total spend plus build, runtime, storage, gateway, and other spend.
 
-Historical usage that is not linked to an application is grouped as “Unassigned application”. Ledger entries remain the audit trail for every balance change, while spend analysis is the faster way to find which project or application is driving cost.
+CPU, memory, and storage are settled by deployment-config windows. Gateway traffic is settled by access-route windows and attributed back to the route's deployment config. Build usage is settled by BuildRun and attributed back to the build's deployment config.
+
+Usage that is not linked to an application or deployment config is grouped as “Unassigned application” or “Unassigned deployment config”. Ledger entries remain the audit trail for every balance change, while spend analysis is the faster way to find which project, application, or deployment config is driving cost.
 
 ## Gateway traffic
 
