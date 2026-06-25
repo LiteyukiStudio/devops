@@ -137,13 +137,13 @@ export function BillingPage() {
         />
       </div>
       {selectedProjectIds.length > 0 && (
-        <Button className="h-11 rounded-2xl" type="button" variant="outline" onClick={() => handleProjectFilterChange([])}>
+        <Button className="h-10 rounded-lg" type="button" variant="outline" onClick={() => handleProjectFilterChange([])}>
           {t('billingPage.clearProjectFilter')}
         </Button>
       )}
       {canManageBilling && (
         <Button
-          className="h-11 rounded-2xl"
+          className="h-10 rounded-lg"
           disabled={usersQuery.isLoading || userItems.length === 0}
           type="button"
           onClick={() => {
@@ -333,7 +333,7 @@ export function BillingPage() {
     <div className="grid min-w-0 gap-5">
       {accountSummary && balanceStatus !== 'ok' && (
         <Card className={cn(
-          'flex min-w-0 items-start gap-3 rounded-2xl border p-4',
+          'flex min-w-0 items-start gap-3 rounded-lg border p-4',
           balanceStatus === 'insufficient'
             ? 'border-destructive/30 bg-destructive/5 text-destructive'
             : 'border-amber-300/60 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200',
@@ -388,7 +388,7 @@ export function BillingPage() {
         />
       </div>
 
-      <Card className="rounded-2xl p-5">
+      <Card className="rounded-lg p-5">
         <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h3 className="text-base font-semibold text-foreground">{t('billingPage.monthlyCategoriesTitle')}</h3>
@@ -401,7 +401,7 @@ export function BillingPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           {(scopedSummary?.monthlyCategories?.length ?? 0) > 0
             ? (scopedSummary?.monthlyCategories ?? []).map(category => (
-                <div key={category.category} className="min-w-0 rounded-xl border border-border bg-muted/20 p-3">
+                <div key={category.category} className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
                   <p className="truncate text-xs text-muted-foreground">
                     {t(`billingPage.categories.${category.category}`, { defaultValue: category.category })}
                   </p>
@@ -566,8 +566,8 @@ function userLabel(user: User) {
 
 function MetricCard({ fiatValue, icon, label, loading, value }: { fiatValue?: string, icon: ReactNode, label: string, loading: boolean, value: string }) {
   return (
-    <Card className="flex min-w-0 items-center gap-4 rounded-2xl p-5">
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+    <Card className="flex min-w-0 items-center gap-4 rounded-lg p-5">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
         {icon}
       </div>
       <div className="min-w-0">

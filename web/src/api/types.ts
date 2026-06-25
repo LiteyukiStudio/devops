@@ -846,6 +846,7 @@ export interface User {
   id: string
   email: string
   name: string
+  avatarUrl: string
   authType: 'local' | 'oidc'
   role: 'platform_admin' | 'user'
   language: 'zh-CN' | 'en-US'

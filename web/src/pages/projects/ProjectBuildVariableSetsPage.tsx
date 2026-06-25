@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
@@ -186,10 +187,9 @@ export function ProjectBuildVariableSetsPage({ projectId, ref }: { projectId: st
               valuePlaceholder={editingSet ? t('buildsPage.secretKeepPlaceholder') : t('buildsPage.secretValuePlaceholder')}
               onChange={rows => form.setValue('secrets', rows, { shouldDirty: true, shouldValidate: true })}
             />
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input className="size-4 accent-primary" type="checkbox" {...form.register('enabled')} />
+            <CheckboxField {...form.register('enabled')}>
               {t('common.enabled')}
-            </label>
+            </CheckboxField>
             <DialogFooter><Button disabled={!form.formState.isValid || saveVariableSet.isPending} type="submit">{t('common.save')}</Button></DialogFooter>
           </form>
         </DialogContent>

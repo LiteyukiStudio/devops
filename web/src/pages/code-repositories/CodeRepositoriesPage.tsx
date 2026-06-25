@@ -902,7 +902,8 @@ function GuideValue({ important, label, value }: { important?: boolean, label: s
         variant="ghost"
         onClick={() => {
           navigator.clipboard.writeText(value)
-          toast.success(t('codeRepositoriesView.copied'))
+            .then(() => toast.success(t('codeRepositoriesView.copied')))
+            .catch(error => toast.error(error.message))
         }}
       >
         <Copy size={14} />

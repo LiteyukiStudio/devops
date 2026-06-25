@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/client'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
+import { formatCompactDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { WORKFLOW_STATUS_REFETCH_INTERVAL_MS } from '@/lib/polling'
@@ -205,7 +206,7 @@ function ProjectShortcutCard({ appCount, isPinPending, latestBuild, onTogglePin,
       <div className="flex flex-wrap items-center gap-2 self-end">
         <StatusBadge>{t('dashboardPage.appsCount', { count: appCount })}</StatusBadge>
         {latestBuild ? <StatusValueBadge value={latestBuild.status} /> : <StatusBadge tone="neutral">{t('dashboardPage.noBuild')}</StatusBadge>}
-        <span className="text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{latestBuild ? formatDashboardDate(latestBuild.createdAt) : t('common.none')}</span>
+        <span className="text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{latestBuild ? formatCompactDateTime(latestBuild.createdAt) : t('common.none')}</span>
       </div>
     </Link>
   )
@@ -274,7 +275,7 @@ function RecentBuildRow({ applicationName, project, run }: { applicationName?: s
           {t('dashboardPage.buildMeta', { branch: run.sourceBranch || run.sourceTag || t('common.unknown'), id: shortId(run.id), image: run.imageRef || run.targetImageRef || t('common.none') })}
         </p>
       </div>
-      <span className="text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{formatDashboardDate(run.createdAt)}</span>
+      <span className="text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{formatCompactDateTime(run.createdAt)}</span>
     </Link>
   )
 }
@@ -309,13 +310,6 @@ function buildRunTarget(projectId: string, applicationId: string) {
 
 function shortId(id: string) {
   return id.replace(/^bldr?_?/, '').slice(0, 8)
-}
-
-function formatDashboardDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime()))
-    return value
-  return new Intl.DateTimeFormat(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
 function buildProjectShortcuts(pinnedProjects: ProjectPin[], projects: Project[]) {

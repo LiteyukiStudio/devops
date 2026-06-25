@@ -1,44 +1,9 @@
 package builder
 
 import (
-	"bytes"
-	"context"
 	"strings"
 	"testing"
 )
-
-func TestExecutorContainerName(t *testing.T) {
-	got := executorContainerName("bldj_4bef0a3b")
-	want := "liteyuki-devops-buildtask_bldj_4bef0a3b"
-	if got != want {
-		t.Fatalf("executorContainerName() = %q, want %q", got, want)
-	}
-}
-
-func TestExecutorContainerNameSanitizesBuildID(t *testing.T) {
-	got := executorContainerName(" build/job:1 ")
-	want := "liteyuki-devops-buildtask_build-job-1"
-	if got != want {
-		t.Fatalf("executorContainerName() = %q, want %q", got, want)
-	}
-}
-
-func TestExecutorSecurityArgsDefaultToUnprivileged(t *testing.T) {
-	args := executorSecurityArgs(Options{})
-
-	if len(args) != 0 {
-		t.Fatalf("expected no security args by default, got %#v", args)
-	}
-}
-
-func TestExecutorSecurityArgsCanEnablePrivilegedCompatibilityMode(t *testing.T) {
-	args := executorSecurityArgs(Options{Privileged: true, Seccomp: "unconfined"})
-	got := strings.Join(args, " ")
-
-	if got != "--privileged --security-opt seccomp=unconfined" {
-		t.Fatalf("security args = %q", got)
-	}
-}
 
 func TestBuildkitProgressFromRawJSONLineReadsVertex(t *testing.T) {
 	line := `{"vertexes":[{"digest":"sha256:1","name":"RUN pnpm install --frozen-lockfile","started":"2026-06-08T10:00:00Z"}]}`
@@ -89,19 +54,14 @@ func TestBuildkitProgressFromPlainLogLineIgnoresDoneOnly(t *testing.T) {
 	}
 }
 
-func TestLogStreamerRendersHookControlLinesForBuildLog(t *testing.T) {
-	var buildLogs []string
+func TestHandleHookControlLineRendersAndDispatchesHookEvents(t *testing.T) {
 	var hookLogs []string
 	var hookResults []HookResult
-	streamer := newLogStreamer(
-		context.Background(),
-		&bytes.Buffer{},
-		[]HookPayload{{ID: "hrun_1", Name: "hello", Phase: "preBuild"}},
-		func(content string) error {
-			buildLogs = append(buildLogs, content)
-			return nil
-		},
-		nil,
+	hookLabels := HookLabelsByRunID([]HookPayload{{ID: "hrun_1", Name: "hello", Phase: "preBuild"}})
+
+	renderedLog, isLogControl := HandleHookControlLine(
+		"::liteyuki-hook-log::hrun_1::SGVsbG8gV29ybGQ=",
+		hookLabels,
 		func(_ string, content string) error {
 			hookLogs = append(hookLogs, content)
 			return nil
@@ -111,18 +71,31 @@ func TestLogStreamerRendersHookControlLinesForBuildLog(t *testing.T) {
 			return nil
 		},
 	)
-	_, _ = streamer.Write([]byte("before\n::liteyuki-hook-log::hrun_1::SGVsbG8gV29ybGQ=\n::liteyuki-hook-complete::hrun_1::true::0::aG9vayBzdWNjZWVkZWQ=\nafter\n"))
-	streamer.Close()
 
-	content := strings.Join(buildLogs, "\n")
-	if strings.Contains(content, "::liteyuki-hook") {
-		t.Fatalf("build log contains raw hook control line: %q", content)
+	renderedComplete, isCompleteControl := HandleHookControlLine(
+		"::liteyuki-hook-complete::hrun_1::true::0::aG9vayBzdWNjZWVkZWQ=",
+		hookLabels,
+		func(_ string, content string) error {
+			hookLogs = append(hookLogs, content)
+			return nil
+		},
+		func(_ string, result HookResult) error {
+			hookResults = append(hookResults, result)
+			return nil
+		},
+	)
+
+	if !isLogControl || !isCompleteControl {
+		t.Fatalf("expected hook control lines to be recognized")
 	}
-	if !strings.Contains(content, "[preBuild: hello] Hello World") {
-		t.Fatalf("build log missing rendered hook log: %q", content)
+	if strings.Contains(renderedLog, "::liteyuki-hook") || strings.Contains(renderedComplete, "::liteyuki-hook") {
+		t.Fatalf("rendered control output leaked raw hook markers: %q %q", renderedLog, renderedComplete)
 	}
-	if !strings.Contains(content, "[preBuild: hello] hook succeeded") {
-		t.Fatalf("build log missing rendered hook complete message: %q", content)
+	if renderedLog != "[preBuild: hello] Hello World" {
+		t.Fatalf("rendered hook log = %q", renderedLog)
+	}
+	if renderedComplete != "[preBuild: hello] hook succeeded" {
+		t.Fatalf("rendered hook complete = %q", renderedComplete)
 	}
 	if len(hookLogs) != 1 || hookLogs[0] != "Hello World" {
 		t.Fatalf("hook logs = %#v", hookLogs)

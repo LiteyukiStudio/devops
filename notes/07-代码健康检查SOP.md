@@ -2,12 +2,15 @@
 
 本文档用于定期检查 AI 长期协作开发后的代码健康度，避免大量最小补丁逐渐堆积成不可维护结构。执行目标不是频繁大重构，而是及时识别需要收口、抽象、拆分或重新设计的区域。
 
+本项目的检查重点要贴合当前交付主线：API/worker 模块化单体、BuildKit 构建 Job、Kubernetes 部署、网关证书、账单、应用市场、Rspress 文档站和中英 i18n。检查结论必须能落到具体文件、业务域和验证命令，不做泛泛的“代码质量建议”。
+
 ## 1. 适用范围
 
 - AI 连续修改超过 1 周或累计改动超过 20 个文件后。
 - 某个页面、handler、worker 或 provider 被连续修复 3 次以上后。
 - 上线前、版本冻结前、重要验收场景完成后。
 - 出现同类 bug 反复复发、状态语义混乱、权限边界不清或 UI 组件风格分裂时。
+- 涉及认证、Secret、数据库迁移、计费、构建网络策略、证书申请、Kubernetes 资源删除或生产内嵌前端缓存策略时。
 
 ## 2. 固定节奏
 
@@ -18,10 +21,12 @@
 必做命令：
 
 ```bash
+git status --short
+git diff --stat
 go test ./...
 pnpm --dir web lint
 pnpm --dir web build
-git diff --stat HEAD~1..HEAD
+pnpm --dir docs build
 ```
 
 检查项：
@@ -31,6 +36,8 @@ git diff --stat HEAD~1..HEAD
 - TODO 中是否出现相同模块的连续修复项。
 - 是否新增硬编码 UI 文案、绕过 i18n、绕过 DataList 或状态 Badge。
 - 是否有本地运行产物、日志、构建目录进入 `git status`。
+- 代码改动是否同步更新文档站；用户流程、配置项、部署链路变更必须能在 `docs/` 中找到入口。
+- 是否出现新的 `.env` 依赖、明文 Secret、Token 回显或后端原始错误直出。
 
 产出：
 
@@ -41,15 +48,26 @@ git diff --stat HEAD~1..HEAD
 
 每两周执行一次，目标是识别应该重构的模块边界。
 
+辅助命令：
+
+```bash
+git log --since="2 weeks ago" --name-only --pretty=format: | sort | uniq -c | sort -nr | head -30
+rg --files | rg '^(cmd|internal|web/src|docs/docs|migrations)/' | rg -v '(^docs/pnpm-lock.yaml|\\.(webp|png|jpg|jpeg|gif|svg)$)' | sed 's#^#"#; s#$#"#' | xargs wc -l | sort -nr | head -30
+rg -n "TODO|FIXME|临时|兼容|fallback|special case|module|Builder|builder" internal web/src docs/docs migrations
+```
+
 检查项：
 
 - 是否存在超过 800 行且仍在频繁变更的前端页面组件。
 - 是否存在超过 600 行且同时处理参数解析、权限、业务逻辑、数据库和外部平台调用的 handler。
 - 是否存在 worker/provider/handler 重复实现同一业务规则。
-- 是否存在同一概念多套命名，例如 `module`、`deploymentTarget`、`config` 混用。
+- 是否存在同一概念多套命名，例如 `module`、`deploymentTarget`、`config`、`release`、`deployment` 混用。
 - 是否存在列表、弹窗、菜单、表单、状态展示没有复用统一组件。
 - 是否存在前端编排外部平台 API 或后端 handler 直接散落外部平台细节。
 - 是否存在权限只靠前端隐藏按钮，后端没有最终校验。
+- 是否存在迁移 SQL、GORM 模型、API DTO 和前端类型不同步。
+- 是否存在 API/worker 对同一构建、部署、计费、清理规则的不同实现。
+- 是否存在中文文档已更新但英文文档缺失，或中英文导航结构不一致。
 
 产出：
 
@@ -64,10 +82,14 @@ git diff --stat HEAD~1..HEAD
 
 - 项目空间与权限。
 - 应用与部署配置。
-- 构建与 Builder。
+- 构建、Worker、BuildKit Job 和构建网络策略。
 - Release、运行配置、重启和重新部署。
 - 集群资源、归属、删除和事件。
 - 网关、DNS、证书。
+- 账单、余额、充值补偿和资源用量归属。
+- 应用市场模板、镜像、官网和官方仓库元数据。
+- 数据库迁移、启动自动迁移和历史数据修复。
+- Rspress 文档站、工程文档和中英文内容同步。
 - 前端布局、DataList、ContentTabs、ActionMenu。
 
 判断标准：
@@ -94,6 +116,9 @@ git diff --stat HEAD~1..HEAD
 - 新需求需要绕过现有抽象才能实现。
 - 状态字段或资源归属出现语义不一致。
 - 代码里出现“临时兼容”“旧模型 fallback”“特殊 case”并持续保留。
+- 数据库迁移必须依赖人工补跑才可恢复核心链路。
+- 生产部署、构建或证书问题需要通过手动 patch 集群资源才能长期可用。
+- 账单、资源删除、构建网络策略等安全边界只能靠 UI 约束，后端或 worker 没有最终保护。
 
 ## 4. 重构分级
 
@@ -145,30 +170,33 @@ git diff --stat HEAD~1..HEAD
 
 ## 5. 当前项目重点关注区域
 
-### 5.1 `ApplicationConfigPage.tsx`
+### 5.1 应用详情和部署面板
 
 风险：
 
-- 文件承担应用概览、仓库、构建、部署、访问、日志、Web Console、运行配置等多种职责。
-- 表单、查询、菜单、弹窗和状态聚合都集中在一个页面内。
+- `web/src/pages/applications/application-deployments-panel.tsx` 已成为前端最大热点之一。
+- 应用详情涉及构建、部署、访问入口、运行配置、日志和 Web Console，容易把查询、表单、菜单和运行态聚合堆在一个面板里。
 
 建议：
 
 - 将构建、部署、访问拆为独立 panel 文件。
 - 将部署配置表单、Release 菜单、运行状态聚合拆成独立组件或 hook。
 - 保留应用详情页作为编排层，不直接承载所有业务细节。
+- 对超过 800 行的页面面板保持拆分压力；如果新增功能只服务某个 tab，优先落到该 tab 的私有组件或 hook。
 
-### 5.2 部署链路
+### 5.2 构建与部署链路
 
 风险：
 
-- `DeploymentTarget`、`Release`、运行配置、重启、重新部署和 Kubernetes 资源之间关系复杂。
-- handler、worker、provider 容易重复拼装资源名、namespace、labels 和运行配置。
+- `DeploymentTarget`、`BuildRun`、`Release`、运行配置、重启、重新部署和 Kubernetes 资源之间关系复杂。
+- API、worker、Kubernetes provider 容易重复拼装资源名、namespace、labels、网络策略和运行配置。
+- 构建 Job 的网络策略、镜像源、私有 registry 和非标端口白名单会直接影响用户能否构建成功。
 
 建议：
 
-- 后端抽出部署 service，统一处理 DeploymentTarget 解析、Release 创建、资源名生成和运行态校验。
+- 后端抽出部署和构建 service，统一处理 DeploymentTarget 解析、Release 创建、资源名生成、网络策略生成和运行态校验。
 - 明确“重启”和“重新部署”的语义：重启只 rollout restart；重新部署创建 Release 并重新下发资源。
+- 网络策略默认值必须有单测覆盖；允许放行的私有网段、DNS、HTTP/HTTPS 和自定义镜像站端口要由白名单配置驱动。
 
 ### 5.3 集群资源归属
 
@@ -182,8 +210,61 @@ git diff --stat HEAD~1..HEAD
 - 为资源归属建立专门测试。
 - 删除接口必须读取资源 labels 后再判断项目空间和应用归属。
 - 前端只展示当前用户有权维护的操作。
+- 对缺失 label 的历史资源只允许进入诊断/清理流程，不能自动归属到当前项目空间。
 
-### 5.4 DataList、ContentTabs 和操作菜单
+### 5.4 账单与余额
+
+风险：
+
+- 计费已经从项目空间余额调整为用户账户余额，资源用量仍来自项目空间、应用、构建和运行态。
+- 创建人转移、资源删除、历史应用和迁移前数据可能造成计费归属漂移。
+
+建议：
+
+- 账单流水不可因项目空间或应用删除而删除。
+- 用量归属必须记录当时的计费用户，不能在查询时只按当前 owner 反推。
+- 充值、补偿、扣费、退款必须走同一套 ledger/service，避免 handler 直接改余额。
+
+### 5.5 应用市场
+
+风险：
+
+- 模板同时包含镜像、官网、官方仓库、默认配置和安装参数，容易出现前端展示和后端模板字段不同步。
+- Grafana 等应用可能依赖 Prometheus 等外部组件，单应用模板容易暗示“直接可用”。
+
+建议：
+
+- 模板字段新增或改名时同步检查 `internal/appstore/templates.json`、API 类型、前端卡片和文档。
+- 对存在外部依赖的模板，在模板描述和文档中明确“可安装”和“完整可观测方案”的边界。
+- 安装入口只表达单应用安装能力，不提前承诺组合市场。
+
+### 5.6 数据库迁移
+
+风险：
+
+- API 滚动更新时会执行迁移，迁移脚本、GORM 模型和历史库状态不一致会造成部分老数据行为异常。
+- 计费、软删除、唯一约束、Secret 加密字段属于迁移高风险区。
+
+建议：
+
+- 每个迁移都要说明是否可重复运行、是否修复历史数据、是否破坏兼容。
+- 涉及核心链路的迁移需要用已有数据快照或集成库验证。
+- 迁移失败时 API 应明确失败并暴露可诊断日志，不允许静默跳过。
+
+### 5.7 文档站和工程文档
+
+风险：
+
+- 项目同时维护 `docs/` Rspress 用户文档、`Doc/` 工程文档和 `notes/` 设计记录，容易出现口径不一致。
+- 中英文导航、配置项表格和部署教程不一致会直接影响用户上手。
+
+建议：
+
+- 用户操作、部署、配置和故障排查优先写入 `docs/docs/{zh,en}`。
+- 工程内部设计沉淀写入 `Doc/` 或 `notes/`，不要混入用户文档。
+- 每次新增用户可见能力，检查中文和英文导航是否都有入口。
+
+### 5.8 DataList、ContentTabs 和操作菜单
 
 风险：
 
@@ -196,7 +277,7 @@ git diff --stat HEAD~1..HEAD
 - 行内操作默认使用三点菜单，删除类操作使用 destructive 样式。
 - 移动端默认允许列表内部横向滑动，不撑开页面。
 
-### 5.5 运行配置
+### 5.9 运行配置
 
 风险：
 
@@ -213,13 +294,14 @@ git diff --stat HEAD~1..HEAD
 每次健康检查按以下顺序执行：
 
 1. 拉取当前变更范围：`git status --short`、`git diff --stat`。
-2. 执行验证命令：`go test ./...`、`pnpm --dir web lint`、`pnpm --dir web build`。
-3. 找大文件和热点文件：看最近提交和 diff stat。
+2. 找大文件和热点文件：看最近提交、diff stat 和行数排行。
+3. 执行验证命令：`go test ./...`、`pnpm --dir web lint`、`pnpm --dir web build`、`pnpm --dir docs build`。
 4. 检查硬规则：i18n、权限、Secret、列表组件、状态 Badge、后端外部平台适配。
-5. 检查重复业务规则：资源名、namespace、状态映射、权限判断、运行配置合并。
-6. 判断重构级别：保持观察、局部重构、重新设计。
-7. 更新记录：本文件追加健康检查记录，必要时同步 TODO。
-8. 只实施本轮明确范围内的修复，不顺手扩大。
+5. 检查重复业务规则：资源名、namespace、网络策略、状态映射、权限判断、运行配置合并、计费归属。
+6. 检查迁移和文档：migrations 是否自动执行、docs 是否同步、TODO 是否需要更新。
+7. 判断重构级别：保持观察、局部重构、重新设计。
+8. 更新记录：本文件追加健康检查记录，必要时同步 TODO。
+9. 只实施本轮明确范围内的修复，不顺手扩大。
 
 ## 7. 健康检查记录模板
 
@@ -230,12 +312,15 @@ git diff --stat HEAD~1..HEAD
 
 - 检查模块：
 - 检查原因：
+- 当前变更：
 
 ### 验证结果
 
 - `go test ./...`：
 - `pnpm --dir web lint`：
 - `pnpm --dir web build`：
+- `pnpm --dir docs build`：
+- 其他针对性验证：
 
 ### 发现
 
@@ -248,6 +333,7 @@ git diff --stat HEAD~1..HEAD
 - 立即处理：
 - 进入 TODO：
 - 暂不处理：
+- 文档同步：
 ```
 
 ## 8. 2026-06-14 代码健康检查

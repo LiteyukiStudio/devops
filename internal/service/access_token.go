@@ -19,6 +19,8 @@ func RequiredAccessTokenScope(path, method string) string {
 		return "config:read"
 	case strings.HasPrefix(path, "/api/v1/configs") && method != http.MethodGet:
 		return "config:write"
+	case isReleaseRuntimeExecPath(path):
+		return "project:write"
 	case strings.HasPrefix(path, "/api/v1/projects") && method == http.MethodGet:
 		return "project:read"
 	case strings.HasPrefix(path, "/api/v1/projects") && method != http.MethodGet:
@@ -43,6 +45,16 @@ func RequiredAccessTokenScope(path, method string) string {
 		return "image:write"
 	default:
 		return "system:unmapped"
+	}
+}
+
+func isReleaseRuntimeExecPath(path string) bool {
+	switch path {
+	case "/api/v1/projects/:projectId/releases/:releaseId/exec",
+		"/api/v1/projects/:projectId/releases/:releaseId/terminal":
+		return true
+	default:
+		return false
 	}
 }
 

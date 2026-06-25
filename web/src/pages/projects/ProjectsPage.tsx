@@ -376,7 +376,7 @@ export function ProjectsPage() {
                 aria-invalid={Boolean(form.formState.errors.maxConcurrentBuilds)}
                 inputMode="numeric"
                 min={1}
-                placeholder="2"
+                placeholder={t('projectSpaces.maxConcurrentBuildsPlaceholder')}
                 type="number"
               />
             </Field>

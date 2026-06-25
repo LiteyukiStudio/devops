@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
@@ -211,10 +212,9 @@ export function ProjectRuntimeConfigSetsPage({ projectId, ref }: { projectId: st
                   onValidationChange={setSecretFilesValid}
                 />
               </Field>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input className="size-4 accent-primary" type="checkbox" {...form.register('enabled')} />
+              <CheckboxField {...form.register('enabled')}>
                 {t('common.enabled')}
-              </label>
+              </CheckboxField>
             </div>
             <DialogFooter className="border-t border-border bg-background px-6 py-4">
               <Button disabled={!configFilesValid || !secretFilesValid || saveConfigSet.isPending} type="submit">

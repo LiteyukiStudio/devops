@@ -90,6 +90,7 @@ const projectSpaces = {
   descriptionPlaceholder: 'What applications does this project space own?',
   maxConcurrentBuilds: 'Max build concurrency',
   maxConcurrentBuildsHint: 'Maximum builds that can run at the same time in this project space. Extra builds wait in the queue. Small-team default is 2.',
+  maxConcurrentBuildsPlaceholder: '2',
   maxConcurrentBuildsMin: 'Max build concurrency must be at least 1',
   created: 'Project space created',
   updated: 'Project space updated',

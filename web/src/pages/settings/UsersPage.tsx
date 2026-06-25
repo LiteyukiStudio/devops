@@ -9,12 +9,15 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
 import { PageHeader } from '@/components/common/page-header'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
+import { formatAbsoluteDateTime } from '@/components/common/time-format'
+import { UserAvatar } from '@/components/common/user-avatar'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -100,9 +103,12 @@ export function UsersPage() {
       header: t('usersPage.name'),
       className: 'w-[24%] px-4 py-3 align-middle',
       render: user => (
-        <div className="min-w-0">
-          <p className="truncate font-medium text-foreground">{user.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <UserAvatar className="size-9" user={user} />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-foreground">{user.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          </div>
         </div>
       ),
     },
@@ -134,7 +140,7 @@ export function UsersPage() {
       key: 'createdAt',
       header: t('usersPage.createdAt'),
       className: 'w-[18%] px-4 py-3 align-middle text-muted-foreground',
-      render: user => formatDate(user.createdAt),
+      render: user => formatAbsoluteDateTime(user.createdAt),
     },
     {
       key: 'actions',
@@ -246,10 +252,9 @@ export function UsersPage() {
                 <option value="en-US">{t('languages.enUS')}</option>
               </Select>
             </Field>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" {...form.register('disabled')} />
+            <CheckboxField {...form.register('disabled')}>
               {t('usersPage.disabled')}
-            </label>
+            </CheckboxField>
             <DialogFooter>
               <Button disabled={save.isPending || !canSubmit} type="submit">
                 {editingUser ? <Save size={16} /> : <UserPlus size={16} />}
@@ -261,8 +266,4 @@ export function UsersPage() {
       </Dialog>
     </div>
   )
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleString()
 }

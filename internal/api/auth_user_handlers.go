@@ -228,7 +228,11 @@ func (h *Handlers) ListUsers(ctx *gin.Context) {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx.JSON(http.StatusOK, paginatedResponse(users, total, pagination))
+	responses := make([]gin.H, 0, len(users))
+	for _, user := range users {
+		responses = append(responses, userListResponse(user))
+	}
+	ctx.JSON(http.StatusOK, paginatedResponse(responses, total, pagination))
 }
 
 func (h *Handlers) CreateUser(ctx *gin.Context) {
@@ -536,6 +540,20 @@ func currentUserResponse(user model.User) gin.H {
 		"role":        user.Role,
 		"language":    normalizeLanguage(user.Language),
 		"permissions": permissionsFor(user),
+	}
+}
+
+func userListResponse(user model.User) gin.H {
+	return gin.H{
+		"id":        user.ID,
+		"email":     user.Email,
+		"name":      user.Name,
+		"avatarUrl": user.AvatarURL,
+		"authType":  user.AuthType,
+		"role":      user.Role,
+		"language":  normalizeLanguage(user.Language),
+		"disabled":  user.Disabled,
+		"createdAt": user.CreatedAt,
 	}
 }
 

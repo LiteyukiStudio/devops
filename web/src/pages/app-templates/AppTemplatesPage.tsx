@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { ProjectSpaceSelect } from '@/components/common/project-space-select'
@@ -446,19 +447,15 @@ function InstallTemplateDialog({
             </div>
           )}
 
-          <label className="mt-6 flex items-start gap-3 rounded-2xl border border-border p-4 text-sm">
-            <input
-              checked={form.installNow}
-              className="mt-1 size-4 accent-primary"
-              disabled={installing}
-              type="checkbox"
-              onChange={event => onUpdate('installNow', event.target.checked)}
-            />
-            <span>
-              <span className="block font-medium">{t('appTemplatesPage.installNow')}</span>
-              <span className="mt-1 block text-muted-foreground">{t('appTemplatesPage.installNowDescription')}</span>
-            </span>
-          </label>
+          <CheckboxField
+            checked={form.installNow}
+            className="mt-6 rounded-lg border border-border p-4"
+            description={t('appTemplatesPage.installNowDescription')}
+            disabled={installing}
+            onChange={event => onUpdate('installNow', event.target.checked)}
+          >
+            {t('appTemplatesPage.installNow')}
+          </CheckboxField>
         </div>
         <DialogFooter className="shrink-0 border-t border-border bg-surface px-6 py-4">
           <Button disabled={installing} type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>

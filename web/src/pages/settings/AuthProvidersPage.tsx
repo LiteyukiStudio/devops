@@ -1,18 +1,20 @@
 import type { AuthAdmissionPolicy, AuthProvider } from '@/api/client'
+import type { DataListColumn } from '@/components/common/data-list'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, Plus, Save, ShieldCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { ContentTabs } from '@/components/common/content-tabs'
+import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
-import { MotionItem, MotionList } from '@/components/common/motion'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -159,6 +161,58 @@ export function AuthProvidersPage() {
     navigator.clipboard.writeText(value)
     toast.success(t('common.copied'))
   }
+  const providerColumns = useMemo<DataListColumn<AuthProvider>[]>(() => [
+    {
+      key: 'name',
+      header: t('common.name'),
+      className: 'min-w-64',
+      render: provider => (
+        <div className="min-w-0">
+          <p className="truncate font-medium">{provider.name}</p>
+          <p className="truncate text-sm text-muted-foreground">{provider.issuerUrl}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'groupClaim',
+      header: t('authProvidersPage.groupClaim'),
+      className: 'min-w-40',
+      render: provider => <span className="font-mono text-xs text-muted-foreground">{provider.groupClaim}</span>,
+    },
+    {
+      key: 'scopes',
+      header: t('authProvidersPage.scopes'),
+      className: 'min-w-56',
+      render: provider => <span className="font-mono text-xs text-muted-foreground">{provider.scopes}</span>,
+    },
+    {
+      key: 'status',
+      header: t('common.status'),
+      className: 'w-52',
+      render: provider => (
+        <div className="flex flex-wrap items-center gap-2">
+          {provider.isDefault && <StatusBadge>{t('common.default')}</StatusBadge>}
+          <StatusValueBadge value={provider.enabled ? 'enabled' : 'disabled'} />
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      className: 'w-32 whitespace-nowrap text-right',
+      render: provider => (
+        <EditActionButton
+          aria-label={t('edit')}
+          type="button"
+          label={t('edit')}
+          onClick={() => {
+            setEditingProvider(provider)
+            setProviderDialogOpen(true)
+          }}
+        />
+      ),
+    },
+  ], [t])
 
   return (
     <div className="grid gap-6">
@@ -185,43 +239,17 @@ export function AuthProvidersPage() {
         onValueChange={setActiveTab}
       >
         <TabsContent value="providers">
-          <Card>
-            {providers.isError && <ErrorState title={t('authProvidersPage.loadFailedTitle')} description={t('common.platformAdminPermissionRequired')} />}
-            <MotionList className="grid gap-3">
-              {(providers.data ?? []).map(provider => (
-                <MotionItem key={provider.id}>
-                  <div className="grid gap-2 rounded-md border border-border bg-background p-3 transition duration-150 hover:border-primary hover:shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-medium">{provider.name}</p>
-                        <p className="truncate text-sm text-muted-foreground">{provider.issuerUrl}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        {provider.isDefault && <StatusBadge>{t('common.default')}</StatusBadge>}
-                        <StatusValueBadge value={provider.enabled ? 'enabled' : 'disabled'} />
-                        <EditActionButton
-                          aria-label={t('edit')}
-                          type="button"
-                          label={t('edit')}
-                          onClick={() => {
-                            setEditingProvider(provider)
-                            setProviderDialogOpen(true)
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {provider.groupClaim}
-                      {' '}
-                      /
-                      {' '}
-                      {provider.scopes}
-                    </p>
-                  </div>
-                </MotionItem>
-              ))}
-            </MotionList>
-          </Card>
+          {providers.isError
+            ? <Card className="p-4"><ErrorState title={t('authProvidersPage.loadFailedTitle')} description={t('common.platformAdminPermissionRequired')} /></Card>
+            : (
+                <DataList
+                  columns={providerColumns}
+                  emptyTitle={t('authProvidersPage.providersTab')}
+                  emptyDescription={t('authProvidersPage.description')}
+                  items={providers.data ?? []}
+                  rowKey={provider => provider.id}
+                />
+              )}
         </TabsContent>
 
         <Dialog
@@ -287,14 +315,12 @@ export function AuthProvidersPage() {
                   <Input {...providerForm.register('usernameClaim')} aria-invalid={Boolean(providerForm.formState.errors.usernameClaim)} />
                 </Field>
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" {...providerForm.register('enabled')} />
+              <CheckboxField {...providerForm.register('enabled')}>
                 {t('authProvidersPage.enabled')}
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" {...providerForm.register('isDefault')} />
+              </CheckboxField>
+              <CheckboxField {...providerForm.register('isDefault')}>
                 {t('authProvidersPage.defaultProvider')}
-              </label>
+              </CheckboxField>
               <DialogFooter>
                 <Button disabled={saveProvider.isPending || !providerForm.formState.isValid} type="submit">
                   <Save size={16} />
@@ -311,18 +337,15 @@ export function AuthProvidersPage() {
               <h2 className="text-base font-semibold">{t('authProvidersPage.admissionPolicy')}</h2>
               {policy.isError && <ErrorState title={t('authProvidersPage.policyLoadFailedTitle')} description={t('common.platformAdminPermissionRequired')} />}
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" {...policyForm.register('allowLocalLogin')} />
+                <CheckboxField {...policyForm.register('allowLocalLogin')}>
                   {t('authProvidersPage.allowLocalLogin')}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" {...policyForm.register('allowOidcLogin')} />
+                </CheckboxField>
+                <CheckboxField {...policyForm.register('allowOidcLogin')}>
                   {t('authProvidersPage.allowOidcLogin')}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" {...policyForm.register('requireVerifiedOidcEmail')} />
+                </CheckboxField>
+                <CheckboxField {...policyForm.register('requireVerifiedOidcEmail')}>
                   {t('authProvidersPage.requireVerifiedOidcEmail')}
-                </label>
+                </CheckboxField>
               </div>
               <p className="text-sm text-muted-foreground">{t('authProvidersPage.requireVerifiedOidcEmailHint')}</p>
               <Field error={policyForm.formState.errors.allowedEmailDomains?.message} hint={t('authProvidersPage.allowedEmailDomainsHint')} label={t('authProvidersPage.allowedEmailDomains')}>

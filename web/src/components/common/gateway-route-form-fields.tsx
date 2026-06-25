@@ -1,5 +1,6 @@
 import type { UseFormRegisterReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { FormField as Field } from '@/components/common/form-field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
@@ -61,13 +62,13 @@ export function GatewayRouteFormFields({
           <option value="manual-cert">{t('gatewayRoutesPage.tlsManualCert')}</option>
         </Select>
       </Field>
-      <label className="flex items-start gap-3 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm">
-        <input className="mt-1 size-4 accent-primary" type="checkbox" {...enabledField} />
-        <span className="grid gap-1">
-          <span className="font-medium text-foreground">{t('gatewayRoutesPage.enabled')}</span>
-          <span className="text-muted-foreground">{t('gatewayRoutesPage.enabledHint')}</span>
-        </span>
-      </label>
+      <CheckboxField
+        className="rounded-md border border-border bg-muted/20 px-3 py-2"
+        description={t('gatewayRoutesPage.enabledHint')}
+        {...enabledField}
+      >
+        {t('gatewayRoutesPage.enabled')}
+      </CheckboxField>
     </>
   )
 }

@@ -133,7 +133,7 @@ export function DataList<T>({
         {items.length === 0
           ? <EmptyState description={emptyDescription} title={emptyTitle} variant="plain" />
           : (
-              <table className="w-full min-w-[56rem] table-auto caption-bottom text-sm" data-slot="data-list-table">
+              <table className="min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur [&_tr]:border-b">
                   <tr className="border-b border-border transition-colors hover:bg-muted/40">
                     {selectable && (

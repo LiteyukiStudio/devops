@@ -1,4 +1,5 @@
 import type { BillingRateRule, BillingRateRulePayload, ConfigDefinition } from '@/api/types'
+import type { DataListColumn } from '@/components/common/data-list'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -7,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api/client'
 import { ContentTabs } from '@/components/common/content-tabs'
+import { DataList } from '@/components/common/data-list'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
 import { Button } from '@/components/ui/button'
@@ -147,6 +149,68 @@ function BillingRateRulesSection() {
     onError: error => toast.error(error.message),
   })
 
+  const columns = useMemo<DataListColumn<BillingRateRule>[]>(() => [
+    {
+      key: 'meter',
+      header: t('settings.billingRateMeter'),
+      className: 'min-w-44',
+      render: rule => <span className="font-mono text-xs text-foreground">{rule.meter}</span>,
+    },
+    {
+      key: 'unit',
+      header: t('settings.billingRateUnit'),
+      className: 'min-w-32',
+      render: rule => <span className="font-mono text-xs text-muted-foreground">{rule.unit}</span>,
+    },
+    {
+      key: 'price',
+      header: t('settings.billingRatePrice'),
+      className: 'w-44',
+      render: (rule) => {
+        const draft = drafts[rule.meter] ?? billingRateRulePayloadFromRule(rule)
+        return (
+          <Input
+            className="w-36"
+            inputMode="decimal"
+            min="0"
+            step="0.0001"
+            type="number"
+            value={draft.creditsPerUnit}
+            onChange={event => setDrafts(current => ({ ...current, [rule.meter]: { ...draft, creditsPerUnit: event.target.value } }))}
+          />
+        )
+      },
+    },
+    {
+      key: 'enabled',
+      header: t('settings.billingRateEnabled'),
+      className: 'w-36',
+      render: (rule) => {
+        const draft = drafts[rule.meter] ?? billingRateRulePayloadFromRule(rule)
+        return (
+          <Select value={String(draft.enabled)} onValueChange={nextValue => setDrafts(current => ({ ...current, [rule.meter]: { ...draft, enabled: nextValue === 'true' } }))}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">{t('common.enabled')}</SelectItem>
+              <SelectItem value="false">{t('common.disabled')}</SelectItem>
+            </SelectContent>
+          </Select>
+        )
+      },
+    },
+    {
+      key: 'description',
+      header: t('settings.billingRateDescription'),
+      className: 'min-w-80',
+      render: rule => (
+        <span className="text-muted-foreground">
+          {t(`settings.billingRateRuleDescriptions.${rule.meter}`, { defaultValue: rule.description })}
+        </span>
+      ),
+    },
+  ], [drafts, t])
   if (rateRules.isError)
     return <ErrorState title={t('settings.billingRateRulesFailedTitle')} description={t('settings.billingRateRulesFailedDescription')} />
 
@@ -156,8 +220,8 @@ function BillingRateRulesSection() {
     .filter((rule): rule is BillingRateRulePayload => Boolean(rule))
 
   return (
-    <Card className="p-4">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-foreground">{t('settings.billingRateRulesTitle')}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{t('settings.billingRateRulesDescription')}</p>
@@ -167,30 +231,14 @@ function BillingRateRulesSection() {
           {t('settings.saveBillingRateRules')}
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-muted/70 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-3 font-medium">{t('settings.billingRateMeter')}</th>
-              <th className="px-3 py-3 font-medium">{t('settings.billingRateUnit')}</th>
-              <th className="px-3 py-3 font-medium">{t('settings.billingRatePrice')}</th>
-              <th className="px-3 py-3 font-medium">{t('settings.billingRateEnabled')}</th>
-              <th className="px-3 py-3 font-medium">{t('settings.billingRateDescription')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rules.map(rule => (
-              <BillingRateRuleRow
-                key={rule.meter}
-                rule={rule}
-                value={drafts[rule.meter]}
-                onChange={nextRule => setDrafts(current => ({ ...current, [rule.meter]: nextRule }))}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+      <DataList
+        columns={columns}
+        emptyTitle={t('settings.billingRateRulesTitle')}
+        emptyDescription={t('settings.billingRateRulesDescription')}
+        items={rules}
+        rowKey={rule => rule.meter}
+      />
+    </div>
   )
 }
 
@@ -200,47 +248,6 @@ function billingRateRulePayloadFromRule(rule: BillingRateRule): BillingRateRuleP
     creditsPerUnit: rule.creditsPerUnit,
     enabled: rule.enabled,
   }
-}
-
-function BillingRateRuleRow({ rule, value, onChange }: {
-  rule: BillingRateRule
-  value?: BillingRateRulePayload
-  onChange: (value: BillingRateRulePayload) => void
-}) {
-  const { t } = useTranslation()
-  const draft = value ?? billingRateRulePayloadFromRule(rule)
-
-  return (
-    <tr className="border-t">
-      <td className="px-3 py-3 font-mono text-xs text-foreground">{rule.meter}</td>
-      <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{rule.unit}</td>
-      <td className="px-3 py-3">
-        <Input
-          className="w-36"
-          inputMode="decimal"
-          min="0"
-          step="0.0001"
-          type="number"
-          value={draft.creditsPerUnit}
-          onChange={event => onChange({ ...draft, creditsPerUnit: event.target.value })}
-        />
-      </td>
-      <td className="px-3 py-3">
-        <Select value={String(draft.enabled)} onValueChange={nextValue => onChange({ ...draft, enabled: nextValue === 'true' })}>
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">{t('common.enabled')}</SelectItem>
-            <SelectItem value="false">{t('common.disabled')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="px-3 py-3 text-muted-foreground">
-        {t(`settings.billingRateRuleDescriptions.${rule.meter}`, { defaultValue: rule.description })}
-      </td>
-    </tr>
-  )
 }
 
 function ConfigSelect({ definition, form }: { definition: ConfigSectionProps['definitions'][number], form: ConfigSectionProps['form'] }) {

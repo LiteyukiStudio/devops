@@ -1,15 +1,17 @@
 import type { ClusterResource, ClusterResourceEvent, CurrentUser, RuntimeCluster } from '@/api/client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, Copy, FileCode2, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileCode2, Plus, RefreshCcw, ScrollText, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api/client'
 import { useSession } from '@/app/session-context'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { CodeEditor } from '@/components/common/code-editor'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
+import { CopyableHoverText } from '@/components/common/copyable-hover-text'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { EmptyState } from '@/components/common/empty-state'
@@ -22,7 +24,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { inspectKubeconfig, selectSingleKubeconfigContext } from '@/lib/kubeconfig'
 
 type ClusterForm = Omit<RuntimeCluster, 'id' | 'createdBy' | 'createdAt' | 'kubeconfigSet' | 'lastCheckedAt'> & { kubeconfig?: string }
@@ -443,12 +444,12 @@ export function ClustersPage() {
                     {...form.register('maxConcurrentBuilds', { min: 1, required: true, valueAsNumber: true })}
                     inputMode="numeric"
                     min={1}
-                    placeholder="4"
+                    placeholder={t('clustersPage.maxConcurrentBuildsPlaceholder')}
                     type="number"
                   />
                 </Field>
                 <Field hint={t('clustersPage.gatewayRootDomainHint')} label={t('clustersPage.gatewayRootDomain')} required>
-                  <Input {...form.register('gatewayRootDomain', { required: true })} placeholder="apps.example.com" />
+                  <Input {...form.register('gatewayRootDomain', { required: true })} placeholder={t('clustersPage.gatewayRootDomainPlaceholder')} />
                 </Field>
                 <Field hint={t('clustersPage.gatewayPublicSchemeHint')} label={t('clustersPage.gatewayPublicScheme')} required>
                   <Select {...form.register('gatewayPublicScheme')}>
@@ -505,10 +506,9 @@ export function ClustersPage() {
                   />
                 </Field>
                 {scope === 'global' && (
-                  <label className="flex items-center gap-2 text-sm text-foreground">
-                    <input className="size-4 accent-primary" type="checkbox" {...form.register('isDefault')} />
-                    <span>{t('clustersPage.defaultCluster')}</span>
-                  </label>
+                  <CheckboxField {...form.register('isDefault')}>
+                    {t('clustersPage.defaultCluster')}
+                  </CheckboxField>
                 )}
               </div>
             </div>
@@ -652,7 +652,7 @@ function ClusterResourcesPanel({ items, loading, pagination, selectedCluster, se
           header: t('common.name'),
           className: 'min-w-56 whitespace-nowrap',
           render: item => (
-            <div className={`flex min-w-0 items-center gap-2 ${item.depth ? 'pl-8' : ''}`}>
+            <div className="flex min-w-0 items-center gap-2">
               {tab === 'workloads' && !item.parentId && (
                 item.hasChildren
                   ? (
@@ -667,7 +667,11 @@ function ClusterResourcesPanel({ items, loading, pagination, selectedCluster, se
                     )
                   : <span className="size-6 shrink-0" />
               )}
-              {tab === 'workloads' && item.parentId && <span className="h-px w-5 shrink-0 border-t border-border" />}
+              {tab === 'workloads' && item.parentId && (
+                <span className="ml-8 flex h-6 w-9 shrink-0 items-center border-l border-border">
+                  <span className="h-px w-full border-t border-border" />
+                </span>
+              )}
               <TruncatedResourceText className={`${item.parentId ? 'max-w-64 text-muted-foreground' : 'max-w-72'} font-mono text-sm`} value={clusterResourceName(item, tab === 'namespaces')} />
             </div>
           ),
@@ -722,34 +726,13 @@ function ClusterResourcesPanel({ items, loading, pagination, selectedCluster, se
 }
 
 function TruncatedResourceText({ className = 'max-w-56', value }: { className?: string, value: string }) {
-  const { t } = useTranslation()
   const content = value || '-'
-  const copyValue = () => {
-    if (!content || content === '-')
-      return
-    navigator.clipboard.writeText(content)
-      .then(() => toast.success(t('common.copied')))
-      .catch(error => toast.error(error.message))
-  }
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className={`block truncate ${className}`} title={content}>
-          {content}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="flex max-w-96 items-start gap-2 break-all leading-5" side="top">
-        <button
-          aria-label={t('common.copy')}
-          className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-background/80 transition hover:bg-background/15 hover:text-background"
-          type="button"
-          onClick={copyValue}
-        >
-          <Copy className="size-3.5" />
-        </button>
-        <span>{content}</span>
-      </TooltipContent>
-    </Tooltip>
+    <CopyableHoverText
+      className={className}
+      display={content}
+      value={content === '-' ? undefined : content}
+    />
   )
 }
 

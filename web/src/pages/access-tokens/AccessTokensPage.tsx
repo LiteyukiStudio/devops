@@ -14,6 +14,7 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
 import { FormField as Field } from '@/components/common/form-field'
 import { StatusValueBadge } from '@/components/common/status-badge'
+import { formatAbsoluteDateTime } from '@/components/common/time-format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -90,6 +91,11 @@ export function AccessTokensPanel() {
     },
     onError: error => toast.error(error.message),
   })
+  const copyCreatedToken = () => {
+    navigator.clipboard.writeText(createdToken)
+      .then(() => toast.success(t('common.copied')))
+      .catch(error => toast.error(error.message))
+  }
 
   const tokenItems = tokens.data?.items ?? []
   const columns: DataListColumn<AccessToken>[] = [
@@ -109,13 +115,13 @@ export function AccessTokensPanel() {
       key: 'createdAt',
       header: t('accessTokens.createdAt'),
       className: 'w-[20%] whitespace-nowrap px-4 py-3 align-middle text-muted-foreground',
-      render: token => formatDate(token.createdAt),
+      render: token => formatAbsoluteDateTime(token.createdAt),
     },
     {
       key: 'expiresAt',
       header: t('accessTokens.expiresAt'),
       className: 'w-[20%] whitespace-nowrap px-4 py-3 align-middle text-muted-foreground',
-      render: token => token.expiresAt ? formatDate(token.expiresAt) : t('accessTokens.neverExpires'),
+      render: token => token.expiresAt ? formatAbsoluteDateTime(token.expiresAt) : t('accessTokens.neverExpires'),
     },
     {
       key: 'status',
@@ -162,7 +168,7 @@ export function AccessTokensPanel() {
           <p className="mb-2 text-xs font-medium text-muted-foreground">{t('accessTokens.oneTime')}</p>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 truncate text-xs">{createdToken}</code>
-            <Button variant="secondary" onClick={() => navigator.clipboard.writeText(createdToken)}>
+            <Button aria-label={t('common.copy')} variant="secondary" onClick={copyCreatedToken}>
               <Copy size={14} />
             </Button>
           </div>
@@ -246,17 +252,6 @@ export function AccessTokensPanel() {
       </Dialog>
     </div>
   )
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: '2-digit',
-    second: '2-digit',
-    year: 'numeric',
-  })
 }
 
 function tokenStatusValue(token: AccessToken) {

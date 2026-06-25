@@ -13,7 +13,29 @@ export function formatSmartDateTime(value: string | undefined, t: TFunction, fal
   const elapsedMs = Date.now() - date.getTime()
   if (elapsedMs >= 0 && elapsedMs < RELATIVE_TIME_THRESHOLD_MS)
     return formatRelativeElapsed(elapsedMs, t)
-  return formatAbsoluteDateTime(date)
+  return formatAbsoluteDateTimeParts(date)
+}
+
+/**
+ * 统一绝对时间显示，按浏览器本地时区输出 `YYYY/MM/DD HH:mm`。
+ * 用于列表中的创建时间、过期时间等不需要“刚刚/几分钟前”的稳定时间列。
+ */
+export function formatAbsoluteDateTime(value: string | undefined, fallback = '-') {
+  const date = parseDateTime(value)
+  if (!date)
+    return fallback
+  return formatAbsoluteDateTimeParts(date)
+}
+
+/**
+ * 统一紧凑时间显示，按浏览器本地时区输出 `MM/DD HH:mm`。
+ * 用于看板、卡片角标等空间有限但仍需要具体时间的位置。
+ */
+export function formatCompactDateTime(value: string | undefined, fallback = '-') {
+  const date = parseDateTime(value)
+  if (!date)
+    return fallback
+  return `${padTimePart(date.getMonth() + 1)}/${padTimePart(date.getDate())} ${padTimePart(date.getHours())}:${padTimePart(date.getMinutes())}`
 }
 
 /**
@@ -50,7 +72,7 @@ function formatDurationSeconds(elapsedSeconds: number, t: TFunction) {
   return t('time.durationMinutesSeconds', { minutes, seconds })
 }
 
-function formatAbsoluteDateTime(date: Date) {
+function formatAbsoluteDateTimeParts(date: Date) {
   const year = date.getFullYear()
   const month = padTimePart(date.getMonth() + 1)
   const day = padTimePart(date.getDate())

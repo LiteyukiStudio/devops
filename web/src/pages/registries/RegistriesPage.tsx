@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { DataList } from '@/components/common/data-list'
@@ -583,10 +584,9 @@ export function RegistriesPage() {
             <Field error={registryForm.formState.errors.capabilitiesText?.message} hint={t('registriesPage.capabilitiesHint')} label={t('registriesPage.capabilities')}>
               <Input {...registryForm.register('capabilitiesText')} aria-invalid={Boolean(registryForm.formState.errors.capabilitiesText)} />
             </Field>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" {...registryForm.register('isDefault')} />
+            <CheckboxField {...registryForm.register('isDefault')}>
               {t('registriesPage.setAsDefault')}
-            </label>
+            </CheckboxField>
             <DialogFooter>
               <Button disabled={saveRegistry.isPending || !registryForm.formState.isValid} type="submit">
                 <Plus size={16} />

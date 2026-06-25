@@ -11,6 +11,7 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
@@ -389,13 +390,13 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <Field error={form.formState.errors.cloneUrl?.message} label={t('repositories.cloneUrl')}><Input {...form.register('cloneUrl')} aria-invalid={Boolean(form.formState.errors.cloneUrl)} placeholder={t('repositories.cloneUrlPlaceholder')} /></Field>
-              <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
-                <input className="mt-1 size-4 accent-primary" type="checkbox" {...form.register('autoConfigureWebhook')} />
-                <span className="grid gap-1 text-sm">
-                  <span className="font-medium text-foreground">{t('repositories.autoConfigureWebhook')}</span>
-                  <span className="text-xs leading-5 text-muted-foreground">{t('repositories.autoConfigureWebhookHint')}</span>
-                </span>
-              </label>
+              <CheckboxField
+                className="rounded-md border border-border bg-muted/30 p-3"
+                description={t('repositories.autoConfigureWebhookHint')}
+                {...form.register('autoConfigureWebhook')}
+              >
+                {t('repositories.autoConfigureWebhook')}
+              </CheckboxField>
             </div>
             <DialogFooter>
               <Button disabled={createBinding.isPending || updateBinding.isPending || (accounts.data ?? []).length === 0 || !form.formState.isValid || Boolean(duplicateBinding)} type="submit">

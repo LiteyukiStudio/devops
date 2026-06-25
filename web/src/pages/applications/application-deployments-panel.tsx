@@ -1,43 +1,37 @@
-import type { UseFormReturn } from 'react-hook-form'
-import type { ArtifactRegistry, BuildRun, DeploymentTarget, DeploymentTargetMetrics, DeploymentTargetPayload, ProjectRuntimeConfigSet, ProjectRuntimeConfigSetPayload, Release, RepositoryBinding } from '@/api/client'
+import type { ReleaseForm } from './application-deployments-panel-utils'
+import type { ArtifactRegistry, BuildRun, DeploymentTarget, DeploymentTargetPayload, ProjectRuntimeConfigSet, ProjectRuntimeConfigSetPayload, Release, RepositoryBinding } from '@/api/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { Download, Eye, FileCode2, Maximize2, Minimize2, MoreHorizontal, Package, Pencil, Plus, RefreshCw, Rocket, RotateCcw, Save, Terminal, Trash2 } from 'lucide-react'
+import { FileCode2, Pencil, Plus, Rocket, Save, Trash2 } from 'lucide-react'
 import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { api, deploymentTargetDataExportUrl, deploymentTargetMetricsStreamUrl } from '@/api/client'
-import { AutoFollowLog } from '@/components/common/auto-follow-log'
+import { api } from '@/api/client'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { DataList } from '@/components/common/data-list'
 import { buildRunImageRef, buildRunOptionLabel, latestDeployableBuildRuns } from '@/components/common/deployment-build-runs'
 import { FormField as Field } from '@/components/common/form-field'
 import { GitRepositoryPicker } from '@/components/common/git-repository-picker'
-import { HoverText } from '@/components/common/hover-text'
 import { RuntimeConfigFilesEditor } from '@/components/common/runtime-config-files-editor'
 import { SearchSelect } from '@/components/common/search-select'
-import { SegmentedTabsList } from '@/components/common/segmented-control'
-import { StatusValueBadge } from '@/components/common/status-badge'
 import { TargetImageRefInput } from '@/components/common/target-image-ref-input'
 import { UnitInput } from '@/components/common/unit-input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useBillingDisplay } from '@/lib/billing-display'
 import { WORKFLOW_STATUS_REFETCH_INTERVAL_MS } from '@/lib/polling'
-import { emptyRuntimeDataVolumeRow, parseRuntimeDataVolumes, serializeRuntimeDataVolumes } from '@/lib/runtime-data-volumes'
-import { branchOptions, defaultTargetImageRef, deploymentReleaseKey, deploymentTargetCanRelease, deploymentTargetImageRef, formatReleaseTime, registryInputPrefix, registryOptionLabel } from './application-config-utils'
-import { DeploymentRuntimeStatusBadge, InternalServiceEndpoint } from './application-deployment-runtime'
+import { branchOptions, defaultTargetImageRef, deploymentReleaseKey, deploymentTargetCanRelease, deploymentTargetImageRef, registryInputPrefix, registryOptionLabel } from './application-config-utils'
 import { buildDeploymentRuntimeStatus, buildInternalServiceEndpoint } from './application-deployment-runtime-utils'
-import { ApplicationRuntimeTerminalPanel } from './application-runtime-terminal-panel'
+import { ApplicationDeploymentTargetsList } from './application-deployment-targets-list'
+import { applyDockerfileBuildDefaults, deploymentTargetDefaults, deploymentTargetRuntimeChanged, emptyRuntimeDataVolumeRow, normalizeBoolean, normalizeDeploymentTargetPayload, normalizeRuntimeConfigPayload, normalizeStringIds, parseRuntimeDataVolumes, redeployReleasePayload, releaseDefaults, repositoryBindingItems, runtimeConfigDefaults, serializeRuntimeDataVolumes } from './application-deployments-panel-utils'
+import { ApplicationReleaseLogsDialog } from './application-release-logs-dialog'
+import { ApplicationRuntimeConfigSetDialog } from './application-runtime-config-set-dialog'
+import { ApplicationWebConsoleDialog } from './application-web-console-dialog'
 
 export interface DeploymentsPanelHandle {
   openReleaseDialog: (environmentId?: string, deploymentTargetId?: string) => void
@@ -56,53 +50,7 @@ const repositoryBindingSchema = z.object({
 
 type RepositoryBindingFormInput = z.input<typeof repositoryBindingSchema>
 type RepositoryBindingForm = z.output<typeof repositoryBindingSchema>
-type ReleaseForm = Omit<Release, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'rollbackFromId'>
 
-const releaseDefaults: ReleaseForm = { applicationId: '', buildRunId: '', deploymentTargetId: '', environmentId: '', forceImagePull: false, imageRef: '', message: '', revision: 1, status: 'pending', type: 'deploy' }
-const deploymentTargetDefaults: DeploymentTargetPayload = {
-  name: '',
-  environmentId: '',
-  stage: 'prod',
-  clusterId: '',
-  namespace: '',
-  replicas: 1,
-  cpuRequest: '1',
-  memoryRequest: '1Gi',
-  servicePort: 8080,
-  sourceType: 'repository',
-  repositoryBindingId: '',
-  dockerfilePath: 'Dockerfile',
-  buildContext: '.',
-  buildDirectory: '',
-  buildEnvironmentId: '',
-  buildCpuRequest: '1',
-  buildMemoryRequest: '1Gi',
-  targetRegistryId: '',
-  targetRepository: '',
-  targetTag: 'latest',
-  targetImageRef: '',
-  imageRef: '',
-  buildLabels: '',
-  buildVariableSetIds: [],
-  buildHooksEnabled: true,
-  buildHookBindings: [],
-  autoDeploy: true,
-  branchPattern: '',
-  tagPattern: '',
-  concurrencyPolicy: 'queue',
-  runtimeConfigSetIds: [],
-  envVars: '',
-  configRefs: '',
-  secretRefs: '',
-  configFiles: '',
-  secretFiles: '',
-  dataRetentionEnabled: false,
-  dataCapacity: '1Gi',
-  dataMountPath: '/data',
-  dataVolumes: JSON.stringify([{ name: 'data', mountPath: '/data', capacity: '1Gi' }]),
-  requireApproval: false,
-  enabled: true,
-}
 const repositoryBindingDefaults: RepositoryBindingFormInput = {
   autoConfigureWebhook: true,
   cloneUrl: '',
@@ -111,14 +59,6 @@ const repositoryBindingDefaults: RepositoryBindingFormInput = {
   owner: '',
   repo: '',
   webhookStatus: 'pending',
-}
-const runtimeConfigDefaults: ProjectRuntimeConfigSetPayload = {
-  configFiles: '',
-  enabled: true,
-  envVars: '',
-  name: '',
-  secretFiles: '',
-  secretRefs: '',
 }
 
 export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns, deploymentTargets, projectId, projectSlug, ref, registries, releases, repositoryBindings }: {
@@ -144,8 +84,6 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   const [logRelease, setLogRelease] = useState<Release | null>(null)
   const [logView, setLogView] = useState<'deployment' | 'runtime'>('deployment')
   const [consoleRelease, setConsoleRelease] = useState<Release | null>(null)
-  const [consoleContainer, setConsoleContainer] = useState('')
-  const [consoleFullscreen, setConsoleFullscreen] = useState(false)
   const [targetToDelete, setTargetToDelete] = useState<DeploymentTarget | null>(null)
   const [runtimeConfigDialogOpen, setRuntimeConfigDialogOpen] = useState(false)
   const [editingRuntimeConfigSet, setEditingRuntimeConfigSet] = useState<ProjectRuntimeConfigSet | null>(null)
@@ -241,18 +179,6 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
       .then(() => toast.success(t('common.copied')))
       .catch(error => toast.error(error.message))
   }
-  const releaseLogs = useQuery({
-    queryKey: ['release-logs', projectId, logRelease?.id],
-    queryFn: () => api.getReleaseLogs(projectId, logRelease!.id),
-    enabled: Boolean(projectId && logRelease),
-    refetchInterval: logRelease?.status === 'running' || logRelease?.status === 'pending' ? WORKFLOW_STATUS_REFETCH_INTERVAL_MS : false,
-  })
-  const runtimeLogs = useQuery({
-    queryKey: ['release-runtime-logs', projectId, logRelease?.id],
-    queryFn: () => api.getReleaseRuntimeLogs(projectId, logRelease!.id, { tailLines: 500 }),
-    enabled: Boolean(projectId && logRelease && logView === 'runtime'),
-    refetchInterval: logRelease?.status === 'running' || logRelease?.status === 'pending' ? WORKFLOW_STATUS_REFETCH_INTERVAL_MS : false,
-  })
   const runtimeConfigSets = useQuery({
     queryKey: ['runtime-config-sets', projectId],
     queryFn: () => api.listProjectRuntimeConfigSets(projectId),
@@ -591,103 +517,25 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   })
   return (
     <div className="grid gap-4">
-      <DataList
-        columns={[
-          { key: 'name', header: t('common.name'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => <DeploymentTargetSummary target={item.target} /> },
-          { key: 'deploymentTarget', header: t('buildsPage.buildConfig'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => <span className="block max-w-32 truncate" title={item.target.name}>{item.target.name}</span> },
-          { key: 'stage', header: t('deploymentsPage.stage'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => t(`deploymentsPage.stageLabels.${item.target.stage}`, { defaultValue: item.target.stage }) },
-          { key: 'runtimeSize', header: t('deploymentsPage.runtimeEnvironment'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => formatTargetRuntimeSize(item.target, t) },
-          { key: 'runtimeData', header: t('deploymentsPage.runtimeData'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => item.target.dataRetentionEnabled ? (item.target.dataCapacity || '1Gi') : t('common.disabled') },
-          { key: 'auto', header: t('deploymentsPage.autoDeploy'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => <StatusValueBadge value={item.target.autoDeploy ? 'enabled' : 'disabled'} /> },
-          { key: 'runtimeStatus', header: t('deploymentsPage.runtimeStatus'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => <DeploymentRuntimeStatusBadge status={item.runtimeStatus} /> },
-          { key: 'runtimeMetrics', header: t('deploymentsPage.runtimeMetrics'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => <DeploymentTargetMetricsCell applicationId={applicationId} enabled={item.target.enabled && Boolean(item.release)} projectId={projectId} targetId={item.target.id} /> },
-          { key: 'internalEndpoint', header: t('deploymentsPage.internalEndpoint'), className: 'min-w-56 px-4 py-3 align-middle', render: item => <InternalServiceEndpoint endpoint={item.internalEndpoint} onCopy={copyDeploymentText} /> },
-          { key: 'revision', header: t('deploymentsPage.revision'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => item.release ? `#${item.release.revision}` : '-' },
-          { key: 'image', header: t('deploymentsPage.image'), className: 'min-w-48 px-4 py-3 align-middle', render: item => item.release ? <CopyableTruncatedText className="max-w-60 rounded bg-background px-2 py-1 font-mono text-xs" display={shortImageRef(item.release.imageRef)} value={item.release.imageRef} onCopy={copyDeploymentText} /> : '-' },
-          { key: 'status', header: t('deploymentsPage.releaseStatus'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => item.release ? <StatusValueBadge labelKeyPrefix="buildsPage.statuses" value={item.release.status} /> : <StatusValueBadge label={t('deploymentsPage.notDeployed')} value="pending" /> },
-          { key: 'message', header: t('deploymentsPage.rolloutMessage'), className: 'min-w-56 px-4 py-3 align-middle', render: item => <CopyableTruncatedText className="max-w-72 text-sm text-muted-foreground" display={compactReleaseMessage(item.release?.message)} value={item.release?.message} onCopy={copyDeploymentText} /> },
-          { key: 'time', header: t('deploymentsPage.releaseTime'), className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle', render: item => item.release ? formatReleaseTime(item.release, t) : '-' },
-          {
-            key: 'actions',
-            header: t('common.actions'),
-            cellClassName: 'bg-card',
-            className: 'sticky right-0 z-10 w-[1%] whitespace-nowrap px-4 py-3 text-right align-middle shadow-[-10px_0_16px_-16px_rgba(15,23,42,0.6)]',
-            headerClassName: 'z-20 bg-muted/95',
-            render: (item) => {
-              const deleting = item.target.deleteStatus === 'deleting'
-              return (
-                <div className="flex justify-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button aria-label={t('common.actions')} size="icon" variant="ghost">
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem disabled={deleting || !deploymentTargetCanRelease(item.target, deployableBuildRuns) || createRelease.isPending} onSelect={() => openReleaseDialog(item.target.environmentId, item.target.id)}>
-                        <Package className="size-4" />
-                        {item.release ? t('deploymentsPage.createRelease') : t('deploymentsPage.deployToEnvironment')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled={deleting} onSelect={() => openTargetDialog(item.target)}>
-                        <Pencil className="size-4" />
-                        {t('common.edit')}
-                      </DropdownMenuItem>
-                      {item.release && (
-                        <DropdownMenuItem onSelect={() => item.release && setLogRelease(item.release)}>
-                          <Eye className="size-4" />
-                          {t('deploymentsPage.viewLogs')}
-                        </DropdownMenuItem>
-                      )}
-                      {item.release && (
-                        <DropdownMenuItem
-                          disabled={item.release.status !== 'succeeded' && item.release.status !== 'running'}
-                          onSelect={() => {
-                            if (!item.release)
-                              return
-                            setConsoleRelease(item.release)
-                            setConsoleContainer('')
-                          }}
-                        >
-                          <Terminal className="size-4" />
-                          {t('deploymentsPage.webConsole')}
-                        </DropdownMenuItem>
-                      )}
-                      {item.release && (
-                        <DropdownMenuItem disabled={item.release.status !== 'succeeded' || rollbackRelease.isPending} onSelect={() => item.release && rollbackRelease.mutate(item.release.id)}>
-                          <RotateCcw className="size-4" />
-                          {t('deploymentsPage.rollback')}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem disabled={deleting || !item.release || restartTarget.isPending} onSelect={() => restartTarget.mutate(item.target)}>
-                        <RefreshCw className="size-4" />
-                        {t('deploymentsPage.restart')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled={deleting || !item.release || pullLatestImageDeploy.isPending} onSelect={() => pullLatestImageDeploy.mutate(item.target)}>
-                        <Package className="size-4" />
-                        {t('deploymentsPage.pullLatestImageDeploy')}
-                      </DropdownMenuItem>
-                      {item.target.dataRetentionEnabled && (
-                        <DropdownMenuItem onSelect={() => window.open(deploymentTargetDataExportUrl(projectId, applicationId, item.target.id), '_blank', 'noopener,noreferrer')}>
-                          <Download className="size-4" />
-                          {t('deploymentsPage.exportData')}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem disabled={deleteTarget.isPending || deleting} variant="destructive" onSelect={() => setTargetToDelete(item.target)}>
-                        <Trash2 className="size-4" />
-                        {t('common.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            },
-          },
-        ]}
-        emptyDescription={t('deploymentsPage.emptyDeploymentsDescription')}
-        emptyTitle={t('deploymentsPage.emptyDeployments')}
+      <ApplicationDeploymentTargetsList
+        applicationId={applicationId}
+        createReleasePending={createRelease.isPending}
+        deletePending={deleteTarget.isPending}
+        deployableBuildRuns={deployableBuildRuns}
         items={deploymentRows}
-        rowKey={item => item.target.id}
+        projectId={projectId}
+        pullLatestPending={pullLatestImageDeploy.isPending}
+        restartPending={restartTarget.isPending}
+        rollbackPending={rollbackRelease.isPending}
+        onCopy={copyDeploymentText}
+        onDeleteTarget={setTargetToDelete}
+        onOpenConsole={setConsoleRelease}
+        onOpenReleaseDialog={openReleaseDialog}
+        onOpenTargetDialog={openTargetDialog}
+        onPullLatestImageDeploy={target => pullLatestImageDeploy.mutate(target)}
+        onRestart={target => restartTarget.mutate(target)}
+        onRollback={releaseId => rollbackRelease.mutate(releaseId)}
+        onViewLogs={setLogRelease}
       />
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -830,7 +678,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                           <Input
                             {...dockerfilePathField}
                             list="deployment-target-dockerfile-options"
-                            placeholder="Dockerfile"
+                            placeholder={t('deploymentsPage.dockerfilePathPlaceholder')}
                             onChange={(event) => {
                               dockerfilePathField.onChange(event)
                               applyDockerfileBuildDefaults(targetForm, event.target.value, buildContextSuggestions, dockerfileExposedPorts)
@@ -843,7 +691,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                           {targetBuildOptions.isError && <p className="mt-1 text-xs text-destructive">{t('deploymentsPage.buildOptionsLoadFailed')}</p>}
                         </Field>
                         <Field hint={t('buildsPage.buildContextLookupHint')} label={t('buildsPage.buildContext')} required>
-                          <Input {...targetForm.register('buildContext', { required: true })} list="deployment-target-build-context-options" placeholder="." />
+                          <Input {...targetForm.register('buildContext', { required: true })} list="deployment-target-build-context-options" placeholder={t('deploymentsPage.buildContextPlaceholder')} />
                           <datalist id="deployment-target-build-context-options">
                             {buildContextSuggestions.map(option => <option key={option} value={option} />)}
                           </datalist>
@@ -904,10 +752,10 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                   )}
               <div className="grid gap-3 md:grid-cols-2">
                 <Field hint={t('deploymentsPage.branchPatternHint')} label={t('deploymentsPage.branchPattern')}>
-                  <Input {...targetForm.register('branchPattern')} placeholder="main,release-*" />
+                  <Input {...targetForm.register('branchPattern')} placeholder={t('deploymentsPage.branchPatternPlaceholder')} />
                 </Field>
                 <Field hint={t('deploymentsPage.tagPatternHint')} label={t('deploymentsPage.tagPattern')}>
-                  <Input {...targetForm.register('tagPattern')} placeholder="v*" />
+                  <Input {...targetForm.register('tagPattern')} placeholder={t('deploymentsPage.tagPatternPlaceholder')} />
                 </Field>
                 <Field hint={t('apps.buildConcurrencyPolicyHint')} label={t('apps.buildConcurrencyPolicy')}>
                   <Select {...targetForm.register('concurrencyPolicy')}>
@@ -1201,13 +1049,13 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
               <Field error={repositoryBindingForm.formState.errors.cloneUrl?.message} label={t('repositories.cloneUrl')}>
                 <Input {...repositoryBindingForm.register('cloneUrl')} aria-invalid={Boolean(repositoryBindingForm.formState.errors.cloneUrl)} placeholder={t('repositories.cloneUrlPlaceholder')} />
               </Field>
-              <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
-                <input className="mt-1 size-4 accent-primary" type="checkbox" {...repositoryBindingForm.register('autoConfigureWebhook')} />
-                <span className="grid gap-1 text-sm">
-                  <span className="font-medium text-foreground">{t('repositories.autoConfigureWebhook')}</span>
-                  <span className="text-xs leading-5 text-muted-foreground">{t('repositories.autoConfigureWebhookHint')}</span>
-                </span>
-              </label>
+              <CheckboxField
+                className="rounded-md border border-border bg-muted/30 p-3"
+                description={t('repositories.autoConfigureWebhookHint')}
+                {...repositoryBindingForm.register('autoConfigureWebhook')}
+              >
+                {t('repositories.autoConfigureWebhook')}
+              </CheckboxField>
             </div>
             <DialogFooter>
               <Button disabled={createRepositoryBinding.isPending || (gitAccounts.data ?? []).length === 0 || !repositoryBindingForm.formState.isValid} type="submit">
@@ -1218,167 +1066,34 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
           </form>
         </DialogContent>
       </Dialog>
-      <Dialog
+      <ApplicationRuntimeConfigSetDialog
+        editingSet={editingRuntimeConfigSet}
+        filesValid={runtimeConfigFilesValid}
+        form={runtimeConfigForm}
         open={runtimeConfigDialogOpen}
+        pending={saveRuntimeConfigSet.isPending}
+        secretFilesValid={runtimeSecretFilesValid}
+        setFilesValid={setRuntimeConfigFilesValid}
+        setSecretFilesValid={setRuntimeSecretFilesValid}
         onOpenChange={(open) => {
           setRuntimeConfigDialogOpen(open)
-          if (!open) {
+          if (!open)
             setEditingRuntimeConfigSet(null)
-            runtimeConfigForm.reset(runtimeConfigDefaults)
-          }
         }}
-      >
-        <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden p-0">
-          <DialogHeader className="border-b border-border px-6 py-5">
-            <DialogTitle>{editingRuntimeConfigSet ? t('runtimeConfigSets.editTitle') : t('runtimeConfigSets.createTitle')}</DialogTitle>
-            <DialogDescription>{t('runtimeConfigSets.dialogDescription')}</DialogDescription>
-          </DialogHeader>
-          <form className="grid max-h-[calc(88vh-96px)] grid-rows-[minmax(0,1fr)_auto]" onSubmit={runtimeConfigForm.handleSubmit(values => saveRuntimeConfigSet.mutate(values))}>
-            <div className="grid gap-4 overflow-y-auto px-6 py-5">
-              <Field label={t('common.name')} required><Input {...runtimeConfigForm.register('name', { required: true })} /></Field>
-              <Field hint={t('runtimeConfigSets.envVarsHint')} label={t('runtimeConfigSets.envVars')}>
-                <Textarea className="min-h-24 font-mono text-sm" {...runtimeConfigForm.register('envVars')} placeholder={t('runtimeConfigSets.envVarsPlaceholder')} />
-              </Field>
-              <Field hint={t('runtimeConfigSets.configFilesHint')} label={t('runtimeConfigSets.configFiles')}>
-                <RuntimeConfigFilesEditor
-                  key={`${editingRuntimeConfigSet?.id ?? 'new'}-target-config-files`}
-                  initialValue={runtimeConfigForm.getValues('configFiles') ?? ''}
-                  onChange={value => runtimeConfigForm.setValue('configFiles', value, { shouldDirty: true, shouldValidate: true })}
-                  onValidationChange={setRuntimeConfigFilesValid}
-                />
-              </Field>
-              <Field hint={editingRuntimeConfigSet?.secretRefsSet ? t('runtimeConfigSets.secretRefsConfiguredHint') : t('runtimeConfigSets.secretRefsHint')} label={t('runtimeConfigSets.secretRefs')}>
-                <Textarea className="min-h-24 font-mono text-sm" {...runtimeConfigForm.register('secretRefs')} placeholder={t('runtimeConfigSets.secretRefsPlaceholder')} />
-              </Field>
-              <Field hint={editingRuntimeConfigSet?.secretFilesSet ? t('runtimeConfigSets.secretFilesConfiguredHint') : t('runtimeConfigSets.secretFilesHint')} label={t('runtimeConfigSets.secretFiles')}>
-                <RuntimeConfigFilesEditor
-                  key={`${editingRuntimeConfigSet?.id ?? 'new'}-target-secret-files`}
-                  initialValue={runtimeConfigForm.getValues('secretFiles') ?? ''}
-                  onChange={value => runtimeConfigForm.setValue('secretFiles', value, { shouldDirty: true, shouldValidate: true })}
-                  onValidationChange={setRuntimeSecretFilesValid}
-                />
-              </Field>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input className="size-4 accent-primary" type="checkbox" {...runtimeConfigForm.register('enabled')} />
-                {t('common.enabled')}
-              </label>
-            </div>
-            <DialogFooter className="border-t border-border bg-background px-6 py-4">
-              <Button disabled={!runtimeConfigFilesValid || !runtimeSecretFilesValid || saveRuntimeConfigSet.isPending} type="submit">
-                <FileCode2 className="size-4" />
-                {t('common.save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={Boolean(logRelease)} onOpenChange={open => !open && setLogRelease(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{t('deploymentsPage.releaseLogs')}</DialogTitle>
-            <DialogDescription>{logRelease?.id}</DialogDescription>
-          </DialogHeader>
-          <Tabs className="gap-3" value={logView} onValueChange={value => setLogView(value as 'deployment' | 'runtime')}>
-            <SegmentedTabsList
-              items={(['deployment', 'runtime'] as const).map(view => ({
-                label: t(`deploymentsPage.logViews.${view}`),
-                value: view,
-              }))}
-              layoutId="release-log-view-active"
-              value={logView}
-            />
-            <TabsContent value="deployment">
-              <AutoFollowLog
-                className="max-h-[60vh] rounded-md border border-border bg-muted p-3 text-xs leading-relaxed text-foreground"
-                content={releaseLogs.data?.content}
-                emptyFallback={t('deploymentsPage.emptyLogs')}
-                resetKey={`${logRelease?.id ?? ''}:deployment`}
-              />
-            </TabsContent>
-            <TabsContent className="grid gap-3" value="runtime">
-              {runtimeLogs.data && (
-                <div className="text-xs text-muted-foreground">
-                  {t('deploymentsPage.runtimeLogSource', { pod: runtimeLogs.data.pod, container: runtimeLogs.data.container })}
-                </div>
-              )}
-              <AutoFollowLog
-                className="max-h-[60vh] rounded-md border border-border bg-muted p-3 text-xs leading-relaxed text-foreground"
-                content={runtimeLogs.data?.content}
-                emptyFallback={runtimeLogs.isLoading ? t('common.loading') : t('deploymentsPage.emptyLogs')}
-                resetKey={`${logRelease?.id ?? ''}:runtime`}
-              />
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={Boolean(consoleRelease)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConsoleRelease(null)
-            setConsoleFullscreen(false)
-          }
-        }}
-      >
-        <DialogContent className={consoleFullscreen ? 'h-screen max-h-screen w-screen max-w-none rounded-none border-0 p-0' : 'max-w-5xl p-0'}>
-          <DialogHeader className={consoleFullscreen ? 'sr-only' : undefined}>
-            <div className="border-b border-border px-5 py-4">
-              <DialogTitle>{t('deploymentsPage.webConsole')}</DialogTitle>
-              <DialogDescription>{t('deploymentsPage.webConsoleDescription')}</DialogDescription>
-            </div>
-          </DialogHeader>
-          <div className={consoleFullscreen ? 'flex h-screen min-h-0 bg-zinc-950 p-0' : 'grid gap-4 px-5 pb-5'}>
-            <div className={consoleFullscreen ? 'relative flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100' : 'overflow-hidden rounded-md border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-xl'}>
-              {consoleFullscreen && (
-                <Button
-                  className="absolute right-4 top-4 z-20 border-zinc-700 bg-zinc-900/90 text-zinc-100 shadow-lg hover:bg-zinc-800 hover:text-zinc-100"
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => setConsoleFullscreen(false)}
-                >
-                  <Minimize2 className="size-4" />
-                  {t('deploymentsPage.exitFullscreen')}
-                </Button>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="size-3 rounded-full bg-red-500" />
-                  <span className="size-3 rounded-full bg-yellow-400" />
-                  <span className="size-3 rounded-full bg-emerald-500" />
-                  <span className="ml-2 font-mono text-xs text-zinc-400">{consoleRelease?.id ?? '-'}</span>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 pr-0 sm:pr-0">
-                  <label className="flex min-w-0 items-center gap-2 font-mono text-xs text-zinc-400">
-                    <span>{t('deploymentsPage.container')}</span>
-                    <input
-                      className="h-7 w-32 rounded border border-zinc-700 bg-zinc-950 px-2 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-emerald-500"
-                      placeholder={t('deploymentsPage.webConsoleContainerPlaceholder')}
-                      value={consoleContainer}
-                      onChange={event => setConsoleContainer(event.target.value)}
-                    />
-                  </label>
-                  {!consoleFullscreen && (
-                    <Button
-                      className="h-7 border-zinc-700 bg-zinc-950 px-2 text-xs text-zinc-100 hover:bg-zinc-800 hover:text-zinc-100"
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                      onClick={() => setConsoleFullscreen(true)}
-                    >
-                      <Maximize2 className="size-3.5" />
-                      {t('deploymentsPage.fullscreen')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className={consoleFullscreen ? 'min-h-0 flex-1' : undefined}>
-                <ApplicationRuntimeTerminalPanel container={consoleContainer} fullscreen={consoleFullscreen} projectId={projectId} release={consoleRelease} />
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        onSubmit={values => saveRuntimeConfigSet.mutate(values)}
+      />
+      <ApplicationReleaseLogsDialog
+        logView={logView}
+        projectId={projectId}
+        release={logRelease}
+        setLogView={setLogView}
+        onOpenChange={open => !open && setLogRelease(null)}
+      />
+      <ApplicationWebConsoleDialog
+        projectId={projectId}
+        release={consoleRelease}
+        onOpenChange={open => !open && setConsoleRelease(null)}
+      />
       <ConfirmDialog
         cancelText={t('common.cancel')}
         confirmText={t('common.delete')}
@@ -1391,343 +1106,4 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
       />
     </div>
   )
-}
-function shortImageRef(imageRef: string) {
-  const value = imageRef.trim()
-  if (!value)
-    return '-'
-  const [repository, tag = ''] = value.split(':')
-  const parts = repository.split('/').filter(Boolean)
-  const compactRepository = parts.length > 2 ? `${parts.at(-2)}/${parts.at(-1)}` : repository
-  return tag ? `${compactRepository}:${tag}` : compactRepository
-}
-
-function compactReleaseMessage(message?: string) {
-  const value = message?.trim()
-  if (!value)
-    return '-'
-  if (value.startsWith('invalid configuration'))
-    return 'config invalid'
-  if (value.includes('timed out'))
-    return 'rollout timeout'
-  if (value.includes('Deployment/Service/ConfigMap/Secret'))
-    return 'resources applied'
-  return value
-}
-
-function formatTargetRuntimeSize(target: DeploymentTarget, t: (key: string, options?: Record<string, unknown>) => string) {
-  const replicas = target.replicas > 0 ? target.replicas : 1
-  return t('deploymentsPage.runtimeSizeValue', {
-    cpu: formatCPU(target.cpuRequest),
-    memory: formatMemoryGi(target.memoryRequest),
-    replicas,
-  })
-}
-
-function formatCPU(value: string) {
-  const normalized = value?.trim() || '1'
-  return normalized.endsWith('m') ? normalized : `${normalized}c`
-}
-
-function formatMemoryGi(value: string) {
-  const normalized = value?.trim() || '1Gi'
-  return normalized.endsWith('Gi') ? normalized.replace('Gi', 'g') : normalized
-}
-
-function CopyableTruncatedText({ className, display, value, onCopy }: {
-  className?: string
-  display: string
-  value?: string
-  onCopy: (value?: string) => void
-}) {
-  const title = value?.trim() || display
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          className={`block min-w-0 truncate text-left transition hover:text-primary ${className ?? ''}`}
-          type="button"
-          onClick={() => onCopy(value)}
-        >
-          {display}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-96 break-all leading-5" side="top">
-        {title}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-function redeployReleasePayload(target: DeploymentTarget, latestRelease?: Release, options: { forceImagePull?: boolean } = {}): ReleaseForm | null {
-  const imageRef = target.sourceType === 'image'
-    ? (target.imageRef?.trim() || latestRelease?.imageRef?.trim() || '')
-    : (latestRelease?.imageRef?.trim() || '')
-  const buildRunId = target.sourceType === 'repository' ? (latestRelease?.buildRunId ?? '') : ''
-  if (!imageRef)
-    return null
-  return {
-    ...releaseDefaults,
-    applicationId: target.applicationId,
-    buildRunId,
-    deploymentTargetId: target.id,
-    environmentId: target.environmentId,
-    forceImagePull: options.forceImagePull ?? false,
-    imageRef,
-    revision: (latestRelease?.revision ?? 0) + 1,
-    status: 'pending',
-    type: 'deploy',
-  }
-}
-
-function deploymentTargetRuntimeChanged(current: DeploymentTarget, next: DeploymentTargetPayload) {
-  const currentPayload = normalizeDeploymentTargetPayload({
-    ...deploymentTargetDefaults,
-    ...current,
-    secretRefs: '',
-  })
-  const nextPayload = normalizeDeploymentTargetPayload(next)
-  const fields: Array<keyof DeploymentTargetPayload> = [
-    'clusterId',
-    'namespace',
-    'replicas',
-    'cpuRequest',
-    'memoryRequest',
-    'stage',
-    'servicePort',
-    'sourceType',
-    'runtimeConfigSetIds',
-    'envVars',
-    'configRefs',
-    'configFiles',
-    'dataRetentionEnabled',
-    'dataCapacity',
-    'dataMountPath',
-    'dataVolumes',
-  ]
-  if (nextPayload.sourceType === 'image')
-    fields.push('imageRef')
-  if (String(nextPayload.secretRefs ?? '').trim() || String(nextPayload.secretFiles ?? '').trim())
-    return true
-  return fields.some(field => normalizedComparable(currentPayload[field]) !== normalizedComparable(nextPayload[field]))
-}
-
-function DeploymentTargetSummary({ target }: { target: DeploymentTarget }) {
-  const deleteFailedMessage = target.deleteStatus === 'delete_failed' ? target.deleteMessage?.trim() : ''
-  return (
-    <div className="max-w-72 min-w-0">
-      <span className="block truncate" title={target.name}>{target.name}</span>
-      {target.deleteStatus && target.deleteStatus !== 'active' && (
-        <div className="mt-1 flex min-w-0 items-center gap-2">
-          <StatusValueBadge labelKeyPrefix="apps.deleteStatuses" value={target.deleteStatus} />
-          {deleteFailedMessage && (
-            <HoverText className="flex-1 text-xs text-muted-foreground" value={deleteFailedMessage} />
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DeploymentTargetMetricsCell({ applicationId, enabled, projectId, targetId }: { applicationId: string, enabled: boolean, projectId: string, targetId: string }) {
-  const { i18n, t } = useTranslation()
-  const [metricsState, setMetricsState] = useState<{ metrics: DeploymentTargetMetrics | null, targetId: string } | null>(null)
-  const metrics = metricsState?.targetId === targetId ? metricsState.metrics : null
-
-  useEffect(() => {
-    if (!enabled || !projectId || !applicationId || !targetId)
-      return
-    const source = new EventSource(deploymentTargetMetricsStreamUrl(projectId, applicationId, targetId), { withCredentials: true })
-    const handleMetrics = (event: MessageEvent) => {
-      try {
-        setMetricsState({ metrics: JSON.parse(event.data) as DeploymentTargetMetrics, targetId })
-      }
-      catch {
-        setMetricsState({ metrics: null, targetId })
-      }
-    }
-    source.addEventListener('metrics', handleMetrics)
-    return () => {
-      source.removeEventListener('metrics', handleMetrics)
-      source.close()
-    }
-  }, [applicationId, enabled, projectId, targetId])
-
-  if (!enabled)
-    return <span className="text-muted-foreground">-</span>
-  if (!metrics)
-    return <span className="text-xs text-muted-foreground">{t('deploymentsPage.metricsConnecting')}</span>
-  if (!metrics.available)
-    return <span className="text-xs text-muted-foreground">{t('deploymentsPage.metricsUnavailable')}</span>
-
-  const memoryLabel = `${formatMetricsBytes(metrics.memoryUsageBytes, i18n.language)} / ${formatMetricsBytes(metrics.memoryCapacityBytes, i18n.language)}`
-
-  return (
-    <div className="grid min-w-36 gap-1 text-xs">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-muted-foreground">{t('deploymentsPage.metricsCpu')}</span>
-        <span className="font-medium tabular-nums">{formatMetricsPercent(metrics.cpuUsagePercent, i18n.language)}</span>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-muted-foreground">{t('deploymentsPage.metricsMemory')}</span>
-        <span className="font-medium tabular-nums">{memoryLabel}</span>
-      </div>
-    </div>
-  )
-}
-
-function formatMetricsPercent(value: number, locale: string) {
-  if (!Number.isFinite(value) || value <= 0)
-    return '0%'
-  return `${value.toLocaleString(locale, { maximumFractionDigits: 1 })}%`
-}
-
-function formatMetricsBytes(value: number, locale: string) {
-  if (!Number.isFinite(value) || value <= 0)
-    return '-'
-  const gib = 1024 ** 3
-  const mib = 1024 ** 2
-  if (value >= gib)
-    return `${(value / gib).toLocaleString(locale, { maximumFractionDigits: 1 })}Gi`
-  return `${(value / mib).toLocaleString(locale, { maximumFractionDigits: 1 })}Mi`
-}
-
-function normalizedComparable(value: unknown) {
-  if (typeof value === 'boolean')
-    return value ? 'true' : 'false'
-  if (typeof value === 'string')
-    return value.trim()
-  if (Array.isArray(value))
-    return value.map(item => String(item).trim()).filter(Boolean).join(',')
-  return String(value ?? '').trim()
-}
-
-function normalizeStringIds(value: unknown): string[] {
-  if (Array.isArray(value))
-    return value.map(item => String(item).trim()).filter(Boolean)
-  if (typeof value !== 'string')
-    return []
-  const trimmed = value.trim()
-  if (!trimmed)
-    return []
-  try {
-    const parsed = JSON.parse(trimmed)
-    if (Array.isArray(parsed))
-      return parsed.map(item => String(item).trim()).filter(Boolean)
-  }
-  catch {
-    return trimmed.split(',').map(item => item.trim()).filter(Boolean)
-  }
-  return []
-}
-
-function repositoryBindingItems(items: RepositoryBinding[] | null | undefined) {
-  return Array.isArray(items) ? items : []
-}
-
-function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload): DeploymentTargetPayload {
-  const enabled = normalizeBoolean(values.enabled, true)
-  const autoDeploy = normalizeBoolean(values.autoDeploy, true)
-  const requireApproval = normalizeBoolean(values.requireApproval, false)
-  const buildHooksEnabled = normalizeBoolean(values.buildHooksEnabled, true)
-  const dataRetentionEnabled = normalizeBoolean(values.dataRetentionEnabled, false)
-  const dataVolumes = dataRetentionEnabled
-    ? parseRuntimeDataVolumes(values.dataVolumes, values.dataMountPath || '/data', values.dataCapacity || '1Gi')
-    : []
-  const primaryDataVolume = dataVolumes[0]
-  const sourceType = values.sourceType === 'image' ? 'image' : 'repository'
-  return {
-    ...values,
-    sourceType,
-    clusterId: values.clusterId?.trim() ?? '',
-    namespace: values.namespace?.trim() ?? '',
-    replicas: normalizePositiveInteger(values.replicas, 1),
-    cpuRequest: values.cpuRequest || '1',
-    memoryRequest: values.memoryRequest || '1Gi',
-    stage: normalizeDeploymentStage(values.stage),
-    servicePort: normalizePositiveInteger(values.servicePort, 8080),
-    enabled,
-    autoDeploy,
-    requireApproval,
-    buildHooksEnabled,
-    dataRetentionEnabled,
-    dataCapacity: dataRetentionEnabled ? (primaryDataVolume?.capacity?.trim() || '1Gi') : '',
-    dataMountPath: dataRetentionEnabled ? (primaryDataVolume?.mountPath?.trim() || '/data') : '',
-    dataVolumes: dataRetentionEnabled ? serializeRuntimeDataVolumes(dataVolumes) : '',
-    repositoryBindingId: sourceType === 'repository' ? values.repositoryBindingId : '',
-    targetRegistryId: sourceType === 'repository' ? values.targetRegistryId : '',
-    targetImageRef: sourceType === 'repository' ? values.targetImageRef : '',
-    imageRef: sourceType === 'image' ? values.imageRef : '',
-    buildEnvironmentId: values.buildEnvironmentId || '',
-    buildCpuRequest: values.buildCpuRequest || '1',
-    buildMemoryRequest: values.buildMemoryRequest || '1Gi',
-    targetTag: values.targetTag || 'latest',
-    buildVariableSetIds: normalizeStringIds(values.buildVariableSetIds),
-    runtimeConfigSetIds: normalizeStringIds(values.runtimeConfigSetIds),
-    configFiles: values.configFiles?.trim() ?? '',
-    secretFiles: values.secretFiles?.trim() ?? '',
-    buildHookBindings: values.buildHookBindings ?? [],
-  }
-}
-
-function normalizeDeploymentStage(value: string) {
-  if (value === 'dev' || value === 'test' || value === 'staging' || value === 'prod')
-    return value
-  return 'prod'
-}
-
-function normalizeRuntimeConfigPayload(values: ProjectRuntimeConfigSetPayload): ProjectRuntimeConfigSetPayload {
-  return {
-    configFiles: values.configFiles?.trim() ?? '',
-    enabled: Boolean(values.enabled),
-    envVars: values.envVars?.trim() ?? '',
-    name: values.name.trim(),
-    secretFiles: values.secretFiles?.trim() ?? '',
-    secretRefs: values.secretRefs?.trim() ?? '',
-  }
-}
-
-function applyDockerfileBuildDefaults(form: UseFormReturn<DeploymentTargetPayload>, dockerfilePath: string, directories: string[], exposedPorts: Record<string, number[]> = {}) {
-  const normalizedDockerfile = dockerfilePath.trim()
-  if (!normalizedDockerfile)
-    return
-  const buildContext = defaultBuildContextForDockerfile(normalizedDockerfile, directories)
-  form.setValue('dockerfilePath', normalizedDockerfile, { shouldDirty: true, shouldValidate: true })
-  form.setValue('buildContext', buildContext, { shouldDirty: true, shouldValidate: true })
-  form.setValue('buildDirectory', buildContext === '.' ? '' : buildContext, { shouldDirty: true, shouldValidate: true })
-  const detectedPort = exposedPorts[normalizedDockerfile]?.find(port => Number.isInteger(port) && port > 0 && port <= 65535)
-  if (detectedPort)
-    form.setValue('servicePort', detectedPort, { shouldDirty: true, shouldValidate: true })
-}
-
-function defaultBuildContextForDockerfile(dockerfilePath: string, directories: string[]) {
-  const normalized = dockerfilePath.trim().replace(/^\/+/, '')
-  const separatorIndex = normalized.lastIndexOf('/')
-  if (separatorIndex < 0)
-    return '.'
-  const directory = normalized.slice(0, separatorIndex).trim()
-  if (!directory)
-    return '.'
-  if (directories.length === 0 || directories.includes(directory))
-    return directory
-  const parent = directories
-    .filter(option => option !== '.' && directory.startsWith(`${option}/`))
-    .sort((left, right) => right.length - left.length)[0]
-  return parent ?? directory
-}
-
-function normalizeBoolean(value: unknown, fallback: boolean) {
-  if (typeof value === 'boolean')
-    return value
-  if (value === 'true')
-    return true
-  if (value === 'false')
-    return false
-  return fallback
-}
-
-function normalizePositiveInteger(value: unknown, fallback: number) {
-  const normalized = Number(value)
-  if (!Number.isInteger(normalized) || normalized <= 0 || normalized > 65535)
-    return fallback
-  return normalized
 }

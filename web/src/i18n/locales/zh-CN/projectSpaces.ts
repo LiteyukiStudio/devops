@@ -17,6 +17,7 @@ const projectSpaces = {
   descriptionPlaceholder: '这个项目空间负责哪些应用',
   maxConcurrentBuilds: '最大构建并发',
   maxConcurrentBuildsHint: '当前项目空间最多同时运行的构建数，超过后新构建会排队等待。小团队默认 2。',
+  maxConcurrentBuildsPlaceholder: '2',
   maxConcurrentBuildsMin: '最大构建并发至少为 1',
   created: '项目空间已创建',
   updated: '项目空间已更新',
