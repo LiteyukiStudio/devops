@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/LiteyukiStudio/devops/internal/authz"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (h *Handlers) normalizeScopedOwnerWithProjects(ctx *gin.Context, user model
 	ownerRef := strings.TrimSpace(rawOwnerRef)
 	switch scope {
 	case "global":
-		if user.Role != "platform_admin" {
+		if !authz.IsPlatformAdmin(user.Role) {
 			writeError(ctx, http.StatusForbidden, globalError)
 			return "", "", nil, false
 		}
@@ -49,7 +50,7 @@ func (h *Handlers) normalizeScopedOwnerWithProjects(ctx *gin.Context, user model
 func (h *Handlers) canManageScopedResourceByID(ctx *gin.Context, user model.User, scope, ownerRef, resourceType, resourceID, errorMessage string) bool {
 	switch normalizeOwnerScope(scope) {
 	case "global":
-		if user.Role == "platform_admin" {
+		if authz.IsPlatformAdmin(user.Role) {
 			return true
 		}
 	case "user":
@@ -57,7 +58,7 @@ func (h *Handlers) canManageScopedResourceByID(ctx *gin.Context, user model.User
 			return true
 		}
 	case "project":
-		if user.Role == "platform_admin" {
+		if authz.IsPlatformAdmin(user.Role) {
 			return true
 		}
 		if h.canManageAllScopedProjects(ctx, user, h.scopedResourceProjectIDs(resourceType, resourceID)) {
@@ -71,11 +72,11 @@ func (h *Handlers) canManageScopedResourceByID(ctx *gin.Context, user model.User
 func (h *Handlers) canInspectScopedResourceConfigByID(user model.User, scope, ownerRef, resourceType, resourceID string) bool {
 	switch normalizeOwnerScope(scope) {
 	case "global":
-		return user.Role == "platform_admin"
+		return authz.IsPlatformAdmin(user.Role)
 	case "user":
 		return ownerRef == user.ID
 	case "project":
-		if user.Role == "platform_admin" {
+		if authz.IsPlatformAdmin(user.Role) {
 			return true
 		}
 		for _, projectID := range h.scopedResourceProjectIDs(resourceType, resourceID) {
@@ -98,7 +99,7 @@ func (h *Handlers) canUseScopedResourceByID(user model.User, scope, ownerRef, re
 	case "user":
 		return ownerRef == user.ID
 	case "project":
-		if user.Role == "platform_admin" {
+		if authz.IsPlatformAdmin(user.Role) {
 			return true
 		}
 		for _, projectID := range h.scopedResourceProjectIDs(resourceType, resourceID) {
@@ -138,7 +139,7 @@ func (h *Handlers) applyScopedResourceVisibility(ctx *gin.Context, query *gorm.D
 		projectSubquery = projectSubquery.Where("project_id = ?", projectID)
 		conditions = append(conditions, "(scope = 'project' and id in (?))")
 		args = append(args, projectSubquery)
-	} else if user.Role == "platform_admin" {
+	} else if authz.IsPlatformAdmin(user.Role) {
 		conditions = append(conditions, "(scope = 'project' and id in (?))")
 		args = append(args, projectSubquery)
 	} else {
@@ -225,7 +226,7 @@ func (h *Handlers) canManageAllScopedProjects(ctx *gin.Context, user model.User,
 		return false
 	}
 	for _, projectID := range projectIDs {
-		if user.Role == "platform_admin" {
+		if authz.IsPlatformAdmin(user.Role) {
 			var project model.Project
 			if err := h.db.First(&project, "id = ?", projectID).Error; err != nil {
 				writeError(ctx, http.StatusNotFound, "project not found")

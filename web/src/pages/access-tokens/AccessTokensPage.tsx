@@ -227,7 +227,7 @@ export function AccessTokensPanel() {
             <Field error={form.formState.errors.scope?.message} hint={t('accessTokens.scopeHint')} label={t('accessTokens.scope')} required>
               <Select {...form.register('scope')} aria-invalid={Boolean(form.formState.errors.scope)}>
                 <option value="build:trigger">{t('accessTokens.scopeBuildTrigger')}</option>
-                <option value="deploy:trigger">{t('accessTokens.scopeDeployTrigger')}</option>
+                <option value="deployment:release">{t('accessTokens.scopeDeployTrigger')}</option>
                 <option value="project:read">{t('accessTokens.scopeProjectRead')}</option>
                 {user?.role === 'platform_admin' && <option value="billing:write">{t('accessTokens.scopeBillingWrite')}</option>}
               </Select>

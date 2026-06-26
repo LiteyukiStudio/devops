@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRequiredAccessTokenScopeRequiresWriteForReleaseRuntimeExec(t *testing.T) {
+func TestRequiredAccessTokenScopeRequiresDeploymentExecForReleaseRuntimeExec(t *testing.T) {
 	tests := []struct {
 		name   string
 		path   string
@@ -26,14 +26,14 @@ func TestRequiredAccessTokenScopeRequiresWriteForReleaseRuntimeExec(t *testing.T
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			required := RequiredAccessTokenScope(test.path, test.method)
-			if required != "project:write" {
-				t.Fatalf("RequiredAccessTokenScope(%q, %q) = %q, want project:write", test.path, test.method, required)
+			if required != "deployment:exec" {
+				t.Fatalf("RequiredAccessTokenScope(%q, %q) = %q, want deployment:exec", test.path, test.method, required)
 			}
 			if AccessTokenAllows("project:read", required) {
 				t.Fatal("expected project:read token to be denied")
 			}
-			if !AccessTokenAllows("project:write", required) {
-				t.Fatal("expected project:write token to be allowed")
+			if !AccessTokenAllows("deployment:exec", required) {
+				t.Fatal("expected deployment:exec token to be allowed")
 			}
 		})
 	}

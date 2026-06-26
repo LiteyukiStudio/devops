@@ -22,11 +22,12 @@ pnpm --dir web dev
 - `cmd/api`: HTTP API, webhooks, OAuth callbacks, permission entry points, and task enqueueing.
 - `cmd/worker`: async tasks such as builds, deployments, status sync, certificates, and cleanup.
 - `internal/api`: HTTP handlers and response models.
+- `internal/authz`: centralized authorization rules for platform roles, project roles, permission actions, and Access Token scopes.
 - `internal/model`: GORM data models.
 - `internal/provider`: adapters for Git, registries, Kubernetes, DNS, and other external platforms.
 - `internal/worker`: async task runners.
 
-Handlers parse parameters and shape responses. Business logic belongs in services, data access in repositories, and external systems in providers.
+Handlers parse parameters and shape responses. Business logic belongs in services, data access in repositories, and external systems in providers. New authorization checks should reuse the actions and role matrix in `internal/authz` instead of adding more hard-coded role lists in handlers.
 
 ## Frontend entry points
 

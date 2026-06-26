@@ -8,7 +8,7 @@ const accessTokens = {
   scope: 'Scope',
   namePlaceholder: 'Git webhook trigger',
   scopeBuildTrigger: 'build:trigger',
-  scopeDeployTrigger: 'deploy:trigger',
+  scopeDeployTrigger: 'deployment:release',
   scopeProjectRead: 'project:read',
   scopeBillingWrite: 'billing:write',
   nameHint: '用于区分这个 Token 的用途，例如本地脚本、CI 触发器或某个自动化工具。',

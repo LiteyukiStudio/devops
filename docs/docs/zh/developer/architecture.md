@@ -22,11 +22,12 @@ pnpm --dir web dev
 - `cmd/api`：HTTP API、Webhook、OAuth 回调、权限入口和任务投递。
 - `cmd/worker`：构建、部署、状态同步、证书申请和资源清理等异步任务。
 - `internal/api`：HTTP handler 和响应模型。
+- `internal/authz`：平台角色、项目空间角色、权限 action 和 Access Token scope 的集中授权规则。
 - `internal/model`：GORM 数据模型。
 - `internal/provider`：Git、Registry、Kubernetes、DNS 等外部平台适配。
 - `internal/worker`：异步任务运行器。
 
-Handler 只做参数解析、权限入口和响应；业务逻辑放 service；数据访问放 repository；外部系统调用放 provider。
+Handler 只做参数解析、权限入口和响应；业务逻辑放 service；数据访问放 repository；外部系统调用放 provider。新的权限判断应优先复用 `internal/authz` 中的 action 和角色矩阵，避免在 handler 中继续散落硬编码角色判断。
 
 ## 前端入口
 

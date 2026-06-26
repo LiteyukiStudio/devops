@@ -178,9 +178,10 @@
 - [x] 建立 User、Project、ProjectMember。
 - [x] 实现 Owner/Admin/Developer/Viewer 角色。
 - [x] 实现权限点校验。
+- [x] 建立 `internal/authz` 轻量授权中心：集中定义权限 action、项目角色矩阵和 Access Token scope 规则，保留现有角色体验并为后续 RBAC 收敛提供统一入口。
 - [x] 实现 Access Token 创建、hash 存储和撤销。
 - [x] 实现 Access Token scope 校验。
-- [x] 收紧 Access Token scope：未知 API 默认拒绝，创建 scope 白名单化，普通用户只能创建读类 scope。
+- [x] 收紧 Access Token scope：未知 API 默认拒绝，创建 scope 白名单化，普通用户只能创建读类和明确自动化触发类 scope。
 - [x] 增加 API CORS 白名单、Cookie 会话 Origin 防护和基础安全响应头。
 - [x] 为本地登录和首个管理员初始化增加基础限流。
 - [x] Access Token 列表隐藏已撤销 Token，时间列单行展示，有效期改为固定选项并支持 0 无限有效。

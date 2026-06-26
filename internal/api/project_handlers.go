@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"github.com/LiteyukiStudio/devops/internal/authz"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
@@ -522,7 +523,7 @@ func (h *Handlers) findProjectForCurrentUserWithRoles(ctx *gin.Context, allowedR
 		return project, false
 	}
 
-	if user.Role == "platform_admin" {
+	if authz.IsPlatformAdmin(user.Role) {
 		return project, true
 	}
 
@@ -542,19 +543,14 @@ func (h *Handlers) findProjectForCurrentUserWithRoles(ctx *gin.Context, allowedR
 }
 
 func projectUserRoleAllowed(user model.User, memberRole string, allowedRoles []string) bool {
-	if user.Role == "platform_admin" {
+	if authz.IsPlatformAdmin(user.Role) {
 		return true
 	}
-	return projectRoleAllowed(memberRole, allowedRoles)
+	return authz.ProjectRoleAllowsLegacyRoles(memberRole, allowedRoles)
 }
 
 func projectRoleAllowed(role string, allowedRoles []string) bool {
-	for _, allowedRole := range allowedRoles {
-		if role == allowedRole {
-			return true
-		}
-	}
-	return false
+	return authz.ProjectRoleAllowsLegacyRoles(role, allowedRoles)
 }
 
 func (h *Handlers) currentProjectRoleAllows(ctx *gin.Context, projectID, userID string, allowedRoles ...string) bool {
@@ -686,10 +682,5 @@ type projectMemberResponse struct {
 }
 
 func normalizeProjectRole(role string) string {
-	switch role {
-	case "owner", "admin", "developer", "viewer":
-		return role
-	default:
-		return "viewer"
-	}
+	return authz.NormalizeProjectRole(role)
 }
