@@ -28,12 +28,12 @@ A deployment target answers how an application should ship:
 - Publish to which environment.
 - Stage for this deployment target, such as development, test, staging, or production.
 - Use which registry.
-- Listen on which service port.
+- Listen on which service ports. A deployment target can expose multiple service ports; the first port is the default, for example `8080` for HTTP traffic and `9001` for Prometheus metrics.
 - Auto release after a successful build or not.
 
 Repository webhooks belong to application repository bindings. When the Git platform sends a push/tag event, the platform finds enabled, active deployment targets under the same application that use that repository binding, then creates build runs according to their branch and tag patterns. Deployment targets do not create separate external webhooks, so each repository event enters the platform once.
 
-When selecting a repository Dockerfile, the platform tries to read its `EXPOSE` instructions and fills the service port automatically. If multiple ports are detected, the first detected port is used by default and can still be edited manually.
+When selecting a repository Dockerfile, the platform tries to read its `EXPOSE` instructions and fills the service port list automatically. If the service has multiple HTTP ports, add them on the deployment target. Gateway routes must choose one of the exposed ports as their target port.
 
 When build variables or runtime config sets are deleted, the platform removes those references from deployment targets that still point to them, so deployment targets do not keep stale configuration IDs.
 

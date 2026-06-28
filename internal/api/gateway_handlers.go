@@ -243,6 +243,10 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		writeError(ctx, http.StatusBadRequest, "服务端口必须在 1 到 65535 之间")
 		return model.GatewayRoute{}, false
 	}
+	if !deploymentTargetHasServicePort(target, servicePort) {
+		writeError(ctx, http.StatusBadRequest, "访问入口端口必须来自部署配置的服务端口列表")
+		return model.GatewayRoute{}, false
+	}
 
 	tlsMode := normalizeTLSMode(input.TLSMode)
 	certStatus := "disabled"
@@ -271,7 +275,20 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 }
 
 func deploymentTargetServicePort(target model.DeploymentTarget) int {
+	ports := model.DeploymentTargetServicePorts(target)
+	if len(ports) > 0 {
+		return ports[0].Port
+	}
 	return fallbackInt(target.ServicePort, 8080)
+}
+
+func deploymentTargetHasServicePort(target model.DeploymentTarget, port int) bool {
+	for _, item := range model.DeploymentTargetServicePorts(target) {
+		if item.Port == port {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handlers) gatewayRouteTargetContext(ctx *gin.Context, projectID string, input gatewayRouteInput) (model.DeploymentTarget, model.Application, model.Environment, model.RuntimeCluster, bool) {

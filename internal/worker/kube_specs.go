@@ -239,6 +239,7 @@ func applicationResourcesSpec(release model.Release, project model.Project, appl
 	if servicePort <= 0 {
 		servicePort = 8080
 	}
+	servicePorts := deploymentTargetApplicationServicePorts(deploymentTarget, servicePort)
 	replicas := environment.Replicas
 	if replicas <= 0 {
 		replicas = 1
@@ -255,6 +256,7 @@ func applicationResourcesSpec(release model.Release, project model.Project, appl
 		Image:                 strings.TrimSpace(release.ImageRef),
 		Replicas:              int32(replicas),
 		ServicePort:           int32(servicePort),
+		ServicePorts:          servicePorts,
 		CPURequest:            strings.TrimSpace(environment.CPURequest),
 		MemoryRequest:         strings.TrimSpace(environment.MemoryRequest),
 		RolloutTimeoutSeconds: int32(rolloutTimeoutSeconds),
@@ -286,6 +288,18 @@ func deploymentTargetDataVolumes(target model.DeploymentTarget) []kubeprovider.A
 		return nil
 	}
 	return volumes
+}
+
+func deploymentTargetApplicationServicePorts(target model.DeploymentTarget, fallbackPort int) []kubeprovider.ApplicationServicePort {
+	ports := model.DeploymentTargetServicePorts(target)
+	result := make([]kubeprovider.ApplicationServicePort, 0, len(ports))
+	for _, item := range ports {
+		result = append(result, kubeprovider.ApplicationServicePort{Name: item.Name, Port: int32(item.Port)})
+	}
+	if len(result) == 0 {
+		result = append(result, kubeprovider.ApplicationServicePort{Name: "http", Port: int32(fallbackPort)})
+	}
+	return result
 }
 
 func mergeKeyValueMaps(values ...string) (map[string]string, error) {

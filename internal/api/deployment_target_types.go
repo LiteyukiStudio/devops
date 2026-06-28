@@ -20,6 +20,7 @@ type deploymentTargetResponse struct {
 	CPURequest           string                              `json:"cpuRequest"`
 	MemoryRequest        string                              `json:"memoryRequest"`
 	ServicePort          int                                 `json:"servicePort"`
+	ServicePorts         []model.DeploymentServicePort       `json:"servicePorts"`
 	SourceType           string                              `json:"sourceType"`
 	RepositoryBindingID  string                              `json:"repositoryBindingId"`
 	DockerfilePath       string                              `json:"dockerfilePath"`
@@ -82,6 +83,7 @@ func deploymentTargetResponseFromModel(target model.DeploymentTarget) deployment
 		CPURequest:           fallback(strings.TrimSpace(target.CPURequest), "1"),
 		MemoryRequest:        fallback(strings.TrimSpace(target.MemoryRequest), "1Gi"),
 		ServicePort:          fallbackInt(target.ServicePort, 8080),
+		ServicePorts:         model.DeploymentTargetServicePorts(target),
 		SourceType:           normalizeDeploymentSourceType(target.SourceType),
 		RepositoryBindingID:  target.RepositoryBindingID,
 		DockerfilePath:       target.DockerfilePath,
@@ -155,6 +157,7 @@ type deploymentTargetInput struct {
 	CPURequest           string                             `json:"cpuRequest"`
 	MemoryRequest        string                             `json:"memoryRequest"`
 	ServicePort          int                                `json:"servicePort"`
+	ServicePorts         []model.DeploymentServicePort      `json:"servicePorts"`
 	SourceType           string                             `json:"sourceType"`
 	RepositoryBindingID  string                             `json:"repositoryBindingId"`
 	DockerfilePath       string                             `json:"dockerfilePath"`

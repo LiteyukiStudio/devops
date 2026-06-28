@@ -14,6 +14,7 @@ const gatewayRoutesPage = {
   deploymentTarget: 'Deploy config',
   path: 'Path',
   servicePort: 'Service port',
+  targetPort: 'Target port',
   tlsMode: 'TLS mode',
   enabled: 'Enable access',
   enabledHint: 'When disabled, the domain config stays but the runtime entrypoint is removed. Re-enable it to apply the route again.',

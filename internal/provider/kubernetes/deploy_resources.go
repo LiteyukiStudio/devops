@@ -33,6 +33,7 @@ type ApplicationResourcesSpec struct {
 	Image                 string
 	Replicas              int32
 	ServicePort           int32
+	ServicePorts          []ApplicationServicePort
 	CPURequest            string
 	MemoryRequest         string
 	RolloutTimeoutSeconds int32
@@ -45,6 +46,11 @@ type ApplicationResourcesSpec struct {
 	DataMountPath         string
 	DataVolumes           []ApplicationDataVolume
 	ForceImagePull        bool
+}
+
+type ApplicationServicePort struct {
+	Name string
+	Port int32
 }
 
 type ApplicationConfigFile struct {
@@ -184,8 +190,10 @@ func validateApplicationResourcesSpec(spec ApplicationResourcesSpec) error {
 	if strings.TrimSpace(spec.Image) == "" {
 		return fmt.Errorf("release image is required")
 	}
-	if spec.ServicePort <= 0 || spec.ServicePort > 65535 {
-		return fmt.Errorf("service port must be between 1 and 65535")
+	for _, port := range applicationServicePorts(spec) {
+		if port.Port <= 0 || port.Port > 65535 {
+			return fmt.Errorf("service port must be between 1 and 65535")
+		}
 	}
 	if _, err := resourceRequirements(spec); err != nil {
 		return err
@@ -339,7 +347,7 @@ func (c *Client) applyDeployment(ctx context.Context, spec ApplicationResourcesS
 		Name:            "app",
 		Image:           spec.Image,
 		ImagePullPolicy: applicationImagePullPolicy(spec),
-		Ports:           []corev1.ContainerPort{{ContainerPort: spec.ServicePort}},
+		Ports:           containerPorts(spec),
 		EnvFrom: []corev1.EnvFromSource{
 			{ConfigMapRef: &corev1.ConfigMapEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: spec.Name + "-config"}}},
 			{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: spec.Name + "-secret"}}},
@@ -519,15 +527,67 @@ func (c *Client) waitForPodRunning(ctx context.Context, namespace string, name s
 	})
 }
 
+func applicationServicePorts(spec ApplicationResourcesSpec) []ApplicationServicePort {
+	ports := make([]ApplicationServicePort, 0, len(spec.ServicePorts))
+	seen := map[int32]bool{}
+	seenNames := map[string]int{}
+	for _, item := range spec.ServicePorts {
+		if item.Port <= 0 || item.Port > 65535 || seen[item.Port] {
+			continue
+		}
+		seen[item.Port] = true
+		name := dnsLabel(firstNonEmpty(strings.TrimSpace(item.Name), fmt.Sprintf("port-%d", item.Port)))
+		if name == "" {
+			name = fmt.Sprintf("port-%d", item.Port)
+		}
+		if count := seenNames[name]; count > 0 {
+			suffix := fmt.Sprintf("-%d", count+1)
+			if len(name)+len(suffix) > 63 {
+				name = strings.Trim(name[:63-len(suffix)], "-")
+			}
+			name = fmt.Sprintf("%s%s", name, suffix)
+		}
+		seenNames[name]++
+		ports = append(ports, ApplicationServicePort{Name: name, Port: item.Port})
+	}
+	if len(ports) == 0 {
+		port := spec.ServicePort
+		if port <= 0 {
+			port = 8080
+		}
+		ports = append(ports, ApplicationServicePort{Name: "http", Port: port})
+	}
+	return ports
+}
+
+func containerPorts(spec ApplicationResourcesSpec) []corev1.ContainerPort {
+	ports := applicationServicePorts(spec)
+	result := make([]corev1.ContainerPort, 0, len(ports))
+	for _, item := range ports {
+		result = append(result, corev1.ContainerPort{Name: item.Name, ContainerPort: item.Port})
+	}
+	return result
+}
+
+func servicePorts(spec ApplicationResourcesSpec) []corev1.ServicePort {
+	ports := applicationServicePorts(spec)
+	result := make([]corev1.ServicePort, 0, len(ports))
+	for _, item := range ports {
+		result = append(result, corev1.ServicePort{
+			Name:       item.Name,
+			Port:       item.Port,
+			TargetPort: intstrFromInt32(item.Port),
+		})
+	}
+	return result
+}
+
 func (c *Client) applyService(ctx context.Context, spec ApplicationResourcesSpec, labels map[string]string, selectorLabels map[string]string) error {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: spec.Name, Namespace: spec.Namespace, Labels: labels},
 		Spec: corev1.ServiceSpec{
 			Selector: selectorLabels,
-			Ports: []corev1.ServicePort{{
-				Port:       spec.ServicePort,
-				TargetPort: intstrFromInt32(spec.ServicePort),
-			}},
+			Ports:    servicePorts(spec),
 		},
 	}
 	existing, err := c.client.CoreV1().Services(spec.Namespace).Get(ctx, spec.Name, metav1.GetOptions{})

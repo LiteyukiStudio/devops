@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
@@ -55,11 +56,11 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 		dataMountPath = dataVolumes[0].MountPath
 		dataCapacity = dataVolumes[0].Capacity
 	}
-	servicePort := fallbackInt(input.ServicePort, 8080)
-	if servicePort <= 0 || servicePort > 65535 {
-		writeError(ctx, http.StatusBadRequest, "服务端口必须在 1 到 65535 之间")
+	servicePorts, ok := normalizeDeploymentServicePorts(ctx, input.ServicePorts, input.ServicePort)
+	if !ok {
 		return model.DeploymentTarget{}, false
 	}
+	servicePort := servicePorts[0].Port
 	replicas := input.Replicas
 	if replicas <= 0 {
 		replicas = 1
@@ -140,6 +141,7 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 		CPURequest:           runtimeCPURequest,
 		MemoryRequest:        runtimeMemoryRequest,
 		ServicePort:          servicePort,
+		ServicePorts:         model.EncodeDeploymentServicePorts(servicePorts, servicePort),
 		SourceType:           sourceType,
 		RepositoryBindingID:  repositoryBindingID,
 		DockerfilePath:       fallback(strings.TrimSpace(input.DockerfilePath), "Dockerfile"),
@@ -182,6 +184,63 @@ func normalizeDeploymentSourceType(value string) string {
 	default:
 		return "repository"
 	}
+}
+
+func normalizeDeploymentServicePorts(ctx *gin.Context, input []model.DeploymentServicePort, fallbackPort int) ([]model.DeploymentServicePort, bool) {
+	if len(input) == 0 {
+		input = []model.DeploymentServicePort{{Name: "http", Port: fallbackInt(fallbackPort, 8080)}}
+	}
+	if len(input) > 16 {
+		writeError(ctx, http.StatusBadRequest, "服务端口最多配置 16 个")
+		return nil, false
+	}
+	seenNames := map[string]bool{}
+	seenPorts := map[int]bool{}
+	ports := make([]model.DeploymentServicePort, 0, len(input))
+	for index, item := range input {
+		port := item.Port
+		if port <= 0 || port > 65535 {
+			writeError(ctx, http.StatusBadRequest, "服务端口必须在 1 到 65535 之间")
+			return nil, false
+		}
+		if seenPorts[port] {
+			writeError(ctx, http.StatusBadRequest, "服务端口不能重复")
+			return nil, false
+		}
+		name := normalizeDeploymentServicePortName(item.Name, port, index)
+		if seenNames[name] {
+			writeError(ctx, http.StatusBadRequest, "服务端口名称不能重复")
+			return nil, false
+		}
+		seenPorts[port] = true
+		seenNames[name] = true
+		ports = append(ports, model.DeploymentServicePort{Name: name, Port: port})
+	}
+	return ports, true
+}
+
+func normalizeDeploymentServicePortName(value string, port int, index int) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var builder strings.Builder
+	for _, char := range value {
+		if unicode.IsLetter(char) || unicode.IsDigit(char) || char == '-' {
+			builder.WriteRune(char)
+		} else if char == '_' || unicode.IsSpace(char) {
+			builder.WriteRune('-')
+		}
+	}
+	name := strings.Trim(builder.String(), "-")
+	if name == "" {
+		if index == 0 {
+			name = "http"
+		} else {
+			name = fmt.Sprintf("port-%d", port)
+		}
+	}
+	if len(name) > 63 {
+		name = strings.Trim(name[:63], "-")
+	}
+	return name
 }
 
 func normalizeBuildResourceQuantity(ctx *gin.Context, value string, fallbackValue string, label string) (string, bool) {

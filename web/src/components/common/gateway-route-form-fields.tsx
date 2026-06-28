@@ -14,6 +14,7 @@ export function GatewayRouteFormFields({
   hostField,
   pathField,
   servicePortField,
+  servicePortOptions = [],
   showApplication = false,
   tlsModeField,
 }: {
@@ -25,6 +26,7 @@ export function GatewayRouteFormFields({
   hostField: UseFormRegisterReturn<'host'>
   pathField: UseFormRegisterReturn<'path'>
   servicePortField: UseFormRegisterReturn<'servicePort'>
+  servicePortOptions?: Array<{ label: string, value: number }>
   showApplication?: boolean
   tlsModeField: UseFormRegisterReturn<'tlsMode'>
 }) {
@@ -53,7 +55,12 @@ export function GatewayRouteFormFields({
         <Input {...pathField} />
       </Field>
       <Field label={t('gatewayRoutesPage.servicePort')}>
-        <Input {...servicePortField} type="number" />
+        <Select {...servicePortField}>
+          {servicePortOptions.length === 0 && <option value="">{t('common.select')}</option>}
+          {servicePortOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
       </Field>
       <Field label={t('gatewayRoutesPage.tlsMode')}>
         <Select {...tlsModeField}>

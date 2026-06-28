@@ -439,6 +439,7 @@ export interface DeploymentTarget {
   cpuRequest: string
   memoryRequest: string
   servicePort: number
+  servicePorts: DeploymentServicePort[]
   sourceType: 'repository' | 'image'
   repositoryBindingId: string
   dockerfilePath: string
@@ -478,6 +479,11 @@ export interface DeploymentTarget {
   deleteFinishedAt?: string | null
   createdBy: string
   createdAt: string
+}
+
+export interface DeploymentServicePort {
+  name: string
+  port: number
 }
 
 export interface DeploymentTargetMetrics {

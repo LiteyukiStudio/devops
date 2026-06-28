@@ -40,6 +40,8 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
     id: target.id,
     label: gatewayDeploymentTargetLabel(target, t),
   })), [deploymentTargets, t])
+  const selectedDeploymentTarget = deploymentTargets.find(target => target.id === form.watch('deploymentTargetId')) ?? deploymentTargets[0]
+  const servicePortOptions = selectedDeploymentTarget ? deploymentTargetServicePortOptions(selectedDeploymentTarget) : []
   const saveRoute = useMutation({
     mutationFn: (values: RouteForm) => {
       const target = deploymentTargets.find(item => item.id === values.deploymentTargetId)
@@ -47,7 +49,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
         ...values,
         applicationId,
         environmentId: target?.environmentId ?? values.environmentId,
-        servicePort: values.servicePort || target?.servicePort || 8080,
+        servicePort: Number(values.servicePort) || deploymentTargetPrimaryServicePort(target),
       }
       return editingRoute ? api.updateGatewayRoute(projectId, editingRoute.id, payload) : api.createGatewayRoute(projectId, payload)
     },
@@ -87,7 +89,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
       : deploymentTargets.find(target => target.environmentId === route?.environmentId)
     form.reset(route
       ? { ...route, deploymentTargetId: route.deploymentTargetId || matchedTarget?.id || '', environmentId: matchedTarget?.environmentId ?? route.environmentId }
-      : { ...routeDefaults, applicationId, deploymentTargetId: defaultTarget?.id ?? '', environmentId: defaultTarget?.environmentId ?? '', servicePort: defaultTarget?.servicePort ?? 8080 })
+      : { ...routeDefaults, applicationId, deploymentTargetId: defaultTarget?.id ?? '', environmentId: defaultTarget?.environmentId ?? '', servicePort: deploymentTargetPrimaryServicePort(defaultTarget) })
     setDialogOpen(true)
   }
   useImperativeHandle(ref, () => ({ openCreateDialog: () => openRouteDialog() }))
@@ -97,6 +99,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
         columns={[
           { key: 'host', header: t('gatewayRoutesPage.host'), render: item => <GatewayRouteSummary item={item} /> },
           { key: 'path', header: t('gatewayRoutesPage.path'), render: item => item.path },
+          { key: 'servicePort', header: t('gatewayRoutesPage.targetPort'), className: 'whitespace-nowrap', render: item => item.servicePort || '-' },
           { key: 'tls', header: t('gatewayRoutesPage.tlsMode'), render: item => item.tlsMode },
           { key: 'status', header: t('common.status'), render: item => (
             <div className="flex flex-wrap items-center gap-2">
@@ -138,13 +141,14 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
                 onChange: (event) => {
                   const target = deploymentTargets.find(item => item.id === event.target.value)
                   form.setValue('environmentId', target?.environmentId ?? '', { shouldDirty: true, shouldValidate: true })
-                  form.setValue('servicePort', target?.servicePort ?? 8080, { shouldDirty: true, shouldValidate: true })
+                  form.setValue('servicePort', deploymentTargetPrimaryServicePort(target), { shouldDirty: true, shouldValidate: true })
                 },
               })}
               deploymentTargets={deploymentTargetOptions}
               enabledField={form.register('enabled')}
               hostField={form.register('host')}
               pathField={form.register('path')}
+              servicePortOptions={servicePortOptions}
               servicePortField={form.register('servicePort', { valueAsNumber: true })}
               tlsModeField={form.register('tlsMode')}
             />
@@ -173,4 +177,16 @@ function GatewayRouteSummary({ item }: { item: GatewayRoute }) {
       )}
     </div>
   )
+}
+
+function deploymentTargetPrimaryServicePort(target?: DeploymentTarget) {
+  return target?.servicePorts?.[0]?.port || target?.servicePort || 8080
+}
+
+function deploymentTargetServicePortOptions(target: DeploymentTarget) {
+  const ports = target.servicePorts?.length ? target.servicePorts : [{ name: 'http', port: target.servicePort || 8080 }]
+  return ports.map(item => ({
+    label: item.name ? `${item.name} · ${item.port}` : String(item.port),
+    value: item.port,
+  }))
 }

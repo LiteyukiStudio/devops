@@ -16,6 +16,7 @@ export const deploymentTargetDefaults: DeploymentTargetPayload = {
   cpuRequest: '1',
   memoryRequest: '1Gi',
   servicePort: 8080,
+  servicePorts: [{ name: 'http', port: 8080 }],
   sourceType: 'repository',
   repositoryBindingId: '',
   dockerfilePath: 'Dockerfile',
@@ -128,6 +129,7 @@ export function deploymentTargetRuntimeChanged(current: DeploymentTarget, next: 
     'memoryRequest',
     'stage',
     'servicePort',
+    'servicePorts',
     'sourceType',
     'runtimeConfigSetIds',
     'envVars',
@@ -160,6 +162,7 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     : []
   const primaryDataVolume = dataVolumes[0]
   const sourceType = values.sourceType === 'image' ? 'image' : 'repository'
+  const servicePorts = normalizeDeploymentServicePorts(values.servicePorts, values.servicePort)
   return {
     ...values,
     sourceType,
@@ -169,7 +172,8 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     cpuRequest: values.cpuRequest || '1',
     memoryRequest: values.memoryRequest || '1Gi',
     stage: normalizeDeploymentStage(values.stage),
-    servicePort: normalizePositiveInteger(values.servicePort, 8080),
+    servicePorts,
+    servicePort: servicePorts[0]?.port ?? 8080,
     enabled,
     autoDeploy,
     requireApproval,
@@ -214,8 +218,28 @@ export function applyDockerfileBuildDefaults(form: UseFormReturn<DeploymentTarge
   form.setValue('buildContext', buildContext, { shouldDirty: true, shouldValidate: true })
   form.setValue('buildDirectory', buildContext === '.' ? '' : buildContext, { shouldDirty: true, shouldValidate: true })
   const detectedPort = exposedPorts[normalizedDockerfile]?.find(port => Number.isInteger(port) && port > 0 && port <= 65535)
-  if (detectedPort)
+  if (detectedPort) {
     form.setValue('servicePort', detectedPort, { shouldDirty: true, shouldValidate: true })
+    form.setValue('servicePorts', [{ name: 'http', port: detectedPort }], { shouldDirty: true, shouldValidate: true })
+  }
+}
+
+export function normalizeDeploymentServicePorts(value: unknown, fallbackPort = 8080) {
+  const input = Array.isArray(value) ? value : []
+  const seen = new Set<number>()
+  const ports = input
+    .map((item, index) => {
+      const port = normalizePositiveInteger(Number((item as { port?: unknown })?.port), index === 0 ? fallbackPort : 0)
+      const name = String((item as { name?: unknown })?.name ?? '').trim() || (index === 0 ? 'http' : `port-${port}`)
+      return { name, port }
+    })
+    .filter((item) => {
+      if (item.port <= 0 || item.port > 65535 || seen.has(item.port))
+        return false
+      seen.add(item.port)
+      return true
+    })
+  return ports.length > 0 ? ports : [{ name: 'http', port: normalizePositiveInteger(fallbackPort, 8080) }]
 }
 
 export function normalizeBoolean(value: unknown, fallback: boolean) {

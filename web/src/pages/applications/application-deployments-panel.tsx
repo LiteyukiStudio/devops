@@ -3,7 +3,7 @@ import type { ArtifactRegistry, BuildRun, DeploymentTarget, DeploymentTargetPayl
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { FileCode2, Pencil, Plus, Rocket, Save, Trash2 } from 'lucide-react'
+import { FileCode2, Pencil, Plus, Rocket, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -274,6 +274,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
       buildHooksEnabled: target?.buildHooksEnabled ?? true,
       buildHookBindings: target?.buildHookBindings ?? [],
       servicePort: target?.servicePort ?? 8080,
+      servicePorts: target?.servicePorts?.length ? target.servicePorts : [{ name: 'http', port: target?.servicePort ?? 8080 }],
       buildVariableSetIds: normalizeStringIds(target?.buildVariableSetIds),
       runtimeConfigSetIds: normalizeStringIds(target?.runtimeConfigSetIds),
       secretRefs: '',
@@ -304,6 +305,14 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   }
   const updateTargetDataVolumes = (rows: typeof targetDataVolumes) => {
     targetForm.setValue('dataVolumes', serializeRuntimeDataVolumes(rows), { shouldDirty: true, shouldValidate: true })
+  }
+  const targetServicePorts = targetForm.watch('servicePorts')?.length
+    ? targetForm.watch('servicePorts')
+    : [{ name: 'http', port: targetForm.watch('servicePort') || 8080 }]
+  const updateTargetServicePorts = (rows: DeploymentTargetPayload['servicePorts']) => {
+    const nextRows = rows.length > 0 ? rows : [{ name: 'http', port: 8080 }]
+    targetForm.setValue('servicePorts', nextRows, { shouldDirty: true, shouldValidate: true })
+    targetForm.setValue('servicePort', nextRows[0]?.port || 8080, { shouldDirty: true, shouldValidate: true })
   }
   const openRuntimeConfigDialog = (set?: ProjectRuntimeConfigSet) => {
     setEditingRuntimeConfigSet(set ?? null)
@@ -610,9 +619,50 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                     <option value="false">{t('common.disabled')}</option>
                   </Select>
                 </Field>
-                <Field hint={t('deploymentsPage.servicePortHint')} label={t('deploymentsPage.servicePort')} required>
-                  <Input {...targetForm.register('servicePort', { valueAsNumber: true })} min={1} max={65535} type="number" />
-                </Field>
+                <div className="grid gap-2 md:col-span-2">
+                  <Field hint={t('deploymentsPage.servicePortsHint')} label={t('deploymentsPage.servicePorts')} required>
+                    <div className="grid gap-2">
+                      {targetServicePorts.map((item, index) => (
+                        <div key={`service-port-${index}`} className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
+                          <Input
+                            aria-label={t('deploymentsPage.servicePortName')}
+                            placeholder={index === 0 ? 'http' : 'metrics'}
+                            value={item.name}
+                            onChange={event => updateTargetServicePorts(targetServicePorts.map((row, rowIndex) => rowIndex === index ? { ...row, name: event.target.value } : row))}
+                          />
+                          <Input
+                            aria-label={t('deploymentsPage.servicePortNumber')}
+                            max={65535}
+                            min={1}
+                            type="number"
+                            value={item.port}
+                            onChange={event => updateTargetServicePorts(targetServicePorts.map((row, rowIndex) => rowIndex === index ? { ...row, port: Number(event.target.value) } : row))}
+                          />
+                          <Button
+                            aria-label={t('common.delete')}
+                            disabled={targetServicePorts.length <= 1}
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                            onClick={() => updateTargetServicePorts(targetServicePorts.filter((_, rowIndex) => rowIndex !== index))}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        className="w-fit"
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                        onClick={() => updateTargetServicePorts([...targetServicePorts, { name: `port-${targetServicePorts.length + 1}`, port: 9001 }])}
+                      >
+                        <Plus className="size-4" />
+                        {t('deploymentsPage.addServicePort')}
+                      </Button>
+                    </div>
+                  </Field>
+                </div>
                 <div className="grid gap-3 md:col-span-2">
                   <div className="grid gap-3 md:grid-cols-3">
                     <Field label={t('deploymentsPage.replicas')} required>

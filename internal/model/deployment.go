@@ -1,6 +1,8 @@
 package model
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -83,6 +85,7 @@ type DeploymentTarget struct {
 	CPURequest           string                        `gorm:"not null;default:'1'" json:"cpuRequest"`
 	MemoryRequest        string                        `gorm:"not null;default:'1Gi'" json:"memoryRequest"`
 	ServicePort          int                           `gorm:"not null;default:8080" json:"servicePort"`
+	ServicePorts         string                        `gorm:"type:text;not null;default:''" json:"servicePorts"`
 	DeleteStatus         string                        `gorm:"index;not null;default:active" json:"deleteStatus"`
 	DeleteMessage        string                        `gorm:"type:text;not null;default:''" json:"deleteMessage"`
 	DeleteStartedAt      *time.Time                    `json:"deleteStartedAt"`
@@ -123,6 +126,56 @@ type DeploymentTarget struct {
 	CreatedAt            time.Time                     `json:"createdAt"`
 	UpdatedAt            time.Time                     `json:"updatedAt"`
 	DeletedAt            gorm.DeletedAt                `gorm:"index" json:"-"`
+}
+
+type DeploymentServicePort struct {
+	Name string `json:"name"`
+	Port int    `json:"port"`
+}
+
+func DeploymentTargetServicePorts(target DeploymentTarget) []DeploymentServicePort {
+	return DeploymentServicePortsFromJSON(target.ServicePorts, target.ServicePort)
+}
+
+func DeploymentServicePortsFromJSON(raw string, fallbackPort int) []DeploymentServicePort {
+	var ports []DeploymentServicePort
+	if strings.TrimSpace(raw) != "" {
+		_ = json.Unmarshal([]byte(raw), &ports)
+	}
+	return NormalizeDeploymentServicePorts(ports, fallbackPort)
+}
+
+func EncodeDeploymentServicePorts(ports []DeploymentServicePort, fallbackPort int) string {
+	normalized := NormalizeDeploymentServicePorts(ports, fallbackPort)
+	data, err := json.Marshal(normalized)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func NormalizeDeploymentServicePorts(ports []DeploymentServicePort, fallbackPort int) []DeploymentServicePort {
+	if fallbackPort <= 0 {
+		fallbackPort = 8080
+	}
+	seen := map[int]bool{}
+	normalized := make([]DeploymentServicePort, 0, len(ports))
+	for _, item := range ports {
+		port := item.Port
+		if port <= 0 || port > 65535 || seen[port] {
+			continue
+		}
+		seen[port] = true
+		name := strings.TrimSpace(item.Name)
+		if name == "" {
+			name = "port"
+		}
+		normalized = append(normalized, DeploymentServicePort{Name: name, Port: port})
+	}
+	if len(normalized) == 0 {
+		return []DeploymentServicePort{{Name: "http", Port: fallbackPort}}
+	}
+	return normalized
 }
 
 type ProjectRuntimeConfigSet struct {
