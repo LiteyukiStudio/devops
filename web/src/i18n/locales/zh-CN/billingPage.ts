@@ -72,8 +72,8 @@ const billingPage = {
   },
   reasons: {
     'build.usage': '构建用量',
-    'runtime.usage': '运行用量',
-    'storage.usage': '存储用量',
+    'runtime.usage': '运行',
+    'storage.usage': '储存',
     'gateway.usage': '访问流量',
     'billing.recharge': '手动充值',
     'billing.adjustment': '手动补偿',

@@ -72,8 +72,8 @@ const billingPage = {
   },
   reasons: {
     'build.usage': 'Build usage',
-    'runtime.usage': 'Runtime usage',
-    'storage.usage': 'Storage usage',
+    'runtime.usage': 'Runtime',
+    'storage.usage': 'Storage',
     'gateway.usage': 'Gateway traffic',
     'billing.recharge': 'Manual recharge',
     'billing.adjustment': 'Manual compensation',
