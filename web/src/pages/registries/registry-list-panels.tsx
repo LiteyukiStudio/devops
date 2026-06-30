@@ -109,10 +109,11 @@ interface CredentialsPanelProps {
   items: CredentialWithRegistry[]
   selectedRegistryId: string
   pagination: PageState<CredentialWithRegistry>
+  onEdit: (credential: CredentialWithRegistry) => void
   onDelete: (credential: CredentialWithRegistry) => void
 }
 
-export function CredentialsPanel({ items, selectedRegistryId, pagination, onDelete }: CredentialsPanelProps) {
+export function CredentialsPanel({ items, selectedRegistryId, pagination, onDelete, onEdit }: CredentialsPanelProps) {
   const { t } = useTranslation()
 
   return (
@@ -157,9 +158,12 @@ export function CredentialsPanel({ items, selectedRegistryId, pagination, onDele
           header: t('common.actions'),
           className: 'text-right whitespace-nowrap',
           render: credential => (
-            <Button aria-label={t('registriesPage.deleteCredentialAria')} variant="ghost" onClick={() => onDelete(credential)}>
-              <Trash2 size={16} />
-            </Button>
+            <div className="flex justify-end gap-2">
+              <EditActionButton type="button" label={t('edit')} onClick={() => onEdit(credential)} />
+              <Button aria-label={t('registriesPage.deleteCredentialAria')} variant="ghost" onClick={() => onDelete(credential)}>
+                <Trash2 size={16} />
+              </Button>
+            </div>
           ),
         },
       ]}

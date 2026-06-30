@@ -31,9 +31,6 @@ export const credentialSchema = z.object({
   accessScope: z.enum(['personal', 'registry']),
   repositoryTemplate: z.string().min(1, i18next.t('registriesPage.repositoryTemplateRequired')),
   tagTemplate: z.string().min(1, i18next.t('registriesPage.tagTemplateRequired')),
-}).refine(values => values.password.trim() !== '' || values.token.trim() !== '', {
-  message: i18next.t('registriesPage.passwordOrTokenRequired'),
-  path: ['password'],
 })
 
 export const imageSchema = z.object({

@@ -21,6 +21,7 @@ export function RegistriesPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [editingRegistry, setEditingRegistry] = useState<ArtifactRegistry | null>(null)
+  const [editingCredential, setEditingCredential] = useState<CredentialWithRegistry | null>(null)
   const [registryToDelete, setRegistryToDelete] = useState<ArtifactRegistry | null>(null)
   const [credentialToDelete, setCredentialToDelete] = useState<RegistryCredential | null>(null)
   const [selectedRegistryId, setSelectedRegistryId] = useState('')
@@ -135,17 +136,21 @@ export function RegistriesPage() {
     onError: error => toast.error(error.message),
   })
 
-  const createCredential = useMutation({
+  const saveCredential = useMutation({
     mutationFn: (values: CredentialForm) => {
       const registry = (registryOptions.data ?? []).find(item => item.id === values.registryId)
-      return api.createRegistryCredential(values.registryId, {
+      const payload = {
         ...values,
         accessScope: registry?.scope === 'global' ? 'personal' : values.accessScope,
-      })
+      }
+      if (editingCredential)
+        return api.updateRegistryCredential(values.registryId, editingCredential.id, payload)
+      return api.createRegistryCredential(values.registryId, payload)
     },
     onSuccess: (_, values) => {
       toast.success(t('registriesPage.credentialSaved'))
       setCredentialDialogOpen(false)
+      setEditingCredential(null)
       setSelectedRegistryId(values.registryId)
       credentialForm.reset({ ...credentialDefaults, registryId: values.registryId })
       queryClient.invalidateQueries({ queryKey: ['registry-credentials', values.registryId] })
@@ -214,6 +219,23 @@ export function RegistriesPage() {
     setRegistryDialogOpen(true)
   }
 
+  const beginEditCredential = (credential: CredentialWithRegistry) => {
+    setEditingCredential(credential)
+    setSelectedRegistryId(credential.registryId)
+    credentialForm.reset({
+      accessScope: credential.accessScope,
+      registryId: credential.registryId,
+      name: credential.name,
+      username: credential.username,
+      password: '',
+      token: '',
+      scope: credential.scope,
+      repositoryTemplate: credential.repositoryTemplate,
+      tagTemplate: credential.tagTemplate,
+    })
+    setCredentialDialogOpen(true)
+  }
+
   const selectedRegistry = (registryOptions.data ?? registryItems).find(registry => registry.id === selectedRegistryId)
   const visibleCredentials: CredentialWithRegistry[] = selectedRegistryId
     ? (credentials.data?.items ?? []).map(credential => ({ ...credential, registryName: selectedRegistry?.name ?? '' }))
@@ -259,6 +281,8 @@ export function RegistriesPage() {
                 <Button
                   className="shrink-0 whitespace-nowrap"
                   onClick={() => {
+                    setEditingCredential(null)
+                    credentialForm.reset({ ...credentialDefaults, registryId: selectedRegistryId })
                     credentialForm.setValue('registryId', selectedRegistryId, { shouldValidate: true })
                     credentialForm.setValue('accessScope', 'personal', { shouldValidate: true })
                     setCredentialDialogOpen(true)
@@ -341,6 +365,7 @@ export function RegistriesPage() {
                   onPageSizeChange: setCredentialPageSize,
                 }}
             onDelete={setCredentialToDelete}
+            onEdit={beginEditCredential}
           />
         </TabsContent>
 
@@ -379,13 +404,18 @@ export function RegistriesPage() {
 
       <CredentialDialog
         open={credentialDialogOpen}
+        editingCredential={editingCredential}
         form={credentialForm}
-        pending={createCredential.isPending}
+        pending={saveCredential.isPending}
         registries={registryOptions.data ?? registryItems}
         selectedRegistryId={selectedRegistryId}
-        onOpenChange={setCredentialDialogOpen}
+        onOpenChange={(open) => {
+          setCredentialDialogOpen(open)
+          if (!open)
+            setEditingCredential(null)
+        }}
         onRegistryChange={setSelectedRegistryId}
-        onSubmit={values => createCredential.mutate(values)}
+        onSubmit={values => saveCredential.mutate(values)}
       />
 
       <ImageDialog

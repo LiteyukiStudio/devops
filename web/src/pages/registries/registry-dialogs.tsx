@@ -1,6 +1,6 @@
 import type { UseFormReturn } from 'react-hook-form'
 import type { CredentialForm, ImageForm, RegistryForm } from './registry-form-model'
-import type { ArtifactRegistry, Project, RegistryRepositoryItem, RegistryTagItem } from '@/api'
+import type { ArtifactRegistry, Project, RegistryCredential, RegistryRepositoryItem, RegistryTagItem } from '@/api'
 import { Container, KeyRound, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CheckboxField } from '@/components/common/checkbox-field'
@@ -92,6 +92,7 @@ export function RegistryDialog({ open, editingRegistry, form, projects, pending,
 
 interface CredentialDialogProps {
   open: boolean
+  editingCredential: RegistryCredential | null
   form: UseFormReturn<CredentialForm>
   registries: ArtifactRegistry[]
   selectedRegistryId: string
@@ -101,10 +102,12 @@ interface CredentialDialogProps {
   onSubmit: (values: CredentialForm) => void
 }
 
-export function CredentialDialog({ open, form, registries, selectedRegistryId, pending, onOpenChange, onRegistryChange, onSubmit }: CredentialDialogProps) {
+export function CredentialDialog({ editingCredential, open, form, registries, selectedRegistryId, pending, onOpenChange, onRegistryChange, onSubmit }: CredentialDialogProps) {
   const { t } = useTranslation()
   const credentialRegistry = registries.find(registry => registry.id === form.watch('registryId'))
   const credentialRegistryIsGlobal = credentialRegistry?.scope === 'global'
+  const secretProvided = (form.watch('password') ?? '').trim() !== '' || (form.watch('token') ?? '').trim() !== ''
+  const secretRequired = !editingCredential
 
   return (
     <Dialog
@@ -117,14 +120,15 @@ export function CredentialDialog({ open, form, registries, selectedRegistryId, p
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('registriesPage.createCredentialTitle')}</DialogTitle>
-          <DialogDescription>{t('registriesPage.credentialRegistryHint')}</DialogDescription>
+          <DialogTitle>{editingCredential ? t('registriesPage.editCredentialTitle') : t('registriesPage.createCredentialTitle')}</DialogTitle>
+          <DialogDescription>{editingCredential ? t('registriesPage.editCredentialDescription') : t('registriesPage.credentialRegistryHint')}</DialogDescription>
         </DialogHeader>
         <form className="grid gap-3" onSubmit={form.handleSubmit(onSubmit)}>
           <Field error={form.formState.errors.registryId?.message} hint={t('registriesPage.credentialRegistryHint')} label={t('registries')} required>
             <Select
               {...form.register('registryId')}
               aria-invalid={Boolean(form.formState.errors.registryId)}
+              disabled={Boolean(editingCredential)}
               onChange={(event) => {
                 form.setValue('registryId', event.target.value, { shouldValidate: true })
                 const registry = registries.find(item => item.id === event.target.value)
@@ -169,15 +173,15 @@ export function CredentialDialog({ open, form, registries, selectedRegistryId, p
             <Input {...form.register('username')} aria-invalid={Boolean(form.formState.errors.username)} />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field error={form.formState.errors.password?.message} hint={t('registriesPage.passwordHint')} label={t('registriesPage.password')}>
+            <Field error={form.formState.errors.password?.message} hint={editingCredential ? t('registriesPage.passwordEditHint') : t('registriesPage.passwordHint')} label={t('registriesPage.password')}>
               <Input {...form.register('password')} aria-invalid={Boolean(form.formState.errors.password)} type="password" />
             </Field>
-            <Field error={form.formState.errors.token?.message} hint={t('registriesPage.tokenHint')} label={t('registriesPage.token')}>
+            <Field error={form.formState.errors.token?.message} hint={editingCredential ? t('registriesPage.tokenEditHint') : t('registriesPage.tokenHint')} label={t('registriesPage.token')}>
               <Input {...form.register('token')} aria-invalid={Boolean(form.formState.errors.token)} type="password" />
             </Field>
           </div>
           <DialogFooter>
-            <Button disabled={pending || !form.formState.isValid} type="submit">
+            <Button disabled={pending || !form.formState.isValid || (secretRequired && !secretProvided)} type="submit">
               <KeyRound size={16} />
               {t('registriesPage.saveCredential')}
             </Button>

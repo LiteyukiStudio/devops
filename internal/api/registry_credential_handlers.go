@@ -125,6 +125,80 @@ func (h *Handlers) CreateRegistryCredential(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, credentialResponse(credential))
 }
 
+func (h *Handlers) UpdateRegistryCredential(ctx *gin.Context) {
+	user, registry, ok := h.registryForCurrentUser(ctx)
+	if !ok {
+		return
+	}
+
+	var credential model.RegistryCredential
+	if err := h.db.First(&credential, "id = ? and registry_id = ?", ctx.Param("credentialId"), registry.ID).Error; err != nil {
+		writeError(ctx, http.StatusNotFound, "registry credential not found")
+		return
+	}
+	if !h.canManageRegistryCredential(ctx, user, registry, credential) {
+		return
+	}
+
+	var input registryCredentialInput
+	if !bindJSON(ctx, &input) {
+		return
+	}
+	if strings.TrimSpace(input.Password) != "" || strings.TrimSpace(input.Token) != "" {
+		if err := secret.ValidateEncryptionConfig(); err != nil {
+			status := http.StatusInternalServerError
+			message := err.Error()
+			if errors.Is(err, secret.ErrMissingEncryptionKey) {
+				message = "SECRET_ENCRYPTION_KEY is required to save registry credentials in production"
+			}
+			writeError(ctx, status, message)
+			return
+		}
+	}
+
+	accessScope := normalizeCredentialAccessScope(input.AccessScope)
+	if accessScope == "registry" {
+		if registry.Scope == "global" {
+			writeError(ctx, http.StatusBadRequest, "全局镜像站凭据只能设为个人使用")
+			return
+		}
+		if !h.canManageRegistry(ctx, user, registry) {
+			return
+		}
+	} else if credential.CreatedBy != user.ID && registry.Scope != "global" && !h.canManageRegistryCredentials(ctx, user, registry) {
+		return
+	}
+
+	passwordRef := credential.PasswordRef
+	if strings.TrimSpace(input.Password) != "" {
+		passwordRef = h.secrets.Store(input.Password, user.ID, "registry_credential:"+registry.ID+":password")
+	}
+	tokenRef := credential.TokenRef
+	if strings.TrimSpace(input.Token) != "" {
+		tokenRef = h.secrets.Store(input.Token, user.ID, "registry_credential:"+registry.ID+":token")
+	}
+	if passwordRef == "" && tokenRef == "" {
+		writeError(ctx, http.StatusBadRequest, "请填写 Registry 密码或 Token")
+		return
+	}
+
+	credential.Name = fallback(strings.TrimSpace(input.Name), "default")
+	credential.Username = strings.TrimSpace(input.Username)
+	credential.PasswordRef = passwordRef
+	credential.TokenRef = tokenRef
+	credential.Scope = normalizeCredentialScope(input.Scope)
+	credential.AccessScope = accessScope
+	credential.RepositoryTemplate = normalizeImageRepositoryTemplate(input.RepositoryTemplate)
+	credential.TagTemplate = normalizeImageTagTemplate(input.TagTemplate)
+
+	if err := h.db.Save(&credential).Error; err != nil {
+		writeError(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.audit(user.ID, "registry_credential.update", credential.ID, true, credential.AccessScope)
+	ctx.JSON(http.StatusOK, credentialResponse(credential))
+}
+
 func (h *Handlers) DeleteRegistryCredential(ctx *gin.Context) {
 	user, registry, ok := h.registryForCurrentUser(ctx)
 	if !ok {

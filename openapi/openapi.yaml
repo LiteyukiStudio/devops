@@ -564,6 +564,25 @@ paths:
           description: Created registry credential.
 
   /api/v1/registries/{registryId}/credentials/{credentialId}:
+    put:
+      tags: [Registries]
+      summary: Update registry credential
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+        - $ref: "#/components/parameters/CredentialId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistryCredentialInput"
+      responses:
+        "200":
+          description: Updated registry credential.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistryCredential"
     delete:
       tags: [Registries]
       summary: Delete registry credential

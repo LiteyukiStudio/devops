@@ -22,6 +22,8 @@ An application is a deployable service. One repository can map to multiple appli
 
 The application stores basic service information. Build source, image, environment variables, and release policy live in deployment targets.
 
+The application overview summarizes runtime specs by deployment target, including replicas, CPU, memory, and enabled data volume capacity, so teams can quickly inspect application resource usage.
+
 ## Deployment targets
 
 A deployment target answers how an application should ship:

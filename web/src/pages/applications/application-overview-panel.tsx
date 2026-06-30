@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { ReactNode } from 'react'
 import type { Application, BuildRun, DeploymentTarget, GatewayRoute, Release } from '@/api'
-import { Activity, Globe2, Package, Rocket } from 'lucide-react'
+import { Activity, Database, Globe2, Package, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApplicationIcon } from '@/components/common/application-icon-picker'
 import { buildRunImageRef } from '@/components/common/deployment-build-runs'
@@ -9,7 +9,9 @@ import { EmptyState } from '@/components/common/empty-state'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
 import { Card } from '@/components/ui/card'
+import { parseRuntimeDataVolumes } from '@/lib/runtime-data-volumes'
 import { formatReleaseTime } from './application-config-utils'
+import { formatTargetRuntimeSize } from './application-deployments-panel-utils'
 
 export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, releases, routes }: {
   app?: Application
@@ -116,20 +118,20 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, re
       <Card className="min-w-0 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold">{t('apps.deploymentTargetEntries')}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{t('apps.deploymentTargetEntriesDescription')}</p>
+            <h3 className="text-base font-semibold">{t('apps.deploymentSummaries')}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t('apps.deploymentSummariesDescription')}</p>
           </div>
           <Package className="size-5 shrink-0 text-muted-foreground" />
         </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">
           {deploymentTargets.length
-            ? deploymentTargets.slice(0, 6).map(target => (
-                <div key={target.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
-                  <span className="min-w-0 truncate" title={target.name}>{target.name}</span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <StatusValueBadge value={target.enabled ? 'enabled' : 'disabled'} />
-                  </div>
-                </div>
+            ? deploymentTargets.map(target => (
+                <DeploymentSummary
+                  key={target.id}
+                  latestRelease={latestReleaseForTarget(releases, target)}
+                  target={target}
+                  t={t}
+                />
               ))
             : <EmptyState description={t('apps.emptyBuildConfigs')} title={t('apps.emptyBuildConfigs')} variant="plain" />}
         </div>
@@ -185,6 +187,75 @@ function OverviewItem({ icon, label, value }: { icon?: string, label: string, va
       </div>
     </div>
   )
+}
+
+function DeploymentSummary({ latestRelease, target, t }: { latestRelease?: Release, target: DeploymentTarget, t: TFunction }) {
+  const storageItems = target.dataRetentionEnabled ? deploymentStorageItems(target) : []
+
+  return (
+    <div className="grid min-w-0 gap-3 rounded-md border border-border px-3 py-3 text-sm">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate font-medium" title={target.name}>{target.name}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>{t(`deploymentsPage.stageLabels.${target.stage}`, { defaultValue: target.stage })}</span>
+            <span>{formatTargetRuntimeSize(target, t)}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <StatusValueBadge value={target.enabled ? 'enabled' : 'disabled'} />
+          {latestRelease
+            ? <StatusValueBadge labelKeyPrefix="buildsPage.statuses" value={latestRelease.status} />
+            : <StatusValueBadge label={t('deploymentsPage.notDeployed')} value="pending" />}
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <DeploymentResourceItem label={t('deploymentsPage.replicas')} value={String(target.replicas || 1)} />
+        <DeploymentResourceItem label={t('deploymentsPage.cpuRequest')} value={target.cpuRequest || '1'} />
+        <DeploymentResourceItem label={t('deploymentsPage.memoryRequest')} value={target.memoryRequest || '1Gi'} />
+      </div>
+      {storageItems.length > 0 && (
+        <div className="grid gap-2 rounded-md bg-muted/40 p-2">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Database className="size-3.5" />
+            {t('apps.storageResources')}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {storageItems.map(item => (
+              <span key={`${item.name}-${item.mountPath}`} className="min-w-0 max-w-full truncate rounded bg-background px-2 py-1 text-xs text-foreground" title={item.label}>
+                {item.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DeploymentResourceItem({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-muted/40 px-2 py-1.5">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-0.5 truncate font-medium tabular-nums" title={value}>{value}</div>
+    </div>
+  )
+}
+
+function deploymentStorageItems(target: DeploymentTarget) {
+  return parseRuntimeDataVolumes(target.dataVolumes, target.dataMountPath || '/data', target.dataCapacity || '1Gi')
+    .map((volume) => {
+      const name = volume.name.trim()
+      const mountPath = volume.mountPath.trim()
+      const capacity = volume.capacity.trim() || target.dataCapacity || '1Gi'
+      const labelPrefix = [name, mountPath].filter(Boolean).join(' · ')
+      return {
+        name,
+        mountPath,
+        label: labelPrefix ? `${labelPrefix}: ${capacity}` : capacity,
+      }
+    })
+    .filter(item => item.label.trim())
 }
 
 function latestByDate<T>(items: T[], dateOf: (item: T) => string | undefined) {
