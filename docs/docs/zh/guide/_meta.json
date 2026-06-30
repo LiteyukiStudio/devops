@@ -6,6 +6,11 @@
   },
   {
     "type": "file",
+    "name": "helm-deployment",
+    "label": "Helm 部署"
+  },
+  {
+    "type": "file",
     "name": "product",
     "label": "初始化控制台"
   },

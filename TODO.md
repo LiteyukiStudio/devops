@@ -138,6 +138,7 @@
 - [x] 拆分开发依赖和完整部署的 compose 边界：开发依赖使用独立项目名并暴露 PG/Redis，完整部署的 PG/Redis 仅走容器内网络，避免端口和容器项目名冲突。
 - [x] 明确本地开发拓扑：前端、API、worker 优先在宿主机运行，PG/Redis 由 dev compose 提供；构建联调使用部署配置所选运行集群的 Kubernetes Job。
 - [x] 将 compose 场景收敛为三份：`docker-compose-dev.yaml` 启动 PG/Redis/worker 用于开发联调，`docker-compose.yaml` 使用 DockerHub 镜像启动完整部署栈，`docker-compose-build.yaml` 从当前源码构建完整部署栈。
+- [x] 新增 Helm Chart：支持一键在 Kubernetes / K3s 中部署 API、worker、PostgreSQL 和 Redis，并支持切换外部数据库、外部 Redis、Ingress 和固定镜像版本。
 - [x] 环境文件按运行边界拆分：`.env` 只保留基础模式开关，`.env.development` 面向宿主机进程，`.env.worker` 面向 worker 容器，并提供对应 `.example` 模板。
 - [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 继续使用 `.env.worker` 服务开发联调。
 - [x] 新增 GitHub Actions 容器发布工作流：仅构建 `linux/amd64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；分支发布 `nightly`，`v*` tag 发布版本 tag，稳定版本 tag 额外发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
@@ -617,6 +618,7 @@
 - [x] 部署 Worker 对引用本地证书文件的 kubeconfig 返回友好错误，提示重新保存已内联证书的 kubeconfig。
 - [x] 本地 minikube 联调统一预留 `dev.minikube.local` 域名，compose 容器内解析到宿主机网关，kubeconfig 使用 flatten 后的内联证书。
 - [x] 实现 Deployment/Service/ConfigMap/Secret apply。
+- [ ] 讨论并设计多工作负载形态：部署配置增加 `workloadType` 后支持 `Deployment` / `StatefulSet`，评估 `DaemonSet` 是否仅作为平台探针/集群插件能力提供；方案需覆盖发布渲染、Service/headless Service、PVC/volumeClaimTemplates、rollout 状态、重启、删除清理、Web Console、集群资源聚合和计费归属。
 - [x] 简化应用侧存储体验：部署配置只暴露运行数据保留、多个容器内数据卷、容量调整和数据导出，底层 PVC 由平台托管且不向普通用户展示。
 - [x] 部署配置运行配置区支持就地新建和编辑项目空间公共配置；新建后自动加入当前部署配置选择，编辑公共配置后后端返回受影响部署配置数量，前端提示需重新部署并支持对当前应用受影响资源一键重新部署。
 - [x] 修复部署配置与公共配置编辑弹窗保存按钮被 React Hook Form 初始校验状态误禁用的问题；保存按钮只按文件路径校验和提交状态禁用，必填字段仍由表单提交校验兜底。

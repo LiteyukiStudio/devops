@@ -168,6 +168,7 @@ docker compose -f docker-compose-dev.yaml up -d --build
 | `docker-compose-dev.yaml` | 启动 PostgreSQL / Redis / worker | `5432`, `6379` | 默认开发联调，Vite 和 API 在宿主机跑 |
 | `docker-compose.yaml` | 使用 DockerHub 镜像启动完整平台部署栈 | `8088` | 完整部署验收 / RC 镜像验证 |
 | `docker-compose-build.yaml` | 从当前源码构建并启动完整平台部署栈 | `8088` | 本地镜像构建验证 |
+| `charts/liteyuki-devops` | 使用 Helm 部署 API / worker / PostgreSQL / Redis | Service / Ingress | Kubernetes / K3s 集群内一键部署 |
 
 常用命令：
 
@@ -180,6 +181,11 @@ docker compose up -d
 
 # 从当前源码构建完整平台
 docker compose -f docker-compose-build.yaml up -d --build
+
+# 使用 Helm 部署到 Kubernetes / K3s
+helm install liteyuki-devops ./charts/liteyuki-devops \
+  --namespace liteyuki-devops \
+  --create-namespace
 ```
 
 开发 compose 使用独立项目名 `liteyuki-devops-dev`，会占用宿主机 `5432` / `6379`。完整部署栈的 PostgreSQL / Redis 只在容器网络内访问，不占用宿主机数据库和缓存端口。

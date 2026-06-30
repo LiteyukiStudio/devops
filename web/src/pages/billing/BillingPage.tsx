@@ -262,7 +262,7 @@ export function BillingPage() {
       key: 'reason',
       header: t('billingPage.reason'),
       className: 'min-w-40',
-      render: item => t(`billingPage.reasons.${item.reason}`, { defaultValue: item.reason || '-' }),
+      render: item => ledgerReasonLabel(item, t),
     },
     {
       key: 'resource',
@@ -657,6 +657,13 @@ function ResourceCell({ resourceId, resourceType }: { resourceId: string, resour
       <span className="block truncate text-xs text-muted-foreground">{resourceId || '-'}</span>
     </span>
   )
+}
+
+function ledgerReasonLabel(item: BillingLedgerEntry, t: ReturnType<typeof useTranslation>['t']) {
+  if (item.reason.endsWith('.usage') && item.meter)
+    return t(`billingPage.meters.${item.meter}`, { defaultValue: item.meter })
+
+  return t(`billingPage.reasons.${item.reason}`, { defaultValue: item.reason || '-' })
 }
 
 function formatQuantity(value: string, unit: string, locale: string) {

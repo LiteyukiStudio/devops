@@ -1,6 +1,6 @@
 # 部署平台
 
-这一页只做一件事：用 Docker Compose 把 Liteyuki DevOps 跑起来，然后打开控制台。
+这一页只做一件事：用 Docker Compose 把 Liteyuki DevOps 跑起来，然后打开控制台。如果你想直接部署到 Kubernetes，看 [Helm 部署](/guide/helm-deployment)。
 
 ## 准备环境
 

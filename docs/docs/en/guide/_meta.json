@@ -6,6 +6,11 @@
   },
   {
     "type": "file",
+    "name": "helm-deployment",
+    "label": "Helm Deployment"
+  },
+  {
+    "type": "file",
     "name": "product",
     "label": "Initialize Console"
   },

@@ -1,6 +1,6 @@
 # Deploy the Platform
 
-This page does one thing: start Liteyuki DevOps with Docker Compose and open the console.
+This page does one thing: start Liteyuki DevOps with Docker Compose and open the console. If you want to deploy directly to Kubernetes, see [Helm Deployment](/en/guide/helm-deployment).
 
 ## Prepare
 
