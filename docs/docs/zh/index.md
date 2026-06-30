@@ -9,7 +9,7 @@ hero:
   actions:
     - theme: brand
       text: 快速开始
-      link: /guide/getting-started
+      link: /guide/deployment/kubernetes-helm
     - theme: alt
       text: 部署项目
       link: /operations/deploy-web-project
@@ -17,9 +17,12 @@ hero:
     src: /brand/mascot-liteyuki-catgirl-alpha.webp
     alt: Liteyuki DevOps mascot
 features:
-  - title: 部署平台
-    details: 用 docker compose up -d 启动 PostgreSQL、Redis、API 和 worker，打开 localhost:8088 进入控制台。
-    link: /guide/getting-started
+  - title: Kubernetes (Helm) 部署
+    details: 用 Helm 在 Kubernetes 或 K3s 中启动 API、worker、PostgreSQL 和 Redis。
+    link: /guide/deployment/kubernetes-helm
+  - title: Docker Compose 部署
+    details: 用 docker compose up -d 在单机上启动 PostgreSQL、Redis、API 和 worker。
+    link: /guide/deployment/docker-compose
   - title: 部署一个 Web 项目
     details: 按项目空间、应用、部署配置、构建、Release 和访问入口的顺序，把示例项目发布上线。
     link: /operations/deploy-web-project

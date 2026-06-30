@@ -12,39 +12,21 @@ import { BuildEnvironmentFields } from './application-deployment-resource-fields
 import { applyDockerfileBuildDefaults } from './application-deployments-panel-utils'
 
 interface ApplicationDeploymentSourceFieldsProps {
-  buildContextSuggestions: string[]
-  buildMinutePriceText: string
-  buildTimeoutMinutes: number
-  dockerfileExposedPorts: Record<string, number[]>
-  dockerfileSuggestions: string[]
   registries: ArtifactRegistry[]
   repositoryBindings: RepositoryBinding[]
   sourceType: DeploymentTargetPayload['sourceType']
   targetForm: UseFormReturn<DeploymentTargetPayload>
-  targetImagePrefix: string
-  targetOptionsError: boolean
-  targetOptionsFetching: boolean
   onBindRepository: () => void
 }
 
 export function ApplicationDeploymentSourceFields({
-  buildContextSuggestions,
-  buildMinutePriceText,
-  buildTimeoutMinutes,
-  dockerfileExposedPorts,
-  dockerfileSuggestions,
   onBindRepository,
   registries,
   repositoryBindings,
   sourceType,
   targetForm,
-  targetImagePrefix,
-  targetOptionsError,
-  targetOptionsFetching,
 }: ApplicationDeploymentSourceFieldsProps) {
   const { t } = useTranslation()
-  const buildDirectorySuggestions = buildContextSuggestions.filter(option => option !== '.')
-  const dockerfilePathField = targetForm.register('dockerfilePath', { required: true })
 
   return (
     <>
@@ -75,61 +57,96 @@ export function ApplicationDeploymentSourceFields({
             </div>
           </Field>
         )}
+        {sourceType === 'repository' && (
+          <Field label={t('buildsPage.targetRegistry')} required>
+            <Select {...targetForm.register('targetRegistryId', { required: sourceType === 'repository' })}>
+              <option value="">{t('common.select')}</option>
+              {registries.map(registry => <option key={registry.id} value={registry.id}>{registryOptionLabel(registry)}</option>)}
+            </Select>
+          </Field>
+        )}
+        {sourceType === 'image' && (
+          <Field hint={t('apps.imageReferenceHint')} label={t('apps.imageReference')} required>
+            <Input {...targetForm.register('imageRef', { required: sourceType === 'image' })} placeholder={t('apps.imageReferencePlaceholder')} />
+          </Field>
+        )}
       </div>
-      {sourceType === 'repository'
-        ? (
-            <div className="grid gap-4 md:col-span-2">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label={t('buildsPage.targetRegistry')} required>
-                  <Select {...targetForm.register('targetRegistryId', { required: sourceType === 'repository' })}>
-                    <option value="">{t('common.select')}</option>
-                    {registries.map(registry => <option key={registry.id} value={registry.id}>{registryOptionLabel(registry)}</option>)}
-                  </Select>
-                </Field>
-                <Field hint={t('buildsPage.dockerfileLookupHint')} label={t('buildsPage.dockerfilePath')} required>
-                  <Input
-                    {...dockerfilePathField}
-                    list="deployment-target-dockerfile-options"
-                    placeholder={t('deploymentsPage.dockerfilePathPlaceholder')}
-                    onChange={(event) => {
-                      dockerfilePathField.onChange(event)
-                      applyDockerfileBuildDefaults(targetForm, event.target.value, buildContextSuggestions, dockerfileExposedPorts)
-                    }}
-                  />
-                  <datalist id="deployment-target-dockerfile-options">
-                    {dockerfileSuggestions.map(option => <option key={option} value={option} />)}
-                  </datalist>
-                  {targetOptionsFetching && <p className="mt-1 text-xs text-muted-foreground">{t('apps.detectingRepository')}</p>}
-                  {targetOptionsError && <p className="mt-1 text-xs text-destructive">{t('deploymentsPage.buildOptionsLoadFailed')}</p>}
-                </Field>
-                <Field hint={t('buildsPage.buildContextLookupHint')} label={t('buildsPage.buildContext')} required>
-                  <Input {...targetForm.register('buildContext', { required: true })} list="deployment-target-build-context-options" placeholder={t('deploymentsPage.buildContextPlaceholder')} />
-                  <datalist id="deployment-target-build-context-options">
-                    {buildContextSuggestions.map(option => <option key={option} value={option} />)}
-                  </datalist>
-                </Field>
-                <Field hint={t('buildsPage.buildDirectoryHint')} label={t('buildsPage.buildDirectory')}>
-                  <Input {...targetForm.register('buildDirectory')} list="deployment-target-build-directory-options" placeholder={t('buildsPage.buildDirectoryPlaceholder')} />
-                  <datalist id="deployment-target-build-directory-options">
-                    {buildDirectorySuggestions.map(option => <option key={option} value={option} />)}
-                  </datalist>
-                </Field>
-                <Field hint={t('buildsPage.targetImageRefHint')} label={t('buildsPage.targetImageRef')} required>
-                  <TargetImageRefInput
-                    placeholder={t('buildsPage.targetImageRefPlaceholder')}
-                    prefix={targetImagePrefix}
-                    register={targetForm.register('targetImageRef', { required: sourceType === 'repository' })}
-                  />
-                </Field>
-              </div>
-              <BuildEnvironmentFields buildTimeoutMinutes={buildTimeoutMinutes} form={targetForm} priceText={buildMinutePriceText} />
-            </div>
-          )
-        : (
-            <Field hint={t('apps.imageReferenceHint')} label={t('apps.imageReference')} required>
-              <Input {...targetForm.register('imageRef', { required: sourceType === 'image' })} placeholder={t('apps.imageReferencePlaceholder')} />
-            </Field>
-          )}
     </>
+  )
+}
+
+interface ApplicationDeploymentBuildSettingsFieldsProps {
+  buildContextSuggestions: string[]
+  buildMinutePriceText: string
+  buildTimeoutMinutes: number
+  dockerfileExposedPorts: Record<string, number[]>
+  dockerfileSuggestions: string[]
+  sourceType: DeploymentTargetPayload['sourceType']
+  targetForm: UseFormReturn<DeploymentTargetPayload>
+  targetImagePrefix: string
+  targetOptionsError: boolean
+  targetOptionsFetching: boolean
+}
+
+export function ApplicationDeploymentBuildSettingsFields({
+  buildContextSuggestions,
+  buildMinutePriceText,
+  buildTimeoutMinutes,
+  dockerfileExposedPorts,
+  dockerfileSuggestions,
+  sourceType,
+  targetForm,
+  targetImagePrefix,
+  targetOptionsError,
+  targetOptionsFetching,
+}: ApplicationDeploymentBuildSettingsFieldsProps) {
+  const { t } = useTranslation()
+  const buildDirectorySuggestions = buildContextSuggestions.filter(option => option !== '.')
+  const dockerfilePathField = targetForm.register('dockerfilePath', { required: sourceType === 'repository' })
+
+  if (sourceType !== 'repository')
+    return null
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field hint={t('buildsPage.dockerfileLookupHint')} label={t('buildsPage.dockerfilePath')} required>
+          <Input
+            {...dockerfilePathField}
+            list="deployment-target-dockerfile-options"
+            placeholder={t('deploymentsPage.dockerfilePathPlaceholder')}
+            onChange={(event) => {
+              dockerfilePathField.onChange(event)
+              applyDockerfileBuildDefaults(targetForm, event.target.value, buildContextSuggestions, dockerfileExposedPorts)
+            }}
+          />
+          <datalist id="deployment-target-dockerfile-options">
+            {dockerfileSuggestions.map(option => <option key={option} value={option} />)}
+          </datalist>
+          {targetOptionsFetching && <p className="mt-1 text-xs text-muted-foreground">{t('apps.detectingRepository')}</p>}
+          {targetOptionsError && <p className="mt-1 text-xs text-destructive">{t('deploymentsPage.buildOptionsLoadFailed')}</p>}
+        </Field>
+        <Field hint={t('buildsPage.buildContextLookupHint')} label={t('buildsPage.buildContext')} required>
+          <Input {...targetForm.register('buildContext', { required: true })} list="deployment-target-build-context-options" placeholder={t('deploymentsPage.buildContextPlaceholder')} />
+          <datalist id="deployment-target-build-context-options">
+            {buildContextSuggestions.map(option => <option key={option} value={option} />)}
+          </datalist>
+        </Field>
+        <Field hint={t('buildsPage.buildDirectoryHint')} label={t('buildsPage.buildDirectory')}>
+          <Input {...targetForm.register('buildDirectory')} list="deployment-target-build-directory-options" placeholder={t('buildsPage.buildDirectoryPlaceholder')} />
+          <datalist id="deployment-target-build-directory-options">
+            {buildDirectorySuggestions.map(option => <option key={option} value={option} />)}
+          </datalist>
+        </Field>
+        <Field hint={t('buildsPage.targetImageRefHint')} label={t('buildsPage.targetImageRef')} required>
+          <TargetImageRefInput
+            placeholder={t('buildsPage.targetImageRefPlaceholder')}
+            prefix={targetImagePrefix}
+            register={targetForm.register('targetImageRef', { required: true })}
+          />
+        </Field>
+      </div>
+      <BuildEnvironmentFields buildTimeoutMinutes={buildTimeoutMinutes} form={targetForm} priceText={buildMinutePriceText} />
+    </div>
   )
 }

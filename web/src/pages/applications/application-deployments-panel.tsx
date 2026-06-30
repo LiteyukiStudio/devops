@@ -14,6 +14,7 @@ import { api } from '@/api'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { buildRunImageRef, latestDeployableBuildRuns } from '@/components/common/deployment-build-runs'
 import { FormField as Field } from '@/components/common/form-field'
+import { ProgressiveSection } from '@/components/common/progressive-section'
 import { RuntimeConfigFilesEditor } from '@/components/common/runtime-config-files-editor'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -28,7 +29,7 @@ import { RuntimeDataVolumesEditor } from './application-deployment-data-volumes-
 import { RuntimeResourceFields } from './application-deployment-resource-fields'
 import { buildDeploymentRuntimeStatus, buildInternalServiceEndpoint } from './application-deployment-runtime-utils'
 import { ServicePortsEditor } from './application-deployment-service-ports-editor'
-import { ApplicationDeploymentSourceFields } from './application-deployment-source-fields'
+import { ApplicationDeploymentBuildSettingsFields, ApplicationDeploymentSourceFields } from './application-deployment-source-fields'
 import { ApplicationDeploymentTargetsList } from './application-deployment-targets-list'
 import { applyDockerfileBuildDefaults, deploymentTargetDefaults, deploymentTargetRuntimeChanged, normalizeBoolean, normalizeDeploymentTargetPayload, normalizeRuntimeConfigPayload, normalizeStringIds, parseRuntimeDataVolumes, redeployReleasePayload, releaseDefaults, repositoryBindingItems, runtimeConfigDefaults, serializeRuntimeDataVolumes } from './application-deployments-panel-utils'
 import { ApplicationReleaseLogsDialog } from './application-release-logs-dialog'
@@ -318,6 +319,58 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
     targetForm.setValue('servicePorts', nextRows, { shouldDirty: true, shouldValidate: true })
     targetForm.setValue('servicePort', nextRows[0]?.port || 8080, { shouldDirty: true, shouldValidate: true })
   }
+  const targetStageLabel = t(`deploymentsPage.stageLabels.${targetForm.watch('stage')}`)
+  const targetSourceLabel = t(targetSourceType === 'image' ? 'apps.image' : 'apps.repository')
+  const targetPrimaryPort = targetServicePorts[0] ?? { name: 'http', port: 8080 }
+  const targetPortSummary = targetServicePorts.length > 1
+    ? t('deploymentsPage.progressivePortSummary', {
+        count: targetServicePorts.length - 1,
+        name: targetPrimaryPort.name || 'http',
+        port: targetPrimaryPort.port || 8080,
+      })
+    : t('deploymentsPage.progressiveSinglePortSummary', {
+        name: targetPrimaryPort.name || 'http',
+        port: targetPrimaryPort.port || 8080,
+      })
+  const targetBasicSummary = t('deploymentsPage.progressiveBasicSummary', {
+    port: targetPortSummary,
+    source: targetSourceLabel,
+    stage: targetStageLabel,
+  })
+  const targetBuildSummary = targetSourceType === 'image'
+    ? t('deploymentsPage.progressiveBuildSkippedSummary')
+    : t('deploymentsPage.progressiveBuildSummary', {
+        context: targetForm.watch('buildContext') || '.',
+        cpu: targetForm.watch('buildCpuRequest') || defaultBuildCpuRequest,
+        dockerfile: targetForm.watch('dockerfilePath') || 'Dockerfile',
+        memory: targetForm.watch('buildMemoryRequest') || defaultBuildMemoryRequest,
+        timeout: buildTimeoutMinutes,
+      })
+  const targetRuntimeSummary = t('deploymentsPage.progressiveRuntimeSummary', {
+    cpu: targetForm.watch('cpuRequest') || '1',
+    memory: targetForm.watch('memoryRequest') || '1Gi',
+    replicas: targetForm.watch('replicas') || 1,
+  })
+  const targetPolicySummary = t('deploymentsPage.progressivePolicySummary', {
+    autoDeploy: t(normalizeBoolean(targetForm.watch('autoDeploy'), true) ? 'common.enabled' : 'common.disabled'),
+    concurrency: t(`apps.buildConcurrencyPolicies.${targetForm.watch('concurrencyPolicy') || 'queue'}`),
+  })
+  const targetDataSummary = targetDataRetentionEnabled
+    ? t('deploymentsPage.progressiveDataEnabledSummary', { count: targetDataVolumes.length })
+    : t('deploymentsPage.progressiveDataDisabledSummary')
+  const targetHasAdvancedConfig = Boolean(
+    String(targetForm.watch('envVars') ?? '').trim()
+    || String(targetForm.watch('configRefs') ?? '').trim()
+    || String(targetForm.watch('configFiles') ?? '').trim()
+    || String(targetForm.watch('secretRefs') ?? '').trim()
+    || String(targetForm.watch('secretFiles') ?? '').trim()
+    || editingTarget?.secretRefsSet
+    || editingTarget?.secretFilesSet,
+  )
+  const targetConfigSummary = t('deploymentsPage.progressiveConfigSummary', {
+    count: selectedRuntimeConfigSetIds.length,
+    overrides: t(targetHasAdvancedConfig ? 'deploymentsPage.advancedOverridesEnabled' : 'deploymentsPage.advancedOverridesDisabled'),
+  })
   const openRuntimeConfigDialog = (set?: ProjectRuntimeConfigSet) => {
     setEditingRuntimeConfigSet(set ?? null)
     setRuntimeConfigFilesValid(true)
@@ -576,91 +629,130 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
             <DialogDescription>{t('deploymentsPage.deploymentTargetDialogDescription')}</DialogDescription>
           </DialogHeader>
           <form className="flex min-h-0 flex-1 flex-col" onSubmit={targetForm.handleSubmit(values => saveTarget.mutate({ redeploy: false, values }))}>
-            <div className="grid gap-5 overflow-y-auto px-6 py-4 pb-6">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field hint={t('deploymentsPage.deploymentConfigNameHint')} label={t('common.name')} required>
-                  <Input {...targetForm.register('name', { required: true })} placeholder={t('deploymentsPage.deploymentConfigNamePattern')} />
-                </Field>
-                <Field label={t('deploymentsPage.stage')}>
-                  <Select {...targetForm.register('stage')}>
-                    <option value="dev">{t('deploymentsPage.stageDev')}</option>
-                    <option value="test">{t('deploymentsPage.stageTest')}</option>
-                    <option value="staging">{t('deploymentsPage.stageStaging')}</option>
-                    <option value="prod">{t('deploymentsPage.stageProd')}</option>
-                  </Select>
-                </Field>
-                <Field hint={t('deploymentsPage.runtimeEnvironmentHint')} label={t('clustersPage.runtimeCluster')}>
-                  <Select {...targetForm.register('clusterId')}>
-                    <option value="">{defaultRuntimeCluster ? t('deploymentsPage.clusterDefaultOption', { name: defaultRuntimeCluster.name }) : t('common.select')}</option>
-                    {(runtimeClusters.data ?? []).map(cluster => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
-                  </Select>
-                </Field>
-                <ApplicationDeploymentSourceFields
-                  buildContextSuggestions={buildContextSuggestions}
-                  buildMinutePriceText={billingDisplay.formatAmountWithUnit(buildMinuteCost)}
-                  buildTimeoutMinutes={buildTimeoutMinutes}
-                  dockerfileExposedPorts={dockerfileExposedPorts}
-                  dockerfileSuggestions={dockerfileSuggestions}
-                  registries={registries}
-                  repositoryBindings={repositoryBindings}
-                  sourceType={targetSourceType}
-                  targetForm={targetForm}
-                  targetImagePrefix={targetImagePrefix}
-                  targetOptionsError={targetBuildOptions.isError}
-                  targetOptionsFetching={targetBuildOptions.isFetching}
-                  onBindRepository={openRepositoryBindingDialog}
-                />
-                <Field label={t('common.status')}>
-                  <Select {...targetForm.register('enabled')}>
-                    <option value="true">{t('common.enabled')}</option>
-                    <option value="false">{t('common.disabled')}</option>
-                  </Select>
-                </Field>
-                <div className="grid gap-2 md:col-span-2">
-                  <ServicePortsEditor ports={targetServicePorts} onChange={updateTargetServicePorts} />
+            <div className="grid gap-3 overflow-y-auto px-6 py-4 pb-6">
+              <ProgressiveSection
+                defaultOpen
+                description={t('deploymentsPage.progressiveBasicDescription')}
+                storageKey="liteyuki.deployments.targetDialog.basic"
+                summary={targetBasicSummary}
+                title={t('deploymentsPage.progressiveBasicTitle')}
+              >
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Field hint={t('deploymentsPage.deploymentConfigNameHint')} label={t('common.name')} required>
+                    <Input {...targetForm.register('name', { required: true })} placeholder={t('deploymentsPage.deploymentConfigNamePattern')} />
+                  </Field>
+                  <Field label={t('deploymentsPage.stage')}>
+                    <Select {...targetForm.register('stage')}>
+                      <option value="dev">{t('deploymentsPage.stageDev')}</option>
+                      <option value="test">{t('deploymentsPage.stageTest')}</option>
+                      <option value="staging">{t('deploymentsPage.stageStaging')}</option>
+                      <option value="prod">{t('deploymentsPage.stageProd')}</option>
+                    </Select>
+                  </Field>
+                  <Field hint={t('deploymentsPage.runtimeEnvironmentHint')} label={t('clustersPage.runtimeCluster')}>
+                    <Select {...targetForm.register('clusterId')}>
+                      <option value="">{defaultRuntimeCluster ? t('deploymentsPage.clusterDefaultOption', { name: defaultRuntimeCluster.name }) : t('common.select')}</option>
+                      {(runtimeClusters.data ?? []).map(cluster => <option key={cluster.id} value={cluster.id}>{cluster.name}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label={t('common.status')}>
+                    <Select {...targetForm.register('enabled')}>
+                      <option value="true">{t('common.enabled')}</option>
+                      <option value="false">{t('common.disabled')}</option>
+                    </Select>
+                  </Field>
+                  <ApplicationDeploymentSourceFields
+                    registries={registries}
+                    repositoryBindings={repositoryBindings}
+                    sourceType={targetSourceType}
+                    targetForm={targetForm}
+                    onBindRepository={openRepositoryBindingDialog}
+                  />
+                  <div className="grid gap-2 md:col-span-2">
+                    <ServicePortsEditor ports={targetServicePorts} onChange={updateTargetServicePorts} />
+                  </div>
                 </div>
+              </ProgressiveSection>
+              {targetSourceType === 'repository' && (
+                <ProgressiveSection
+                  description={t('deploymentsPage.progressiveBuildDescription')}
+                  storageKey="liteyuki.deployments.targetDialog.build"
+                  summary={targetBuildSummary}
+                  title={t('deploymentsPage.progressiveBuildTitle')}
+                >
+                  <ApplicationDeploymentBuildSettingsFields
+                    buildContextSuggestions={buildContextSuggestions}
+                    buildMinutePriceText={billingDisplay.formatAmountWithUnit(buildMinuteCost)}
+                    buildTimeoutMinutes={buildTimeoutMinutes}
+                    dockerfileExposedPorts={dockerfileExposedPorts}
+                    dockerfileSuggestions={dockerfileSuggestions}
+                    sourceType={targetSourceType}
+                    targetForm={targetForm}
+                    targetImagePrefix={targetImagePrefix}
+                    targetOptionsError={targetBuildOptions.isError}
+                    targetOptionsFetching={targetBuildOptions.isFetching}
+                  />
+                </ProgressiveSection>
+              )}
+              <ProgressiveSection
+                description={t('deploymentsPage.progressiveRuntimeDescription')}
+                storageKey="liteyuki.deployments.targetDialog.runtime"
+                summary={targetRuntimeSummary}
+                title={t('deploymentsPage.progressiveRuntimeTitle')}
+              >
                 <RuntimeResourceFields form={targetForm} priceText={billingDisplay.formatAmountWithUnit(runtimeHourCost)} />
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field hint={t('deploymentsPage.branchPatternHint')} label={t('deploymentsPage.branchPattern')}>
-                  <Input {...targetForm.register('branchPattern')} placeholder={t('deploymentsPage.branchPatternPlaceholder')} />
-                </Field>
-                <Field hint={t('deploymentsPage.tagPatternHint')} label={t('deploymentsPage.tagPattern')}>
-                  <Input {...targetForm.register('tagPattern')} placeholder={t('deploymentsPage.tagPatternPlaceholder')} />
-                </Field>
-                <Field hint={t('apps.buildConcurrencyPolicyHint')} label={t('apps.buildConcurrencyPolicy')}>
-                  <Select {...targetForm.register('concurrencyPolicy')}>
-                    <option value="queue">{t('apps.buildConcurrencyPolicies.queue')}</option>
-                    <option value="parallel">{t('apps.buildConcurrencyPolicies.parallel')}</option>
-                  </Select>
-                </Field>
-                <Field label={t('deploymentsPage.autoDeploy')}>
-                  <Select {...targetForm.register('autoDeploy')}>
-                    <option value="false">{t('common.disabled')}</option>
-                    <option value="true">{t('common.enabled')}</option>
-                  </Select>
-                </Field>
-              </div>
-              <div className="grid gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold">{t('deploymentsPage.runtimeData')}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{t('deploymentsPage.runtimeDataDescription')}</p>
+              </ProgressiveSection>
+              <ProgressiveSection
+                description={t('deploymentsPage.progressivePolicyDescription')}
+                storageKey="liteyuki.deployments.targetDialog.policy"
+                summary={targetPolicySummary}
+                title={t('deploymentsPage.progressivePolicyTitle')}
+              >
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Field hint={t('deploymentsPage.branchPatternHint')} label={t('deploymentsPage.branchPattern')}>
+                    <Input {...targetForm.register('branchPattern')} placeholder={t('deploymentsPage.branchPatternPlaceholder')} />
+                  </Field>
+                  <Field hint={t('deploymentsPage.tagPatternHint')} label={t('deploymentsPage.tagPattern')}>
+                    <Input {...targetForm.register('tagPattern')} placeholder={t('deploymentsPage.tagPatternPlaceholder')} />
+                  </Field>
+                  <Field hint={t('apps.buildConcurrencyPolicyHint')} label={t('apps.buildConcurrencyPolicy')}>
+                    <Select {...targetForm.register('concurrencyPolicy')}>
+                      <option value="queue">{t('apps.buildConcurrencyPolicies.queue')}</option>
+                      <option value="parallel">{t('apps.buildConcurrencyPolicies.parallel')}</option>
+                    </Select>
+                  </Field>
+                  <Field label={t('deploymentsPage.autoDeploy')}>
+                    <Select {...targetForm.register('autoDeploy')}>
+                      <option value="false">{t('common.disabled')}</option>
+                      <option value="true">{t('common.enabled')}</option>
+                    </Select>
+                  </Field>
                 </div>
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              </ProgressiveSection>
+              <ProgressiveSection
+                description={t('deploymentsPage.runtimeDataDescription')}
+                storageKey="liteyuki.deployments.targetDialog.data"
+                summary={targetDataSummary}
+                title={t('deploymentsPage.runtimeData')}
+              >
+                <div className="grid gap-3">
                   <Field hint={t('deploymentsPage.dataRetentionHint')} label={t('deploymentsPage.dataRetention')}>
                     <Select {...targetForm.register('dataRetentionEnabled')}>
                       <option value="false">{t('common.disabled')}</option>
                       <option value="true">{t('common.enabled')}</option>
                     </Select>
                   </Field>
-                  <RuntimeDataVolumesEditor enabled={targetDataRetentionEnabled} rows={targetDataVolumes} onChange={updateTargetDataVolumes} />
+                  {targetDataRetentionEnabled && (
+                    <RuntimeDataVolumesEditor enabled={targetDataRetentionEnabled} rows={targetDataVolumes} onChange={updateTargetDataVolumes} />
+                  )}
                 </div>
-              </div>
-              <div className="grid gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold">{t('deploymentsPage.runtimeConfig')}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{t('deploymentsPage.runtimeConfigDescription')}</p>
-                </div>
+              </ProgressiveSection>
+              <ProgressiveSection
+                description={t('deploymentsPage.runtimeConfigDescription')}
+                storageKey="liteyuki.deployments.targetDialog.config"
+                summary={targetConfigSummary}
+                title={t('deploymentsPage.runtimeConfig')}
+              >
                 <ApplicationRuntimeConfigSelector
                   redeployableCount={runtimeConfigRedeployableTargets.length}
                   redeployPending={redeployRuntimeConfigTargets.isPending}
@@ -676,32 +768,35 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                   onRedeployAffected={() => redeployRuntimeConfigTargets.mutate()}
                   onToggle={toggleRuntimeConfigSet}
                 />
-                <Field hint={t('deploymentsPage.runtimeEnvVarsHint')} label={t('deploymentsPage.runtimeEnvVars')}>
-                  <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...targetForm.register('envVars')} placeholder={t('deploymentsPage.runtimeEnvVarsPlaceholder')} />
-                </Field>
-                <Field hint={t('deploymentsPage.runtimeConfigRefsHint')} label={t('deploymentsPage.runtimeConfigRefs')}>
-                  <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...targetForm.register('configRefs')} placeholder={t('deploymentsPage.runtimeConfigRefsPlaceholder')} />
-                </Field>
-                <Field hint={t('deploymentsPage.runtimeConfigFilesHint')} label={t('deploymentsPage.runtimeConfigFiles')}>
-                  <RuntimeConfigFilesEditor
-                    key={`${editingTarget?.id ?? 'new'}-config-files`}
-                    initialValue={targetForm.getValues('configFiles') ?? ''}
-                    onChange={value => targetForm.setValue('configFiles', value, { shouldDirty: true, shouldValidate: true })}
-                    onValidationChange={setTargetConfigFilesValid}
-                  />
-                </Field>
-                <Field hint={editingTarget?.secretRefsSet ? t('deploymentsPage.runtimeSecretRefsConfigured') : t('deploymentsPage.runtimeSecretRefsHint')} label={t('deploymentsPage.runtimeSecretRefs')}>
-                  <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...targetForm.register('secretRefs')} placeholder={t('deploymentsPage.runtimeSecretRefsPlaceholder')} />
-                </Field>
-                <Field hint={editingTarget?.secretFilesSet ? t('deploymentsPage.runtimeSecretFilesConfigured') : t('deploymentsPage.runtimeSecretFilesHint')} label={t('deploymentsPage.runtimeSecretFiles')}>
-                  <RuntimeConfigFilesEditor
-                    key={`${editingTarget?.id ?? 'new'}-secret-files`}
-                    initialValue={targetForm.getValues('secretFiles') ?? ''}
-                    onChange={value => targetForm.setValue('secretFiles', value, { shouldDirty: true, shouldValidate: true })}
-                    onValidationChange={setTargetSecretFilesValid}
-                  />
-                </Field>
-              </div>
+                <div className="grid gap-3 rounded-md border border-dashed border-border p-3">
+                  <p className="text-sm font-medium text-foreground">{t('deploymentsPage.advancedRuntimeOverrides')}</p>
+                  <Field hint={t('deploymentsPage.runtimeEnvVarsHint')} label={t('deploymentsPage.runtimeEnvVars')}>
+                    <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...targetForm.register('envVars')} placeholder={t('deploymentsPage.runtimeEnvVarsPlaceholder')} />
+                  </Field>
+                  <Field hint={t('deploymentsPage.runtimeConfigRefsHint')} label={t('deploymentsPage.runtimeConfigRefs')}>
+                    <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...targetForm.register('configRefs')} placeholder={t('deploymentsPage.runtimeConfigRefsPlaceholder')} />
+                  </Field>
+                  <Field hint={t('deploymentsPage.runtimeConfigFilesHint')} label={t('deploymentsPage.runtimeConfigFiles')}>
+                    <RuntimeConfigFilesEditor
+                      key={`${editingTarget?.id ?? 'new'}-config-files`}
+                      initialValue={targetForm.getValues('configFiles') ?? ''}
+                      onChange={value => targetForm.setValue('configFiles', value, { shouldDirty: true, shouldValidate: true })}
+                      onValidationChange={setTargetConfigFilesValid}
+                    />
+                  </Field>
+                  <Field hint={editingTarget?.secretRefsSet ? t('deploymentsPage.runtimeSecretRefsConfigured') : t('deploymentsPage.runtimeSecretRefsHint')} label={t('deploymentsPage.runtimeSecretRefs')}>
+                    <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...targetForm.register('secretRefs')} placeholder={t('deploymentsPage.runtimeSecretRefsPlaceholder')} />
+                  </Field>
+                  <Field hint={editingTarget?.secretFilesSet ? t('deploymentsPage.runtimeSecretFilesConfigured') : t('deploymentsPage.runtimeSecretFilesHint')} label={t('deploymentsPage.runtimeSecretFiles')}>
+                    <RuntimeConfigFilesEditor
+                      key={`${editingTarget?.id ?? 'new'}-secret-files`}
+                      initialValue={targetForm.getValues('secretFiles') ?? ''}
+                      onChange={value => targetForm.setValue('secretFiles', value, { shouldDirty: true, shouldValidate: true })}
+                      onValidationChange={setTargetSecretFilesValid}
+                    />
+                  </Field>
+                </div>
+              </ProgressiveSection>
               {targetHasRuntimeChanges && (
                 <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
                   <Rocket className="mt-0.5 size-4 shrink-0" />

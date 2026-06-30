@@ -61,6 +61,8 @@ const registriesPage = {
   credentialAccessScopeGlobalHint: '全局镜像站被所有项目可见，因此凭据只能设为个人使用，避免把个人或团队密钥扩散给全平台。',
   credentialAccessScopePersonal: '个人使用',
   credentialAccessScopeRegistry: '跟随镜像站',
+  credentialNamingRulesTitle: '镜像命名规则',
+  credentialNamingRulesSummary: '仓库 {{repositoryTemplate}} · Tag {{tagTemplate}}',
   repositoryTemplate: '镜像仓库模板',
   repositoryTemplateHint: '用于生成推送仓库路径，不包含 tag。可用变量：{registryNamespace}、{project}、{projectSlug}、{app}、{appSlug}、{stage}、{target}。',
   repositoryTemplatePlaceholder: '{registryNamespace}/{projectSlug}-{appSlug}',

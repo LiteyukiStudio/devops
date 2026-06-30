@@ -2,6 +2,7 @@ import type { BuildsPanelHandle } from './application-builds-panel'
 import type { DeploymentsPanelHandle } from './application-deployments-panel'
 import type { ApplicationGatewayPanelHandle } from './application-gateway-panel'
 import type { Application } from '@/api'
+import type { RepositoryBindingsPageHandle } from '@/pages/repositories/RepositoryBindingsPage'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
@@ -47,6 +48,7 @@ export function ApplicationConfigPage() {
   const buildsPanelRef = useRef<BuildsPanelHandle>(null)
   const deploymentsPanelRef = useRef<DeploymentsPanelHandle>(null)
   const gatewayPanelRef = useRef<ApplicationGatewayPanelHandle>(null)
+  const repositoryBindingsPageRef = useRef<RepositoryBindingsPageHandle>(null)
   const application = useQuery({
     queryKey: ['application', projectId, applicationId],
     queryFn: () => api.getApplication(projectId, applicationId),
@@ -125,6 +127,18 @@ export function ApplicationConfigPage() {
     },
     onError: error => toast.error(error.message),
   })
+  const runAfterTabChange = (tab: string, action: () => void) => {
+    setActiveTab(tab)
+    window.setTimeout(action, 0)
+  }
+  const openRepositoryBindingTask = () => runAfterTabChange('repositories', () => repositoryBindingsPageRef.current?.openCreateDialog())
+  const openDeploymentTargetTask = () => runAfterTabChange('deployments', () => deploymentsPanelRef.current?.openTargetDialog())
+  const openBuildTask = () => runAfterTabChange('builds', () => buildsPanelRef.current?.openTriggerDrawer())
+  const openReleaseTask = () => {
+    const target = firstReleaseReadyTarget(deploymentTargetRows, appBuildRuns)
+    runAfterTabChange('deployments', () => target && deploymentsPanelRef.current?.openReleaseDialog('', target.id))
+  }
+  const openGatewayTask = () => runAfterTabChange('gateway', () => gatewayPanelRef.current?.openCreateDialog())
   if (application.isError)
     return <ErrorState title={t('apps.loadFailedTitle')} description={t('apps.appLoadFailedDescription')} />
 
@@ -137,6 +151,7 @@ export function ApplicationConfigPage() {
           { label: t('builds'), value: 'builds' },
           { label: t('deployments'), value: 'deployments' },
           { label: t('gatewayRoutes'), value: 'gateway' },
+          { label: t('apps.configTab'), value: 'settings' },
         ]}
         tools={(
           <div className="flex items-center gap-2">
@@ -160,13 +175,19 @@ export function ApplicationConfigPage() {
                 </Button>
               </>
             )}
+            {activeTab === 'repositories' && (
+              <Button disabled={!projectId || !applicationId} onClick={() => repositoryBindingsPageRef.current?.openCreateDialog()}>
+                <Plus size={16} />
+                {t('repositories.addRepository')}
+              </Button>
+            )}
             {activeTab === 'gateway' && (
               <Button disabled={!deploymentTargets.data?.length} onClick={() => gatewayPanelRef.current?.openCreateDialog()}>
                 <Globe2 size={16} />
                 {t('gatewayRoutesPage.createRoute')}
               </Button>
             )}
-            {activeTab === 'overview' && (
+            {activeTab === 'settings' && (
               <Button disabled={updateApplication.isPending || !updateForm.formState.isValid} form={APPLICATION_CONFIG_FORM_ID} type="submit">
                 <Save size={16} />
                 {t('apps.saveConfig')}
@@ -183,9 +204,21 @@ export function ApplicationConfigPage() {
             buildRuns={appBuildRuns}
             deploymentTargets={deploymentTargetRows}
             releases={appReleases}
+            repositoryBindings={appRepositoryBindings}
             routes={appRoutes}
+            onBindRepository={openRepositoryBindingTask}
+            onCreateDeploymentTarget={openDeploymentTargetTask}
+            onCreateGatewayRoute={openGatewayTask}
+            onCreateRelease={openReleaseTask}
+            onTriggerBuild={openBuildTask}
           />
-          <Card className="mt-4 p-4">
+        </TabsContent>
+        <TabsContent value="settings">
+          <Card className="p-4">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold">{t('apps.configTitle')}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t('apps.configDescription')}</p>
+            </div>
             <form id={APPLICATION_CONFIG_FORM_ID} onSubmit={updateForm.handleSubmit(values => updateApplication.mutate(values))}>
               <MotionList className="grid gap-4">
                 <MotionItem>
@@ -206,6 +239,7 @@ export function ApplicationConfigPage() {
         </TabsContent>
         <TabsContent value="repositories">
           <RepositoryBindingsPage
+            ref={repositoryBindingsPageRef}
             applicationId={applicationId}
             applicationName={application.data?.name}
             embedded

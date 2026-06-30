@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { CheckboxField } from '@/components/common/checkbox-field'
 import { EmptyState } from '@/components/common/empty-state'
 import { FormField as Field } from '@/components/common/form-field'
+import { ProgressiveSection } from '@/components/common/progressive-section'
 import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -108,6 +109,12 @@ export function CredentialDialog({ editingCredential, open, form, registries, se
   const credentialRegistryIsGlobal = credentialRegistry?.scope === 'global'
   const secretProvided = (form.watch('password') ?? '').trim() !== '' || (form.watch('token') ?? '').trim() !== ''
   const secretRequired = !editingCredential
+  const repositoryTemplate = form.watch('repositoryTemplate') || credentialDefaults.repositoryTemplate
+  const tagTemplate = form.watch('tagTemplate') || credentialDefaults.tagTemplate
+  const accessScope = form.watch('accessScope')
+  const accessScopeSummary = accessScope === 'registry'
+    ? t('registriesPage.credentialAccessScopeRegistry')
+    : t('registriesPage.credentialAccessScopePersonal')
 
   return (
     <Dialog
@@ -155,20 +162,6 @@ export function CredentialDialog({ editingCredential, open, form, registries, se
               </Select>
             </Field>
           </div>
-          <Field error={form.formState.errors.accessScope?.message} hint={credentialRegistryIsGlobal ? t('registriesPage.credentialAccessScopeGlobalHint') : t('registriesPage.credentialAccessScopeHint')} label={t('registriesPage.credentialAccessScope')} required>
-            <Select {...form.register('accessScope')} aria-invalid={Boolean(form.formState.errors.accessScope)} disabled={credentialRegistryIsGlobal}>
-              <option value="personal">{t('registriesPage.credentialAccessScopePersonal')}</option>
-              {!credentialRegistryIsGlobal && <option value="registry">{t('registriesPage.credentialAccessScopeRegistry')}</option>}
-            </Select>
-          </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field error={form.formState.errors.repositoryTemplate?.message} hint={t('registriesPage.repositoryTemplateHint')} label={t('registriesPage.repositoryTemplate')} required>
-              <Input {...form.register('repositoryTemplate')} aria-invalid={Boolean(form.formState.errors.repositoryTemplate)} placeholder={t('registriesPage.repositoryTemplatePlaceholder')} />
-            </Field>
-            <Field error={form.formState.errors.tagTemplate?.message} hint={t('registriesPage.tagTemplateHint')} label={t('registriesPage.tagTemplate')} required>
-              <Input {...form.register('tagTemplate')} aria-invalid={Boolean(form.formState.errors.tagTemplate)} placeholder={t('registriesPage.tagTemplatePlaceholder')} />
-            </Field>
-          </div>
           <Field error={form.formState.errors.username?.message} hint={t('registriesPage.usernameHint')} label={t('registriesPage.username')}>
             <Input {...form.register('username')} aria-invalid={Boolean(form.formState.errors.username)} />
           </Field>
@@ -180,6 +173,31 @@ export function CredentialDialog({ editingCredential, open, form, registries, se
               <Input {...form.register('token')} aria-invalid={Boolean(form.formState.errors.token)} type="password" />
             </Field>
           </div>
+          <ProgressiveSection
+            description={credentialRegistryIsGlobal ? t('registriesPage.credentialAccessScopeGlobalHint') : t('registriesPage.credentialAccessScopeHint')}
+            summary={accessScopeSummary}
+            title={t('registriesPage.credentialAccessScope')}
+          >
+            <Field error={form.formState.errors.accessScope?.message} hint={credentialRegistryIsGlobal ? t('registriesPage.credentialAccessScopeGlobalHint') : t('registriesPage.credentialAccessScopeHint')} label={t('registriesPage.credentialAccessScope')} required>
+              <Select {...form.register('accessScope')} aria-invalid={Boolean(form.formState.errors.accessScope)} disabled={credentialRegistryIsGlobal}>
+                <option value="personal">{t('registriesPage.credentialAccessScopePersonal')}</option>
+                {!credentialRegistryIsGlobal && <option value="registry">{t('registriesPage.credentialAccessScopeRegistry')}</option>}
+              </Select>
+            </Field>
+          </ProgressiveSection>
+          <ProgressiveSection
+            summary={t('registriesPage.credentialNamingRulesSummary', { repositoryTemplate, tagTemplate })}
+            title={t('registriesPage.credentialNamingRulesTitle')}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field error={form.formState.errors.repositoryTemplate?.message} hint={t('registriesPage.repositoryTemplateHint')} label={t('registriesPage.repositoryTemplate')} required>
+                <Input {...form.register('repositoryTemplate')} aria-invalid={Boolean(form.formState.errors.repositoryTemplate)} placeholder={t('registriesPage.repositoryTemplatePlaceholder')} />
+              </Field>
+              <Field error={form.formState.errors.tagTemplate?.message} hint={t('registriesPage.tagTemplateHint')} label={t('registriesPage.tagTemplate')} required>
+                <Input {...form.register('tagTemplate')} aria-invalid={Boolean(form.formState.errors.tagTemplate)} placeholder={t('registriesPage.tagTemplatePlaceholder')} />
+              </Field>
+            </div>
+          </ProgressiveSection>
           <DialogFooter>
             <Button disabled={pending || !form.formState.isValid || (secretRequired && !secretProvided)} type="submit">
               <KeyRound size={16} />

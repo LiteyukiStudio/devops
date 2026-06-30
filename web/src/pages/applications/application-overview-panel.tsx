@@ -1,24 +1,31 @@
 import type { TFunction } from 'i18next'
 import type { ReactNode } from 'react'
-import type { Application, BuildRun, DeploymentTarget, GatewayRoute, Release } from '@/api'
-import { Activity, Database, Globe2, Package, Rocket } from 'lucide-react'
+import type { Application, BuildRun, DeploymentTarget, GatewayRoute, Release, RepositoryBinding } from '@/api'
+import { Activity, CheckCircle2, Database, GitBranch, Globe2, Package, Play, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApplicationIcon } from '@/components/common/application-icon-picker'
 import { buildRunImageRef } from '@/components/common/deployment-build-runs'
 import { EmptyState } from '@/components/common/empty-state'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { parseRuntimeDataVolumes } from '@/lib/runtime-data-volumes'
-import { formatReleaseTime } from './application-config-utils'
+import { firstReleaseReadyTarget, formatReleaseTime } from './application-config-utils'
 import { formatTargetRuntimeSize } from './application-deployments-panel-utils'
 
-export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, releases, routes }: {
+export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, onBindRepository, onCreateDeploymentTarget, onCreateGatewayRoute, onCreateRelease, onTriggerBuild, releases, repositoryBindings, routes }: {
   app?: Application
   buildRuns: BuildRun[]
   deploymentTargets: DeploymentTarget[]
   releases: Release[]
+  repositoryBindings: RepositoryBinding[]
   routes: GatewayRoute[]
+  onBindRepository: () => void
+  onCreateDeploymentTarget: () => void
+  onCreateGatewayRoute: () => void
+  onCreateRelease: () => void
+  onTriggerBuild: () => void
 }) {
   const { t } = useTranslation()
   const enabledTargets = deploymentTargets.filter(target => target.enabled).length
@@ -52,9 +59,48 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, re
       time: primaryRoute.createdAt ? formatSmartDateTime(primaryRoute.createdAt, t) : '',
     },
   ].filter(Boolean) as Array<{ id: string, label: string, meta: string, status: string, time: string }>
+  const deployGuide = buildDeployGuide({
+    buildRuns,
+    deploymentTargets,
+    releases,
+    repositoryBindings,
+    routes,
+    t,
+    onBindRepository,
+    onCreateDeploymentTarget,
+    onCreateGatewayRoute,
+    onCreateRelease,
+    onTriggerBuild,
+  })
 
   return (
     <div className="grid gap-4">
+      <Card className="min-w-0 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Rocket className="size-4 text-primary" />
+              <h3 className="text-base font-semibold">{t('apps.deployGuideTitle')}</h3>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{t('apps.deployGuideDescription')}</p>
+          </div>
+          <Button className="w-full shrink-0 lg:w-auto" onClick={deployGuide.action}>
+            {deployGuide.icon}
+            {deployGuide.actionLabel}
+          </Button>
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-5">
+          {deployGuide.steps.map(step => (
+            <div key={step.key} className="min-w-0 rounded-md border border-border bg-muted/30 px-3 py-2">
+              <div className="flex items-center gap-2">
+                {step.done ? <CheckCircle2 className="size-4 shrink-0 text-success" /> : step.icon}
+                <span className="truncate text-sm font-medium">{step.label}</span>
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground" title={step.meta}>{step.meta}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <OverviewMetric
           icon={<Package className="size-4" />}
@@ -157,6 +203,93 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, re
       </Card>
     </div>
   )
+}
+
+function buildDeployGuide({
+  buildRuns,
+  deploymentTargets,
+  onBindRepository,
+  onCreateDeploymentTarget,
+  onCreateGatewayRoute,
+  onCreateRelease,
+  onTriggerBuild,
+  releases,
+  repositoryBindings,
+  routes,
+  t,
+}: {
+  buildRuns: BuildRun[]
+  deploymentTargets: DeploymentTarget[]
+  onBindRepository: () => void
+  onCreateDeploymentTarget: () => void
+  onCreateGatewayRoute: () => void
+  onCreateRelease: () => void
+  onTriggerBuild: () => void
+  releases: Release[]
+  repositoryBindings: RepositoryBinding[]
+  routes: GatewayRoute[]
+  t: TFunction
+}) {
+  const repositoryTarget = deploymentTargets.find(target => target.sourceType === 'repository')
+  const releaseReadyTarget = firstReleaseReadyTarget(deploymentTargets, buildRuns)
+  const hasSuccessfulBuild = buildRuns.some(run => run.status === 'succeeded')
+  const hasSuccessfulRelease = releases.some(release => release.status === 'succeeded')
+  const hasReadyRoute = routes.some(route => route.status === 'ready')
+  const repositoryDone = repositoryBindings.length > 0 || deploymentTargets.some(target => target.sourceType === 'image')
+  const steps = [
+    {
+      done: repositoryDone,
+      icon: <GitBranch className="size-4 shrink-0 text-muted-foreground" />,
+      key: 'source',
+      label: t('apps.deployGuideSource'),
+      meta: repositoryDone ? t('apps.deployGuideDone') : t('apps.deployGuideSourceMeta'),
+    },
+    {
+      done: deploymentTargets.length > 0,
+      icon: <Package className="size-4 shrink-0 text-muted-foreground" />,
+      key: 'target',
+      label: t('apps.deployGuideTarget'),
+      meta: deploymentTargets.length ? t('apps.deployGuideTargetCount', { count: deploymentTargets.length }) : t('apps.deployGuideTargetMeta'),
+    },
+    {
+      done: hasSuccessfulBuild || deploymentTargets.some(target => target.sourceType === 'image'),
+      icon: <Play className="size-4 shrink-0 text-muted-foreground" />,
+      key: 'build',
+      label: t('apps.deployGuideBuild'),
+      meta: hasSuccessfulBuild ? t('apps.deployGuideDone') : t('apps.deployGuideBuildMeta'),
+    },
+    {
+      done: hasSuccessfulRelease,
+      icon: <Rocket className="size-4 shrink-0 text-muted-foreground" />,
+      key: 'release',
+      label: t('apps.deployGuideRelease'),
+      meta: hasSuccessfulRelease ? t('apps.deployGuideDone') : t('apps.deployGuideReleaseMeta'),
+    },
+    {
+      done: hasReadyRoute,
+      icon: <Globe2 className="size-4 shrink-0 text-muted-foreground" />,
+      key: 'access',
+      label: t('apps.deployGuideAccess'),
+      meta: hasReadyRoute ? t('apps.deployGuideDone') : t('apps.deployGuideAccessMeta'),
+    },
+  ]
+
+  if (deploymentTargets.length === 0) {
+    return { action: onCreateDeploymentTarget, actionLabel: t('apps.deployGuideCreateTarget'), icon: <Package className="size-4" />, steps }
+  }
+  if (repositoryTarget && !repositoryTarget.repositoryBindingId && repositoryBindings.length === 0) {
+    return { action: onBindRepository, actionLabel: t('apps.deployGuideBindRepository'), icon: <GitBranch className="size-4" />, steps }
+  }
+  if (repositoryTarget && !hasSuccessfulBuild) {
+    return { action: onTriggerBuild, actionLabel: t('apps.deployGuideTriggerBuild'), icon: <Play className="size-4" />, steps }
+  }
+  if (releaseReadyTarget && !hasSuccessfulRelease) {
+    return { action: onCreateRelease, actionLabel: t('apps.deployGuideCreateRelease'), icon: <Rocket className="size-4" />, steps }
+  }
+  if (!hasReadyRoute) {
+    return { action: onCreateGatewayRoute, actionLabel: t('apps.deployGuideCreateAccess'), icon: <Globe2 className="size-4" />, steps }
+  }
+  return { action: onCreateRelease, actionLabel: t('apps.deployGuideRedeploy'), icon: <Rocket className="size-4" />, steps }
 }
 
 function OverviewMetric({ icon, label, meta, status, value }: { icon: ReactNode, label: string, meta: string, status?: string, value: string }) {

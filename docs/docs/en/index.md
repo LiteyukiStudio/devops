@@ -9,7 +9,7 @@ hero:
   actions:
     - theme: brand
       text: Get Started
-      link: /guide/getting-started
+      link: /guide/deployment/kubernetes-helm
     - theme: alt
       text: Deploy a Project
       link: /operations/deploy-web-project
@@ -17,9 +17,12 @@ hero:
     src: /brand/mascot-liteyuki-catgirl-alpha.webp
     alt: Liteyuki DevOps mascot
 features:
-  - title: Deploy the platform
-    details: Run docker compose up -d to start PostgreSQL, Redis, API, and worker, then open localhost:8088.
-    link: /guide/getting-started
+  - title: Kubernetes (Helm)
+    details: Use Helm to start API, worker, PostgreSQL, and Redis in Kubernetes or K3s.
+    link: /guide/deployment/kubernetes-helm
+  - title: Docker Compose
+    details: Run docker compose up -d to start PostgreSQL, Redis, API, and worker on one machine.
+    link: /guide/deployment/docker-compose
   - title: Deploy a web project
     details: Follow project space, application, deployment target, build, Release, and route to publish the example project.
     link: /operations/deploy-web-project

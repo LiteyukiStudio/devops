@@ -1,13 +1,8 @@
 [
   {
-    "type": "file",
-    "name": "getting-started",
-    "label": "部署平台"
-  },
-  {
-    "type": "file",
-    "name": "helm-deployment",
-    "label": "Helm 部署"
+    "type": "dir",
+    "name": "deployment",
+    "label": "部署"
   },
   {
     "type": "file",

@@ -1,13 +1,8 @@
 [
   {
-    "type": "file",
-    "name": "getting-started",
-    "label": "Deploy the Platform"
-  },
-  {
-    "type": "file",
-    "name": "helm-deployment",
-    "label": "Helm Deployment"
+    "type": "dir",
+    "name": "deployment",
+    "label": "Deploy"
   },
   {
     "type": "file",

@@ -1,7 +1,7 @@
 [
   {
     "text": "开始",
-    "link": "/guide/getting-started",
+    "link": "/guide/deployment/kubernetes-helm",
     "activeMatch": "/guide/"
   },
   {

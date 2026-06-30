@@ -61,6 +61,8 @@ const registriesPage = {
   credentialAccessScopeGlobalHint: 'Global registries are visible to all projects, so credentials can only be personal to avoid spreading personal or team secrets platform-wide.',
   credentialAccessScopePersonal: 'Personal use',
   credentialAccessScopeRegistry: 'Follow registry',
+  credentialNamingRulesTitle: 'Image naming rules',
+  credentialNamingRulesSummary: 'Repository {{repositoryTemplate}} · Tag {{tagTemplate}}',
   repositoryTemplate: 'Image repository template',
   repositoryTemplateHint: 'Generates the push repository path without tag. Variables: {registryNamespace}, {project}, {projectSlug}, {app}, {appSlug}, {stage}, {target}.',
   repositoryTemplatePlaceholder: '{registryNamespace}/{projectSlug}-{appSlug}',

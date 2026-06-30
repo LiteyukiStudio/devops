@@ -1,0 +1,87 @@
+# Docker Compose 部署
+
+用 Docker Compose 可以最快把 Liteyuki DevOps 跑起来。适合个人服务器、测试环境和小团队先试用。
+
+如果你准备把平台本身部署到 Kubernetes，优先看 [Kubernetes (Helm) 部署](/guide/deployment/kubernetes-helm)。
+
+## 准备
+
+你需要：
+
+- 一台能运行 Docker 的机器。
+- Docker Compose。
+- 能拉取 DockerHub 镜像的网络。
+- 宿主机 `8088` 端口空闲。
+
+## 选择版本
+
+仓库根目录的 `docker-compose.yaml` 默认拉取：
+
+```text
+liteyukistudio/devops-api:nightly
+liteyukistudio/devops-worker:nightly
+```
+
+验证指定版本时，在启动命令前设置镜像 tag：
+
+```bash
+DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
+```
+
+## 启动
+
+在仓库根目录执行：
+
+```bash
+docker compose up -d
+```
+
+这会启动 PostgreSQL、Redis、API 和 worker。API 镜像已经内嵌前端页面，不需要单独启动 Vite。
+
+如果想从当前源码构建镜像：
+
+```bash
+docker compose -f docker-compose-build.yaml up -d --build
+```
+
+## 打开控制台
+
+浏览器访问：
+
+```text
+http://localhost:8088
+```
+
+默认 Compose 只把 API 暴露到宿主机 `8088`。PostgreSQL 和 Redis 留在容器网络里，不占用宿主机 `5432` 和 `6379`。
+
+## 检查状态
+
+```bash
+docker compose ps
+docker compose logs -f api
+docker compose logs -f worker
+```
+
+API 正常后可以打开控制台。worker 正常后，构建、部署和状态同步才会工作。
+
+## 下一步
+
+1. 进入 [初始化控制台](/guide/product)，创建管理员或登录。
+2. 进入 [连接集群和镜像站](/guide/workspace)，准备运行集群和镜像站。
+3. 按 [部署上线一个 Web 项目](/operations/deploy-web-project) 跑通第一条应用交付链路。
+
+## 停止
+
+```bash
+docker compose down
+```
+
+连数据一起清理：
+
+```bash
+docker compose down -v
+```
+
+<div class="hint">
+先跑起来，再慢慢配置。第一目标是进入控制台，不是一次性接好所有外部系统。
+</div>

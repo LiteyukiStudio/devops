@@ -12,6 +12,7 @@ const repositories = {
   webhookCreated: '仓库 Webhook 已创建',
   webhookReconfigured: '仓库 Webhook 已重新配置',
   manageCodeRepositories: '管理代码库',
+  addRepository: '新增仓库',
   providerNameRequired: '请输入 Provider 名称',
   providerRequired: '请选择 Provider',
   usernameRequired: '请输入用户名',

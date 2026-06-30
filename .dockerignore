@@ -1,5 +1,15 @@
 .git
+.github/
+.gitignore
+.gitattributes
 .DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+*.swp
+*.swo
+
 .env
 .env.*
 !.env.example
@@ -8,15 +18,68 @@
 bin/
 tmp/
 .local/
+.workbuddy/
+.cache/
+.pnpm-store/
+.npm/
+.yarn/
+
 *.db
 *.sqlite
 *.sqlite3
-coverage.out
+*.kubeconfig
+postgres-data/
+redis-data/
 
+coverage.out
+coverage/
+*.coverprofile
+*.prof
+*.test
+
+# API/worker images do not need project documentation, reports, charts, or tests.
+Doc/
+docs/
+notes/
+charts/
+tests/
+
+# Frontend sources and lockfile are required by the web-build stage; local outputs are not.
 web/node_modules/
 web/dist/
+web/dist-ssr/
 web/.vite/
+web/.cache/
+web/.turbo/
+web/coverage/
+web/playwright-report/
+web/test-results/
+web/*.local
+
+# Documentation site dependencies and generated output can be very large locally.
+docs/node_modules/
+docs/doc_build/
+docs/.rspress/
+docs/.cache/
+docs/.vite/
+
+# Test and browser automation artifacts.
+playwright-report/
+test-results/
+.nyc_output/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Temporary screenshots and local design/export assets are not needed for image builds.
+screenshots/
+screenshot/
+*.screenshot.*
+*.tmp
+*.temp
 
 node_modules/
+tests/node_modules/
 logs/
 *.log
+*.pid

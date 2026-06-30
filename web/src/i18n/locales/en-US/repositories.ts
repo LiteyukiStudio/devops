@@ -11,6 +11,7 @@ const repositories = {
   webhookCreated: 'Repository webhook created',
   webhookReconfigured: 'Repository webhook reconfigured',
   manageCodeRepositories: 'Manage code repositories',
+  addRepository: 'Add repository',
   bindRepoTitle: 'Bind repository',
   application: 'Application',
   selectApplication: 'Select application',
