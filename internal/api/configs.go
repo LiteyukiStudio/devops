@@ -58,6 +58,14 @@ var configDefinitions = []configDefinition{
 		Default:     "使用本地账号登录控制台",
 	},
 	{
+		Key:         "site.operationsDashboardUrl",
+		Label:       "运营面板地址",
+		Description: "用于平台管理员查看运营大盘的 Grafana dashboard 或 panel iframe 地址。留空时不展示运营面板内容。",
+		Type:        "string",
+		Public:      false,
+		Default:     "",
+	},
+	{
 		Key:         "security.egress.domainAllowList",
 		Label:       "SSRF 域名特许白名单",
 		Description: "每行一个域名或通配符域名。命中后直接允许该域名，适合本地 FakeIP、内网镜像站等明确可信目标。",

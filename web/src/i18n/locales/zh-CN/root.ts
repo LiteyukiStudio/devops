@@ -14,6 +14,7 @@ const root = {
   account: '账号',
   security: '账号安全',
   authProviders: '身份源',
+  operationsDashboard: '运营面板',
   siteSettings: '站点设置',
   users: '用户',
   login: '登录',

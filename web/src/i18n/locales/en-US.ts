@@ -19,6 +19,7 @@ import gatewayRoutesPage from './en-US/gatewayRoutesPage'
 import languages from './en-US/languages'
 import loginPage from './en-US/loginPage'
 import nav from './en-US/nav'
+import operationsDashboardPage from './en-US/operationsDashboardPage'
 import pagination from './en-US/pagination'
 import projectHooks from './en-US/projectHooks'
 import projectMembers from './en-US/projectMembers'
@@ -41,6 +42,7 @@ const enUS = {
   time,
   errors,
   pagination,
+  operationsDashboardPage,
   debugPanel,
   apps,
   repositories,

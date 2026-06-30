@@ -765,6 +765,7 @@
 - [x] API/Worker metrics MVP：接入 Prometheus client，独立 registry 注册 Go/process/up 指标；API 记录 HTTP 请求量、延迟和 inflight；Worker 记录任务 started/completed、耗时和 inflight，并按 `build/deploy/light` 队列打标签。
 - [x] API 在 `METRICS_ENABLED=true` 时启动独立 metrics HTTP server，默认监听 `:9090/metrics`，并暴露 HTTP 请求量、延迟、错误响应、PostgreSQL 连接池、PostgreSQL/Redis 依赖健康指标；未启用时不监听 metrics 端口。
 - [x] Worker 在 `METRICS_ENABLED=true` 时启动独立 metrics HTTP server，默认监听 `:9091/metrics`，并暴露任务启动/完成、耗时、重试、inflight、队列深度、队列等待和依赖健康指标；多副本指标可按 Prometheus 维度聚合，不依赖进程内全局状态表达分布式事实。
+- [x] 运营面板 iframe MVP：平台管理员可在站点设置中配置 Grafana dashboard/panel 嵌入地址，并在系统管理区查看运营面板；普通用户不展示入口。
 - [x] 构建链路补齐 Prometheus 指标：构建结果、构建耗时和超时/lost 结果；标签只允许稳定低基数字段。阶段耗时和镜像推送细分需等待 builder 结构化阶段事件后再补。
 - [x] 发布与运行态补齐 Prometheus 指标：发布结果、发布耗时、ready/desired/available/updated/unavailable 副本；运行态资源指标优先从 Kubernetes/Prometheus 查询，不把 worker 内存状态当真相源。
 - [x] 访问入口补齐 Prometheus 指标：路由状态、TLS/DNS/证书状态分布、网关同步结果和耗时；入口真实流量优先复用 Traefik/Ingress Controller 指标。
