@@ -27,6 +27,14 @@ func buildTargetImageTagTemplateForCredential(credential model.RegistryCredentia
 	return imageref.BuildTargetImageTagTemplateForCredential(credential)
 }
 
+func buildStaticTargetImageTagForCredential(registry model.ArtifactRegistry, credential model.RegistryCredential, project model.Project, application model.Application, target model.DeploymentTarget) string {
+	return imageref.BuildStaticTargetImageTagForCredential(registry, credential, project, application, target)
+}
+
+func repositoryWithoutRegistryHost(registry model.ArtifactRegistry, repository string) string {
+	return imageref.RepositoryWithoutRegistryHost(registry, repository)
+}
+
 func normalizeImageRepositoryTemplate(value string) string {
 	return imageref.NormalizeRepositoryTemplate(value)
 }

@@ -68,6 +68,14 @@ func BuildTargetImageTagTemplateForCredential(credential model.RegistryCredentia
 	return NormalizeTagTemplate(credential.TagTemplate)
 }
 
+func BuildStaticTargetImageTagForCredential(registry model.ArtifactRegistry, credential model.RegistryCredential, project model.Project, application model.Application, target model.DeploymentTarget) string {
+	rendered := replaceTemplatePlaceholders(NormalizeTagTemplate(credential.TagTemplate), staticImageTemplateValues(registry, project, application, target))
+	if hasUnresolvedPlaceholder(rendered) {
+		return DefaultTagTemplate
+	}
+	return sanitizeImageTag(rendered)
+}
+
 func NormalizeRepositoryTemplate(value string) string {
 	value = strings.Trim(strings.TrimSpace(value), "/")
 	if value == "" {
@@ -86,7 +94,20 @@ func NormalizeTagTemplate(value string) string {
 
 func IsDefaultRepositoryFor(registry model.ArtifactRegistry, project model.Project, application model.Application, repository string) bool {
 	expected, _ := SplitImageRef(BuildTargetImageRepository(registry, project, application))
-	return strings.Trim(strings.TrimSpace(repository), "/") == expected
+	normalized := strings.Trim(strings.TrimSpace(repository), "/")
+	if normalized == expected {
+		return true
+	}
+	return normalized == RepositoryWithoutRegistryHost(registry, expected)
+}
+
+func RepositoryWithoutRegistryHost(registry model.ArtifactRegistry, repository string) string {
+	repository = strings.Trim(strings.TrimSpace(repository), "/")
+	host := RegistryImageHost(registry.Endpoint)
+	if host != "" && strings.HasPrefix(repository, host+"/") {
+		return strings.TrimPrefix(repository, host+"/")
+	}
+	return repository
 }
 
 func BuildImageNamePrefix(registry model.ArtifactRegistry, repository string) string {
@@ -148,7 +169,16 @@ func RegistryImageHost(endpoint string) string {
 }
 
 func renderRepositoryTemplate(template string, registry model.ArtifactRegistry, project model.Project, application model.Application, target model.DeploymentTarget) string {
-	values := map[string]string{
+	output := replaceTemplatePlaceholders(template, staticImageTemplateValues(registry, project, application, target))
+	output = strings.Trim(strings.TrimSpace(output), "/")
+	for strings.Contains(output, "//") {
+		output = strings.ReplaceAll(output, "//", "/")
+	}
+	return output
+}
+
+func staticImageTemplateValues(registry model.ArtifactRegistry, project model.Project, application model.Application, target model.DeploymentTarget) map[string]string {
+	return map[string]string{
 		"registryNamespace": registryNamespaceValue(registry, project),
 		"project":           projectSlugValue(project),
 		"projectSlug":       projectSlugValue(project),
@@ -160,12 +190,6 @@ func renderRepositoryTemplate(template string, registry model.ArtifactRegistry, 
 		"target":            targetSlugValue(target),
 		"targetSlug":        targetSlugValue(target),
 	}
-	output := replaceTemplatePlaceholders(template, values)
-	output = strings.Trim(strings.TrimSpace(output), "/")
-	for strings.Contains(output, "//") {
-		output = strings.ReplaceAll(output, "//", "/")
-	}
-	return output
 }
 
 func replaceTemplatePlaceholders(template string, values map[string]string) string {
@@ -175,6 +199,10 @@ func replaceTemplatePlaceholders(template string, values map[string]string) stri
 		output = strings.ReplaceAll(output, "${"+key+"}", value)
 	}
 	return output
+}
+
+func hasUnresolvedPlaceholder(value string) bool {
+	return strings.Contains(value, "{") || strings.Contains(value, "}")
 }
 
 func buildVariableValues(ctx variables.Context) map[string]string {

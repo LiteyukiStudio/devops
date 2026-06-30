@@ -207,6 +207,33 @@ func TestCredentialRepositoryTemplateUsesStage(t *testing.T) {
 	}
 }
 
+func TestCredentialStaticTagTemplateOnlyUsesDeploymentContext(t *testing.T) {
+	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com", Namespace: "team"}
+	project := model.Project{Slug: "neo-blog"}
+	application := model.Application{Slug: "frontend"}
+	target := model.DeploymentTarget{Name: "prod-web", Stage: "prod"}
+
+	staticCredential := model.RegistryCredential{TagTemplate: "{projectSlug}-{appSlug}-{stage}"}
+	if tag := buildStaticTargetImageTagForCredential(registry, staticCredential, project, application, target); tag != "neo-blog-frontend-prod" {
+		t.Fatalf("static tag = %q", tag)
+	}
+
+	buildVariableCredential := model.RegistryCredential{TagTemplate: "{commit}"}
+	if tag := buildStaticTargetImageTagForCredential(registry, buildVariableCredential, project, application, target); tag != "latest" {
+		t.Fatalf("build variable tag = %q", tag)
+	}
+}
+
+func TestDefaultImageRepositoryAcceptsHostlessInput(t *testing.T) {
+	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com"}
+	project := model.Project{Slug: "demo"}
+	application := model.Application{Slug: "api"}
+
+	if !isDefaultImageRepository(registry, project, application, "demo/demo-api") {
+		t.Fatal("expected hostless default repository to be recognized")
+	}
+}
+
 func TestBuildTagTemplateSupportsFriendlyVariables(t *testing.T) {
 	got := renderBuildTagTemplate("{branchSlug}-{shortSha}-{commit}", variables.Context{
 		SourceBranch: "feature/Login Page",

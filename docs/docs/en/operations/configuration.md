@@ -29,9 +29,9 @@ Deleting a registry also deletes all credentials that belong to it. Confirm that
 
 Automated builds need push credentials. Existing-image deployments mainly need the runtime cluster to pull the target image.
 
-Registry credentials can define an image repository template and an image tag template. When a deployment target is created, the platform renders the default push repository from the project space, application, and `stage`; when a build is triggered, it renders the final image tag from branch, tag, and commit variables. For example, repository template `devopsns/{project}-{app}-{stage}` plus tag template `{commit}` produces image refs like `devopsns/blog-api-prod:1a2b3c...`.
+Registry credentials can define an image repository template and an image tag template. They are used only to seed the default push location when a deployment target is created. After the deployment target is saved, the repository and tag are stored as a snapshot and no longer follow credential template changes. For example, repository template `devopsns/{project}-{app}-{stage}` plus tag template `{projectSlug}-{appSlug}-{stage}` seeds image refs like `devopsns/blog-api-prod:blog-api-prod`.
 
-Repository templates support `{registryNamespace}`, `{project}`, `{projectSlug}`, `{app}`, `{appSlug}`, `{stage}`, and `{target}`. Tag templates additionally support `{commit}`, `{shortSha}`, `{branch}`, `{branchSlug}`, `{tag}`, and `{tagSlug}`, and remain compatible with existing forms such as `${{ github.sha }}`, `${{ github.ref_name }}`, and `{short_sha}`.
+Repository and tag templates both render only static values known when the deployment target is created: `{registryNamespace}`, `{project}`, `{projectSlug}`, `{app}`, `{appSlug}`, `{stage}`, and `{target}`. If the tag template uses build-time variables such as `{commit}` or `{branch}`, the deployment target default falls back to `latest` so future builds are not implicitly rewritten by credential templates.
 
 ## Runtime clusters
 

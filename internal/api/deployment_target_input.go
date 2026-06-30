@@ -240,9 +240,10 @@ func (h *Handlers) applyRegistryCredentialImageTemplate(ctx *gin.Context, user m
 	}
 	if strings.TrimSpace(repository) == "" || isDefaultImageRepository(registry, project, app, repository) {
 		repository, _ = splitTargetImageRef(buildTargetImageRepositoryForCredential(registry, credential, project, app, target))
+		repository = repositoryWithoutRegistryHost(registry, repository)
 	}
 	if strings.TrimSpace(tag) == "" || (strings.TrimSpace(tag) == "latest" && strings.TrimSpace(credential.TagTemplate) != "") {
-		tag = buildTargetImageTagTemplateForCredential(credential)
+		tag = buildStaticTargetImageTagForCredential(registry, credential, project, app, target)
 	}
 	return strings.Trim(strings.TrimSpace(repository), "/"), strings.TrimSpace(tag), true
 }

@@ -192,6 +192,12 @@ type registryCredentialOutput struct {
 	CreatedAt          time.Time `json:"createdAt"`
 }
 
+type registryImageTemplateDefaultOutput struct {
+	TargetImageRef   string `json:"targetImageRef"`
+	TargetRepository string `json:"targetRepository"`
+	TargetTag        string `json:"targetTag"`
+}
+
 type containerImageInput struct {
 	ProjectID     string `json:"projectId"`
 	ApplicationID string `json:"applicationId"`

@@ -259,6 +259,12 @@ export interface RegistryCredential {
   createdAt: string
 }
 
+export interface RegistryImageTemplateDefault {
+  targetImageRef: string
+  targetRepository: string
+  targetTag: string
+}
+
 export interface RegistryTestResult {
   success: boolean
   statusCode: number

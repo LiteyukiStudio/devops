@@ -80,6 +80,7 @@ func NewRouterWithStaticFS(db *gorm.DB, staticFS fs.FS) *gin.Engine {
 		v1.PUT("/registries/:registryId", handlers.UpdateArtifactRegistry)
 		v1.DELETE("/registries/:registryId", handlers.DeleteArtifactRegistry)
 		v1.POST("/registries/:registryId/test", handlers.TestArtifactRegistry)
+		v1.GET("/registries/:registryId/image-template-default", handlers.GetRegistryImageTemplateDefault)
 		v1.GET("/registries/:registryId/repositories/search", handlers.SearchRegistryRepositories)
 		v1.GET("/registries/:registryId/repository-tags", handlers.ListRegistryRepositoryTags)
 		v1.GET("/registries/:registryId/credentials", handlers.ListRegistryCredentials)

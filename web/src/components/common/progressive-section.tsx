@@ -35,23 +35,23 @@ export function ProgressiveSection({ children, defaultOpen = false, description,
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card">
+    <section className="min-w-0 rounded-lg border border-border bg-card">
       <Button
         aria-expanded={open}
-        className="flex h-auto w-full justify-between gap-3 rounded-lg px-4 py-3 text-left hover:bg-muted/60"
+        className="flex h-auto w-full min-w-0 justify-between gap-3 rounded-lg px-4 py-3 text-left whitespace-normal hover:bg-muted/60"
         type="button"
         variant="ghost"
         onClick={toggleOpen}
       >
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold text-foreground">{title}</span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block text-sm font-semibold break-words text-foreground">{title}</span>
           {summary && <span className="mt-1 block truncate text-xs text-muted-foreground">{summary}</span>}
-          {description && open && <span className="mt-1 block text-xs text-muted-foreground">{description}</span>}
+          {description && open && <span className="mt-1 block text-xs break-words text-muted-foreground">{description}</span>}
         </span>
         <ChevronDown className={cn('mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </Button>
       {open && (
-        <div className="grid gap-4 border-t border-border px-4 py-4">
+        <div className="grid min-w-0 gap-4 border-t border-border px-4 py-4 [&>*]:min-w-0">
           {children}
         </div>
       )}

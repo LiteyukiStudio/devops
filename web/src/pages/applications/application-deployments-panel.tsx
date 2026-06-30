@@ -129,6 +129,9 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   )
   const targetSourceType = targetForm.watch('sourceType')
   const targetRepositoryBindingId = targetForm.watch('repositoryBindingId')
+  const targetRegistryId = targetForm.watch('targetRegistryId')
+  const targetStage = targetForm.watch('stage')
+  const targetName = targetForm.watch('name')
   const targetDataRetentionEnabled = normalizeBoolean(targetForm.watch('dataRetentionEnabled'), false)
   const targetDataVolumesValue = targetForm.watch('dataVolumes')
   const targetDataVolumes = useMemo(
@@ -136,9 +139,10 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
     [targetDataVolumesValue, targetForm],
   )
   const watchedTargetValues = targetForm.watch()
+  const targetImageRefDirty = Boolean(targetForm.formState.dirtyFields.targetImageRef)
   const selectedRuntimeConfigSetIds = normalizeStringIds(targetForm.watch('runtimeConfigSetIds'))
   const selectedTargetRepositoryBinding = repositoryBindings.find(binding => binding.id === targetRepositoryBindingId)
-  const targetRegistry = registries.find(registry => registry.id === targetForm.watch('targetRegistryId'))
+  const targetRegistry = registries.find(registry => registry.id === targetRegistryId)
   const targetImagePrefix = targetRegistry ? registryInputPrefix(targetRegistry) : ''
   const gitProviders = useQuery({ queryKey: ['git-providers'], queryFn: () => api.listGitProviders(), enabled: repositoryBindingDialogOpen })
   const gitAccounts = useQuery({ queryKey: ['git-accounts'], queryFn: () => api.listGitAccounts(), enabled: repositoryBindingDialogOpen })
@@ -166,6 +170,16 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
     ),
     enabled: Boolean(targetDialogOpen && targetSourceType === 'repository' && selectedTargetRepositoryBinding?.gitAccountId && selectedTargetRepositoryBinding.owner && selectedTargetRepositoryBinding.repo),
   })
+  const targetImageTemplateDefault = useQuery({
+    queryKey: ['registry-image-template-default', targetRegistryId, projectId, applicationId, targetStage, targetName],
+    queryFn: () => api.getRegistryImageTemplateDefault(targetRegistryId, {
+      applicationId,
+      projectId,
+      stage: targetStage,
+      targetName,
+    }),
+    enabled: Boolean(targetDialogOpen && !editingTarget && targetSourceType === 'repository' && targetRegistryId && projectId && applicationId),
+  })
   const dockerfileSuggestions = useMemo(() => targetBuildOptions.data?.dockerfiles ?? [], [targetBuildOptions.data?.dockerfiles])
   const buildContextSuggestions = useMemo(() => targetBuildOptions.data?.directories ?? [], [targetBuildOptions.data?.directories])
   const dockerfileExposedPorts = useMemo(() => targetBuildOptions.data?.exposedPorts ?? {}, [targetBuildOptions.data?.exposedPorts])
@@ -175,6 +189,14 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   const targetHasRuntimeChanges = editingTarget ? deploymentTargetRuntimeChanged(editingTarget, normalizeDeploymentTargetPayload(watchedTargetValues)) : false
   const targetCanRedeploy = Boolean(editingTarget && latestEditingTargetRelease && normalizeBoolean(watchedTargetValues.enabled, editingTarget.enabled))
   const targetRuntimeFilesValid = targetConfigFilesValid && targetSecretFilesValid
+  useEffect(() => {
+    if (!targetDialogOpen || editingTarget || targetSourceType !== 'repository' || targetImageRefDirty)
+      return
+    const nextImageRef = targetImageTemplateDefault.data?.targetImageRef
+    if (!nextImageRef)
+      return
+    targetForm.setValue('targetImageRef', nextImageRef, { shouldDirty: false, shouldValidate: true })
+  }, [editingTarget, targetDialogOpen, targetForm, targetImageRefDirty, targetImageTemplateDefault.data?.targetImageRef, targetSourceType])
   const copyDeploymentText = (value?: string) => {
     const text = value?.trim()
     if (!text || text === '-')

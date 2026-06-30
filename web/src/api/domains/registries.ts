@@ -1,4 +1,4 @@
-import type { ArtifactRegistry, ArtifactRegistryPayload, ContainerImage, PaginatedResponse, PaginationParams, RegistryCredential, RegistryRepositoryItem, RegistryTagItem, RegistryTestResult } from '../types'
+import type { ArtifactRegistry, ArtifactRegistryPayload, ContainerImage, PaginatedResponse, PaginationParams, RegistryCredential, RegistryImageTemplateDefault, RegistryRepositoryItem, RegistryTagItem, RegistryTestResult } from '../types'
 import { paginationQuery, paginationWithProjectQuery, request } from '../core'
 
 export const registriesApi = {
@@ -14,6 +14,17 @@ export const registriesApi = {
     request<void>(`/registries/${registryId}`, { method: 'DELETE' }),
   testRegistry: (registryId: string) =>
     request<RegistryTestResult>(`/registries/${registryId}/test`, { method: 'POST' }),
+  getRegistryImageTemplateDefault: (registryId: string, params: { applicationId: string, projectId: string, stage?: string, targetName?: string }) => {
+    const search = new URLSearchParams({
+      applicationId: params.applicationId,
+      projectId: params.projectId,
+    })
+    if (params.stage)
+      search.set('stage', params.stage)
+    if (params.targetName)
+      search.set('targetName', params.targetName)
+    return request<RegistryImageTemplateDefault>(`/registries/${registryId}/image-template-default?${search.toString()}`)
+  },
   getDefaultRegistry: (projectId: string) =>
     request<ArtifactRegistry>(`/projects/${projectId}/registries/default`),
   listRegistryCredentials: (registryId: string) =>
