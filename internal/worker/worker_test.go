@@ -432,33 +432,81 @@ func TestBuildKubernetesJobFailureMessageIncludesPodTerminationAndEvent(t *testi
 	}
 }
 
-func TestGatewayIngressSpecTargetsApplicationService(t *testing.T) {
-	spec := gatewayIngressSpec(
+func TestHTTPRouteSpecTargetsApplicationService(t *testing.T) {
+	spec, err := httpRouteSpec(
 		model.GatewayRoute{ID: "gwr_ABC_123", Host: "api.example.com", Path: "api", ServicePort: 8080, TLSMode: "http-challenge"},
 		model.Project{ID: "prj_demo"},
 		model.Application{Slug: "api"},
 		model.Environment{Slug: "dev"},
+		model.RuntimeCluster{GatewayName: "liteyuki-gateway", GatewayNamespace: "kube-system", GatewayClassName: "traefik"},
 		"project-demo",
 		"dplt-backend",
 	)
+	if err != nil {
+		t.Fatalf("httpRouteSpec returned error: %v", err)
+	}
 	if spec.Name != "liteyuki-gateway-gwr-abc-123" || spec.ServiceName != "dplt-backend" || spec.Path != "api" {
 		t.Fatalf("spec = %#v", spec)
 	}
-	if spec.TLSSecretName != "tls-api-example-com" {
-		t.Fatalf("tls secret = %q", spec.TLSSecretName)
+	if spec.ParentGatewayName != "liteyuki-gateway" || spec.ParentGatewayNamespace != "kube-system" {
+		t.Fatalf("parent gateway = %s/%s", spec.ParentGatewayNamespace, spec.ParentGatewayName)
 	}
 }
 
-func TestGatewayIngressSpecOmitsTLSForHTTPOnly(t *testing.T) {
-	spec := gatewayIngressSpec(
+func TestHTTPRouteSpecDefaultsBackendWeight(t *testing.T) {
+	spec, err := httpRouteSpec(
 		model.GatewayRoute{ID: "gwr_1", Host: "api.example.com", ServicePort: 3000, TLSMode: "http-only"},
 		model.Project{ID: "prj_demo"},
 		model.Application{Slug: "api"},
 		model.Environment{Slug: "dev"},
+		model.RuntimeCluster{},
 		"project-demo",
 		"",
 	)
-	if spec.TLSSecretName != "" || spec.ServicePort != 3000 {
+	if err != nil {
+		t.Fatalf("httpRouteSpec returned error: %v", err)
+	}
+	if spec.BackendWeight != 1 || spec.ServicePort != 3000 {
+		t.Fatalf("spec = %#v", spec)
+	}
+}
+
+func TestHTTPRouteSpecMergesGatewayAdvancedConfig(t *testing.T) {
+	spec, err := httpRouteSpec(
+		model.GatewayRoute{
+			ID:                     "gwr_1",
+			Host:                   "api.example.com",
+			ServicePort:            3000,
+			TLSMode:                "http-only",
+			RequestHeaders:         "X-App=route",
+			ResponseHeaders:        `{"X-Frame-Options":"DENY"}`,
+			URLRewrite:             `{"replacePrefixMatch":"/"}`,
+			BackendWeight:          25,
+			ParentGatewayName:      "route-gateway",
+			ParentGatewayNamespace: "edge-system",
+		},
+		model.Project{ID: "prj_demo"},
+		model.Application{Slug: "api"},
+		model.Environment{Slug: "dev"},
+		model.RuntimeCluster{
+			GatewayExternalTLSMode:        "upstream",
+			GatewayForwardedHeadersMode:   "overwrite",
+			GatewayDefaultRequestHeaders:  "X-Cluster=default",
+			GatewayDefaultResponseHeaders: "X-Platform=liteyuki",
+		},
+		"project-demo",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("httpRouteSpec returned error: %v", err)
+	}
+	if spec.RequestHeaders["X-Cluster"] != "default" || spec.RequestHeaders["X-App"] != "route" || spec.RequestHeaders["X-Forwarded-Proto"] != "https" || spec.RequestHeaders["X-Forwarded-Port"] != "443" {
+		t.Fatalf("request headers = %#v", spec.RequestHeaders)
+	}
+	if spec.ResponseHeaders["X-Platform"] != "liteyuki" || spec.ResponseHeaders["X-Frame-Options"] != "DENY" {
+		t.Fatalf("response headers = %#v", spec.ResponseHeaders)
+	}
+	if spec.URLRewrite == "" || spec.BackendWeight != 25 || spec.ParentGatewayName != "route-gateway" || spec.ParentGatewayNamespace != "edge-system" {
 		t.Fatalf("spec = %#v", spec)
 	}
 }
@@ -548,8 +596,24 @@ func (fakeNamespaceManager) GetDeploymentSnapshot(context.Context, string, strin
 	return kubeprovider.DeploymentSnapshot{}, nil
 }
 
-func (fakeNamespaceManager) ApplyGatewayIngress(context.Context, kubeprovider.GatewayIngressSpec) error {
+func (fakeNamespaceManager) DetectGatewayAPISupport(context.Context) error {
 	return nil
+}
+
+func (fakeNamespaceManager) EnsureGateway(context.Context, kubeprovider.GatewaySpec) error {
+	return nil
+}
+
+func (fakeNamespaceManager) ApplyHTTPRoute(context.Context, kubeprovider.HTTPRouteSpec) error {
+	return nil
+}
+
+func (fakeNamespaceManager) DeleteHTTPRoute(context.Context, string, string) error {
+	return nil
+}
+
+func (fakeNamespaceManager) GetHTTPRouteStatus(context.Context, string, string) (kubeprovider.HTTPRouteStatusSnapshot, error) {
+	return kubeprovider.HTTPRouteStatusSnapshot{}, nil
 }
 
 func (fakeNamespaceManager) ApplyCertificate(context.Context, kubeprovider.CertificateSpec) error {

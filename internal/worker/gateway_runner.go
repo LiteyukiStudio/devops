@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -65,7 +66,7 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) (err 
 		_ = r.db.Model(&route).Updates(map[string]any{"status": "failed"}).Error
 		return err
 	}
-	if err := r.applyGatewayIngress(ctx, route, project, application, environment, namespace); err != nil {
+	if err := r.applyGatewayAPIResources(ctx, route, project, application, environment, namespace); err != nil {
 		_ = r.db.Model(&route).Updates(map[string]any{"status": "failed"}).Error
 		return err
 	}
@@ -95,12 +96,30 @@ func (r *Runner) ensureProjectNamespace(ctx context.Context, namespace string, p
 	return manager.EnsureBuildPolicy(ctx, networkpolicy.BuildPolicyWithEgressControlsAndPorts(namespace, r.buildPrivateEgressCIDRs, r.buildPrivateEgressPorts, r.buildBlockedEgressCIDRs))
 }
 
-func (r *Runner) applyGatewayIngress(ctx context.Context, route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string) error {
+func (r *Runner) applyGatewayAPIResources(ctx context.Context, route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string) error {
 	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return err
 	}
-	return manager.ApplyGatewayIngress(ctx, gatewayIngressSpec(route, project, application, environment, namespace, r.gatewayServiceName(route, application, environment)))
+	cluster, err := r.runtimeClusterForEnvironment(environment)
+	if err != nil {
+		return err
+	}
+	if err := manager.EnsureGateway(ctx, gatewaySpec(cluster, project.ID)); err != nil {
+		return err
+	}
+	spec, err := httpRouteSpec(route, project, application, environment, cluster, namespace, r.gatewayServiceName(route, application, environment))
+	if err != nil {
+		return err
+	}
+	if err := manager.ApplyHTTPRoute(ctx, spec); err != nil {
+		return err
+	}
+	status, err := manager.GetHTTPRouteStatus(ctx, spec.Namespace, spec.Name)
+	if err == nil && strings.TrimSpace(status.Summary) == "failed" {
+		return fmt.Errorf("HTTPRoute was applied but Gateway API reported failed status")
+	}
+	return nil
 }
 
 func (r *Runner) gatewayServiceName(route model.GatewayRoute, application model.Application, environment model.Environment) string {

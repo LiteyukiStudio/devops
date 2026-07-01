@@ -306,28 +306,8 @@ func (r *Runner) cleanupGatewayRuntimeResources(ctx context.Context, route model
 		return err
 	}
 	namespace := deploymentNamespace(project, environment)
-	items, err := manager.ListManagedResources(ctx, kubeprovider.ResourceListOptions{
-		Kind:               "services",
-		Namespace:          namespace,
-		ProjectID:          route.ProjectID,
-		ApplicationID:      route.ApplicationID,
-		EnvironmentID:      route.EnvironmentID,
-		DeploymentTargetID: route.DeploymentTargetID,
-		RouteID:            route.ID,
-	})
-	if err != nil {
-		if isKubernetesNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("list gateway resources in %s: %w", namespace, err)
-	}
-	for _, item := range items {
-		if !strings.EqualFold(item.Kind, "Ingress") {
-			continue
-		}
-		if err := manager.DeleteManagedResource(ctx, item.Kind, item.Namespace, item.Name); err != nil && !isKubernetesNotFound(err) {
-			return fmt.Errorf("delete %s %s/%s: %w", item.Kind, item.Namespace, item.Name, err)
-		}
+	if err := manager.DeleteHTTPRoute(ctx, namespace, gatewayRuntimeName(route)); err != nil && !isKubernetesNotFound(err) {
+		return fmt.Errorf("delete HTTPRoute %s/%s: %w", namespace, gatewayRuntimeName(route), err)
 	}
 	return nil
 }

@@ -30,9 +30,11 @@ Check Release status and deployment logs:
 Check:
 
 - Domain resolves to the right entrypoint.
-- Ingress has been applied.
+- Gateway API CRDs are installed, and GatewayClass/Gateway exist.
+- HTTPRoute is Accepted, ResolvedRefs, and Programmed.
 - Service points to the correct port.
 - TLS settings match the gateway.
+- Service endpoints have ready Pods.
 
 For local test domains, start with hosts or `curl --resolve` before changing public DNS.
 

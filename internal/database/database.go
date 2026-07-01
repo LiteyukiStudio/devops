@@ -67,6 +67,10 @@ func Migrate(db *gorm.DB) error {
 		&model.ProjectRuntimeConfigSet{},
 		&model.DeploymentTarget{},
 		&model.GatewayRoute{},
+		&model.NotificationChannel{},
+		&model.NotificationTemplate{},
+		&model.NotificationRule{},
+		&model.NotificationDelivery{},
 		&model.AppConfig{},
 	); err != nil {
 		return err

@@ -12,7 +12,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -121,7 +121,7 @@ func (c *Client) ListManagedResources(ctx context.Context, options ResourceListO
 	case "workloads":
 		return c.listManagedWorkloads(ctx, options)
 	case "services":
-		return c.listManagedServicesAndIngresses(ctx, options)
+		return c.listManagedServicesAndRoutes(ctx, options)
 	case "configs":
 		return c.listManagedConfigs(ctx, options)
 	case "storage":
@@ -382,15 +382,24 @@ func (c *Client) GetManagedResource(ctx context.Context, kind string, namespace 
 			return ResourceSnapshot{}, err
 		}
 		return managedSnapshot(serviceSnapshot(*item))
-	case "ingress":
+	case "httproute":
 		if namespace == "" {
 			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
 		}
-		item, err := c.client.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+		item, err := c.getGatewayAPIResource(ctx, httpRouteGVR, namespace, name)
 		if err != nil {
 			return ResourceSnapshot{}, err
 		}
-		return managedSnapshot(ingressSnapshot(*item))
+		return managedSnapshot(httpRouteSnapshot(item))
+	case "gateway":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.getGatewayAPIResource(ctx, gatewayGVR, namespace, name)
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(gatewaySnapshot(item))
 	case "configmap":
 		if namespace == "" {
 			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
@@ -492,20 +501,34 @@ func (c *Client) GetManagedResourceYAML(ctx context.Context, kind string, namesp
 		item.ManagedFields = nil
 		content, err := yaml.Marshal(item)
 		return string(content), snapshot, err
-	case "ingress":
+	case "httproute":
 		if namespace == "" {
 			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
 		}
-		item, err := c.client.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+		item, err := c.getGatewayAPIResource(ctx, httpRouteGVR, namespace, name)
 		if err != nil {
 			return "", ResourceSnapshot{}, err
 		}
-		snapshot, err := managedSnapshot(ingressSnapshot(*item))
+		snapshot, err := managedSnapshot(httpRouteSnapshot(item))
 		if err != nil {
 			return "", ResourceSnapshot{}, err
 		}
-		item.TypeMeta = metav1.TypeMeta{APIVersion: "networking.k8s.io/v1", Kind: "Ingress"}
-		item.ManagedFields = nil
+		item.SetManagedFields(nil)
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "gateway":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.getGatewayAPIResource(ctx, gatewayGVR, namespace, name)
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(gatewaySnapshot(item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.SetManagedFields(nil)
 		content, err := yaml.Marshal(item)
 		return string(content), snapshot, err
 	case "configmap":
@@ -627,18 +650,30 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
 		}
 		return c.client.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-	case "ingress":
+	case "httproute":
 		if namespace == "" {
 			return fmt.Errorf("resource namespace is required")
 		}
-		item, err := c.client.NetworkingV1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
+		item, err := c.getGatewayAPIResource(ctx, httpRouteGVR, namespace, name)
 		if err != nil {
 			return err
 		}
-		if !isManagedResource(item.Labels) {
+		if !isManagedResource(item.GetLabels()) {
 			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
 		}
-		return c.client.NetworkingV1().Ingresses(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+		return c.dynamic.Resource(httpRouteGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "gateway":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.getGatewayAPIResource(ctx, gatewayGVR, namespace, name)
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.GetLabels()) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.dynamic.Resource(gatewayGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "configmap":
 		if namespace == "" {
 			return fmt.Errorf("resource namespace is required")
@@ -776,24 +811,56 @@ func (c *Client) listManagedWorkloads(ctx context.Context, options ResourceListO
 	return items, nil
 }
 
-func (c *Client) listManagedServicesAndIngresses(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
+func (c *Client) listManagedServicesAndRoutes(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
 	selector := managedResourceSelector(options)
 	services, err := c.client.CoreV1().Services(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return nil, err
 	}
-	ingresses, err := c.client.NetworkingV1().Ingresses(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
-	if err != nil {
-		return nil, err
-	}
-	items := make([]ResourceSnapshot, 0, len(services.Items)+len(ingresses.Items))
+	items := make([]ResourceSnapshot, 0, len(services.Items))
 	for _, item := range services.Items {
 		items = append(items, serviceSnapshot(item))
 	}
-	for _, item := range ingresses.Items {
-		items = append(items, ingressSnapshot(item))
+	if c.dynamic == nil {
+		return items, nil
+	}
+	httpRoutes, err := c.listGatewayAPIResources(ctx, httpRouteGVR, options.Namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+	for i := range httpRoutes.Items {
+		items = append(items, httpRouteSnapshot(&httpRoutes.Items[i]))
+	}
+	gateways, err := c.listGatewayAPIResources(ctx, gatewayGVR, options.Namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+	for i := range gateways.Items {
+		items = append(items, gatewaySnapshot(&gateways.Items[i]))
 	}
 	return items, nil
+}
+
+func (c *Client) listGatewayAPIResources(ctx context.Context, gvr schema.GroupVersionResource, namespace string, selector string) (*unstructured.UnstructuredList, error) {
+	if c.dynamic == nil {
+		return &unstructured.UnstructuredList{}, nil
+	}
+	list, err := c.dynamic.Resource(gvr).Namespace(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if apierrors.IsNotFound(err) {
+		return &unstructured.UnstructuredList{}, nil
+	}
+	return list, err
+}
+
+func (c *Client) getGatewayAPIResource(ctx context.Context, gvr schema.GroupVersionResource, namespace string, name string) (*unstructured.Unstructured, error) {
+	if c.dynamic == nil {
+		return nil, fmt.Errorf("Gateway API resources require a dynamic Kubernetes client")
+	}
+	item, err := c.dynamic.Resource(gvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("Gateway API CRDs are not installed or %s %q does not exist", gvr.Resource, name)
+	}
+	return item, err
 }
 
 func (c *Client) listManagedConfigs(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error) {
@@ -859,14 +926,87 @@ func serviceSnapshot(item corev1.Service) ResourceSnapshot {
 	return snapshotFromMeta("Service", item.ObjectMeta, "", string(item.Spec.Type), strings.Join(ports, ", "))
 }
 
-func ingressSnapshot(item networkingv1.Ingress) ResourceSnapshot {
-	hosts := make([]string, 0, len(item.Spec.Rules))
-	for _, rule := range item.Spec.Rules {
-		if rule.Host != "" {
-			hosts = append(hosts, rule.Host)
+func httpRouteSnapshot(item *unstructured.Unstructured) ResourceSnapshot {
+	hostnames := make([]string, 0)
+	if values, ok, _ := unstructured.NestedStringSlice(item.Object, "spec", "hostnames"); ok {
+		hostnames = append(hostnames, values...)
+	}
+	summary := strings.Join(hostnames, ", ")
+	if summary == "" {
+		parentRefs, _, _ := unstructured.NestedSlice(item.Object, "spec", "parentRefs")
+		summary = fmt.Sprintf("%d parent refs", len(parentRefs))
+	}
+	status := httpRouteSummary(routeConditionsFromUnstructured(item))
+	return snapshotFromMeta("HTTPRoute", metav1.ObjectMeta{
+		Name:              item.GetName(),
+		Namespace:         item.GetNamespace(),
+		Labels:            item.GetLabels(),
+		CreationTimestamp: item.GetCreationTimestamp(),
+		ManagedFields:     item.GetManagedFields(),
+	}, "", status, summary)
+}
+
+func gatewaySnapshot(item *unstructured.Unstructured) ResourceSnapshot {
+	listeners, _, _ := unstructured.NestedSlice(item.Object, "spec", "listeners")
+	summary := make([]string, 0, len(listeners))
+	for _, raw := range listeners {
+		listener, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := listener["name"].(string)
+		protocol, _ := listener["protocol"].(string)
+		port := fmt.Sprint(listener["port"])
+		summary = append(summary, strings.TrimSpace(name+" "+protocol+":"+port))
+	}
+	status := gatewayProgrammedStatus(item)
+	return snapshotFromMeta("Gateway", metav1.ObjectMeta{
+		Name:              item.GetName(),
+		Namespace:         item.GetNamespace(),
+		Labels:            item.GetLabels(),
+		CreationTimestamp: item.GetCreationTimestamp(),
+		ManagedFields:     item.GetManagedFields(),
+	}, "", status, strings.Join(compactStrings(summary), ", "))
+}
+
+func gatewayProgrammedStatus(item *unstructured.Unstructured) string {
+	listeners, _, _ := unstructured.NestedSlice(item.Object, "status", "listeners")
+	for _, raw := range listeners {
+		listener, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		conditions, ok := listener["conditions"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawCondition := range conditions {
+			condition, ok := rawCondition.(map[string]any)
+			if !ok {
+				continue
+			}
+			if condition["type"] == "Programmed" && condition["status"] == "True" {
+				return "programmed"
+			}
+			if condition["type"] == "Programmed" && condition["status"] == "False" {
+				return "pending"
+			}
 		}
 	}
-	return snapshotFromMeta("Ingress", item.ObjectMeta, "", "active", strings.Join(hosts, ", "))
+	conditions, _, _ := unstructured.NestedSlice(item.Object, "status", "conditions")
+	for _, rawCondition := range conditions {
+		condition, ok := rawCondition.(map[string]any)
+		if !ok {
+			continue
+		}
+		if condition["type"] == "Programmed" && condition["status"] == "True" {
+			return "programmed"
+		}
+		if condition["type"] == "Accepted" && condition["status"] == "False" {
+			return "failed"
+		}
+	}
+	return "pending"
 }
 
 func pvcSummary(item corev1.PersistentVolumeClaim) string {
@@ -971,7 +1111,7 @@ func normalizeResourceKind(value string) string {
 		return "namespaces"
 	case "workload", "workloads":
 		return "workloads"
-	case "service", "services", "ingress", "ingresses":
+	case "service", "services", "httproute", "httproutes", "gateway", "gateways":
 		return "services"
 	case "config", "configs", "secret", "secrets":
 		return "configs"
@@ -992,8 +1132,10 @@ func normalizeResourceObjectKind(value string) string {
 		return "pod"
 	case "service", "services":
 		return "service"
-	case "ingress", "ingresses":
-		return "ingress"
+	case "httproute", "httproutes":
+		return "httproute"
+	case "gateway", "gateways":
+		return "gateway"
 	case "configmap", "configmaps":
 		return "configmap"
 	case "secret", "secrets":

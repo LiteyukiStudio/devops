@@ -354,9 +354,9 @@
 - [x] 统一清理任务 payload：按资源族定义 `resource:cleanup`，通过 `resourceType` 区分 `project`、`deployment_target`、`gateway_route`、`runtime_config`，payload 只携带稳定 ID、actor、dedupeKey，具体 Kubernetes 资源名由后端按当前命名规则推导。
 - [x] Project 删除采用两阶段：先标记项目空间删除中并阻断新建应用、环境、发布和访问入口；worker 删除该项目 namespace 内平台托管资源或整个 namespace，成功后软删除业务数据，失败则保留 `delete_failed` 和错误摘要。
 - [x] 项目空间删除前端防误触：删除时必须输入项目空间名称后才允许确认。
-- [x] Application 删除保持两阶段：先阻断新的构建、发布、网关和运行态变更；worker 按应用归属 labels 删除 Deployment/Service/ConfigMap/Secret/Ingress 等托管资源，托管数据卷按数据保留策略处理。
+- [x] Application 删除保持两阶段：先阻断新的构建、发布、网关和运行态变更；worker 按应用归属 labels 删除 Deployment/Service/ConfigMap/Secret/HTTPRoute 等托管资源，托管数据卷按数据保留策略处理。
 - [x] DeploymentTarget 删除只清理该部署配置派生资源：Deployment、Service、ConfigMap、Secret、PVC 可按保留策略处理；不误删同一应用其他部署配置的资源。
-- [x] GatewayRoute 删除不删除 Service，只删除对应 Ingress 等访问入口资源；访问入口删除和部署运行态删除职责分离。
+- [x] GatewayRoute 删除不删除 Service，只删除对应 HTTPRoute 等访问入口资源；访问入口删除和部署运行态删除职责分离。
 - [x] ProjectRuntimeConfigSet 删除或变更不直接删除正在运行的 ConfigMap/Secret；只更新引用关系并提示受影响部署配置重新部署，真正运行态清理由部署配置发布/清理任务负责。
 - [x] 增加资源清理审计和日志：清理任务复用 WorkerTaskEvent 记录开始、成功、失败原因和重试上下文，业务资源保留 `delete_failed` 错误摘要供前端展示。
 - [x] 增加周期 reconciler：复用 `sync:status` 周期任务扫描 `deleting/delete_failed` 业务资源并重放幂等清理，避免任务投递或 worker 短暂故障导致资源永久卡住。
@@ -424,6 +424,7 @@
 - [x] 实现项目空间级构建/部署钩子 MVP：项目 Hook 页面只维护通用脚本库，不维护阶段、启停状态或执行顺序；部署配置把通用 Hook 绑定到构建/部署阶段并在部署配置内拖拽排序；运行时按部署配置绑定快照执行，并支持脚本快照、超时、失败策略、运行记录、日志和审计。
 - [x] 扩展部署配置阶段 Hook：支持 `prePull` / `postPull`（仓库拉取前后）、`preBuild` / `postBuild`（镜像构建前后）、`prePush` / `postPush`（镜像推送前后）以及 `preDeployment` / `postDeployment`；部署配置的 Hook 选择与排序 UI、Build Job 阶段调用点、Worker 部署阶段调用点、HookRun 展示和文档同步覆盖这些阶段。
 - [x] 补齐部署配置 Hook 消费入口：应用部署配置弹窗可加载项目空间 Hook，显式启用/停用 Hook，按阶段绑定脚本并调整执行顺序，提交前规范化 `DeploymentTargetHookBinding`。
+- [x] 部署阶段 Hook Job 增加 TTL 清理：成功 Hook Job/Pod 保留 5 分钟，失败 Hook Job/Pod 保留 24 小时；脚本 ConfigMap 绑定 Job ownerReference，随 Job TTL GC 清理。
 - [x] 收敛构建模板变量命名：同一个值只保留一个变量名，前端说明、后端预览渲染和 Build Job executor 渲染保持一致。
 - [x] 部署配置支持同配置并行策略：默认同一部署配置排队，不同部署配置可并行；配置为并行时同一部署配置也允许多个构建任务同时运行。
 - [x] Kubernetes 构建 Job 支持 BuildKit registry 镜像层缓存：通过 `BUILD_CACHE_ENABLED` / `BUILD_CACHE_TAG` 统一控制，启用后按目标镜像同仓库默认推送 `:buildcache`，executor 自动 import/export cache。
@@ -460,7 +461,7 @@
 - [ ] 设计平台系统项目空间模型：新增或约定 `platform-system` 系统项目空间，用于承载平台自有探针、采集器和诊断组件；仅平台管理员可见，不参与普通用户账单，不允许普通用户删除或修改。
 - [ ] 为系统项目空间资源建立统一标记：所有平台自有集群组件写入 `liteyuki.devops/system=true`、组件类型、运行集群 ID 和版本等 labels/annotations，便于集群资源页过滤、审计和后续升级。
 - [ ] 设计系统组件部署 API/Worker：由平台按运行集群下发或升级探针组件，支持启用/禁用、版本记录、部署状态回写和失败原因展示；组件部署失败不能影响用户业务发布。
-- [ ] 实现网关流量采集器 MVP：优先采集平台创建的 GatewayRoute/Ingress 对应的网关访问日志或 metrics，按 `routeId + windowStart + windowEnd` 聚合响应出站字节、请求数和状态码摘要。
+- [ ] 实现网关流量采集器 MVP：优先采集平台创建的 GatewayRoute/HTTPRoute 对应的网关访问日志或 metrics，按 `routeId + windowStart + windowEnd` 聚合响应出站字节、请求数和状态码摘要。
 - [ ] 实现探针到平台的幂等上报链路：采集器使用受限系统凭据调用平台网关用量上报 API，后端按幂等键去重并只接受平台系统组件来源，避免重复扣费或伪造用量。
 - [ ] 将访问计费接入采集器聚合结果：默认按响应出站流量 `gateway.egress_gib` 结算，请求次数只作为观测和防滥用字段保留；集群内服务互访、镜像拉取和数据库访问不计入公网访问费用。
 - [ ] 前端增加系统组件状态视图：在运行集群详情或集群资源页展示探针安装状态、最近上报时间、采集窗口延迟和错误摘要，方便诊断“为什么流量账单没更新”。
@@ -583,7 +584,7 @@
 
 ### 8.1 集群与部署 API/CRUD 优先
 
-- [x] 部署信息架构拆分：集群页只管理平台运行能力，项目空间管理环境，应用详情管理部署意图和发布入口，用户侧不直接暴露 Deployment/Service/Ingress/ConfigMap 等 Kubernetes 资源名。
+- [x] 部署信息架构拆分：集群页只管理平台运行能力，项目空间管理环境，应用详情管理部署意图和发布入口，用户侧不直接暴露 Deployment/Service/HTTPRoute/ConfigMap 等 Kubernetes 资源名。
 - [x] 项目空间新增“环境”页签，支持创建/编辑/删除环境，环境引用可用集群并配置副本数和资源规格；部署统一使用项目空间命名空间。
 - [x] 创建项目空间时自动附带默认 `prod` 环境：1 副本、`500m` CPU、`512Mi` 内存，降低首次部署前置配置成本。
 - [x] 环境资源规格输入改为数值和单位同胶囊分栏选择，数值区只允许数字，CPU 支持 `m`/核，内存支持 `Mi`/`Gi`，避免用户手写 Kubernetes quantity。
@@ -646,7 +647,7 @@
 
 - [x] 明确集群资源管理边界：只展示和管理 Liteyuki DevOps 创建或显式打平台标签的 Kubernetes 资源，不接管已有集群中的第三方/历史资源。
 - [x] 统一平台写入 Kubernetes 资源的 labels/annotations：`app.kubernetes.io/managed-by=liteyuki-devops`、项目空间、应用、环境、发布和网关路由引用，作为后续实时查询和权限映射依据。
-- [x] 设计后端 Kubernetes 资源聚合 DTO：Namespace、Workload、Pod、Service、Ingress、ConfigMap、Secret、PVC/Event 等只返回前端需要的摘要、状态、归属引用和时间，不返回 Secret 明文。
+- [x] 设计后端 Kubernetes 资源聚合 DTO：Namespace、Workload、Pod、Service、HTTPRoute、Gateway、ConfigMap、Secret、PVC/Event 等只返回前端需要的摘要、状态、归属引用和时间，不返回 Secret 明文。
 - [x] 新增后端集群资源 provider/list 接口：按 RuntimeCluster kubeconfig 实时请求 Kubernetes API，支持 namespace、resourceType、projectId、applicationId、environmentId 过滤，并默认只查平台自有资源。
 - [x] 新增 Kubernetes 事件读取接口：按平台资源归属查询相关 Events，用于排查部署、网关和证书问题。
 - [x] 实现集群资源权限校验：可访问集群 + 可访问归属项目空间才允许查看；普通用户不得查看无归属或非平台自有资源。
@@ -661,9 +662,9 @@
 - [x] 集群资源页新增资源“更新时间”列，后端基于 Kubernetes managedFields 最新写入时间并 fallback 到创建时间，前端复用智能相对时间格式展示。
 - [x] 集群资源工作负载页按 Deployment 聚合展示，Pod 作为 Deployment 子行展开查看，Pod 子行不参与顶层分页。
 - [ ] 前端提供集群、命名空间、项目空间、应用筛选和手动刷新；空状态说明“只展示平台管理资源”。
-- [x] 集群资源归属展示补齐部署配置名称：Workload、Pod、Service、Ingress、ConfigMap、Secret 当前只显示“项目空间 / 应用”，应显示“项目空间 / 应用 / 部署配置”，避免用户无法判断同一应用多部署配置资源来源。
+- [x] 集群资源归属展示补齐部署配置名称：Workload、Pod、Service、HTTPRoute、ConfigMap、Secret 当前只显示“项目空间 / 应用”，应显示“项目空间 / 应用 / 部署配置”，避免用户无法判断同一应用多部署配置资源来源。
 - [ ] 资源详情抽屉展示 labels/annotations 摘要、状态条件、关联业务对象和 Events，不展示 Secret data。
-- [ ] 集群资源管理 MVP 验收：在测试集群发布一次应用后，集群资源页能看到对应 Namespace、Deployment、Pod、Service、Ingress，并能查看相关事件；已有未打平台标签资源默认不显示。
+- [ ] 集群资源管理 MVP 验收：在测试集群发布一次应用后，集群资源页能看到对应 Namespace、Deployment、Pod、Service、HTTPRoute/Gateway，并能查看相关事件；已有未打平台标签资源默认不显示。
 
 ## 9. 网关与域名
 
@@ -672,19 +673,25 @@
 - [x] 实现 GatewayRoute 模型、迁移和 CRUD API。
 - [x] 实现默认域名生成规则 `{projectSlug}-{appSlug}-{stage}.{rootDomain}`，支持用户填写短前缀自动拼接 root domain，并在冲突时自动追加序号。
 - [x] 重构访问/域名模型：GatewayRoute 不再只按应用和环境归属，必须绑定到模块或部署配置（优先 DeploymentTarget，间接确定 DeploymentTarget + Environment + Service），访问页选择明确流量目标，避免多模块应用下域名无法判断应转发到哪个 Service。
-- [x] GatewayRoute 增加 DeploymentTarget 绑定字段，使一个应用同环境存在多个部署配置时，Ingress 能明确指向该部署配置对应的 Service。
-- [x] 访问域名支持启用/关闭：创建默认启用，关闭时保留域名配置但撤销运行态 Ingress，重新启用后重新下发。
+- [x] GatewayRoute 增加 DeploymentTarget 绑定字段，使一个应用同环境存在多个部署配置时，HTTPRoute 能明确指向该部署配置对应的 Service。
+- [x] 访问域名支持启用/关闭：创建默认启用，关闭时保留域名配置但撤销运行态 HTTPRoute，重新启用后重新下发。
 - [x] 实现域名冲突检查 API。
 - [x] 支持自定义域名创建和状态管理。
-- [x] 域名检查体验优化：已创建路由点击“检查域名”时不应只提示“域名已被占用”，需要区分当前路由自身、其他路由占用、DNS/Ingress 可达性和证书状态。
+- [x] 域名检查体验优化：已创建路由点击“检查域名”时不应只提示“域名已被占用”，需要区分当前路由自身、其他路由占用、DNS/Gateway 可达性和证书状态。
 - [x] 生成 CNAME 目标并返回给前端展示。
 - [x] 支持 HTTP-only 访问开关。
-- [x] 将默认域名后缀和访问链接协议下沉到运行集群级别：访问入口按部署配置所在集群生成默认域名、短前缀补全、CNAME 目标和控制台访问 URL，支持不同集群使用不同 Ingress 域名。
+- [x] 将默认域名后缀和访问链接协议下沉到运行集群级别：访问入口按部署配置所在集群生成默认域名、短前缀补全、CNAME 目标和控制台访问 URL，支持不同集群使用不同 Gateway 域名。
+- [x] 运行集群补齐 Gateway API 默认配置：Gateway Provider、控制器类型、GatewayClass、Gateway 名称/命名空间、外部 TLS 模式、转发头策略、可信代理 CIDR 和默认请求/响应头。
+- [x] 访问入口补齐高级 Gateway API 配置：支持 Parent Gateway 覆盖、路径匹配、请求/响应头、URL rewrite、redirect、后端权重和备用域名字段，并按项目/平台管理员收紧高风险 header。
+- [x] 破坏性迁移访问入口底层：未发版阶段清空旧 GatewayRoute 数据，Worker 主路径从 Kubernetes Ingress 切换到 Gateway API HTTPRoute，并新增 Gateway API CRD 探测和 HTTPRoute 状态读取。
+- [ ] Gateway API HTTPS listener 与证书引用自动化：当前第一阶段只创建 HTTP listener，HTTP Challenge 证书申请状态保留，后续补齐 Gateway TLS certificateRefs。
+- [ ] 收紧 Gateway `allowedRoutes`：当前 MVP 使用 `namespaces.from=All` 方便跨命名空间绑定，后续改为项目 namespace label selector。
 - [x] 实现证书状态字段：disabled、pending、issued、failed、expired。
 
 ### 9.2 网关 Worker/控制链路
 
-- [x] 创建 Ingress。
+- [x] 创建 Gateway API Gateway 和 HTTPRoute。
+- [x] HTTPRoute 下发支持 RequestHeaderModifier、ResponseHeaderModifier、URLRewrite 和 RequestRedirect，按运行集群默认值与路由覆盖值合并生成。
 - [x] 校验 DNS CNAME。
 - [x] 支持 HTTP Challenge 证书申请。
 - [x] 实现证书续期检查和状态回写。
@@ -710,7 +717,7 @@
 
 - [ ] 构建页接入 BuildRun 实时状态和日志查看。
 - [ ] 部署环境页接入 Release 状态、rollout 进度和回滚结果。
-- [ ] 网关域名页接入 DNS 校验、Ingress、证书申请和续期状态。
+- [ ] 网关域名页接入 DNS 校验、HTTPRoute/Gateway、证书申请和续期状态。
 - [ ] 使用 Chrome 验收仓库绑定、构建、镜像站、部署、域名完整链路。
 - [x] 使用 Chrome 验收镜像直部署链路：Neo Blog 数据库、后端、前端和域名入口已通过浏览器创建并访问成功。
 
@@ -770,7 +777,7 @@
 - [x] 运营面板 iframe MVP：平台管理员可在站点设置中配置 Grafana dashboard/panel 嵌入地址，并在系统管理区查看运营面板；普通用户不展示入口。
 - [x] 构建链路补齐 Prometheus 指标：构建结果、构建耗时和超时/lost 结果；标签只允许稳定低基数字段。阶段耗时和镜像推送细分需等待 builder 结构化阶段事件后再补。
 - [x] 发布与运行态补齐 Prometheus 指标：发布结果、发布耗时、ready/desired/available/updated/unavailable 副本；运行态资源指标优先从 Kubernetes/Prometheus 查询，不把 worker 内存状态当真相源。
-- [x] 访问入口补齐 Prometheus 指标：路由状态、TLS/DNS/证书状态分布、网关同步结果和耗时；入口真实流量优先复用 Traefik/Ingress Controller 指标。
+- [x] 访问入口补齐 Prometheus 指标：路由状态、TLS/DNS/证书状态分布、网关同步结果和耗时；入口真实流量优先复用 Traefik/Gateway API controller 指标。
 - [ ] 在 `PROMETHEUS_QUERY_ENABLED=true` 且 `PROMETHEUS_BASE_URL` 已配置时，后端提供受控查询 API，为看板、项目空间概览、应用概览和部署页返回聚合后的轻量趋势；未配置时 UI 隐藏趋势图并保留业务状态。
 - [ ] 在 `GRAFANA_LINKS_ENABLED=true` 且 `GRAFANA_BASE_URL` 已配置时，按页面上下文生成 Grafana dashboard 深链；未配置时不展示 Grafana 入口。
 - [x] 提供 Grafana dashboard JSON 或 Helm ConfigMap：Liteyuki Overview、API、Worker、Build、Release、Gateway、Runtime、Dependencies；不同指标按 stat、time series、bar gauge、table 选择合适图表。
@@ -801,6 +808,22 @@
 - [ ] 项目空间和应用概览增加用户友好的可观测卡片：构建成功率、最近发布状态、副本健康、访问入口状态、资源趋势；趋势依赖 Prometheus 查询开关，状态依赖平台业务记录。
 - [ ] 构建/发布失败自动关联最近日志、Kubernetes Events 和 trace_id，前端优先展示“可能原因 + 下一步操作”，深度日志和 trace 作为辅助入口。
 - [ ] 完成可观测 MVP 验收：不开任何可观测环境变量时平台行为与当前一致；只开 metrics 时 Prometheus 可 scrape API/Worker；只开 tracing 时构建/发布 trace 可在 Tempo 查看；只开日志导出时 Loki 可按 trace_id/build_run_id 查询；只开 Grafana 链接时 UI 展示受控 dashboard/trace/log 跳转。
+
+## 13. 通知适配器
+
+目标：平台内部只产生结构化通知事件，发送层统一交给通知适配器；飞书、企微等可由 Webhook 预设生成渠道快照，只有 SMTP 这类不同协议或未来需要专用能力的平台才新增独立适配器。
+
+- [x] 定义通知核心模型与迁移：`NotificationChannel`、`NotificationTemplate`、`NotificationRule`、`NotificationDelivery`；渠道保存适配器类型、配置快照、Secret 引用、启用状态和最近投递状态，敏感字段不明文落业务表。
+- [x] 实现通知适配器 Registry：统一 `Validate`、`Render`、`Send`、`Test` 接口；业务模块只 emit `NotificationEvent`，不关心渠道平台和消息格式。
+- [x] 实现 Webhook 适配器内核：支持 method 白名单、URL/Header/JSON Body 模板、Go template 安全函数、JSON 校验、超时和 SSRF 防护；投递记录脱敏在异步投递层补齐。
+- [x] 实现 SMTP 适配器内核：支持 SMTP/STARTTLS/TLS、登录、From/To/Cc/Bcc、subject/body 模板和测试发送；密码通过 Secret Store 保存。
+- [x] 内置 Webhook 渠道预设定义：飞书 Bot、企微 Bot 以 webhook 模板表达；后续 API 从预设创建渠道快照，预设更新不影响已有渠道。
+- [ ] 实现通知渠道/模板/规则 CRUD API：平台管理员可管理全局通知资源，后续再按项目空间扩展项目级规则；保存渠道时把敏感字段写入 Secret Store，响应只回显 `secretSet`。
+- [ ] 实现从 Webhook 预设创建渠道快照：用户填写预设密钥后生成普通 webhook 渠道配置和默认模板，后续可提供“按最新预设重置”。
+- [ ] 实现通知规则匹配与异步投递：按事件类型、项目空间、应用、部署配置、严重级别过滤；生成 `NotificationDelivery` 后由 worker 调用适配器投递并记录结果、重试次数、耗时和脱敏错误。
+- [ ] 接入首批失败事件：`build.failed`、`release.failed`、`hook.failed`、`gateway.apply_failed`；成功类事件先不默认开启，避免通知噪音。
+- [ ] 提供管理员通知配置 UI：渠道列表、创建/编辑 Webhook/SMTP、从预设创建渠道、测试发送、模板管理、规则管理和投递记录；用户可见文案全部接入 i18n。
+- [ ] 补充通知文档与验收：说明适配器边界、模板变量 schema、安全限制、Webhook 预设快照行为和 SMTP 配置示例。
 
 ## 100.优化需求
 

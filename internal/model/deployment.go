@@ -9,26 +9,36 @@ import (
 )
 
 type RuntimeCluster struct {
-	ID                  string         `gorm:"primaryKey" json:"id"`
-	Name                string         `gorm:"not null" json:"name"`
-	Type                string         `gorm:"not null;default:kubernetes" json:"type"`
-	Endpoint            string         `json:"endpoint"`
-	Scope               string         `gorm:"index;not null;default:global" json:"scope"`
-	OwnerRef            string         `gorm:"index" json:"ownerRef"`
-	ProjectIDs          []string       `gorm:"-" json:"projectIds"`
-	KubeconfigRef       string         `json:"-"`
-	KubeconfigSet       bool           `gorm:"-" json:"kubeconfigSet"`
-	Kubeconfig          string         `gorm:"-" json:"kubeconfig,omitempty"`
-	IsDefault           bool           `gorm:"not null;default:false" json:"isDefault"`
-	MaxConcurrentBuilds int            `gorm:"not null;default:4" json:"maxConcurrentBuilds"`
-	GatewayRootDomain   string         `gorm:"not null;default:apps.local" json:"gatewayRootDomain"`
-	GatewayPublicScheme string         `gorm:"not null;default:http" json:"gatewayPublicScheme"`
-	Status              string         `gorm:"not null;default:unknown" json:"status"`
-	LastCheckedAt       *time.Time     `json:"lastCheckedAt"`
-	CreatedBy           string         `gorm:"index" json:"createdBy"`
-	CreatedAt           time.Time      `json:"createdAt"`
-	UpdatedAt           time.Time      `json:"updatedAt"`
-	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                            string         `gorm:"primaryKey" json:"id"`
+	Name                          string         `gorm:"not null" json:"name"`
+	Type                          string         `gorm:"not null;default:kubernetes" json:"type"`
+	Endpoint                      string         `json:"endpoint"`
+	Scope                         string         `gorm:"index;not null;default:global" json:"scope"`
+	OwnerRef                      string         `gorm:"index" json:"ownerRef"`
+	ProjectIDs                    []string       `gorm:"-" json:"projectIds"`
+	KubeconfigRef                 string         `json:"-"`
+	KubeconfigSet                 bool           `gorm:"-" json:"kubeconfigSet"`
+	Kubeconfig                    string         `gorm:"-" json:"kubeconfig,omitempty"`
+	IsDefault                     bool           `gorm:"not null;default:false" json:"isDefault"`
+	MaxConcurrentBuilds           int            `gorm:"not null;default:4" json:"maxConcurrentBuilds"`
+	GatewayProvider               string         `gorm:"not null;default:gateway-api" json:"gatewayProvider"`
+	GatewayRootDomain             string         `gorm:"not null;default:apps.local" json:"gatewayRootDomain"`
+	GatewayPublicScheme           string         `gorm:"not null;default:http" json:"gatewayPublicScheme"`
+	GatewayControllerType         string         `gorm:"not null;default:traefik" json:"gatewayControllerType"`
+	GatewayClassName              string         `gorm:"not null;default:traefik" json:"gatewayClassName"`
+	GatewayName                   string         `gorm:"not null;default:liteyuki-gateway" json:"gatewayName"`
+	GatewayNamespace              string         `gorm:"not null;default:kube-system" json:"gatewayNamespace"`
+	GatewayExternalTLSMode        string         `gorm:"not null;default:none" json:"gatewayExternalTLSMode"`
+	GatewayForwardedHeadersMode   string         `gorm:"not null;default:preserve" json:"gatewayForwardedHeadersMode"`
+	GatewayTrustedProxyCIDRs      string         `gorm:"column:gateway_trusted_proxy_cidrs;type:text;not null;default:''" json:"gatewayTrustedProxyCIDRs"`
+	GatewayDefaultRequestHeaders  string         `gorm:"type:text;not null;default:''" json:"gatewayDefaultRequestHeaders"`
+	GatewayDefaultResponseHeaders string         `gorm:"type:text;not null;default:''" json:"gatewayDefaultResponseHeaders"`
+	Status                        string         `gorm:"not null;default:unknown" json:"status"`
+	LastCheckedAt                 *time.Time     `json:"lastCheckedAt"`
+	CreatedBy                     string         `gorm:"index" json:"createdBy"`
+	CreatedAt                     time.Time      `json:"createdAt"`
+	UpdatedAt                     time.Time      `json:"updatedAt"`
+	DeletedAt                     gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type Environment struct {

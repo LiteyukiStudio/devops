@@ -26,7 +26,11 @@ type NamespaceManager interface {
 	ApplyApplicationResources(ctx context.Context, spec ApplicationResourcesSpec) error
 	RunHookJob(ctx context.Context, spec HookJobSpec) (HookJobResult, error)
 	GetDeploymentSnapshot(ctx context.Context, namespace, name string) (DeploymentSnapshot, error)
-	ApplyGatewayIngress(ctx context.Context, spec GatewayIngressSpec) error
+	DetectGatewayAPISupport(ctx context.Context) error
+	EnsureGateway(ctx context.Context, spec GatewaySpec) error
+	ApplyHTTPRoute(ctx context.Context, spec HTTPRouteSpec) error
+	DeleteHTTPRoute(ctx context.Context, namespace, name string) error
+	GetHTTPRouteStatus(ctx context.Context, namespace, name string) (HTTPRouteStatusSnapshot, error)
 	ApplyCertificate(ctx context.Context, spec CertificateSpec) error
 	GetCertificateSnapshot(ctx context.Context, namespace, name string) (CertificateSnapshot, error)
 	ListManagedResources(ctx context.Context, options ResourceListOptions) ([]ResourceSnapshot, error)

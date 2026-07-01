@@ -98,6 +98,11 @@ type HookJobResult struct {
 	Logs      string
 }
 
+const (
+	hookJobSuccessTTLSeconds int32 = 300
+	hookJobFailureTTLSeconds int32 = 86400
+)
+
 type DataExportSpec struct {
 	Name      string
 	Namespace string
@@ -638,8 +643,9 @@ func (c *Client) RunHookJob(ctx context.Context, spec HookJobSpec) (HookJobResul
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{Name: spec.Name, Namespace: spec.Namespace, Labels: labels},
 		Spec: batchv1.JobSpec{
-			BackoffLimit:          &backoffLimit,
-			ActiveDeadlineSeconds: int64Ptr(int64(timeout)),
+			BackoffLimit:            &backoffLimit,
+			ActiveDeadlineSeconds:   int64Ptr(int64(timeout)),
+			TTLSecondsAfterFinished: int32Ptr(hookJobFailureTTLSeconds),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
@@ -682,10 +688,21 @@ func (c *Client) RunHookJob(ctx context.Context, spec HookJobSpec) (HookJobResul
 		},
 	}
 	_ = c.client.BatchV1().Jobs(spec.Namespace).Delete(ctx, spec.Name, metav1.DeleteOptions{})
-	if _, err := c.client.BatchV1().Jobs(spec.Namespace).Create(ctx, job, metav1.CreateOptions{}); err != nil {
+	createdJob, err := c.client.BatchV1().Jobs(spec.Namespace).Create(ctx, job, metav1.CreateOptions{})
+	if err != nil {
 		return HookJobResult{}, err
 	}
-	return c.waitForHookJob(ctx, spec.Namespace, spec.Name, time.Duration(timeout)*time.Second)
+	_ = c.attachHookScriptOwner(ctx, spec.Namespace, scriptMapName, createdJob)
+	result, err := c.waitForHookJob(ctx, spec.Namespace, spec.Name, time.Duration(timeout)*time.Second)
+	if err != nil {
+		return result, err
+	}
+	ttlSeconds := hookJobFailureTTLSeconds
+	if result.Succeeded {
+		ttlSeconds = hookJobSuccessTTLSeconds
+	}
+	_ = c.setHookJobTTL(ctx, spec.Namespace, spec.Name, ttlSeconds)
+	return result, nil
 }
 
 func (c *Client) applyHookScriptConfigMap(ctx context.Context, item *corev1.ConfigMap) error {
@@ -700,6 +717,26 @@ func (c *Client) applyHookScriptConfigMap(ctx context.Context, item *corev1.Conf
 	existing.Labels = item.Labels
 	existing.Data = item.Data
 	_, err = c.client.CoreV1().ConfigMaps(item.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
+	return err
+}
+
+func (c *Client) attachHookScriptOwner(ctx context.Context, namespace string, name string, owner *batchv1.Job) error {
+	item, err := c.client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	item.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(owner, batchv1.SchemeGroupVersion.WithKind("Job"))}
+	_, err = c.client.CoreV1().ConfigMaps(namespace).Update(ctx, item, metav1.UpdateOptions{})
+	return err
+}
+
+func (c *Client) setHookJobTTL(ctx context.Context, namespace string, name string, ttlSeconds int32) error {
+	job, err := c.client.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	job.Spec.TTLSecondsAfterFinished = int32Ptr(ttlSeconds)
+	_, err = c.client.BatchV1().Jobs(namespace).Update(ctx, job, metav1.UpdateOptions{})
 	return err
 }
 
@@ -877,6 +914,10 @@ func intstrFromInt32(value int32) intstr.IntOrString {
 }
 
 func int64Ptr(value int64) *int64 {
+	return &value
+}
+
+func int32Ptr(value int32) *int32 {
 	return &value
 }
 

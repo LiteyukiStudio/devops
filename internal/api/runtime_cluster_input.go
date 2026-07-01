@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
@@ -31,21 +32,44 @@ func (h *Handlers) runtimeClusterFromInput(ctx *gin.Context, user model.User, in
 		}
 		kubeconfigRef = h.secrets.Store(kubeconfig, user.ID, "runtime_cluster:"+clusterID+":kubeconfig")
 	}
+	platformAdmin := user.Role == "platform_admin"
+	if _, err := parseGatewayHeaderMap(input.GatewayDefaultRequestHeaders, platformAdmin); err != nil {
+		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("默认请求头配置无效: %s", err.Error()))
+		return model.RuntimeCluster{}, false
+	}
+	if _, err := parseGatewayHeaderMap(input.GatewayDefaultResponseHeaders, platformAdmin); err != nil {
+		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("默认响应头配置无效: %s", err.Error()))
+		return model.RuntimeCluster{}, false
+	}
+	if err := validateTrustedProxyCIDRs(input.GatewayTrustedProxyCIDRs); err != nil {
+		writeError(ctx, http.StatusBadRequest, err.Error())
+		return model.RuntimeCluster{}, false
+	}
 	return model.RuntimeCluster{
-		ID:                  clusterID,
-		Name:                strings.TrimSpace(input.Name),
-		Type:                normalizeRuntimeClusterType(input.Type),
-		Endpoint:            strings.TrimSpace(input.Endpoint),
-		Scope:               scope,
-		OwnerRef:            ownerRef,
-		ProjectIDs:          projectIDs,
-		KubeconfigRef:       kubeconfigRef,
-		IsDefault:           input.IsDefault,
-		MaxConcurrentBuilds: normalizeBuildConcurrency(input.MaxConcurrentBuilds, defaultClusterBuildConcurrency),
-		GatewayRootDomain:   normalizeGatewayRootDomain(input.GatewayRootDomain, h.legacyGatewayRootDomain()),
-		GatewayPublicScheme: normalizeGatewayPublicScheme(input.GatewayPublicScheme),
-		Status:              fallback(strings.TrimSpace(input.Status), "unknown"),
-		CreatedBy:           user.ID,
+		ID:                            clusterID,
+		Name:                          strings.TrimSpace(input.Name),
+		Type:                          normalizeRuntimeClusterType(input.Type),
+		Endpoint:                      strings.TrimSpace(input.Endpoint),
+		Scope:                         scope,
+		OwnerRef:                      ownerRef,
+		ProjectIDs:                    projectIDs,
+		KubeconfigRef:                 kubeconfigRef,
+		IsDefault:                     input.IsDefault,
+		MaxConcurrentBuilds:           normalizeBuildConcurrency(input.MaxConcurrentBuilds, defaultClusterBuildConcurrency),
+		GatewayProvider:               normalizeGatewayProvider(input.GatewayProvider),
+		GatewayRootDomain:             normalizeGatewayRootDomain(input.GatewayRootDomain, h.legacyGatewayRootDomain()),
+		GatewayPublicScheme:           normalizeGatewayPublicScheme(input.GatewayPublicScheme),
+		GatewayControllerType:         normalizeGatewayControllerType(input.GatewayControllerType),
+		GatewayClassName:              fallback(strings.TrimSpace(input.GatewayClassName), "traefik"),
+		GatewayName:                   fallback(dnsLabelName(input.GatewayName), "liteyuki-gateway"),
+		GatewayNamespace:              fallback(dnsLabelName(input.GatewayNamespace), "kube-system"),
+		GatewayExternalTLSMode:        normalizeGatewayExternalTLSMode(input.GatewayExternalTLSMode),
+		GatewayForwardedHeadersMode:   normalizeGatewayForwardedHeadersMode(input.GatewayForwardedHeadersMode),
+		GatewayTrustedProxyCIDRs:      strings.TrimSpace(input.GatewayTrustedProxyCIDRs),
+		GatewayDefaultRequestHeaders:  strings.TrimSpace(input.GatewayDefaultRequestHeaders),
+		GatewayDefaultResponseHeaders: strings.TrimSpace(input.GatewayDefaultResponseHeaders),
+		Status:                        fallback(strings.TrimSpace(input.Status), "unknown"),
+		CreatedBy:                     user.ID,
 	}, true
 }
 
@@ -93,18 +117,28 @@ func normalizeRuntimeClusterType(value string) string {
 }
 
 type runtimeClusterInput struct {
-	Name                string   `json:"name" binding:"required"`
-	Type                string   `json:"type"`
-	Endpoint            string   `json:"endpoint"`
-	Scope               string   `json:"scope"`
-	OwnerRef            string   `json:"ownerRef"`
-	ProjectIDs          []string `json:"projectIds"`
-	Kubeconfig          string   `json:"kubeconfig"`
-	IsDefault           bool     `json:"isDefault"`
-	MaxConcurrentBuilds int      `json:"maxConcurrentBuilds"`
-	GatewayRootDomain   string   `json:"gatewayRootDomain"`
-	GatewayPublicScheme string   `json:"gatewayPublicScheme"`
-	Status              string   `json:"status"`
+	Name                          string   `json:"name" binding:"required"`
+	Type                          string   `json:"type"`
+	Endpoint                      string   `json:"endpoint"`
+	Scope                         string   `json:"scope"`
+	OwnerRef                      string   `json:"ownerRef"`
+	ProjectIDs                    []string `json:"projectIds"`
+	Kubeconfig                    string   `json:"kubeconfig"`
+	IsDefault                     bool     `json:"isDefault"`
+	MaxConcurrentBuilds           int      `json:"maxConcurrentBuilds"`
+	GatewayProvider               string   `json:"gatewayProvider"`
+	GatewayRootDomain             string   `json:"gatewayRootDomain"`
+	GatewayPublicScheme           string   `json:"gatewayPublicScheme"`
+	GatewayControllerType         string   `json:"gatewayControllerType"`
+	GatewayClassName              string   `json:"gatewayClassName"`
+	GatewayName                   string   `json:"gatewayName"`
+	GatewayNamespace              string   `json:"gatewayNamespace"`
+	GatewayExternalTLSMode        string   `json:"gatewayExternalTLSMode"`
+	GatewayForwardedHeadersMode   string   `json:"gatewayForwardedHeadersMode"`
+	GatewayTrustedProxyCIDRs      string   `json:"gatewayTrustedProxyCIDRs"`
+	GatewayDefaultRequestHeaders  string   `json:"gatewayDefaultRequestHeaders"`
+	GatewayDefaultResponseHeaders string   `json:"gatewayDefaultResponseHeaders"`
+	Status                        string   `json:"status"`
 }
 
 func normalizeGatewayRootDomain(value string, fallbackValue string) string {
@@ -123,4 +157,65 @@ func normalizeGatewayPublicScheme(value string) string {
 		return "https"
 	}
 	return "http"
+}
+
+func normalizeGatewayProvider(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "gateway-api":
+		return "gateway-api"
+	default:
+		return "gateway-api"
+	}
+}
+
+func normalizeGatewayControllerType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "generic":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "traefik"
+	}
+}
+
+func normalizeGatewayExternalTLSMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "gateway", "upstream":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "none"
+	}
+}
+
+func dnsLabelName(value string) string {
+	value = strings.Trim(strings.ToLower(strings.TrimSpace(value)), "-")
+	if value == "" {
+		return ""
+	}
+	value = gatewayHostSegmentPattern.ReplaceAllString(value, "-")
+	value = strings.Join(strings.FieldsFunc(value, func(char rune) bool { return char == '-' }), "-")
+	return strings.Trim(value, "-")
+}
+
+func normalizeGatewayForwardedHeadersMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "overwrite", "none":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return "preserve"
+	}
+}
+
+func validateTrustedProxyCIDRs(value string) error {
+	for _, item := range strings.FieldsFunc(value, func(char rune) bool {
+		return char == '\n' || char == ',' || char == ';'
+	}) {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, err := netip.ParsePrefix(item); err != nil {
+			return fmt.Errorf("可信代理 CIDR %q 无效", item)
+		}
+	}
+	return nil
 }

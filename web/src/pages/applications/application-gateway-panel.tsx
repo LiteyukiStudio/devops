@@ -9,16 +9,44 @@ import { api } from '@/api'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
+import { FormField as Field } from '@/components/common/form-field'
 import { GatewayRouteFormFields } from '@/components/common/gateway-route-form-fields'
 import { HoverText } from '@/components/common/hover-text'
+import { ProgressiveSection } from '@/components/common/progressive-section'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { NativeSelect as Select } from '@/components/ui/native-select'
+import { Textarea } from '@/components/ui/textarea'
 import { gatewayDeploymentTargetLabel } from './application-config-utils'
 
-type RouteForm = Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'accessUrl' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'>
+type RouteForm = Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'accessUrl' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt' | 'routeSummary' | 'conditions'>
 
-const routeDefaults: RouteForm = { applicationId: '', certificateStatus: 'disabled', deploymentTargetId: '', dnsStatus: 'pending', enabled: true, environmentId: '', host: '', isDefault: false, path: '/', servicePort: 8080, status: 'pending', tlsMode: 'http-only' }
+const routeDefaults: RouteForm = {
+  applicationId: '',
+  backendWeight: 1,
+  certificateStatus: 'disabled',
+  deploymentTargetId: '',
+  dnsStatus: 'pending',
+  enabled: true,
+  environmentId: '',
+  host: '',
+  hostnameAliases: '',
+  isDefault: false,
+  parentGatewayName: '',
+  parentGatewayNamespace: '',
+  path: '/',
+  pathMatchType: 'PathPrefix',
+  requestHeaders: '',
+  requestRedirect: '',
+  responseHeaders: '',
+  sectionName: '',
+  servicePort: 8080,
+  status: 'pending',
+  tlsMode: 'http-only',
+  urlRewrite: '',
+}
 const gatewayRouteTlsModeLabels: Record<GatewayRoute['tlsMode'], string> = {
   'http-challenge': 'gatewayRoutesPage.tlsHttpChallenge',
   'http-only': 'gatewayRoutesPage.tlsHttpOnly',
@@ -106,6 +134,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
           { key: 'path', header: t('gatewayRoutesPage.path'), width: 'compact', render: item => item.path },
           { key: 'servicePort', header: t('gatewayRoutesPage.targetPort'), className: 'whitespace-nowrap', width: 'number', render: item => item.servicePort || '-' },
           { key: 'tls', header: t('gatewayRoutesPage.tlsMode'), width: 'status', render: item => t(gatewayRouteTlsModeLabels[item.tlsMode]) },
+          { key: 'parentGateway', header: t('gatewayRoutesPage.parentGateway'), width: 'secondary', render: item => gatewayRouteParentGateway(item) },
           { key: 'status', header: t('common.status'), render: item => (
             <div className="flex flex-wrap items-center gap-2">
               <StatusValueBadge labelKeyPrefix="gatewayRoutesPage.statuses" value={gatewayRouteEffectiveStatus(item)} />
@@ -133,29 +162,75 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
         rowKey={item => item.id}
       />
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingRoute ? t('gatewayRoutesPage.editRoute') : t('gatewayRoutesPage.createRoute')}</DialogTitle>
             <DialogDescription>{t('gatewayRoutesPage.routeDialogDescription')}</DialogDescription>
           </DialogHeader>
           <form className="grid gap-3" onSubmit={form.handleSubmit(values => saveRoute.mutate(values))}>
-            <GatewayRouteFormFields
-              deploymentTargetIdField={form.register('deploymentTargetId', {
-                required: true,
-                onChange: (event) => {
-                  const target = deploymentTargets.find(item => item.id === event.target.value)
-                  form.setValue('environmentId', target?.environmentId ?? '', { shouldDirty: true, shouldValidate: true })
-                  form.setValue('servicePort', deploymentTargetPrimaryServicePort(target), { shouldDirty: true, shouldValidate: true })
-                },
-              })}
-              deploymentTargets={deploymentTargetOptions}
-              enabledField={form.register('enabled')}
-              hostField={form.register('host')}
-              pathField={form.register('path')}
-              servicePortOptions={servicePortOptions}
-              servicePortField={form.register('servicePort', { valueAsNumber: true })}
-              tlsModeField={form.register('tlsMode')}
-            />
+            <ProgressiveSection
+              defaultOpen
+              description={t('gatewayRoutesPage.basicGatewayConfigDescription')}
+              title={t('gatewayRoutesPage.basicGatewayConfig')}
+            >
+              <GatewayRouteFormFields
+                deploymentTargetIdField={form.register('deploymentTargetId', {
+                  required: true,
+                  onChange: (event) => {
+                    const target = deploymentTargets.find(item => item.id === event.target.value)
+                    form.setValue('environmentId', target?.environmentId ?? '', { shouldDirty: true, shouldValidate: true })
+                    form.setValue('servicePort', deploymentTargetPrimaryServicePort(target), { shouldDirty: true, shouldValidate: true })
+                  },
+                })}
+                deploymentTargets={deploymentTargetOptions}
+                enabledField={form.register('enabled')}
+                hostField={form.register('host')}
+                pathField={form.register('path')}
+                servicePortOptions={servicePortOptions}
+                servicePortField={form.register('servicePort', { valueAsNumber: true })}
+                tlsModeField={form.register('tlsMode')}
+              />
+            </ProgressiveSection>
+            <ProgressiveSection
+              description={t('gatewayRoutesPage.advancedGatewayConfigDescription')}
+              title={t('gatewayRoutesPage.advancedGatewayConfig')}
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field hint={t('gatewayRoutesPage.parentGatewayNameHint')} label={t('gatewayRoutesPage.parentGatewayName')}>
+                  <Input {...form.register('parentGatewayName')} placeholder={t('gatewayRoutesPage.parentGatewayNamePlaceholder')} />
+                </Field>
+                <Field hint={t('gatewayRoutesPage.parentGatewayNamespaceHint')} label={t('gatewayRoutesPage.parentGatewayNamespace')}>
+                  <Input {...form.register('parentGatewayNamespace')} placeholder={t('gatewayRoutesPage.parentGatewayNamespacePlaceholder')} />
+                </Field>
+                <Field hint={t('gatewayRoutesPage.sectionNameHint')} label={t('gatewayRoutesPage.sectionName')}>
+                  <Input {...form.register('sectionName')} placeholder={t('gatewayRoutesPage.sectionNamePlaceholder')} />
+                </Field>
+                <Field hint={t('gatewayRoutesPage.pathMatchTypeHint')} label={t('gatewayRoutesPage.pathMatchType')}>
+                  <Select {...form.register('pathMatchType')}>
+                    <option value="PathPrefix">{t('gatewayRoutesPage.pathMatchPrefix')}</option>
+                    <option value="Exact">{t('gatewayRoutesPage.pathMatchExact')}</option>
+                  </Select>
+                </Field>
+                <Field hint={t('gatewayRoutesPage.backendWeightHint')} label={t('gatewayRoutesPage.backendWeight')}>
+                  <Input {...form.register('backendWeight', { valueAsNumber: true })} min={1} type="number" />
+                </Field>
+                <Field hint={t('gatewayRoutesPage.hostnameAliasesHint')} label={t('gatewayRoutesPage.hostnameAliases')}>
+                  <Input {...form.register('hostnameAliases')} placeholder={t('gatewayRoutesPage.hostnameAliasesPlaceholder')} />
+                </Field>
+              </div>
+              <Field hint={t('gatewayRoutesPage.requestHeadersHint')} label={t('gatewayRoutesPage.requestHeaders')}>
+                <Textarea {...form.register('requestHeaders')} placeholder={t('gatewayRoutesPage.headersPlaceholder')} rows={4} />
+              </Field>
+              <Field hint={t('gatewayRoutesPage.responseHeadersHint')} label={t('gatewayRoutesPage.responseHeaders')}>
+                <Textarea {...form.register('responseHeaders')} placeholder={t('gatewayRoutesPage.headersPlaceholder')} rows={4} />
+              </Field>
+              <Field hint={t('gatewayRoutesPage.urlRewriteHint')} label={t('gatewayRoutesPage.urlRewrite')}>
+                <Textarea {...form.register('urlRewrite')} placeholder={t('gatewayRoutesPage.urlRewritePlaceholder')} rows={3} />
+              </Field>
+              <Field hint={t('gatewayRoutesPage.requestRedirectHint')} label={t('gatewayRoutesPage.requestRedirect')}>
+                <Textarea {...form.register('requestRedirect')} placeholder={t('gatewayRoutesPage.requestRedirectPlaceholder')} rows={3} />
+              </Field>
+            </ProgressiveSection>
             <DialogFooter><Button disabled={!form.formState.isValid || saveRoute.isPending} type="submit">{t('common.save')}</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -167,6 +242,14 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
 
 function gatewayRouteEffectiveStatus(item: GatewayRoute) {
   return item.enabled ? item.status : 'disabled'
+}
+
+function gatewayRouteParentGateway(item: GatewayRoute) {
+  const name = item.parentGatewayName?.trim()
+  const namespace = item.parentGatewayNamespace?.trim()
+  if (!name && !namespace)
+    return '-'
+  return namespace ? `${namespace}/${name || '-'}` : name
 }
 
 function GatewayRouteSummary({ item }: { item: GatewayRoute }) {

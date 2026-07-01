@@ -577,6 +577,16 @@ export interface RuntimeCluster {
   maxConcurrentBuilds: number
   gatewayRootDomain: string
   gatewayPublicScheme: 'http' | 'https'
+  gatewayProvider: 'gateway-api'
+  gatewayControllerType: 'traefik' | 'generic'
+  gatewayClassName: string
+  gatewayName: string
+  gatewayNamespace: string
+  gatewayExternalTLSMode: 'none' | 'gateway' | 'upstream'
+  gatewayForwardedHeadersMode: 'preserve' | 'overwrite' | 'none'
+  gatewayTrustedProxyCIDRs: string
+  gatewayDefaultRequestHeaders: string
+  gatewayDefaultResponseHeaders: string
   status: string
   lastCheckedAt?: string
   createdBy: string
@@ -688,6 +698,18 @@ export interface GatewayRoute {
   dnsStatus: 'pending' | 'verified' | 'failed'
   status: 'pending' | 'ready' | 'active' | 'disabled' | 'failed'
   enabled: boolean
+  parentGatewayName: string
+  parentGatewayNamespace: string
+  sectionName: string
+  pathMatchType: 'PathPrefix' | 'Exact'
+  requestHeaders: string
+  responseHeaders: string
+  urlRewrite: string
+  requestRedirect: string
+  backendWeight: number
+  hostnameAliases: string
+  routeSummary: string
+  conditions: Array<{ type: string, status: string, reason: string, message: string, observedGeneration: number }>
   deleteStatus: 'active' | 'deleting' | 'delete_failed' | 'deleted' | string
   deleteMessage: string
   deleteStartedAt?: string | null

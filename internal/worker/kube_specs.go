@@ -160,7 +160,7 @@ func shortID(value string) string {
 	return value
 }
 
-func gatewayIngressName(route model.GatewayRoute) string {
+func gatewayRuntimeName(route model.GatewayRoute) string {
 	return buildResourceName(route.ID, "liteyuki-gateway-")
 }
 
@@ -171,30 +171,69 @@ func gatewayTLSSecretName(route model.GatewayRoute) string {
 	return dnsLabel("tls-" + route.Host)
 }
 
-func gatewayIngressSpec(route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, namespace string, serviceName string) kubeprovider.GatewayIngressSpec {
+func gatewaySpec(cluster model.RuntimeCluster, projectID string) kubeprovider.GatewaySpec {
+	return kubeprovider.GatewaySpec{
+		Name:             firstNonEmpty(cluster.GatewayName, "liteyuki-gateway"),
+		Namespace:        firstNonEmpty(cluster.GatewayNamespace, "kube-system"),
+		GatewayClassName: firstNonEmpty(cluster.GatewayClassName, "traefik"),
+		ExternalTLSMode:  firstNonEmpty(cluster.GatewayExternalTLSMode, "none"),
+		ProjectID:        projectID,
+	}
+}
+
+func httpRouteSpec(route model.GatewayRoute, project model.Project, application model.Application, environment model.Environment, cluster model.RuntimeCluster, namespace string, serviceName string) (kubeprovider.HTTPRouteSpec, error) {
 	servicePort := route.ServicePort
 	if servicePort <= 0 {
 		servicePort = 80
 	}
-	return kubeprovider.GatewayIngressSpec{
-		Name:               gatewayIngressName(route),
-		Namespace:          namespace,
-		ProjectID:          project.ID,
-		ApplicationID:      application.ID,
-		EnvironmentID:      environment.ID,
-		DeploymentTargetID: route.DeploymentTargetID,
-		RouteID:            route.ID,
-		Host:               strings.TrimSpace(route.Host),
-		Path:               route.Path,
-		ServiceName:        firstNonEmpty(serviceName, dnsLabel(application.Slug)),
-		ServicePort:        int32(servicePort),
-		TLSSecretName:      gatewayTLSSecretName(route),
+	requestHeaders, err := mergeKeyValueMaps(cluster.GatewayDefaultRequestHeaders, route.RequestHeaders)
+	if err != nil {
+		return kubeprovider.HTTPRouteSpec{}, err
+	}
+	responseHeaders, err := mergeKeyValueMaps(cluster.GatewayDefaultResponseHeaders, route.ResponseHeaders)
+	if err != nil {
+		return kubeprovider.HTTPRouteSpec{}, err
+	}
+	for key, value := range forwardedHeaderOverrides(cluster) {
+		requestHeaders[key] = value
+	}
+	return kubeprovider.HTTPRouteSpec{
+		Name:                   gatewayRuntimeName(route),
+		Namespace:              namespace,
+		ProjectID:              project.ID,
+		ApplicationID:          application.ID,
+		EnvironmentID:          environment.ID,
+		DeploymentTargetID:     route.DeploymentTargetID,
+		RouteID:                route.ID,
+		Host:                   strings.TrimSpace(route.Host),
+		Path:                   route.Path,
+		PathMatchType:          firstNonEmpty(route.PathMatchType, "PathPrefix"),
+		ParentGatewayName:      firstNonEmpty(route.ParentGatewayName, cluster.GatewayName, "liteyuki-gateway"),
+		ParentGatewayNamespace: firstNonEmpty(route.ParentGatewayNamespace, cluster.GatewayNamespace, "kube-system"),
+		SectionName:            route.SectionName,
+		ServiceName:            firstNonEmpty(serviceName, dnsLabel(application.Slug)),
+		ServicePort:            int32(servicePort),
+		BackendWeight:          int32(normalizePositive(route.BackendWeight, 1)),
+		RequestHeaders:         requestHeaders,
+		ResponseHeaders:        responseHeaders,
+		URLRewrite:             route.URLRewrite,
+		RequestRedirect:        route.RequestRedirect,
+	}, nil
+}
+
+func forwardedHeaderOverrides(cluster model.RuntimeCluster) map[string]string {
+	if strings.TrimSpace(cluster.GatewayExternalTLSMode) != "upstream" || strings.TrimSpace(cluster.GatewayForwardedHeadersMode) != "overwrite" {
+		return map[string]string{}
+	}
+	return map[string]string{
+		"X-Forwarded-Proto": "https",
+		"X-Forwarded-Port":  "443",
 	}
 }
 
 func gatewayCertificateSpec(route model.GatewayRoute, project model.Project, namespace string, clusterIssuer string) kubeprovider.CertificateSpec {
 	return kubeprovider.CertificateSpec{
-		Name:          gatewayIngressName(route),
+		Name:          gatewayRuntimeName(route),
 		Namespace:     namespace,
 		ProjectID:     project.ID,
 		RouteID:       route.ID,

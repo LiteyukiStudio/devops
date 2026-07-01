@@ -89,7 +89,7 @@ storage credits = capacity_gib * duration_days * storage.gib_day
 
 ## 访问流量计费
 
-访问费用按平台访问入口的响应出站流量计费，不读取 Pod 网卡总流量，也不把集群内服务互访计入公网访问费用。所有外部 HTTP/HTTPS 访问都应经过平台创建的 GatewayRoute/Ingress，再由网关日志或外部采集器上报用量：
+访问费用按平台访问入口的响应出站流量计费，不读取 Pod 网卡总流量，也不把集群内服务互访计入公网访问费用。所有外部 HTTP/HTTPS 访问都应经过平台创建的 GatewayRoute/HTTPRoute，再由网关日志或外部采集器上报用量：
 
 ```text
 gateway credits = response_bytes / 1024 / 1024 / 1024 * gateway.egress_gib
@@ -165,5 +165,5 @@ curl -X POST "$DEVOPS_BASE_URL/api/v1/billing/external-transactions" \
 
 ## 待补齐
 
-- 网关访问日志采集器：从 Traefik、ingress-nginx 或 Caddy access log/metrics 读取响应字节数并定期调用用量上报接口。
+- 网关访问日志采集器：从 Traefik Gateway API provider、Caddy 或其他 Gateway API controller 的 access log/metrics 读取响应字节数并定期调用用量上报接口。
 - 基于欠费宽限期处理运行中资源的通知、暂停和清理策略。

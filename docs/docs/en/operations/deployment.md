@@ -46,9 +46,11 @@ When a deployment target attaches a project-space runtime config set, it can use
 
 Project-space hooks are reusable script definitions. They only run after a deployment target binds them in its “Deployment hooks” section. A deployment target can bind the same project hook to build, image push, pre-deployment, or post-deployment phases and control the execution order locally. Pre-deployment hooks run after runtime ConfigMap/Secret resources are written and before the application Deployment rolls out, which fits database migrations, seed commands, or one-shot repair commands that must complete before the app container starts.
 
+Deployment-phase hooks run as Kubernetes Jobs. The platform stores hook run records and logs; the in-cluster Hook Job/Pod is kept only briefly for troubleshooting. Successful hooks are cleaned up after 5 minutes by default, and failed hooks after 24 hours.
+
 When deleting a deployment target, the platform first deletes routes bound to that target, then cleans up the Kubernetes workload, Service, and optional data volumes. This prevents routes from pointing at a service that no longer exists.
 
-Gateway routes are enabled by default when created. To temporarily stop public access without losing the domain config, disable the route; the platform keeps the config and removes the runtime Ingress, then reapplies it when enabled again.
+Gateway routes are enabled by default when created. To temporarily stop public access without losing the domain config, disable the route; the platform keeps the config and removes the runtime HTTPRoute, then reapplies it when enabled again.
 
 ## Builds and releases
 
@@ -69,3 +71,9 @@ The application deployment list refreshes runtime metrics every second through S
 Routes connect domain, path, TLS, and backend service. After creating one, the platform shows apply status and checks so you can verify the service is reachable.
 
 The site-level “public route link scheme” only controls whether the console displays and opens route links with `http` or `https`. If an outer CDN or reverse proxy already terminates HTTPS, set it to `https` while keeping the route TLS mode as HTTP-only, so the platform does not request an in-cluster certificate.
+
+Access routes are backed by Kubernetes Gateway API. A runtime cluster owns one platform-managed `Gateway`, and each access route creates an `HTTPRoute` in the project namespace that forwards to the deployment target `Service`. Install the Gateway API CRDs before enabling routes. Traefik clusters also need `--providers.kubernetesGateway`.
+
+Runtime clusters can define default Gateway settings, including controller type, GatewayClass, Gateway name/namespace, external TLS mode, forwarded header policy, trusted proxy CIDRs, and default request/response headers. The route form shows only the common basics by default: deploy config, domain, path, service port, and TLS. Expand advanced settings only when you need to override a route's Parent Gateway, path match type, request/response headers, URL rewrite, redirect, or backend weight.
+
+For a chain such as `CDN HTTPS -> Nginx HTTP -> Traefik HTTP -> Pod`, prefer configuring Traefik entryPoint `forwardedHeaders.trustedIPs` to trust the upstream proxy and forward `X-Forwarded-Proto=https`. Apps such as Logto/OIDC providers may generate the wrong issuer or redirect URL if the backend sees `http`; as a fallback, choose upstream TLS + overwrite on the runtime cluster so the platform injects `X-Forwarded-Proto=https` and `X-Forwarded-Port=443` through HTTPRoute RequestHeaderModifier.

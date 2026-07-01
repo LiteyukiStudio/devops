@@ -16,6 +16,7 @@ import { DataList } from '@/components/common/data-list'
 import { EditActionButton } from '@/components/common/edit-action-button'
 import { EmptyState } from '@/components/common/empty-state'
 import { FormField as Field } from '@/components/common/form-field'
+import { ProgressiveSection } from '@/components/common/progressive-section'
 import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
@@ -24,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { inspectKubeconfig, selectSingleKubeconfigContext } from '@/lib/kubeconfig'
 
 type ClusterForm = Omit<RuntimeCluster, 'id' | 'createdBy' | 'createdAt' | 'kubeconfigSet' | 'lastCheckedAt'> & { kubeconfig?: string }
@@ -32,8 +34,18 @@ const clusterDefaults: ClusterForm = {
   endpoint: '',
   isDefault: false,
   kubeconfig: '',
+  gatewayControllerType: 'traefik',
+  gatewayClassName: 'traefik',
+  gatewayDefaultRequestHeaders: '',
+  gatewayDefaultResponseHeaders: '',
+  gatewayExternalTLSMode: 'none',
+  gatewayForwardedHeadersMode: 'preserve',
+  gatewayName: 'liteyuki-gateway',
+  gatewayNamespace: 'kube-system',
+  gatewayProvider: 'gateway-api',
   gatewayPublicScheme: 'http',
   gatewayRootDomain: 'apps.local',
+  gatewayTrustedProxyCIDRs: '',
   maxConcurrentBuilds: 4,
   name: '',
   ownerRef: '',
@@ -227,8 +239,18 @@ export function ClustersPage() {
           endpoint: cluster.endpoint,
           isDefault: cluster.isDefault,
           kubeconfig: '',
+          gatewayControllerType: cluster.gatewayControllerType || 'traefik',
+          gatewayClassName: cluster.gatewayClassName || 'traefik',
+          gatewayDefaultRequestHeaders: cluster.gatewayDefaultRequestHeaders || '',
+          gatewayDefaultResponseHeaders: cluster.gatewayDefaultResponseHeaders || '',
+          gatewayExternalTLSMode: cluster.gatewayExternalTLSMode || 'none',
+          gatewayForwardedHeadersMode: cluster.gatewayForwardedHeadersMode || 'preserve',
+          gatewayName: cluster.gatewayName || 'liteyuki-gateway',
+          gatewayNamespace: cluster.gatewayNamespace || 'kube-system',
+          gatewayProvider: cluster.gatewayProvider || 'gateway-api',
           gatewayPublicScheme: cluster.gatewayPublicScheme || 'http',
           gatewayRootDomain: cluster.gatewayRootDomain || 'apps.local',
+          gatewayTrustedProxyCIDRs: cluster.gatewayTrustedProxyCIDRs || '',
           maxConcurrentBuilds: cluster.maxConcurrentBuilds || 4,
           name: cluster.name,
           ownerRef: cluster.ownerRef,
@@ -417,99 +439,167 @@ export function ClustersPage() {
           <form className="flex min-h-0 min-w-0 flex-1 flex-col" onSubmit={form.handleSubmit(submitCluster)}>
             <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">
               <div className="grid min-w-0 max-w-full gap-3 overflow-x-hidden">
-                <Field label={t('common.name')} required><Input {...form.register('name', { required: true })} /></Field>
-                <Field label={t('common.scope')}>
-                  <Select {...form.register('scope')}>
-                    <option value="global">{t('codeRepositoriesView.scopeGlobal')}</option>
-                    <option value="project">{t('codeRepositoriesView.scopeProject')}</option>
-                    <option value="user">{t('codeRepositoriesView.scopeUser')}</option>
-                  </Select>
-                </Field>
-                {scope === 'project' && (
-                  <Field label={t('projectSpaces.title')} required>
-                    <ProjectSpaceMultiSelect
-                      projects={projects.data ?? []}
-                      value={form.watch('projectIds')}
-                      onChange={value => form.setValue('projectIds', value, { shouldDirty: true, shouldValidate: true })}
+                <ProgressiveSection
+                  defaultOpen
+                  description={t('clustersPage.basicClusterConfigDescription')}
+                  title={t('clustersPage.basicClusterConfig')}
+                >
+                  <Field label={t('common.name')} required><Input {...form.register('name', { required: true })} /></Field>
+                  <Field label={t('common.scope')}>
+                    <Select {...form.register('scope')}>
+                      <option value="global">{t('codeRepositoriesView.scopeGlobal')}</option>
+                      <option value="project">{t('codeRepositoriesView.scopeProject')}</option>
+                      <option value="user">{t('codeRepositoriesView.scopeUser')}</option>
+                    </Select>
+                  </Field>
+                  {scope === 'project' && (
+                    <Field label={t('projectSpaces.title')} required>
+                      <ProjectSpaceMultiSelect
+                        projects={projects.data ?? []}
+                        value={form.watch('projectIds')}
+                        onChange={value => form.setValue('projectIds', value, { shouldDirty: true, shouldValidate: true })}
+                      />
+                    </Field>
+                  )}
+                  <Field label={t('common.type')}>
+                    <Select {...form.register('type')}>
+                      <option value="kubernetes">{t('deploymentsPage.typeKubernetes')}</option>
+                    </Select>
+                  </Field>
+                  <Field hint={t('clustersPage.maxConcurrentBuildsHint')} label={t('clustersPage.maxConcurrentBuilds')} required>
+                    <Input
+                      {...form.register('maxConcurrentBuilds', { min: 1, required: true, valueAsNumber: true })}
+                      inputMode="numeric"
+                      min={1}
+                      placeholder={t('clustersPage.maxConcurrentBuildsPlaceholder')}
+                      type="number"
                     />
                   </Field>
-                )}
-                <Field label={t('common.type')}>
-                  <Select {...form.register('type')}>
-                    <option value="kubernetes">{t('deploymentsPage.typeKubernetes')}</option>
-                  </Select>
-                </Field>
-                <Field hint={t('clustersPage.maxConcurrentBuildsHint')} label={t('clustersPage.maxConcurrentBuilds')} required>
-                  <Input
-                    {...form.register('maxConcurrentBuilds', { min: 1, required: true, valueAsNumber: true })}
-                    inputMode="numeric"
-                    min={1}
-                    placeholder={t('clustersPage.maxConcurrentBuildsPlaceholder')}
-                    type="number"
-                  />
-                </Field>
-                <Field hint={t('clustersPage.gatewayRootDomainHint')} label={t('clustersPage.gatewayRootDomain')} required>
-                  <Input {...form.register('gatewayRootDomain', { required: true })} placeholder={t('clustersPage.gatewayRootDomainPlaceholder')} />
-                </Field>
-                <Field hint={t('clustersPage.gatewayPublicSchemeHint')} label={t('clustersPage.gatewayPublicScheme')} required>
-                  <Select {...form.register('gatewayPublicScheme')}>
-                    <option value="http">http</option>
-                    <option value="https">https</option>
-                  </Select>
-                </Field>
-                <Field hint={canEditKubeconfig ? t('clustersPage.kubeconfigHint') : t('clustersPage.kubeconfigRestrictedHint')} label={t('deploymentsPage.kubeconfig')} required={!editingCluster}>
-                  <Controller
-                    control={form.control}
-                    name="kubeconfig"
-                    rules={{ required: !editingCluster }}
-                    render={({ field }) => (
-                      <div className="min-w-0 max-w-full overflow-x-hidden">
-                        <CodeEditor
-                          ariaInvalid={Boolean(form.formState.errors.kubeconfig) || kubeconfigInspection.error}
-                          className="w-full"
-                          height="22rem"
-                          language="yaml"
-                          placeholder={t('clustersPage.kubeconfigPlaceholder')}
-                          readOnly={!canEditKubeconfig}
-                          value={field.value ?? ''}
-                          onChange={field.onChange}
-                        />
-                        {canEditKubeconfig && kubeconfigInspection.error && (
-                          <p className="mt-2 text-sm text-danger">{t('clustersPage.kubeconfigParseFailed')}</p>
-                        )}
-                        {canEditKubeconfig && kubeconfigInspection.contexts.length === 1 && (
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            {t('clustersPage.kubeconfigSingleContext', { context: kubeconfigInspection.contexts[0].name })}
-                          </p>
-                        )}
-                        {kubeconfigContextSelectionRequired && (
-                          <div className="mt-3 grid gap-2">
-                            <label className="text-sm font-medium text-foreground" htmlFor="cluster-kubeconfig-context">
-                              {t('clustersPage.kubeconfigContextLabel')}
-                            </label>
-                            <Select
-                              id="cluster-kubeconfig-context"
-                              value={effectiveKubeconfigContext}
-                              onChange={event => setSelectedKubeconfigContext(event.target.value)}
-                            >
-                              {kubeconfigInspection.contexts.map(context => (
-                                <option key={context.name} value={context.name}>
-                                  {kubeconfigContextOptionLabel(context)}
-                                </option>
-                              ))}
-                            </Select>
-                            <p className="text-xs text-muted-foreground">{t('clustersPage.kubeconfigContextHint')}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  />
-                </Field>
-                {scope === 'global' && (
-                  <CheckboxField {...form.register('isDefault')}>
-                    {t('clustersPage.defaultCluster')}
-                  </CheckboxField>
-                )}
+                  {scope === 'global' && (
+                    <CheckboxField {...form.register('isDefault')}>
+                      {t('clustersPage.defaultCluster')}
+                    </CheckboxField>
+                  )}
+                </ProgressiveSection>
+                <ProgressiveSection
+                  defaultOpen
+                  description={t('clustersPage.gatewayClusterConfigDescription')}
+                  title={t('clustersPage.gatewayClusterConfig')}
+                >
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Field hint={t('clustersPage.gatewayRootDomainHint')} label={t('clustersPage.gatewayRootDomain')} required>
+                      <Input {...form.register('gatewayRootDomain', { required: true })} placeholder={t('clustersPage.gatewayRootDomainPlaceholder')} />
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayPublicSchemeHint')} label={t('clustersPage.gatewayPublicScheme')} required>
+                      <Select {...form.register('gatewayPublicScheme')}>
+                        <option value="http">http</option>
+                        <option value="https">https</option>
+                      </Select>
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayControllerTypeHint')} label={t('clustersPage.gatewayControllerType')}>
+                      <Select {...form.register('gatewayControllerType')}>
+                        <option value="traefik">Traefik</option>
+                        <option value="generic">{t('clustersPage.gatewayControllerGeneric')}</option>
+                      </Select>
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayProviderHint')} label={t('clustersPage.gatewayProvider')}>
+                      <Select {...form.register('gatewayProvider')}>
+                        <option value="gateway-api">{t('clustersPage.gatewayProviderGatewayAPI')}</option>
+                      </Select>
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayClassNameHint')} label={t('clustersPage.gatewayClassName')}>
+                      <Input {...form.register('gatewayClassName')} placeholder={t('clustersPage.gatewayClassNamePlaceholder')} />
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayNameHint')} label={t('clustersPage.gatewayName')}>
+                      <Input {...form.register('gatewayName')} placeholder={t('clustersPage.gatewayNamePlaceholder')} />
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayNamespaceHint')} label={t('clustersPage.gatewayNamespace')}>
+                      <Input {...form.register('gatewayNamespace')} placeholder={t('clustersPage.gatewayNamespacePlaceholder')} />
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayExternalTLSModeHint')} label={t('clustersPage.gatewayExternalTLSMode')}>
+                      <Select {...form.register('gatewayExternalTLSMode')}>
+                        <option value="none">{t('clustersPage.gatewayTLSNone')}</option>
+                        <option value="gateway">{t('clustersPage.gatewayTLSGateway')}</option>
+                        <option value="upstream">{t('clustersPage.gatewayTLSUpstream')}</option>
+                      </Select>
+                    </Field>
+                    <Field hint={t('clustersPage.gatewayForwardedHeadersModeHint')} label={t('clustersPage.gatewayForwardedHeadersMode')}>
+                      <Select {...form.register('gatewayForwardedHeadersMode')}>
+                        <option value="preserve">{t('clustersPage.gatewayForwardedPreserve')}</option>
+                        <option value="overwrite">{t('clustersPage.gatewayForwardedOverwrite')}</option>
+                        <option value="none">{t('clustersPage.gatewayForwardedNone')}</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </ProgressiveSection>
+                <ProgressiveSection
+                  description={t('clustersPage.gatewayAdvancedDefaultsDescription')}
+                  title={t('clustersPage.gatewayAdvancedDefaults')}
+                >
+                  <Field hint={t('clustersPage.gatewayTrustedProxyCIDRsHint')} label={t('clustersPage.gatewayTrustedProxyCIDRs')}>
+                    <Textarea {...form.register('gatewayTrustedProxyCIDRs')} placeholder={t('clustersPage.gatewayTrustedProxyCIDRsPlaceholder')} rows={3} />
+                  </Field>
+                  <Field hint={t('clustersPage.gatewayDefaultRequestHeadersHint')} label={t('clustersPage.gatewayDefaultRequestHeaders')}>
+                    <Textarea {...form.register('gatewayDefaultRequestHeaders')} placeholder={t('gatewayRoutesPage.headersPlaceholder')} rows={4} />
+                  </Field>
+                  <Field hint={t('clustersPage.gatewayDefaultResponseHeadersHint')} label={t('clustersPage.gatewayDefaultResponseHeaders')}>
+                    <Textarea {...form.register('gatewayDefaultResponseHeaders')} placeholder={t('gatewayRoutesPage.headersPlaceholder')} rows={4} />
+                  </Field>
+                </ProgressiveSection>
+                <ProgressiveSection
+                  defaultOpen
+                  description={canEditKubeconfig ? t('clustersPage.kubeconfigHint') : t('clustersPage.kubeconfigRestrictedHint')}
+                  title={t('deploymentsPage.kubeconfig')}
+                >
+                  <Field hint={canEditKubeconfig ? t('clustersPage.kubeconfigHint') : t('clustersPage.kubeconfigRestrictedHint')} label={t('deploymentsPage.kubeconfig')} required={!editingCluster}>
+                    <Controller
+                      control={form.control}
+                      name="kubeconfig"
+                      rules={{ required: !editingCluster }}
+                      render={({ field }) => (
+                        <div className="min-w-0 max-w-full overflow-x-hidden">
+                          <CodeEditor
+                            ariaInvalid={Boolean(form.formState.errors.kubeconfig) || kubeconfigInspection.error}
+                            className="w-full"
+                            height="22rem"
+                            language="yaml"
+                            placeholder={t('clustersPage.kubeconfigPlaceholder')}
+                            readOnly={!canEditKubeconfig}
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                          />
+                          {canEditKubeconfig && kubeconfigInspection.error && (
+                            <p className="mt-2 text-sm text-danger">{t('clustersPage.kubeconfigParseFailed')}</p>
+                          )}
+                          {canEditKubeconfig && kubeconfigInspection.contexts.length === 1 && (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {t('clustersPage.kubeconfigSingleContext', { context: kubeconfigInspection.contexts[0].name })}
+                            </p>
+                          )}
+                          {kubeconfigContextSelectionRequired && (
+                            <div className="mt-3 grid gap-2">
+                              <label className="text-sm font-medium text-foreground" htmlFor="cluster-kubeconfig-context">
+                                {t('clustersPage.kubeconfigContextLabel')}
+                              </label>
+                              <Select
+                                id="cluster-kubeconfig-context"
+                                value={effectiveKubeconfigContext}
+                                onChange={event => setSelectedKubeconfigContext(event.target.value)}
+                              >
+                                {kubeconfigInspection.contexts.map(context => (
+                                  <option key={context.name} value={context.name}>
+                                    {kubeconfigContextOptionLabel(context)}
+                                  </option>
+                                ))}
+                              </Select>
+                              <p className="text-xs text-muted-foreground">{t('clustersPage.kubeconfigContextHint')}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </Field>
+                </ProgressiveSection>
               </div>
             </div>
             <DialogFooter className="shrink-0 border-t border-border p-5 pt-4">

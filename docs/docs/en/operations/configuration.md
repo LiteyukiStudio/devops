@@ -37,7 +37,7 @@ Repository and tag templates both render only static values known when the deplo
 
 Runtime clusters are release targets. The platform turns Releases into Kubernetes resources, then shows status, logs, and diagnostics.
 
-Runtime clusters also own access-route default domain suffixes and public link schemes. Access routes use the deployment target's cluster to generate default domains, expand short host prefixes, and return console access links, so multiple clusters can use different ingress controllers or root domains.
+Runtime clusters also own access-route default domain suffixes, public link schemes, and Gateway API defaults. Access routes use the deployment target's cluster to generate default domains, expand short host prefixes, and return console access links, so multiple clusters can use different GatewayClasses, shared Gateways, or root domains.
 
 The cluster resource page lists platform-managed namespaces, workloads, services, configs, secrets, and storage with server-side pagination. Only resources visible to the current user are counted in the page total. The workload tab uses Deployment rows as the top level; expanding a Deployment shows its Pods as child rows, and those Pod rows are not counted by pagination.
 

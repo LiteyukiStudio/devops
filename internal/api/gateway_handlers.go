@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/LiteyukiStudio/devops/internal/id"
@@ -61,7 +63,7 @@ func (h *Handlers) CreateGatewayRoute(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	route, ok := h.gatewayRouteFromInput(ctx, project, user.ID, input, "")
+	route, ok := h.gatewayRouteFromInput(ctx, project, user, user.ID, input, "")
 	if !ok {
 		return
 	}
@@ -83,7 +85,7 @@ func (h *Handlers) CreateGatewayRoute(ctx *gin.Context) {
 }
 
 func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
-	_, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
+	user, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
 	if !ok {
 		return
 	}
@@ -101,7 +103,7 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	next, ok := h.gatewayRouteFromInput(ctx, project, route.CreatedBy, input, route.ID)
+	next, ok := h.gatewayRouteFromInput(ctx, project, user, route.CreatedBy, input, route.ID)
 	if !ok {
 		return
 	}
@@ -119,6 +121,16 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 	route.Status = next.Status
 	route.Enabled = next.Enabled
 	route.IsDefault = next.IsDefault
+	route.ParentGatewayName = next.ParentGatewayName
+	route.ParentGatewayNamespace = next.ParentGatewayNamespace
+	route.SectionName = next.SectionName
+	route.PathMatchType = next.PathMatchType
+	route.RequestHeaders = next.RequestHeaders
+	route.ResponseHeaders = next.ResponseHeaders
+	route.URLRewrite = next.URLRewrite
+	route.RequestRedirect = next.RequestRedirect
+	route.BackendWeight = next.BackendWeight
+	route.HostnameAliases = next.HostnameAliases
 	if err := h.db.Save(&route).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
@@ -221,7 +233,7 @@ func (h *Handlers) enqueueGatewayApply(ctx context.Context, route model.GatewayR
 	return err == nil
 }
 
-func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project, userID string, input gatewayRouteInput, routeID string) (model.GatewayRoute, bool) {
+func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project, user model.User, creatorID string, input gatewayRouteInput, routeID string) (model.GatewayRoute, bool) {
 	target, application, environment, cluster, ok := h.gatewayRouteTargetContext(ctx, project.ID, input)
 	if !ok {
 		return model.GatewayRoute{}, false
@@ -247,6 +259,10 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		writeError(ctx, http.StatusBadRequest, "访问入口端口必须来自部署配置的服务端口列表")
 		return model.GatewayRoute{}, false
 	}
+	advanced, ok := h.gatewayRouteAdvancedConfig(ctx, project.ID, user, input)
+	if !ok {
+		return model.GatewayRoute{}, false
+	}
 
 	tlsMode := normalizeTLSMode(input.TLSMode)
 	certStatus := "disabled"
@@ -254,24 +270,105 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		certStatus = fallback(strings.TrimSpace(input.CertificateStatus), "pending")
 	}
 	return model.GatewayRoute{
-		ID:                 routeID,
-		ProjectID:          project.ID,
-		ApplicationID:      application.ID,
-		EnvironmentID:      environment.ID,
-		DeploymentTargetID: target.ID,
-		Host:               host,
-		Path:               fallback(strings.TrimSpace(input.Path), "/"),
-		ServicePort:        servicePort,
-		TLSMode:            tlsMode,
-		CertificateStatus:  certStatus,
-		CNAMEName:          host,
-		CNAMETarget:        h.gatewayCNAMETarget(cluster),
-		DNSStatus:          fallback(strings.TrimSpace(input.DNSStatus), "pending"),
-		Status:             fallback(strings.TrimSpace(input.Status), "pending"),
-		Enabled:            gatewayRouteInputEnabled(input.Enabled),
-		IsDefault:          input.IsDefault,
-		CreatedBy:          userID,
+		ID:                     routeID,
+		ProjectID:              project.ID,
+		ApplicationID:          application.ID,
+		EnvironmentID:          environment.ID,
+		DeploymentTargetID:     target.ID,
+		Host:                   host,
+		Path:                   fallback(strings.TrimSpace(input.Path), "/"),
+		ServicePort:            servicePort,
+		TLSMode:                tlsMode,
+		CertificateStatus:      certStatus,
+		CNAMEName:              host,
+		CNAMETarget:            h.gatewayCNAMETarget(cluster),
+		DNSStatus:              fallback(strings.TrimSpace(input.DNSStatus), "pending"),
+		Status:                 fallback(strings.TrimSpace(input.Status), "pending"),
+		Enabled:                gatewayRouteInputEnabled(input.Enabled),
+		IsDefault:              input.IsDefault,
+		ParentGatewayName:      advanced.ParentGatewayName,
+		ParentGatewayNamespace: advanced.ParentGatewayNamespace,
+		SectionName:            advanced.SectionName,
+		PathMatchType:          advanced.PathMatchType,
+		RequestHeaders:         advanced.RequestHeaders,
+		ResponseHeaders:        advanced.ResponseHeaders,
+		URLRewrite:             advanced.URLRewrite,
+		RequestRedirect:        advanced.RequestRedirect,
+		BackendWeight:          advanced.BackendWeight,
+		HostnameAliases:        advanced.HostnameAliases,
+		CreatedBy:              creatorID,
 	}, true
+}
+
+type gatewayRouteAdvancedConfig struct {
+	ParentGatewayName      string
+	ParentGatewayNamespace string
+	SectionName            string
+	PathMatchType          string
+	RequestHeaders         string
+	ResponseHeaders        string
+	URLRewrite             string
+	RequestRedirect        string
+	BackendWeight          int
+	HostnameAliases        string
+}
+
+func (h *Handlers) gatewayRouteAdvancedConfig(ctx *gin.Context, projectID string, user model.User, input gatewayRouteInput) (gatewayRouteAdvancedConfig, bool) {
+	config := gatewayRouteAdvancedConfig{
+		ParentGatewayName:      dnsLabelName(input.ParentGatewayName),
+		ParentGatewayNamespace: dnsLabelName(input.ParentGatewayNamespace),
+		SectionName:            strings.TrimSpace(input.SectionName),
+		PathMatchType:          normalizeHTTPRoutePathMatchType(input.PathMatchType),
+		RequestHeaders:         strings.TrimSpace(input.RequestHeaders),
+		ResponseHeaders:        strings.TrimSpace(input.ResponseHeaders),
+		URLRewrite:             strings.TrimSpace(input.URLRewrite),
+		RequestRedirect:        strings.TrimSpace(input.RequestRedirect),
+		BackendWeight:          normalizeBackendWeight(input.BackendWeight),
+		HostnameAliases:        strings.TrimSpace(input.HostnameAliases),
+	}
+	if !gatewayAdvancedConfigPresent(config) {
+		return config, true
+	}
+	projectAdmin := user.Role == "platform_admin" || h.currentProjectRoleAllows(ctx, projectID, user.ID, "owner", "admin")
+	if !projectAdmin {
+		writeError(ctx, http.StatusForbidden, "只有项目 Owner/Admin 可以维护访问入口高级配置")
+		return gatewayRouteAdvancedConfig{}, false
+	}
+	platformAdmin := user.Role == "platform_admin"
+	if _, err := parseGatewayHeaderMap(config.RequestHeaders, platformAdmin); err != nil {
+		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("请求头配置无效: %s", err.Error()))
+		return gatewayRouteAdvancedConfig{}, false
+	}
+	if _, err := parseGatewayHeaderMap(config.ResponseHeaders, platformAdmin); err != nil {
+		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("响应头配置无效: %s", err.Error()))
+		return gatewayRouteAdvancedConfig{}, false
+	}
+	if err := validateGatewayRouteFilterJSON("URL rewrite", config.URLRewrite); err != nil {
+		writeError(ctx, http.StatusBadRequest, err.Error())
+		return gatewayRouteAdvancedConfig{}, false
+	}
+	if err := validateGatewayRouteFilterJSON("Request redirect", config.RequestRedirect); err != nil {
+		writeError(ctx, http.StatusBadRequest, err.Error())
+		return gatewayRouteAdvancedConfig{}, false
+	}
+	if config.URLRewrite != "" && config.RequestRedirect != "" {
+		writeError(ctx, http.StatusBadRequest, "URL rewrite 和请求重定向不能同时配置")
+		return gatewayRouteAdvancedConfig{}, false
+	}
+	return config, true
+}
+
+func gatewayAdvancedConfigPresent(config gatewayRouteAdvancedConfig) bool {
+	return config.ParentGatewayName != "" ||
+		config.ParentGatewayNamespace != "" ||
+		config.SectionName != "" ||
+		config.PathMatchType != "PathPrefix" ||
+		config.RequestHeaders != "" ||
+		config.ResponseHeaders != "" ||
+		config.URLRewrite != "" ||
+		config.RequestRedirect != "" ||
+		config.BackendWeight != 1 ||
+		config.HostnameAliases != ""
 }
 
 func deploymentTargetServicePort(target model.DeploymentTarget) int {
@@ -492,18 +589,28 @@ func normalizeTLSMode(value string) string {
 }
 
 type gatewayRouteInput struct {
-	ApplicationID      string `json:"applicationId" binding:"required"`
-	EnvironmentID      string `json:"environmentId"`
-	DeploymentTargetID string `json:"deploymentTargetId" binding:"required"`
-	Host               string `json:"host"`
-	Path               string `json:"path"`
-	ServicePort        int    `json:"servicePort"`
-	TLSMode            string `json:"tlsMode"`
-	CertificateStatus  string `json:"certificateStatus"`
-	DNSStatus          string `json:"dnsStatus"`
-	Status             string `json:"status"`
-	Enabled            *bool  `json:"enabled"`
-	IsDefault          bool   `json:"isDefault"`
+	ApplicationID          string `json:"applicationId" binding:"required"`
+	EnvironmentID          string `json:"environmentId"`
+	DeploymentTargetID     string `json:"deploymentTargetId" binding:"required"`
+	Host                   string `json:"host"`
+	Path                   string `json:"path"`
+	ServicePort            int    `json:"servicePort"`
+	TLSMode                string `json:"tlsMode"`
+	CertificateStatus      string `json:"certificateStatus"`
+	DNSStatus              string `json:"dnsStatus"`
+	Status                 string `json:"status"`
+	Enabled                *bool  `json:"enabled"`
+	IsDefault              bool   `json:"isDefault"`
+	ParentGatewayName      string `json:"parentGatewayName"`
+	ParentGatewayNamespace string `json:"parentGatewayNamespace"`
+	SectionName            string `json:"sectionName"`
+	PathMatchType          string `json:"pathMatchType"`
+	RequestHeaders         string `json:"requestHeaders"`
+	ResponseHeaders        string `json:"responseHeaders"`
+	URLRewrite             string `json:"urlRewrite"`
+	RequestRedirect        string `json:"requestRedirect"`
+	BackendWeight          int    `json:"backendWeight"`
+	HostnameAliases        string `json:"hostnameAliases"`
 }
 
 func gatewayRouteInputEnabled(value *bool) bool {
@@ -511,4 +618,131 @@ func gatewayRouteInputEnabled(value *bool) bool {
 		return true
 	}
 	return *value
+}
+
+var (
+	gatewayHeaderNamePattern = regexp.MustCompile(`^[!#$%&'*+\-.^_` + "`" + `|~0-9A-Za-z]+$`)
+	gatewayHopByHopHeaders   = map[string]struct{}{
+		"connection":          {},
+		"keep-alive":          {},
+		"proxy-authenticate":  {},
+		"proxy-authorization": {},
+		"te":                  {},
+		"trailer":             {},
+		"transfer-encoding":   {},
+		"upgrade":             {},
+	}
+	gatewayPrivilegedHeaders = map[string]struct{}{
+		"authorization":     {},
+		"cookie":            {},
+		"host":              {},
+		"x-forwarded-for":   {},
+		"x-forwarded-host":  {},
+		"x-forwarded-port":  {},
+		"x-forwarded-proto": {},
+		"x-real-ip":         {},
+		"set-cookie":        {},
+	}
+)
+
+func parseGatewayHeaderMap(value string, allowPrivileged bool) (map[string]string, error) {
+	items, err := parseGatewayKeyValueMap(value)
+	if err != nil {
+		return nil, err
+	}
+	for key := range items {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		if !gatewayHeaderNamePattern.MatchString(key) {
+			return nil, fmt.Errorf("header %q 不是合法 HTTP header 名称", key)
+		}
+		if _, exists := gatewayHopByHopHeaders[normalized]; exists {
+			return nil, fmt.Errorf("不允许配置逐跳 header %q", key)
+		}
+		if _, exists := gatewayPrivilegedHeaders[normalized]; exists && !allowPrivileged {
+			return nil, fmt.Errorf("header %q 仅平台管理员可配置", key)
+		}
+	}
+	return items, nil
+}
+
+func parseGatewayKeyValueMap(value string) (map[string]string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return map[string]string{}, nil
+	}
+	if strings.HasPrefix(value, "{") {
+		var raw map[string]any
+		if err := json.Unmarshal([]byte(value), &raw); err != nil {
+			return nil, err
+		}
+		parsed := make(map[string]string, len(raw))
+		for key, item := range raw {
+			parsed[strings.TrimSpace(key)] = fmt.Sprint(item)
+		}
+		return compactGatewayKeyValueMap(parsed), nil
+	}
+	parsed := map[string]string{}
+	for lineNumber, line := range strings.Split(value, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, item, ok := strings.Cut(line, "=")
+		if !ok {
+			return nil, fmt.Errorf("第 %s 行缺少 =", strconv.Itoa(lineNumber+1))
+		}
+		parsed[strings.TrimSpace(key)] = strings.TrimSpace(item)
+	}
+	return compactGatewayKeyValueMap(parsed), nil
+}
+
+func compactGatewayKeyValueMap(values map[string]string) map[string]string {
+	compacted := map[string]string{}
+	for key, value := range values {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		compacted[key] = strings.TrimSpace(value)
+	}
+	return compacted
+}
+
+func looksLikeSecretValue(value string) bool {
+	lower := strings.ToLower(strings.TrimSpace(value))
+	return strings.Contains(lower, "secret=") ||
+		strings.Contains(lower, "token=") ||
+		strings.Contains(lower, "password=") ||
+		strings.Contains(lower, "authorization:")
+}
+
+func normalizeHTTPRoutePathMatchType(value string) string {
+	if strings.TrimSpace(value) == "Exact" {
+		return "Exact"
+	}
+	return "PathPrefix"
+}
+
+func normalizeBackendWeight(value int) int {
+	if value <= 0 {
+		return 1
+	}
+	return value
+}
+
+func validateGatewayRouteFilterJSON(label string, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(value), &raw); err != nil {
+		return fmt.Errorf("%s 配置必须是 JSON 对象", label)
+	}
+	for key, item := range raw {
+		if looksLikeSecretValue(key) || looksLikeSecretValue(fmt.Sprint(item)) {
+			return fmt.Errorf("%s 配置不应直接包含密钥值", label)
+		}
+	}
+	return nil
 }

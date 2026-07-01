@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -49,9 +50,9 @@ func TestListManagedWorkloadsExcludesBuildPods(t *testing.T) {
 				Name:      "dplt-api",
 				Namespace: "ns-demo",
 				Labels: map[string]string{
-					ManagedByLabel:           ManagedByValue,
-					ProjectIDLabel:           "prj_demo",
-					ApplicationIDLabel:       "app_api",
+					ManagedByLabel:          ManagedByValue,
+					ProjectIDLabel:          "prj_demo",
+					ApplicationIDLabel:      "app_api",
 					DeploymentTargetIDLabel: "dplt_api",
 				},
 			},
@@ -61,9 +62,9 @@ func TestListManagedWorkloadsExcludesBuildPods(t *testing.T) {
 				Name:      "dplt-api-pod",
 				Namespace: "ns-demo",
 				Labels: map[string]string{
-					ManagedByLabel:           ManagedByValue,
-					ProjectIDLabel:           "prj_demo",
-					ApplicationIDLabel:       "app_api",
+					ManagedByLabel:          ManagedByValue,
+					ProjectIDLabel:          "prj_demo",
+					ApplicationIDLabel:      "app_api",
 					DeploymentTargetIDLabel: "dplt_api",
 				},
 			},
@@ -74,9 +75,9 @@ func TestListManagedWorkloadsExcludesBuildPods(t *testing.T) {
 				Name:      "build-job-pod",
 				Namespace: "ns-demo",
 				Labels: map[string]string{
-					ManagedByLabel:           ManagedByValue,
-					ProjectIDLabel:           "prj_demo",
-					ApplicationIDLabel:       "app_api",
+					ManagedByLabel:          ManagedByValue,
+					ProjectIDLabel:          "prj_demo",
+					ApplicationIDLabel:      "app_api",
 					DeploymentTargetIDLabel: "dplt_api",
 					ScopeLabel:              "build",
 				},
@@ -104,6 +105,64 @@ func TestListManagedWorkloadsExcludesBuildPods(t *testing.T) {
 	}
 }
 
+func TestListManagedServicesIncludesHTTPRoutesAndGateways(t *testing.T) {
+	client := NewClientForInterfaces(fake.NewSimpleClientset(&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dplt-api",
+			Namespace: "ns-demo",
+			Labels: map[string]string{
+				ManagedByLabel:      ManagedByValue,
+				ProjectIDLabel:      "prj_demo",
+				GatewayRouteIDLabel: "gwr_demo",
+			},
+		},
+		Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 8080}}},
+	}), newGatewayAPIDynamicClient(
+		gatewayAPIClass(),
+		&unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "gateway.networking.k8s.io/v1",
+			"kind":       "HTTPRoute",
+			"metadata": map[string]any{
+				"name":      "liteyuki-gateway-gwr-demo",
+				"namespace": "ns-demo",
+				"labels": map[string]any{
+					ManagedByLabel:      ManagedByValue,
+					ProjectIDLabel:      "prj_demo",
+					GatewayRouteIDLabel: "gwr_demo",
+				},
+			},
+			"spec": map[string]any{
+				"hostnames": []any{"api.example.com"},
+			},
+			"status": map[string]any{
+				"parents": []any{map[string]any{
+					"conditions": []any{map[string]any{"type": "Accepted", "status": "True"}},
+				}},
+			},
+		}},
+	))
+	if err := client.EnsureGateway(context.Background(), GatewaySpec{
+		Name:             "liteyuki-gateway",
+		Namespace:        "kube-system",
+		GatewayClassName: "traefik",
+		ProjectID:        "prj_demo",
+	}); err != nil {
+		t.Fatalf("EnsureGateway returned error: %v", err)
+	}
+
+	items, err := client.ListManagedResources(context.Background(), ResourceListOptions{Kind: "services", ProjectID: "prj_demo"})
+	if err != nil {
+		t.Fatalf("ListManagedResources returned error: %v", err)
+	}
+	kinds := map[string]bool{}
+	for _, item := range items {
+		kinds[item.Kind] = true
+	}
+	if !kinds["Service"] || !kinds["HTTPRoute"] || !kinds["Gateway"] {
+		t.Fatalf("items = %#v", items)
+	}
+}
+
 func TestRuntimePodExcludesBuildPods(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset(
 		&corev1.Pod{
@@ -111,7 +170,7 @@ func TestRuntimePodExcludesBuildPods(t *testing.T) {
 				Name:      "build-job-pod",
 				Namespace: "ns-demo",
 				Labels: map[string]string{
-					ManagedByLabel:           ManagedByValue,
+					ManagedByLabel:          ManagedByValue,
 					DeploymentTargetIDLabel: "dplt_api",
 					ScopeLabel:              "build",
 				},
@@ -124,7 +183,7 @@ func TestRuntimePodExcludesBuildPods(t *testing.T) {
 				Name:      "runtime-pod",
 				Namespace: "ns-demo",
 				Labels: map[string]string{
-					ManagedByLabel:           ManagedByValue,
+					ManagedByLabel:          ManagedByValue,
 					DeploymentTargetIDLabel: "dplt_api",
 				},
 			},

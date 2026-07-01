@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -232,6 +234,56 @@ func TestApplyApplicationResourcesCanForceImagePull(t *testing.T) {
 	}
 	if deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy != corev1.PullAlways {
 		t.Fatalf("image pull policy = %q", deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy)
+	}
+}
+
+func TestSetHookJobTTL(t *testing.T) {
+	namespace := "project-demo"
+	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "hook-demo", Namespace: namespace}}
+	client := NewClientForInterface(fake.NewSimpleClientset(job))
+
+	if err := client.setHookJobTTL(context.Background(), namespace, job.Name, hookJobSuccessTTLSeconds); err != nil {
+		t.Fatalf("setHookJobTTL returned error: %v", err)
+	}
+
+	stored, err := client.client.BatchV1().Jobs(namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get hook job: %v", err)
+	}
+	if stored.Spec.TTLSecondsAfterFinished == nil || *stored.Spec.TTLSecondsAfterFinished != hookJobSuccessTTLSeconds {
+		t.Fatalf("ttlSecondsAfterFinished = %#v", stored.Spec.TTLSecondsAfterFinished)
+	}
+}
+
+func TestAttachHookScriptOwner(t *testing.T) {
+	namespace := "project-demo"
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hook-demo",
+			Namespace: namespace,
+			UID:       types.UID("job-uid"),
+		},
+	}
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "hook-demo-script", Namespace: namespace}}
+	client := NewClientForInterface(fake.NewSimpleClientset(job, configMap))
+
+	if err := client.attachHookScriptOwner(context.Background(), namespace, configMap.Name, job); err != nil {
+		t.Fatalf("attachHookScriptOwner returned error: %v", err)
+	}
+
+	stored, err := client.client.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMap.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get hook script configmap: %v", err)
+	}
+	if len(stored.OwnerReferences) != 1 {
+		t.Fatalf("ownerReferences = %#v", stored.OwnerReferences)
+	}
+	owner := stored.OwnerReferences[0]
+	if owner.Kind != "Job" || owner.Name != job.Name || owner.UID != job.UID {
+		t.Fatalf("ownerReference = %#v", owner)
+	}
+	if owner.Controller == nil || !*owner.Controller {
+		t.Fatalf("owner controller flag = %#v", owner.Controller)
 	}
 }
 

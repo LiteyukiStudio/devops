@@ -94,8 +94,18 @@ func (h *Handlers) UpdateRuntimeCluster(ctx *gin.Context) {
 	}
 	existing.IsDefault = next.IsDefault
 	existing.MaxConcurrentBuilds = next.MaxConcurrentBuilds
+	existing.GatewayProvider = next.GatewayProvider
 	existing.GatewayRootDomain = next.GatewayRootDomain
 	existing.GatewayPublicScheme = next.GatewayPublicScheme
+	existing.GatewayControllerType = next.GatewayControllerType
+	existing.GatewayClassName = next.GatewayClassName
+	existing.GatewayName = next.GatewayName
+	existing.GatewayNamespace = next.GatewayNamespace
+	existing.GatewayExternalTLSMode = next.GatewayExternalTLSMode
+	existing.GatewayForwardedHeadersMode = next.GatewayForwardedHeadersMode
+	existing.GatewayTrustedProxyCIDRs = next.GatewayTrustedProxyCIDRs
+	existing.GatewayDefaultRequestHeaders = next.GatewayDefaultRequestHeaders
+	existing.GatewayDefaultResponseHeaders = next.GatewayDefaultResponseHeaders
 	existing.Status = next.Status
 	if err := h.saveRuntimeClusterWithDefault(existing); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
