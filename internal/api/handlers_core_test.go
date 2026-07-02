@@ -95,6 +95,24 @@ func TestNormalizeRepositoryBindingIdentity(t *testing.T) {
 	}
 }
 
+func TestNormalizeRegistryProviderSupportsGenericOCI(t *testing.T) {
+	cases := map[string]string{
+		"":                "harbor",
+		"Harbor":          "harbor",
+		"dockerhub":       "dockerhub",
+		"gitea-registry":  "gitea-registry",
+		"generic-oci":     "generic-oci",
+		"docker-registry": "generic-oci",
+		"custom-vendor":   "generic-oci",
+	}
+
+	for input, expected := range cases {
+		if actual := normalizeRegistryProvider(input); actual != expected {
+			t.Fatalf("normalizeRegistryProvider(%q) = %q, want %q", input, actual, expected)
+		}
+	}
+}
+
 func TestResourceCanMutateDuringDeleteAllowsOnlyStableStates(t *testing.T) {
 	for _, status := range []string{"", "active", "delete_failed"} {
 		if !resourceCanMutateDuringDelete(status) {

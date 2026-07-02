@@ -395,6 +395,7 @@
 - [x] 修正镜像站测试接口：按使用权限开放，失败返回结构化结果，并支持 token-only Basic Auth 探测。
 - [x] 实现默认镜像站选择优先级。
 - [x] 镜像记录支持按镜像站搜索镜像仓库和读取 tag 建议，后端适配 DockerHub、Harbor 与通用 Registry，并加入限数、短缓存和用户级限流。
+- [x] 新增通用 OCI / Docker Registry 镜像站类型：保存为 `generic-oci`，使用标准 `/v2/`、`_catalog` 和 `tags/list` 能力，便于接入 GitLab Registry、GHCR、Quay、Nexus、JFrog Artifactory 等兼容 registry。
 - [x] 实现 ContainerImage 记录。
 - [x] 镜像站“镜像”列表接入后端分页、排序和搜索，前端复用统一分页控件。
 - [x] 删除镜像站时同步软删除其凭据，并在前端确认弹窗提示级联删除，避免镜像站删除后凭据残留且无法维护。
@@ -623,8 +624,17 @@
 - [x] 部署 Worker 对引用本地证书文件的 kubeconfig 返回友好错误，提示重新保存已内联证书的 kubeconfig。
 - [x] 本地 minikube 联调统一预留 `dev.minikube.local` 域名，compose 容器内解析到宿主机网关，kubeconfig 使用 flatten 后的内联证书。
 - [x] 实现 Deployment/Service/ConfigMap/Secret apply。
-- [ ] 讨论并设计多工作负载形态：部署配置增加 `workloadType` 后支持 `Deployment` / `StatefulSet`，评估 `DaemonSet` 是否仅作为平台探针/集群插件能力提供；方案需覆盖发布渲染、Service/headless Service、PVC/volumeClaimTemplates、rollout 状态、重启、删除清理、Web Console、集群资源聚合和计费归属。
+- [x] P4 多工作负载主路径：部署配置增加 `workloadType`，支持 `Deployment` / `StatefulSet`；发布渲染、HPA targetRef、rollout 状态同步、重启、删除清理和集群资源聚合均按实际工作负载处理。普通用户默认仍使用 Deployment，StatefulSet 放在高级配置中按需启用。
 - [x] 简化应用侧存储体验：部署配置只暴露运行数据保留、多个容器内数据卷、容量调整和数据导出，底层 PVC 由平台托管且不向普通用户展示。
+- [x] 渐进式开放 Kubernetes P0/P1 高级运行时配置：部署配置基础表单继续只展示镜像、端口、副本、资源和数据卷；高级配置默认折叠，已支持 `command/args`、`imagePullPolicy`、`readinessProbe`、`livenessProbe`、`startupProbe`。
+- [x] 渐进式开放容器与 Pod 安全上下文：部署配置高级区支持 `runAsUser`、`runAsGroup`、`fsGroup`、`fsGroupChangePolicy`、`readOnlyRootFilesystem`、`allowPrivilegeEscalation`、`capabilities` 等常用字段；默认不启用，后端做基础格式校验，用于解决 OpenList 等镜像的数据目录权限问题。
+- [x] 渐进式开放调度配置：高级区支持 `nodeSelector`、`tolerations`、基础 `affinity`、`topologySpreadConstraints` 和 `priorityClassName`；普通用户优先使用平台默认调度。
+- [x] 渐进式开放运行态资源 limit：运行态资源从仅支持 request 扩展到 request/limit 分离；默认仍不设置 limit，避免用户必须理解 limits 和峰值。
+- [x] 渐进式开放 Service 与 PVC P0/P1 高级参数：Service 默认继续使用 ClusterIP，多端口保持简单；高级区支持 `service.type`、annotations、`sessionAffinity`、`externalTrafficPolicy`，PVC 支持 `storageClassName` 和 `accessModes`。
+- [x] 继续渐进式开放 P2/P3 Kubernetes 能力：支持容器 `lifecycle`、HPA/自动伸缩、Service `appProtocol`、PVC `volumeMode`、existingClaim、emptyDir 临时卷、initContainer 和 sidecar。
+- [x] 渐进式开放初始化与多容器能力：先支持 initContainer 用于权限初始化、数据库迁移和等待依赖，同时支持 sidecar 辅助容器；表单层不暴露完整 Pod YAML，而是使用受控 Container JSON 数组并由后端裁剪危险字段。
+- [x] P4 自动伸缩高级行为：部署配置支持 HPA `behavior` JSON，后端校验 `autoscaling/v2 HorizontalPodAutoscalerBehavior`，Worker 下发到 HPA，用于控制扩缩容速度和稳定窗口。
+- [ ] P5 继续评估更完整的高级编排：DaemonSet 是否仅作为平台探针/集群插件能力提供、原生多主容器可视化编辑、容器级独立配置引用、HPA custom metrics、自定义 metrics provider 接入和更严格的策略权限。
 - [x] 部署配置运行配置区支持就地新建和编辑项目空间公共配置；新建后自动加入当前部署配置选择，编辑公共配置后后端返回受影响部署配置数量，前端提示需重新部署并支持对当前应用受影响资源一键重新部署。
 - [x] 修复部署配置与公共配置编辑弹窗保存按钮被 React Hook Form 初始校验状态误禁用的问题；保存按钮只按文件路径校验和提交状态禁用，必填字段仍由表单提交校验兜底。
 - [x] 修复应用部署 tab 部署配置列表操作列被横向溢出挤出可视区域的问题；三点菜单固定在列表右侧，编辑入口始终可见。

@@ -237,6 +237,261 @@ func TestApplyApplicationResourcesCanForceImagePull(t *testing.T) {
 	}
 }
 
+func TestApplyApplicationResourcesAppliesAdvancedKubernetesOptions(t *testing.T) {
+	client := NewClientForInterface(fake.NewSimpleClientset())
+	spec := ApplicationResourcesSpec{
+		Name:                         "api-advanced",
+		Namespace:                    "project-demo",
+		ProjectID:                    "prj_demo",
+		ApplicationID:                "app_api",
+		EnvironmentID:                "env_dev",
+		DeploymentTargetID:           "dplt_backend",
+		ReleaseID:                    "rel_1",
+		Image:                        "registry.example.com/acme/api:prod",
+		Replicas:                     2,
+		ServicePort:                  8080,
+		CPURequest:                   "100m",
+		MemoryRequest:                "128Mi",
+		CPULimit:                     "500m",
+		MemoryLimit:                  "512Mi",
+		ImagePullPolicy:              "Never",
+		ContainerCommand:             `["/bin/sh","-ec"]`,
+		ContainerArgs:                "npm run start",
+		Lifecycle:                    `{"preStop":{"exec":{"command":["/bin/sh","-c","sleep 5"]}}}`,
+		InitContainers:               `[{"name":"init-permissions","image":"busybox:1.36","command":["sh","-c","echo init"],"env":[{"name":"MODE","value":"init"},{"name":"FROM_SECRET","valueFrom":{"secretKeyRef":{"name":"other","key":"token"}}}],"envFrom":[{"secretRef":{"name":"other"}}],"volumeMounts":[{"name":"data","mountPath":"/data"}]}]`,
+		SidecarContainers:            `[{"name":"log-agent","image":"busybox:1.36","args":["sleep","3600"],"ports":[{"containerPort":9000,"hostPort":39000}],"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}]`,
+		ReadinessProbe:               `{"httpGet":{"path":"/ready","port":8080},"periodSeconds":5}`,
+		RunAsUser:                    "1001",
+		RunAsGroup:                   "1001",
+		FSGroup:                      "1001",
+		FSGroupChangePolicy:          "OnRootMismatch",
+		ReadOnlyRootFilesystem:       true,
+		AllowPrivilegeEscalation:     "false",
+		CapabilityDrop:               "ALL",
+		NodeSelector:                 "kubernetes.io/os=linux",
+		Tolerations:                  `[{"key":"dedicated","operator":"Equal","value":"apps","effect":"NoSchedule"}]`,
+		PriorityClassName:            "high-priority",
+		ServiceType:                  "NodePort",
+		ServicePorts:                 []ApplicationServicePort{{Name: "http", Port: 8080, AppProtocol: "http"}},
+		ServiceAnnotations:           "example.com/service=true",
+		ServiceExternalTrafficPolicy: "Local",
+		ServiceSessionAffinity:       "ClientIP",
+		AutoScalingEnabled:           true,
+		AutoScalingMinReplicas:       2,
+		AutoScalingMaxReplicas:       5,
+		AutoScalingCPUPercent:        70,
+		DataRetentionEnabled:         true,
+		DataCapacity:                 "2Gi",
+		DataMountPath:                "/data",
+		DataStorageClassName:         "local-path",
+		DataAccessMode:               "ReadWriteMany",
+		DataVolumeMode:               "Filesystem",
+	}
+	if err := client.ApplyApplicationResources(context.Background(), spec); err != nil {
+		t.Fatalf("apply returned error: %v", err)
+	}
+
+	deployment, err := client.client.AppsV1().Deployments(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get deployment: %v", err)
+	}
+	podSpec := deployment.Spec.Template.Spec
+	container := podSpec.Containers[0]
+	if container.ImagePullPolicy != corev1.PullNever {
+		t.Fatalf("image pull policy = %q", container.ImagePullPolicy)
+	}
+	if container.Resources.Limits.Cpu().String() != "500m" || container.Resources.Limits.Memory().String() != "512Mi" {
+		t.Fatalf("limits = %#v", container.Resources.Limits)
+	}
+	if len(container.Command) != 2 || container.Command[0] != "/bin/sh" || len(container.Args) != 1 || container.Args[0] != "npm run start" {
+		t.Fatalf("command/args = %#v %#v", container.Command, container.Args)
+	}
+	if container.ReadinessProbe == nil || container.ReadinessProbe.HTTPGet == nil || container.ReadinessProbe.HTTPGet.Path != "/ready" {
+		t.Fatalf("readiness probe = %#v", container.ReadinessProbe)
+	}
+	if container.Lifecycle == nil || container.Lifecycle.PreStop == nil {
+		t.Fatalf("lifecycle = %#v", container.Lifecycle)
+	}
+	if len(podSpec.InitContainers) != 1 || podSpec.InitContainers[0].Name != "init-permissions" || len(podSpec.InitContainers[0].VolumeMounts) != 1 {
+		t.Fatalf("init containers = %#v", podSpec.InitContainers)
+	}
+	if len(podSpec.InitContainers[0].Env) != 1 || podSpec.InitContainers[0].Env[0].Name != "MODE" || len(podSpec.InitContainers[0].EnvFrom) != 2 {
+		t.Fatalf("init container env = %#v envFrom = %#v", podSpec.InitContainers[0].Env, podSpec.InitContainers[0].EnvFrom)
+	}
+	if len(podSpec.Containers) != 2 || podSpec.Containers[1].Name != "log-agent" {
+		t.Fatalf("containers = %#v", podSpec.Containers)
+	}
+	if len(podSpec.Containers[1].Ports) != 1 || podSpec.Containers[1].Ports[0].HostPort != 0 {
+		t.Fatalf("sidecar ports = %#v", podSpec.Containers[1].Ports)
+	}
+	if podSpec.Containers[1].SecurityContext == nil || podSpec.Containers[1].SecurityContext.AllowPrivilegeEscalation == nil || *podSpec.Containers[1].SecurityContext.AllowPrivilegeEscalation {
+		t.Fatalf("sidecar security context = %#v", podSpec.Containers[1].SecurityContext)
+	}
+	if podSpec.SecurityContext == nil || podSpec.SecurityContext.RunAsUser == nil || *podSpec.SecurityContext.RunAsUser != 1001 {
+		t.Fatalf("pod security context = %#v", podSpec.SecurityContext)
+	}
+	if podSpec.SecurityContext.FSGroupChangePolicy == nil || *podSpec.SecurityContext.FSGroupChangePolicy != corev1.FSGroupChangeOnRootMismatch {
+		t.Fatalf("fsGroup change policy = %#v", podSpec.SecurityContext.FSGroupChangePolicy)
+	}
+	if container.SecurityContext == nil || container.SecurityContext.ReadOnlyRootFilesystem == nil || !*container.SecurityContext.ReadOnlyRootFilesystem {
+		t.Fatalf("container security context = %#v", container.SecurityContext)
+	}
+	if container.SecurityContext.AllowPrivilegeEscalation == nil || *container.SecurityContext.AllowPrivilegeEscalation {
+		t.Fatalf("allow privilege escalation = %#v", container.SecurityContext.AllowPrivilegeEscalation)
+	}
+	if len(container.SecurityContext.Capabilities.Drop) != 1 || container.SecurityContext.Capabilities.Drop[0] != "ALL" {
+		t.Fatalf("capability drop = %#v", container.SecurityContext.Capabilities)
+	}
+	if podSpec.NodeSelector["kubernetes.io/os"] != "linux" || len(podSpec.Tolerations) != 1 || podSpec.PriorityClassName != "high-priority" {
+		t.Fatalf("scheduling = %#v %#v %q", podSpec.NodeSelector, podSpec.Tolerations, podSpec.PriorityClassName)
+	}
+
+	service, err := client.client.CoreV1().Services(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get service: %v", err)
+	}
+	if service.Spec.Type != corev1.ServiceTypeNodePort || service.Spec.ExternalTrafficPolicy != corev1.ServiceExternalTrafficPolicyLocal || service.Spec.SessionAffinity != corev1.ServiceAffinityClientIP {
+		t.Fatalf("service spec = %#v", service.Spec)
+	}
+	if service.Annotations["example.com/service"] != "true" {
+		t.Fatalf("service annotations = %#v", service.Annotations)
+	}
+	if service.Spec.Ports[0].AppProtocol == nil || *service.Spec.Ports[0].AppProtocol != "http" {
+		t.Fatalf("app protocol = %#v", service.Spec.Ports[0].AppProtocol)
+	}
+
+	hpa, err := client.client.AutoscalingV2().HorizontalPodAutoscalers(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get hpa: %v", err)
+	}
+	if hpa.Spec.MaxReplicas != 5 || hpa.Spec.MinReplicas == nil || *hpa.Spec.MinReplicas != 2 || len(hpa.Spec.Metrics) != 1 {
+		t.Fatalf("hpa spec = %#v", hpa.Spec)
+	}
+
+	claim, err := client.client.CoreV1().PersistentVolumeClaims(spec.Namespace).Get(context.Background(), spec.Name+"-data", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get pvc: %v", err)
+	}
+	if claim.Spec.StorageClassName == nil || *claim.Spec.StorageClassName != "local-path" {
+		t.Fatalf("storage class = %#v", claim.Spec.StorageClassName)
+	}
+	if len(claim.Spec.AccessModes) != 1 || claim.Spec.AccessModes[0] != corev1.ReadWriteMany {
+		t.Fatalf("access modes = %#v", claim.Spec.AccessModes)
+	}
+	if claim.Spec.VolumeMode == nil || *claim.Spec.VolumeMode != corev1.PersistentVolumeFilesystem {
+		t.Fatalf("volume mode = %#v", claim.Spec.VolumeMode)
+	}
+}
+
+func TestApplyApplicationResourcesSupportsStatefulSetAndHPABehavior(t *testing.T) {
+	client := NewClientForInterface(fake.NewSimpleClientset(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "api-stateful", Namespace: "project-demo", Labels: baseManagedLabels("api-stateful")},
+	}))
+	spec := ApplicationResourcesSpec{
+		Name:                   "api-stateful",
+		Namespace:              "project-demo",
+		ProjectID:              "prj_demo",
+		ApplicationID:          "app_api",
+		EnvironmentID:          "env_dev",
+		DeploymentTargetID:     "dplt_backend",
+		ReleaseID:              "rel_1",
+		Image:                  "registry.example.com/acme/api:prod",
+		WorkloadType:           "StatefulSet",
+		Replicas:               3,
+		ServicePort:            8080,
+		CPURequest:             "100m",
+		MemoryRequest:          "128Mi",
+		AutoScalingEnabled:     true,
+		AutoScalingMinReplicas: 2,
+		AutoScalingMaxReplicas: 6,
+		AutoScalingCPUPercent:  75,
+		AutoScalingBehavior:    `{"scaleDown":{"stabilizationWindowSeconds":300}}`,
+		DataRetentionEnabled:   true,
+		DataCapacity:           "2Gi",
+		DataMountPath:          "/data",
+		DataStorageClassName:   "local-path",
+	}
+	if err := client.ApplyApplicationResources(context.Background(), spec); err != nil {
+		t.Fatalf("apply returned error: %v", err)
+	}
+	if _, err := client.client.AppsV1().Deployments(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{}); err == nil {
+		t.Fatal("expected stale deployment to be deleted")
+	}
+	statefulSet, err := client.client.AppsV1().StatefulSets(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get statefulset: %v", err)
+	}
+	if statefulSet.Spec.ServiceName != spec.Name || statefulSet.Spec.Replicas == nil || *statefulSet.Spec.Replicas != 3 {
+		t.Fatalf("statefulset spec = %#v", statefulSet.Spec)
+	}
+	hpa, err := client.client.AutoscalingV2().HorizontalPodAutoscalers(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get hpa: %v", err)
+	}
+	if hpa.Spec.ScaleTargetRef.Kind != "StatefulSet" || hpa.Spec.Behavior == nil || hpa.Spec.Behavior.ScaleDown == nil || hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds == nil {
+		t.Fatalf("hpa spec = %#v", hpa.Spec)
+	}
+}
+
+func TestApplyApplicationResourcesSupportsExistingClaimAndEmptyDirDataVolumes(t *testing.T) {
+	client := NewClientForInterface(fake.NewSimpleClientset())
+	spec := ApplicationResourcesSpec{
+		Name:                 "api-data-sources",
+		Namespace:            "project-demo",
+		ProjectID:            "prj_demo",
+		ApplicationID:        "app_api",
+		EnvironmentID:        "env_dev",
+		DeploymentTargetID:   "dplt_backend",
+		ReleaseID:            "rel_1",
+		Image:                "registry.example.com/acme/api:prod",
+		ServicePort:          8080,
+		DataRetentionEnabled: true,
+		DataVolumes: []ApplicationDataVolume{
+			{Name: "shared", MountPath: "/shared", SourceType: "existingClaim", ExistingClaimName: "shared-pvc"},
+			{Name: "cache", MountPath: "/cache", SourceType: "emptyDir", EmptyDirMedium: "Memory", EmptyDirSizeLimit: "512Mi"},
+		},
+	}
+	if err := client.ApplyApplicationResources(context.Background(), spec); err != nil {
+		t.Fatalf("apply returned error: %v", err)
+	}
+	deployment, err := client.client.AppsV1().Deployments(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get deployment: %v", err)
+	}
+	volumes := deployment.Spec.Template.Spec.Volumes
+	if len(volumes) != 2 {
+		t.Fatalf("volumes = %#v", volumes)
+	}
+	if volumes[0].PersistentVolumeClaim == nil || volumes[0].PersistentVolumeClaim.ClaimName != "shared-pvc" {
+		t.Fatalf("existing claim volume = %#v", volumes[0])
+	}
+	if volumes[1].EmptyDir == nil || volumes[1].EmptyDir.Medium != corev1.StorageMediumMemory {
+		t.Fatalf("empty dir volume = %#v", volumes[1])
+	}
+	claims, err := client.client.CoreV1().PersistentVolumeClaims(spec.Namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatalf("list pvc: %v", err)
+	}
+	if len(claims.Items) != 0 {
+		t.Fatalf("unexpected managed pvcs = %#v", claims.Items)
+	}
+}
+
+func TestApplyApplicationResourcesRejectsRiskyAuxContainerSecurityContext(t *testing.T) {
+	client := NewClientForInterface(fake.NewSimpleClientset())
+	spec := ApplicationResourcesSpec{
+		Name:               "api-risky-sidecar",
+		Namespace:          "project-demo",
+		Image:              "registry.example.com/acme/api:prod",
+		ServicePort:        8080,
+		SidecarContainers:  `[{"name":"debug","image":"busybox:1.36","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]`,
+		DeploymentTargetID: "dplt_backend",
+	}
+	if err := client.ApplyApplicationResources(context.Background(), spec); err == nil {
+		t.Fatal("expected risky sidecar security context to be rejected")
+	}
+}
+
 func TestSetHookJobTTL(t *testing.T) {
 	namespace := "project-demo"
 	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "hook-demo", Namespace: namespace}}

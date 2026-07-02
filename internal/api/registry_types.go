@@ -76,11 +76,16 @@ func credentialResponse(credential model.RegistryCredential) registryCredentialO
 }
 
 func normalizeRegistryProvider(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "dockerhub", "gitea-registry":
-		return strings.ToLower(strings.TrimSpace(value))
-	default:
+	provider := strings.ToLower(strings.TrimSpace(value))
+	switch provider {
+	case "":
 		return "harbor"
+	case "harbor", "dockerhub", "gitea-registry", "generic-oci":
+		return provider
+	case "generic", "oci", "docker-registry", "registry":
+		return "generic-oci"
+	default:
+		return "generic-oci"
 	}
 }
 

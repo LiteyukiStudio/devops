@@ -229,7 +229,7 @@ export interface GitRepositoryBuildOptions {
 export interface ArtifactRegistry {
   id: string
   name: string
-  provider: 'harbor' | 'dockerhub' | 'gitea-registry'
+  provider: 'harbor' | 'dockerhub' | 'gitea-registry' | 'generic-oci'
   endpoint: string
   namespace: string
   scope: 'global' | 'project' | 'user'
@@ -458,9 +458,44 @@ export interface DeploymentTarget {
   stage: 'dev' | 'test' | 'staging' | 'prod'
   clusterId: string
   namespace: string
+  workloadType: 'Deployment' | 'StatefulSet' | string
   replicas: number
   cpuRequest: string
   memoryRequest: string
+  cpuLimit: string
+  memoryLimit: string
+  imagePullPolicy: '' | 'IfNotPresent' | 'Always' | 'Never' | string
+  containerCommand: string
+  containerArgs: string
+  lifecycle: string
+  initContainers: string
+  sidecarContainers: string
+  readinessProbe: string
+  livenessProbe: string
+  startupProbe: string
+  runAsUser: string
+  runAsGroup: string
+  fsGroup: string
+  fsGroupChangePolicy: '' | 'OnRootMismatch' | 'Always' | string
+  readOnlyRootFilesystem: boolean
+  allowPrivilegeEscalation: '' | 'true' | 'false' | string
+  capabilityAdd: string
+  capabilityDrop: string
+  nodeSelector: string
+  tolerations: string
+  affinity: string
+  topologySpreadConstraints: string
+  priorityClassName: string
+  serviceType: '' | 'ClusterIP' | 'NodePort' | 'LoadBalancer' | string
+  serviceAnnotations: string
+  serviceExternalTrafficPolicy: '' | 'Cluster' | 'Local' | string
+  serviceSessionAffinity: '' | 'None' | 'ClientIP' | string
+  autoScalingEnabled: boolean
+  autoScalingMinReplicas: number
+  autoScalingMaxReplicas: number
+  autoScalingCpuPercent: number
+  autoScalingMemoryPercent: number
+  autoScalingBehavior: string
   servicePort: number
   servicePorts: DeploymentServicePort[]
   sourceType: 'repository' | 'image'
@@ -496,6 +531,9 @@ export interface DeploymentTarget {
   dataCapacity: string
   dataMountPath: string
   dataVolumes: string
+  dataStorageClassName: string
+  dataAccessMode: '' | 'ReadWriteOnce' | 'ReadWriteMany' | 'ReadOnlyMany' | string
+  dataVolumeMode: '' | 'Filesystem' | 'Block' | string
   requireApproval: boolean
   enabled: boolean
   deleteStatus: 'active' | 'deleting' | 'delete_failed' | 'deleted' | string
@@ -509,6 +547,7 @@ export interface DeploymentTarget {
 export interface DeploymentServicePort {
   name: string
   port: number
+  appProtocol?: string
 }
 
 export interface DeploymentTargetMetrics {

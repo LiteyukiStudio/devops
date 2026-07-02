@@ -7,6 +7,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,6 +28,9 @@ type DeploymentSnapshot struct {
 
 func (c *Client) GetDeploymentSnapshot(ctx context.Context, namespace, name string) (DeploymentSnapshot, error) {
 	deployment, err := c.client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return c.getStatefulSetSnapshot(ctx, namespace, name)
+	}
 	if err != nil {
 		return DeploymentSnapshot{}, err
 	}
@@ -67,8 +71,37 @@ func (c *Client) GetDeploymentSnapshot(ctx context.Context, namespace, name stri
 	return snapshot, nil
 }
 
+func (c *Client) getStatefulSetSnapshot(ctx context.Context, namespace, name string) (DeploymentSnapshot, error) {
+	statefulSet, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return DeploymentSnapshot{}, err
+	}
+	desired := int32(1)
+	if statefulSet.Spec.Replicas != nil {
+		desired = *statefulSet.Spec.Replicas
+	}
+	snapshot := DeploymentSnapshot{
+		Phase:             DeploymentRunning,
+		Message:           fmt.Sprintf("StatefulSet rollout 进行中：updated=%d ready=%d available=%d desired=%d", statefulSet.Status.UpdatedReplicas, statefulSet.Status.ReadyReplicas, statefulSet.Status.AvailableReplicas, desired),
+		DesiredReplicas:   desired,
+		UpdatedReplicas:   statefulSet.Status.UpdatedReplicas,
+		ReadyReplicas:     statefulSet.Status.ReadyReplicas,
+		AvailableReplicas: statefulSet.Status.AvailableReplicas,
+	}
+	if statefulSet.Status.ObservedGeneration >= statefulSet.Generation &&
+		statefulSet.Status.UpdatedReplicas >= desired &&
+		statefulSet.Status.ReadyReplicas >= desired {
+		snapshot.Phase = DeploymentSucceeded
+		snapshot.Message = "StatefulSet rollout completed"
+	}
+	return snapshot, nil
+}
+
 func (c *Client) RestartDeployment(ctx context.Context, namespace, name string) error {
 	deployment, err := c.client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return c.restartStatefulSet(ctx, namespace, name)
+	}
 	if err != nil {
 		return err
 	}
@@ -77,5 +110,18 @@ func (c *Client) RestartDeployment(ctx context.Context, namespace, name string) 
 	}
 	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().UTC().Format(time.RFC3339Nano)
 	_, err = c.client.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	return err
+}
+
+func (c *Client) restartStatefulSet(ctx context.Context, namespace, name string) error {
+	statefulSet, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if statefulSet.Spec.Template.Annotations == nil {
+		statefulSet.Spec.Template.Annotations = map[string]string{}
+	}
+	statefulSet.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().UTC().Format(time.RFC3339Nano)
+	_, err = c.client.AppsV1().StatefulSets(namespace).Update(ctx, statefulSet, metav1.UpdateOptions{})
 	return err
 }

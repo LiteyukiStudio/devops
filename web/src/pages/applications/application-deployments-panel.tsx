@@ -28,6 +28,7 @@ import { defaultTargetImageRef, deploymentReleaseKey, deploymentTargetCanRelease
 import { ApplicationCreateReleaseDialog } from './application-create-release-dialog'
 import { RuntimeDataVolumesEditor } from './application-deployment-data-volumes-editor'
 import { ApplicationDeploymentHooksEditor } from './application-deployment-hooks-editor'
+import { KubernetesAdvancedFields } from './application-deployment-kubernetes-advanced-fields'
 import { RuntimeResourceFields } from './application-deployment-resource-fields'
 import { buildDeploymentRuntimeStatus, buildInternalServiceEndpoint } from './application-deployment-runtime-utils'
 import { ServicePortsEditor } from './application-deployment-service-ports-editor'
@@ -364,7 +365,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
   }
   const targetServicePorts = targetForm.watch('servicePorts')?.length
     ? targetForm.watch('servicePorts')
-    : [{ name: 'http', port: targetForm.watch('servicePort') || 8080 }]
+    : [{ appProtocol: '', name: 'http', port: targetForm.watch('servicePort') || 8080 }]
   const updateTargetServicePorts = (rows: DeploymentTargetPayload['servicePorts']) => {
     const nextRows = rows.length > 0 ? rows : [{ name: 'http', port: 8080 }]
     targetForm.setValue('servicePorts', nextRows, { shouldDirty: true, shouldValidate: true })
@@ -425,6 +426,49 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
     count: runtimeConfigRefIds(selectedRuntimeConfigRefs).length,
     overrides: t(targetHasAdvancedConfig ? 'deploymentsPage.advancedOverridesEnabled' : 'deploymentsPage.advancedOverridesDisabled'),
   })
+  const targetKubernetesAdvancedCount = [
+    'cpuLimit',
+    'memoryLimit',
+    'imagePullPolicy',
+    'containerCommand',
+    'containerArgs',
+    'lifecycle',
+    'initContainers',
+    'sidecarContainers',
+    'readinessProbe',
+    'livenessProbe',
+    'startupProbe',
+    'runAsUser',
+    'runAsGroup',
+    'fsGroup',
+    'fsGroupChangePolicy',
+    'allowPrivilegeEscalation',
+    'capabilityAdd',
+    'capabilityDrop',
+    'nodeSelector',
+    'tolerations',
+    'affinity',
+    'topologySpreadConstraints',
+    'priorityClassName',
+    'serviceType',
+    'serviceAnnotations',
+    'serviceExternalTrafficPolicy',
+    'serviceSessionAffinity',
+    'autoScalingBehavior',
+    'autoScalingMinReplicas',
+    'autoScalingMaxReplicas',
+    'autoScalingCpuPercent',
+    'autoScalingMemoryPercent',
+    'dataStorageClassName',
+    'dataAccessMode',
+    'dataVolumeMode',
+  ].filter(key => String(targetForm.watch(key as keyof DeploymentTargetPayload) ?? '').trim()).length
+  + (targetForm.watch('workloadType') === 'StatefulSet' ? 1 : 0)
+  + (normalizeBoolean(targetForm.watch('readOnlyRootFilesystem'), false) ? 1 : 0)
+  + (normalizeBoolean(targetForm.watch('autoScalingEnabled'), false) ? 1 : 0)
+  const targetKubernetesAdvancedSummary = targetKubernetesAdvancedCount > 0
+    ? t('deploymentsPage.progressiveKubernetesAdvancedEnabledSummary', { count: targetKubernetesAdvancedCount })
+    : t('deploymentsPage.progressiveKubernetesAdvancedDisabledSummary')
   const openRuntimeConfigDialog = (set?: ProjectRuntimeConfigSet) => {
     setEditingRuntimeConfigSet(set ?? null)
     setRuntimeConfigFilesValid(true)
@@ -823,6 +867,14 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
                     <RuntimeDataVolumesEditor enabled={targetDataRetentionEnabled} rows={targetDataVolumes} onChange={updateTargetDataVolumes} />
                   )}
                 </div>
+              </ProgressiveSection>
+              <ProgressiveSection
+                description={t('deploymentsPage.progressiveKubernetesAdvancedDescription')}
+                storageKey="liteyuki.deployments.targetDialog.kubernetesAdvanced"
+                summary={targetKubernetesAdvancedSummary}
+                title={t('deploymentsPage.progressiveKubernetesAdvancedTitle')}
+              >
+                <KubernetesAdvancedFields dataRetentionEnabled={targetDataRetentionEnabled} form={targetForm} />
               </ProgressiveSection>
               <ProgressiveSection
                 description={t('deploymentsPage.runtimeConfigDescription')}

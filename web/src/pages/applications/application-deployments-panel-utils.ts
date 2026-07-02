@@ -13,11 +13,46 @@ export const deploymentTargetDefaults: DeploymentTargetPayload = {
   stage: 'prod',
   clusterId: '',
   namespace: '',
+  workloadType: 'Deployment',
   replicas: 1,
   cpuRequest: '1',
   memoryRequest: '1Gi',
+  cpuLimit: '',
+  memoryLimit: '',
+  imagePullPolicy: '',
+  containerCommand: '',
+  containerArgs: '',
+  lifecycle: '',
+  initContainers: '',
+  sidecarContainers: '',
+  readinessProbe: '',
+  livenessProbe: '',
+  startupProbe: '',
+  runAsUser: '',
+  runAsGroup: '',
+  fsGroup: '',
+  fsGroupChangePolicy: '',
+  readOnlyRootFilesystem: false,
+  allowPrivilegeEscalation: '',
+  capabilityAdd: '',
+  capabilityDrop: '',
+  nodeSelector: '',
+  tolerations: '',
+  affinity: '',
+  topologySpreadConstraints: '',
+  priorityClassName: '',
+  serviceType: '',
+  serviceAnnotations: '',
+  serviceExternalTrafficPolicy: '',
+  serviceSessionAffinity: '',
+  autoScalingEnabled: false,
+  autoScalingMinReplicas: 1,
+  autoScalingMaxReplicas: 1,
+  autoScalingCpuPercent: 0,
+  autoScalingMemoryPercent: 0,
+  autoScalingBehavior: '',
   servicePort: 8080,
-  servicePorts: [{ name: 'http', port: 8080 }],
+  servicePorts: [{ appProtocol: '', name: 'http', port: 8080 }],
   sourceType: 'repository',
   repositoryBindingId: '',
   dockerfilePath: 'Dockerfile',
@@ -51,6 +86,9 @@ export const deploymentTargetDefaults: DeploymentTargetPayload = {
   dataCapacity: '1Gi',
   dataMountPath: '/data',
   dataVolumes: JSON.stringify([{ name: 'data', mountPath: '/data', capacity: '1Gi' }]),
+  dataStorageClassName: '',
+  dataAccessMode: '',
+  dataVolumeMode: '',
   requireApproval: false,
   enabled: true,
 }
@@ -127,9 +165,44 @@ export function deploymentTargetRuntimeChanged(current: DeploymentTarget, next: 
   const fields: Array<keyof DeploymentTargetPayload> = [
     'clusterId',
     'namespace',
+    'workloadType',
     'replicas',
     'cpuRequest',
     'memoryRequest',
+    'cpuLimit',
+    'memoryLimit',
+    'imagePullPolicy',
+    'containerCommand',
+    'containerArgs',
+    'lifecycle',
+    'initContainers',
+    'sidecarContainers',
+    'readinessProbe',
+    'livenessProbe',
+    'startupProbe',
+    'runAsUser',
+    'runAsGroup',
+    'fsGroup',
+    'fsGroupChangePolicy',
+    'readOnlyRootFilesystem',
+    'allowPrivilegeEscalation',
+    'capabilityAdd',
+    'capabilityDrop',
+    'nodeSelector',
+    'tolerations',
+    'affinity',
+    'topologySpreadConstraints',
+    'priorityClassName',
+    'serviceType',
+    'serviceAnnotations',
+    'serviceExternalTrafficPolicy',
+    'serviceSessionAffinity',
+    'autoScalingEnabled',
+    'autoScalingMinReplicas',
+    'autoScalingMaxReplicas',
+    'autoScalingCpuPercent',
+    'autoScalingMemoryPercent',
+    'autoScalingBehavior',
     'stage',
     'servicePort',
     'servicePorts',
@@ -142,6 +215,9 @@ export function deploymentTargetRuntimeChanged(current: DeploymentTarget, next: 
     'dataCapacity',
     'dataMountPath',
     'dataVolumes',
+    'dataStorageClassName',
+    'dataAccessMode',
+    'dataVolumeMode',
   ]
   if (nextPayload.sourceType === 'image')
     fields.push('imageRef')
@@ -160,6 +236,7 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
   const requireApproval = normalizeBoolean(values.requireApproval, false)
   const buildHooksEnabled = normalizeBoolean(values.buildHooksEnabled, true)
   const dataRetentionEnabled = normalizeBoolean(values.dataRetentionEnabled, false)
+  const readOnlyRootFilesystem = normalizeBoolean(values.readOnlyRootFilesystem, false)
   const dataVolumes = dataRetentionEnabled
     ? parseRuntimeDataVolumes(values.dataVolumes, values.dataMountPath || '/data', values.dataCapacity || '1Gi')
     : []
@@ -172,9 +249,44 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     sourceType,
     clusterId: values.clusterId?.trim() ?? '',
     namespace: values.namespace?.trim() ?? '',
+    workloadType: normalizeChoice(values.workloadType, ['Deployment', 'StatefulSet']) || 'Deployment',
     replicas: normalizePositiveInteger(values.replicas, 1),
     cpuRequest: values.cpuRequest || '1',
     memoryRequest: values.memoryRequest || '1Gi',
+    cpuLimit: values.cpuLimit?.trim() ?? '',
+    memoryLimit: values.memoryLimit?.trim() ?? '',
+    imagePullPolicy: normalizeChoice(values.imagePullPolicy, ['IfNotPresent', 'Always', 'Never']),
+    containerCommand: values.containerCommand?.trim() ?? '',
+    containerArgs: values.containerArgs?.trim() ?? '',
+    lifecycle: values.lifecycle?.trim() ?? '',
+    initContainers: values.initContainers?.trim() ?? '',
+    sidecarContainers: values.sidecarContainers?.trim() ?? '',
+    readinessProbe: values.readinessProbe?.trim() ?? '',
+    livenessProbe: values.livenessProbe?.trim() ?? '',
+    startupProbe: values.startupProbe?.trim() ?? '',
+    runAsUser: values.runAsUser?.trim() ?? '',
+    runAsGroup: values.runAsGroup?.trim() ?? '',
+    fsGroup: values.fsGroup?.trim() ?? '',
+    fsGroupChangePolicy: normalizeChoice(values.fsGroupChangePolicy, ['OnRootMismatch', 'Always']),
+    readOnlyRootFilesystem,
+    allowPrivilegeEscalation: normalizeChoice(values.allowPrivilegeEscalation, ['true', 'false']),
+    capabilityAdd: values.capabilityAdd?.trim() ?? '',
+    capabilityDrop: values.capabilityDrop?.trim() ?? '',
+    nodeSelector: values.nodeSelector?.trim() ?? '',
+    tolerations: values.tolerations?.trim() ?? '',
+    affinity: values.affinity?.trim() ?? '',
+    topologySpreadConstraints: values.topologySpreadConstraints?.trim() ?? '',
+    priorityClassName: values.priorityClassName?.trim() ?? '',
+    serviceType: normalizeChoice(values.serviceType, ['ClusterIP', 'NodePort', 'LoadBalancer']),
+    serviceAnnotations: values.serviceAnnotations?.trim() ?? '',
+    serviceExternalTrafficPolicy: normalizeChoice(values.serviceExternalTrafficPolicy, ['Cluster', 'Local']),
+    serviceSessionAffinity: normalizeChoice(values.serviceSessionAffinity, ['None', 'ClientIP']),
+    autoScalingEnabled: normalizeBoolean(values.autoScalingEnabled, false),
+    autoScalingMinReplicas: normalizePositiveInteger(values.autoScalingMinReplicas, 1),
+    autoScalingMaxReplicas: normalizePositiveInteger(values.autoScalingMaxReplicas, normalizePositiveInteger(values.replicas, 1)),
+    autoScalingCpuPercent: normalizeNonNegativeInteger(values.autoScalingCpuPercent),
+    autoScalingMemoryPercent: normalizeNonNegativeInteger(values.autoScalingMemoryPercent),
+    autoScalingBehavior: values.autoScalingBehavior?.trim() ?? '',
     stage: normalizeDeploymentStage(values.stage),
     servicePorts,
     servicePort: servicePorts[0]?.port ?? 8080,
@@ -186,6 +298,9 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     dataCapacity: dataRetentionEnabled ? (primaryDataVolume?.capacity?.trim() || '1Gi') : '',
     dataMountPath: dataRetentionEnabled ? (primaryDataVolume?.mountPath?.trim() || '/data') : '',
     dataVolumes: dataRetentionEnabled ? serializeRuntimeDataVolumes(dataVolumes) : '',
+    dataStorageClassName: dataRetentionEnabled ? (values.dataStorageClassName?.trim() ?? '') : '',
+    dataAccessMode: dataRetentionEnabled ? normalizeChoice(values.dataAccessMode, ['ReadWriteOnce', 'ReadWriteMany', 'ReadOnlyMany']) : '',
+    dataVolumeMode: dataRetentionEnabled ? normalizeChoice(values.dataVolumeMode, ['Filesystem', 'Block']) : '',
     repositoryBindingId: sourceType === 'repository' ? values.repositoryBindingId : '',
     targetRegistryId: sourceType === 'repository' ? values.targetRegistryId : '',
     targetImageRef: sourceType === 'repository' ? values.targetImageRef : '',
@@ -202,6 +317,11 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     secretFiles: values.secretFiles?.trim() ?? '',
     buildHookBindings: normalizeDeploymentHookBindings(values.buildHookBindings),
   }
+}
+
+function normalizeChoice(value: unknown, allowed: string[]) {
+  const normalized = String(value ?? '').trim()
+  return allowed.includes(normalized) ? normalized : ''
 }
 
 const deploymentHookPhases = new Set<HookPhase>([
@@ -303,7 +423,8 @@ export function normalizeDeploymentServicePorts(value: unknown, fallbackPort = 8
     .map((item, index) => {
       const port = normalizePositiveInteger(Number((item as { port?: unknown })?.port), index === 0 ? fallbackPort : 0)
       const name = String((item as { name?: unknown })?.name ?? '').trim() || (index === 0 ? 'http' : `port-${port}`)
-      return { name, port }
+      const appProtocol = String((item as { appProtocol?: unknown })?.appProtocol ?? '').trim()
+      return { appProtocol, name, port }
     })
     .filter((item) => {
       if (item.port <= 0 || item.port > 65535 || seen.has(item.port))
@@ -311,7 +432,14 @@ export function normalizeDeploymentServicePorts(value: unknown, fallbackPort = 8
       seen.add(item.port)
       return true
     })
-  return ports.length > 0 ? ports : [{ name: 'http', port: normalizePositiveInteger(fallbackPort, 8080) }]
+  return ports.length > 0 ? ports : [{ appProtocol: '', name: 'http', port: normalizePositiveInteger(fallbackPort, 8080) }]
+}
+
+function normalizeNonNegativeInteger(value: unknown) {
+  const number = Number(value)
+  if (!Number.isFinite(number) || number < 0)
+    return 0
+  return Math.floor(number)
 }
 
 export function normalizeBoolean(value: unknown, fallback: boolean) {

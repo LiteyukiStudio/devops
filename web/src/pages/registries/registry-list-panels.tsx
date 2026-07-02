@@ -64,7 +64,7 @@ export function RegistriesPanel({
               </button>
             ),
           },
-          { key: 'provider', header: t('registriesPage.provider'), render: registry => <StatusBadge>{registry.provider}</StatusBadge> },
+          { key: 'provider', header: t('registriesPage.provider'), render: registry => <StatusBadge>{registryProviderLabel(registry.provider, t)}</StatusBadge> },
           {
             key: 'scope',
             header: t('common.scope'),
@@ -103,6 +103,20 @@ export function RegistriesPanel({
       />
     </>
   )
+}
+
+function registryProviderLabel(provider: ArtifactRegistry['provider'], t: ReturnType<typeof useTranslation>['t']) {
+  switch (provider) {
+    case 'dockerhub':
+      return t('registriesPage.providerDockerHub')
+    case 'gitea-registry':
+      return t('registriesPage.providerGiteaRegistry')
+    case 'generic-oci':
+      return t('registriesPage.providerGenericOCI')
+    case 'harbor':
+    default:
+      return t('registriesPage.providerHarbor')
+  }
 }
 
 interface CredentialsPanelProps {

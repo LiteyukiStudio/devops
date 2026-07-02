@@ -23,7 +23,9 @@ If you only want to test deployment first, skip Git providers and use an existin
 
 ## Registries
 
-Registries store or provide images. Common choices include Harbor, Gitea Registry, and DockerHub.
+Registries store or provide images. Common choices include Harbor, Gitea Registry, DockerHub, and generic OCI / Docker Registry.
+
+Generic OCI registries use the standard Docker Registry HTTP API V2: the platform tests `/v2/`, searches repositories with `_catalog`, and reads tags with `tags/list`. Some registries disable catalog listing; in that case search may be unavailable, but users can still enter the repository path and tag manually.
 
 Deleting a registry also deletes all credentials that belong to it. Confirm that deployment targets, build jobs, or runtime image pulls no longer depend on those credentials before deleting.
 

@@ -5,6 +5,7 @@ import { FormField as Field } from '@/components/common/form-field'
 import { UnitInput } from '@/components/common/unit-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { NativeSelect as Select } from '@/components/ui/native-select'
 import { emptyRuntimeDataVolumeRow } from '@/lib/runtime-data-volumes'
 
 interface RuntimeDataVolumesEditorProps {
@@ -19,14 +20,15 @@ export function RuntimeDataVolumesEditor({ enabled, onChange, rows }: RuntimeDat
   return (
     <Field hint={t('deploymentsPage.dataVolumesHint')} label={t('deploymentsPage.dataVolumes')} required={enabled}>
       <div className="grid gap-2 rounded-md border border-input bg-background p-3">
-        <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.5fr)_minmax(10rem,0.7fr)_auto]">
+        <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[minmax(7rem,0.7fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(10rem,0.8fr)_auto]">
           <span>{t('deploymentsPage.dataVolumeName')}</span>
+          <span>{t('deploymentsPage.dataVolumeSourceType')}</span>
           <span>{t('deploymentsPage.dataMountPath')}</span>
-          <span>{t('deploymentsPage.dataCapacity')}</span>
+          <span>{t('deploymentsPage.dataVolumeSourceDetail')}</span>
           <span className="sr-only">{t('common.actions')}</span>
         </div>
         {rows.map((volume, index) => (
-          <div key={volume.id} className="grid gap-2 md:grid-cols-[minmax(7rem,0.7fr)_minmax(0,1.5fr)_minmax(10rem,0.7fr)_auto]">
+          <div key={volume.id} className="grid gap-2 md:grid-cols-[minmax(7rem,0.7fr)_minmax(0,1fr)_minmax(0,1.4fr)_minmax(10rem,0.8fr)_auto]">
             <Input
               disabled={!enabled}
               placeholder={t('deploymentsPage.dataVolumeNamePlaceholder')}
@@ -37,6 +39,19 @@ export function RuntimeDataVolumesEditor({ enabled, onChange, rows }: RuntimeDat
                 onChange(nextRows)
               }}
             />
+            <Select
+              disabled={!enabled}
+              value={volume.sourceType}
+              onChange={(event) => {
+                const nextRows = [...rows]
+                nextRows[index] = { ...volume, sourceType: event.target.value as RuntimeDataVolumeRow['sourceType'] }
+                onChange(nextRows)
+              }}
+            >
+              <option value="managed">{t('deploymentsPage.dataVolumeSourceManaged')}</option>
+              <option value="existingClaim">{t('deploymentsPage.dataVolumeSourceExistingClaim')}</option>
+              <option value="emptyDir">{t('deploymentsPage.dataVolumeSourceEmptyDir')}</option>
+            </Select>
             <Input
               disabled={!enabled}
               placeholder={t('deploymentsPage.dataMountPathPlaceholder')}
@@ -47,21 +62,63 @@ export function RuntimeDataVolumesEditor({ enabled, onChange, rows }: RuntimeDat
                 onChange(nextRows)
               }}
             />
-            <UnitInput
-              disabled={!enabled}
-              inputProps={{ placeholder: t('deploymentsPage.dataCapacityPlaceholder') }}
-              unitSelectLabel={t('deploymentsPage.dataCapacity')}
-              units={[
-                { label: 'Mi', value: 'Mi' },
-                { label: 'Gi', value: 'Gi' },
-              ]}
-              value={volume.capacity}
-              onChange={(value) => {
-                const nextRows = [...rows]
-                nextRows[index] = { ...volume, capacity: value }
-                onChange(nextRows)
-              }}
-            />
+            {volume.sourceType === 'existingClaim'
+              ? (
+                  <Input
+                    disabled={!enabled}
+                    placeholder={t('deploymentsPage.dataExistingClaimNamePlaceholder')}
+                    value={volume.existingClaimName}
+                    onChange={(event) => {
+                      const nextRows = [...rows]
+                      nextRows[index] = { ...volume, existingClaimName: event.target.value }
+                      onChange(nextRows)
+                    }}
+                  />
+                )
+              : volume.sourceType === 'emptyDir'
+                ? (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <Select
+                        disabled={!enabled}
+                        value={volume.emptyDirMedium}
+                        onChange={(event) => {
+                          const nextRows = [...rows]
+                          nextRows[index] = { ...volume, emptyDirMedium: event.target.value }
+                          onChange(nextRows)
+                        }}
+                      >
+                        <option value="">{t('deploymentsPage.emptyDirMediumDefault')}</option>
+                        <option value="Memory">{t('deploymentsPage.emptyDirMediumMemory')}</option>
+                      </Select>
+                      <Input
+                        disabled={!enabled}
+                        placeholder={t('deploymentsPage.emptyDirSizeLimitPlaceholder')}
+                        value={volume.emptyDirSizeLimit}
+                        onChange={(event) => {
+                          const nextRows = [...rows]
+                          nextRows[index] = { ...volume, emptyDirSizeLimit: event.target.value }
+                          onChange(nextRows)
+                        }}
+                      />
+                    </div>
+                  )
+                : (
+                    <UnitInput
+                      disabled={!enabled}
+                      inputProps={{ placeholder: t('deploymentsPage.dataCapacityPlaceholder') }}
+                      unitSelectLabel={t('deploymentsPage.dataCapacity')}
+                      units={[
+                        { label: 'Mi', value: 'Mi' },
+                        { label: 'Gi', value: 'Gi' },
+                      ]}
+                      value={volume.capacity}
+                      onChange={(value) => {
+                        const nextRows = [...rows]
+                        nextRows[index] = { ...volume, capacity: value }
+                        onChange(nextRows)
+                      }}
+                    />
+                  )}
             <Button
               aria-label={t('deploymentsPage.removeDataVolume')}
               disabled={!enabled || rows.length <= 1}

@@ -88,61 +88,99 @@ type Release struct {
 }
 
 type DeploymentTarget struct {
-	ID                   string                        `gorm:"primaryKey" json:"id"`
-	ProjectID            string                        `gorm:"index;not null" json:"projectId"`
-	ApplicationID        string                        `gorm:"index;not null" json:"applicationId"`
-	EnvironmentID        string                        `gorm:"index;not null;default:''" json:"environmentId"`
-	Name                 string                        `gorm:"not null" json:"name"`
-	Stage                string                        `gorm:"not null;default:prod" json:"stage"`
-	ClusterID            string                        `gorm:"index;not null;default:''" json:"clusterId"`
-	Namespace            string                        `gorm:"not null;default:''" json:"namespace"`
-	Replicas             int                           `gorm:"not null;default:1" json:"replicas"`
-	CPURequest           string                        `gorm:"not null;default:'1'" json:"cpuRequest"`
-	MemoryRequest        string                        `gorm:"not null;default:'1Gi'" json:"memoryRequest"`
-	ServicePort          int                           `gorm:"not null;default:8080" json:"servicePort"`
-	ServicePorts         string                        `gorm:"type:text;not null;default:''" json:"servicePorts"`
-	DeleteStatus         string                        `gorm:"index;not null;default:active" json:"deleteStatus"`
-	DeleteMessage        string                        `gorm:"type:text;not null;default:''" json:"deleteMessage"`
-	DeleteStartedAt      *time.Time                    `json:"deleteStartedAt"`
-	DeleteFinishedAt     *time.Time                    `json:"deleteFinishedAt"`
-	SourceType           string                        `gorm:"not null;default:repository" json:"sourceType"`
-	RepositoryBindingID  string                        `gorm:"index" json:"repositoryBindingId"`
-	DockerfilePath       string                        `gorm:"not null;default:Dockerfile" json:"dockerfilePath"`
-	BuildContext         string                        `gorm:"not null;default:." json:"buildContext"`
-	BuildDirectory       string                        `json:"buildDirectory"`
-	BuildEnvironmentID   string                        `gorm:"index;not null;default:''" json:"buildEnvironmentId"`
-	BuildCPURequest      string                        `gorm:"not null;default:'1'" json:"buildCpuRequest"`
-	BuildMemoryRequest   string                        `gorm:"not null;default:'1Gi'" json:"buildMemoryRequest"`
-	BuildTimeoutSeconds  int                           `gorm:"not null;default:1800" json:"buildTimeoutSeconds"`
-	TargetRegistryID     string                        `gorm:"index" json:"targetRegistryId"`
-	TargetRepository     string                        `json:"targetRepository"`
-	TargetTag            string                        `json:"targetTag"`
-	ImageRef             string                        `json:"imageRef"`
-	BuildLabels          string                        `json:"buildLabels"`
-	BuildVariableSetIDs  string                        `gorm:"type:text" json:"buildVariableSetIds"`
-	BuildHooksEnabled    bool                          `gorm:"not null;default:true" json:"buildHooksEnabled"`
-	BuildHookBindings    []DeploymentTargetHookBinding `gorm:"-" json:"buildHookBindings"`
-	AutoDeploy           bool                          `gorm:"not null;default:false" json:"autoDeploy"`
-	BranchPattern        string                        `json:"branchPattern"`
-	TagPattern           string                        `json:"tagPattern"`
-	ConcurrencyPolicy    string                        `gorm:"not null;default:queue" json:"concurrencyPolicy"`
-	RuntimeConfigSetIDs  string                        `gorm:"type:text;not null;default:''" json:"runtimeConfigSetIds"`
-	RuntimeConfigRefs    string                        `gorm:"type:text;not null;default:''" json:"runtimeConfigRefs"`
-	EnvVars              string                        `gorm:"type:text;not null;default:''" json:"envVars"`
-	ConfigRefs           string                        `gorm:"type:text;not null;default:''" json:"configRefs"`
-	SecretRefs           string                        `gorm:"type:text;not null;default:''" json:"-"`
-	ConfigFiles          string                        `gorm:"type:text;not null;default:''" json:"configFiles"`
-	SecretFiles          string                        `gorm:"type:text;not null;default:''" json:"-"`
-	DataRetentionEnabled bool                          `gorm:"not null;default:false" json:"dataRetentionEnabled"`
-	DataCapacity         string                        `gorm:"not null;default:''" json:"dataCapacity"`
-	DataMountPath        string                        `gorm:"not null;default:'/data'" json:"dataMountPath"`
-	DataVolumes          string                        `gorm:"type:text;not null;default:''" json:"dataVolumes"`
-	RequireApproval      bool                          `gorm:"not null;default:false" json:"requireApproval"`
-	Enabled              bool                          `gorm:"not null;default:true" json:"enabled"`
-	CreatedBy            string                        `gorm:"index" json:"createdBy"`
-	CreatedAt            time.Time                     `json:"createdAt"`
-	UpdatedAt            time.Time                     `json:"updatedAt"`
-	DeletedAt            gorm.DeletedAt                `gorm:"index" json:"-"`
+	ID                           string                        `gorm:"primaryKey" json:"id"`
+	ProjectID                    string                        `gorm:"index;not null" json:"projectId"`
+	ApplicationID                string                        `gorm:"index;not null" json:"applicationId"`
+	EnvironmentID                string                        `gorm:"index;not null;default:''" json:"environmentId"`
+	Name                         string                        `gorm:"not null" json:"name"`
+	Stage                        string                        `gorm:"not null;default:prod" json:"stage"`
+	ClusterID                    string                        `gorm:"index;not null;default:''" json:"clusterId"`
+	Namespace                    string                        `gorm:"not null;default:''" json:"namespace"`
+	WorkloadType                 string                        `gorm:"not null;default:Deployment" json:"workloadType"`
+	Replicas                     int                           `gorm:"not null;default:1" json:"replicas"`
+	CPURequest                   string                        `gorm:"not null;default:'1'" json:"cpuRequest"`
+	MemoryRequest                string                        `gorm:"not null;default:'1Gi'" json:"memoryRequest"`
+	CPULimit                     string                        `gorm:"not null;default:''" json:"cpuLimit"`
+	MemoryLimit                  string                        `gorm:"not null;default:''" json:"memoryLimit"`
+	ImagePullPolicy              string                        `gorm:"not null;default:''" json:"imagePullPolicy"`
+	ContainerCommand             string                        `gorm:"type:text;not null;default:''" json:"containerCommand"`
+	ContainerArgs                string                        `gorm:"type:text;not null;default:''" json:"containerArgs"`
+	Lifecycle                    string                        `gorm:"type:text;not null;default:''" json:"lifecycle"`
+	InitContainers               string                        `gorm:"type:text;not null;default:''" json:"initContainers"`
+	SidecarContainers            string                        `gorm:"type:text;not null;default:''" json:"sidecarContainers"`
+	ReadinessProbe               string                        `gorm:"type:text;not null;default:''" json:"readinessProbe"`
+	LivenessProbe                string                        `gorm:"type:text;not null;default:''" json:"livenessProbe"`
+	StartupProbe                 string                        `gorm:"type:text;not null;default:''" json:"startupProbe"`
+	RunAsUser                    string                        `gorm:"not null;default:''" json:"runAsUser"`
+	RunAsGroup                   string                        `gorm:"not null;default:''" json:"runAsGroup"`
+	FSGroup                      string                        `gorm:"not null;default:''" json:"fsGroup"`
+	FSGroupChangePolicy          string                        `gorm:"not null;default:''" json:"fsGroupChangePolicy"`
+	ReadOnlyRootFilesystem       bool                          `gorm:"not null;default:false" json:"readOnlyRootFilesystem"`
+	AllowPrivilegeEscalation     string                        `gorm:"not null;default:''" json:"allowPrivilegeEscalation"`
+	CapabilityAdd                string                        `gorm:"type:text;not null;default:''" json:"capabilityAdd"`
+	CapabilityDrop               string                        `gorm:"type:text;not null;default:''" json:"capabilityDrop"`
+	NodeSelector                 string                        `gorm:"type:text;not null;default:''" json:"nodeSelector"`
+	Tolerations                  string                        `gorm:"type:text;not null;default:''" json:"tolerations"`
+	Affinity                     string                        `gorm:"type:text;not null;default:''" json:"affinity"`
+	TopologySpreadConstraints    string                        `gorm:"type:text;not null;default:''" json:"topologySpreadConstraints"`
+	PriorityClassName            string                        `gorm:"not null;default:''" json:"priorityClassName"`
+	ServiceType                  string                        `gorm:"not null;default:''" json:"serviceType"`
+	ServiceAnnotations           string                        `gorm:"type:text;not null;default:''" json:"serviceAnnotations"`
+	ServiceExternalTrafficPolicy string                        `gorm:"not null;default:''" json:"serviceExternalTrafficPolicy"`
+	ServiceSessionAffinity       string                        `gorm:"not null;default:''" json:"serviceSessionAffinity"`
+	AutoScalingEnabled           bool                          `gorm:"not null;default:false" json:"autoScalingEnabled"`
+	AutoScalingMinReplicas       int                           `gorm:"not null;default:1" json:"autoScalingMinReplicas"`
+	AutoScalingMaxReplicas       int                           `gorm:"not null;default:1" json:"autoScalingMaxReplicas"`
+	AutoScalingCPUPercent        int                           `gorm:"not null;default:0" json:"autoScalingCpuPercent"`
+	AutoScalingMemoryPercent     int                           `gorm:"not null;default:0" json:"autoScalingMemoryPercent"`
+	AutoScalingBehavior          string                        `gorm:"type:text;not null;default:''" json:"autoScalingBehavior"`
+	ServicePort                  int                           `gorm:"not null;default:8080" json:"servicePort"`
+	ServicePorts                 string                        `gorm:"type:text;not null;default:''" json:"servicePorts"`
+	DeleteStatus                 string                        `gorm:"index;not null;default:active" json:"deleteStatus"`
+	DeleteMessage                string                        `gorm:"type:text;not null;default:''" json:"deleteMessage"`
+	DeleteStartedAt              *time.Time                    `json:"deleteStartedAt"`
+	DeleteFinishedAt             *time.Time                    `json:"deleteFinishedAt"`
+	SourceType                   string                        `gorm:"not null;default:repository" json:"sourceType"`
+	RepositoryBindingID          string                        `gorm:"index" json:"repositoryBindingId"`
+	DockerfilePath               string                        `gorm:"not null;default:Dockerfile" json:"dockerfilePath"`
+	BuildContext                 string                        `gorm:"not null;default:." json:"buildContext"`
+	BuildDirectory               string                        `json:"buildDirectory"`
+	BuildEnvironmentID           string                        `gorm:"index;not null;default:''" json:"buildEnvironmentId"`
+	BuildCPURequest              string                        `gorm:"not null;default:'1'" json:"buildCpuRequest"`
+	BuildMemoryRequest           string                        `gorm:"not null;default:'1Gi'" json:"buildMemoryRequest"`
+	BuildTimeoutSeconds          int                           `gorm:"not null;default:1800" json:"buildTimeoutSeconds"`
+	TargetRegistryID             string                        `gorm:"index" json:"targetRegistryId"`
+	TargetRepository             string                        `json:"targetRepository"`
+	TargetTag                    string                        `json:"targetTag"`
+	ImageRef                     string                        `json:"imageRef"`
+	BuildLabels                  string                        `json:"buildLabels"`
+	BuildVariableSetIDs          string                        `gorm:"type:text" json:"buildVariableSetIds"`
+	BuildHooksEnabled            bool                          `gorm:"not null;default:true" json:"buildHooksEnabled"`
+	BuildHookBindings            []DeploymentTargetHookBinding `gorm:"-" json:"buildHookBindings"`
+	AutoDeploy                   bool                          `gorm:"not null;default:false" json:"autoDeploy"`
+	BranchPattern                string                        `json:"branchPattern"`
+	TagPattern                   string                        `json:"tagPattern"`
+	ConcurrencyPolicy            string                        `gorm:"not null;default:queue" json:"concurrencyPolicy"`
+	RuntimeConfigSetIDs          string                        `gorm:"type:text;not null;default:''" json:"runtimeConfigSetIds"`
+	RuntimeConfigRefs            string                        `gorm:"type:text;not null;default:''" json:"runtimeConfigRefs"`
+	EnvVars                      string                        `gorm:"type:text;not null;default:''" json:"envVars"`
+	ConfigRefs                   string                        `gorm:"type:text;not null;default:''" json:"configRefs"`
+	SecretRefs                   string                        `gorm:"type:text;not null;default:''" json:"-"`
+	ConfigFiles                  string                        `gorm:"type:text;not null;default:''" json:"configFiles"`
+	SecretFiles                  string                        `gorm:"type:text;not null;default:''" json:"-"`
+	DataRetentionEnabled         bool                          `gorm:"not null;default:false" json:"dataRetentionEnabled"`
+	DataCapacity                 string                        `gorm:"not null;default:''" json:"dataCapacity"`
+	DataMountPath                string                        `gorm:"not null;default:'/data'" json:"dataMountPath"`
+	DataVolumes                  string                        `gorm:"type:text;not null;default:''" json:"dataVolumes"`
+	DataStorageClassName         string                        `gorm:"not null;default:''" json:"dataStorageClassName"`
+	DataAccessMode               string                        `gorm:"not null;default:''" json:"dataAccessMode"`
+	DataVolumeMode               string                        `gorm:"not null;default:''" json:"dataVolumeMode"`
+	RequireApproval              bool                          `gorm:"not null;default:false" json:"requireApproval"`
+	Enabled                      bool                          `gorm:"not null;default:true" json:"enabled"`
+	CreatedBy                    string                        `gorm:"index" json:"createdBy"`
+	CreatedAt                    time.Time                     `json:"createdAt"`
+	UpdatedAt                    time.Time                     `json:"updatedAt"`
+	DeletedAt                    gorm.DeletedAt                `gorm:"index" json:"-"`
 }
 
 const (
@@ -242,8 +280,9 @@ func ProjectRuntimeConfigSetSnapshot(set ProjectRuntimeConfigSet, capturedAt tim
 }
 
 type DeploymentServicePort struct {
-	Name string `json:"name"`
-	Port int    `json:"port"`
+	Name        string `json:"name"`
+	Port        int    `json:"port"`
+	AppProtocol string `json:"appProtocol,omitempty"`
 }
 
 func DeploymentTargetServicePorts(target DeploymentTarget) []DeploymentServicePort {
@@ -283,7 +322,7 @@ func NormalizeDeploymentServicePorts(ports []DeploymentServicePort, fallbackPort
 		if name == "" {
 			name = "port"
 		}
-		normalized = append(normalized, DeploymentServicePort{Name: name, Port: port})
+		normalized = append(normalized, DeploymentServicePort{Name: name, Port: port, AppProtocol: strings.TrimSpace(item.AppProtocol)})
 	}
 	if len(normalized) == 0 {
 		return []DeploymentServicePort{{Name: "http", Port: fallbackPort}}

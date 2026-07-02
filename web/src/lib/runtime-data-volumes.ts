@@ -1,16 +1,20 @@
 export interface RuntimeDataVolumeRow {
+  emptyDirMedium: string
+  emptyDirSizeLimit: string
+  existingClaimName: string
   id: string
   name: string
   mountPath: string
   capacity: string
+  sourceType: 'managed' | 'existingClaim' | 'emptyDir'
 }
 
 export function defaultRuntimeDataVolumeRow(): RuntimeDataVolumeRow {
-  return { id: runtimeDataVolumeRowId(0), capacity: '1Gi', mountPath: '/data', name: 'data' }
+  return { id: runtimeDataVolumeRowId(0), capacity: '1Gi', emptyDirMedium: '', emptyDirSizeLimit: '', existingClaimName: '', mountPath: '/data', name: 'data', sourceType: 'managed' }
 }
 
 export function emptyRuntimeDataVolumeRow(index: number): RuntimeDataVolumeRow {
-  return { id: runtimeDataVolumeRowId(index), capacity: '1Gi', mountPath: '', name: `data-${index + 1}` }
+  return { id: runtimeDataVolumeRowId(index), capacity: '1Gi', emptyDirMedium: '', emptyDirSizeLimit: '', existingClaimName: '', mountPath: '', name: `data-${index + 1}`, sourceType: 'managed' }
 }
 
 export function parseRuntimeDataVolumes(value?: string, fallbackMountPath = '/data', fallbackCapacity = '1Gi'): RuntimeDataVolumeRow[] {
@@ -19,8 +23,12 @@ export function parseRuntimeDataVolumes(value?: string, fallbackMountPath = '/da
     return [{
       id: runtimeDataVolumeRowId(0),
       capacity: fallbackCapacity || '1Gi',
+      emptyDirMedium: '',
+      emptyDirSizeLimit: '',
+      existingClaimName: '',
       mountPath: fallbackMountPath || '/data',
       name: 'data',
+      sourceType: 'managed',
     }]
   }
   try {
@@ -29,8 +37,12 @@ export function parseRuntimeDataVolumes(value?: string, fallbackMountPath = '/da
       const rows = parsed.map((item, index) => ({
         id: runtimeDataVolumeRowId(index),
         capacity: String(item?.capacity ?? '1Gi'),
+        emptyDirMedium: String(item?.emptyDirMedium ?? ''),
+        emptyDirSizeLimit: String(item?.emptyDirSizeLimit ?? ''),
+        existingClaimName: String(item?.existingClaimName ?? ''),
         mountPath: String(item?.mountPath ?? ''),
         name: String(item?.name ?? `data-${index + 1}`),
+        sourceType: normalizeRuntimeDataVolumeSourceType(item?.sourceType),
       })).filter(row => row.name.trim() || row.mountPath.trim() || row.capacity.trim())
       return rows.length > 0 ? rows : [defaultRuntimeDataVolumeRow()]
     }
@@ -44,12 +56,22 @@ export function parseRuntimeDataVolumes(value?: string, fallbackMountPath = '/da
 export function serializeRuntimeDataVolumes(rows: RuntimeDataVolumeRow[]) {
   const volumes = rows
     .map(row => ({
-      capacity: row.capacity.trim() || '1Gi',
+      capacity: row.sourceType === 'managed' ? (row.capacity.trim() || '1Gi') : '',
+      emptyDirMedium: row.sourceType === 'emptyDir' ? row.emptyDirMedium.trim() : '',
+      emptyDirSizeLimit: row.sourceType === 'emptyDir' ? row.emptyDirSizeLimit.trim() : '',
+      existingClaimName: row.sourceType === 'existingClaim' ? row.existingClaimName.trim() : '',
       mountPath: row.mountPath.trim(),
       name: row.name.trim(),
+      sourceType: row.sourceType || 'managed',
     }))
     .filter(row => row.name || row.mountPath)
   return volumes.length > 0 ? JSON.stringify(volumes) : ''
+}
+
+function normalizeRuntimeDataVolumeSourceType(value: unknown): RuntimeDataVolumeRow['sourceType'] {
+  if (value === 'existingClaim' || value === 'emptyDir')
+    return value
+  return 'managed'
 }
 
 function runtimeDataVolumeRowId(index: number) {

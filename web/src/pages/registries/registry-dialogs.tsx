@@ -51,6 +51,7 @@ export function RegistryDialog({ open, editingRegistry, form, projects, pending,
                 <option value="harbor">{t('registriesPage.providerHarbor')}</option>
                 <option value="dockerhub">{t('registriesPage.providerDockerHub')}</option>
                 <option value="gitea-registry">{t('registriesPage.providerGiteaRegistry')}</option>
+                <option value="generic-oci">{t('registriesPage.providerGenericOCI')}</option>
               </Select>
             </Field>
           </div>

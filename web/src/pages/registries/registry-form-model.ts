@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 export const registrySchema = z.object({
   name: z.string().min(1, i18next.t('registriesPage.registryNameRequired')),
-  provider: z.enum(['harbor', 'dockerhub', 'gitea-registry']),
+  provider: z.enum(['harbor', 'dockerhub', 'gitea-registry', 'generic-oci']),
   endpoint: z.string().url(i18next.t('registriesPage.validUrlRequired')),
   scope: z.enum(['global', 'project', 'user']),
   ownerRef: z.string(),

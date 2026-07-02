@@ -35,7 +35,7 @@ export function ServicePortsEditor({ onChange, ports }: ServicePortsEditorProps)
     <Field hint={t('deploymentsPage.servicePortsHint')} label={t('deploymentsPage.servicePorts')} required>
       <div className="grid gap-2">
         {ports.map((item, index) => (
-          <div key={rowIdsRef.current[index]} className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
+          <div key={rowIdsRef.current[index]} className="grid gap-2 md:grid-cols-[1fr_160px_180px_auto]">
             <Input
               aria-label={t('deploymentsPage.servicePortName')}
               placeholder={index === 0 ? 'http' : 'metrics'}
@@ -49,6 +49,12 @@ export function ServicePortsEditor({ onChange, ports }: ServicePortsEditorProps)
               type="number"
               value={item.port || ''}
               onChange={event => onChange(ports.map((row, rowIndex) => rowIndex === index ? { ...row, port: Number(event.target.value) || 0 } : row))}
+            />
+            <Input
+              aria-label={t('deploymentsPage.servicePortAppProtocol')}
+              placeholder={index === 0 ? 'http' : 'prometheus.io/metrics'}
+              value={item.appProtocol ?? ''}
+              onChange={event => onChange(ports.map((row, rowIndex) => rowIndex === index ? { ...row, appProtocol: event.target.value } : row))}
             />
             <Button
               aria-label={t('common.delete')}
@@ -67,7 +73,7 @@ export function ServicePortsEditor({ onChange, ports }: ServicePortsEditorProps)
           size="sm"
           type="button"
           variant="outline"
-          onClick={() => onChange([...ports, { name: `port-${ports.length + 1}`, port: 9001 }])}
+          onClick={() => onChange([...ports, { appProtocol: '', name: `port-${ports.length + 1}`, port: 9001 }])}
         >
           <Plus className="size-4" />
           {t('deploymentsPage.addServicePort')}

@@ -36,6 +36,24 @@ A deployment target answers how an application should ship:
 - Build spec and timeout. The default build timeout is 30 minutes, and it can be adjusted on the deployment target or temporarily overridden for a manual build.
 - Auto release after a successful build or not.
 
+Advanced Kubernetes config is collapsed by default and should be used only when an image needs specific runtime conditions. Current support includes:
+
+- Container startup: override `command` / `args`, set `imagePullPolicy`, and configure readiness, liveness, and startup probes.
+- Workload: Deployment is the default. StatefulSet can be selected in advanced settings when the app needs stable Pod names, ordered rollout, or stateful workload semantics. The platform handles rendering, HPA target refs, runtime checks, restart, and cleanup according to the selected workload.
+- Lifecycle: configure `postStart` and `preStop` through Kubernetes Lifecycle JSON.
+- Init and helper containers: configure initContainers and sidecars through a constrained Container JSON array. The platform trims risky fields such as `hostPort`, external `envFrom`, external Secret references, and privilege escalation, then injects the current deploy config's ConfigMap/Secret envFrom.
+- Resource limits: set CPU / memory limits separately from requests. Empty values do not set limits.
+- Auto scaling: when HPA is enabled, the platform creates an `autoscaling/v2 HorizontalPodAutoscaler` and scales replicas by CPU or memory average utilization targets. Optional HPA behavior JSON can tune scaling speed and stabilization windows. The runtime cluster needs metrics-server or an equivalent metrics API.
+- Security context: set `runAsUser`, `runAsGroup`, `fsGroup`, `fsGroupChangePolicy`, read-only root filesystem, `allowPrivilegeEscalation`, and capabilities. Images such as OpenList that require a fixed UID/GID for a writable data directory can be handled here.
+- Scheduling: set `nodeSelector`, `tolerations`, basic `affinity`, `topologySpreadConstraints`, and `priorityClassName`.
+- Service and storage: Service remains ClusterIP by default. The advanced section can set Service type, annotations, `appProtocol`, session affinity, and external traffic policy. When runtime data is enabled, it can also set PVC `storageClassName`, `accessMode`, and `volumeMode`. Data volume sources support platform-managed PVCs, existing PVCs, and temporary `emptyDir`.
+
+Complex structured fields use native Kubernetes JSON, such as Probe, Toleration, Affinity, and TopologySpreadConstraint. Simple key-value fields accept either a JSON object or `KEY=VALUE` lines.
+
+PVC `storageClassName` and `accessMode` are written only when the data volume is first created. Existing PVCs are only resized; the platform does not migrate or recreate storage automatically.
+`emptyDir` data is destroyed with the Pod and is not exported by the platform. Existing PVCs can be exported, but the platform does not manage their capacity or lifecycle.
+The current StatefulSet path reuses platform-managed PVCs, existing PVCs, and emptyDir. It does not generate `volumeClaimTemplates`; per-replica persistent volumes will be designed in a later advanced orchestration phase.
+
 Repository webhooks belong to application repository bindings. When the Git platform sends a push/tag event, the platform finds enabled, active deployment targets under the same application that use that repository binding, then creates build runs according to their branch and tag patterns. Deployment targets do not create separate external webhooks, so each repository event enters the platform once.
 
 When selecting a repository Dockerfile, the platform tries to read its `EXPOSE` instructions and fills the service port list automatically. If the service has multiple HTTP ports, add them on the deployment target. Gateway routes must choose one of the exposed ports as their target port.

@@ -63,6 +63,28 @@ func TestGetDeploymentSnapshotReadsProgressDeadlineFailure(t *testing.T) {
 	}
 }
 
+func TestGetDeploymentSnapshotFallsBackToStatefulSet(t *testing.T) {
+	replicas := int32(2)
+	client := NewClientForInterface(fake.NewSimpleClientset(&appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "api-stateful", Namespace: "project-demo", Generation: 3},
+		Spec:       appsv1.StatefulSetSpec{Replicas: &replicas},
+		Status: appsv1.StatefulSetStatus{
+			ObservedGeneration: 3,
+			UpdatedReplicas:    2,
+			ReadyReplicas:      2,
+			AvailableReplicas:  2,
+		},
+	}))
+
+	snapshot, err := client.GetDeploymentSnapshot(context.Background(), "project-demo", "api-stateful")
+	if err != nil {
+		t.Fatalf("GetDeploymentSnapshot returned error: %v", err)
+	}
+	if snapshot.Phase != DeploymentSucceeded || snapshot.Message != "StatefulSet rollout completed" {
+		t.Fatalf("snapshot = %#v", snapshot)
+	}
+}
+
 func TestRestartDeploymentUpdatesPodTemplateAnnotation(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "api-dev", Namespace: "project-demo"},
@@ -85,5 +107,30 @@ func TestRestartDeploymentUpdatesPodTemplateAnnotation(t *testing.T) {
 	}
 	if deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] == "" {
 		t.Fatalf("restart annotation was not set: %#v", deployment.Spec.Template.Annotations)
+	}
+}
+
+func TestRestartDeploymentFallsBackToStatefulSet(t *testing.T) {
+	client := NewClientForInterface(fake.NewSimpleClientset(&appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "api-stateful", Namespace: "project-demo"},
+		Spec: appsv1.StatefulSetSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"existing": "keep"}},
+			},
+		},
+	}))
+
+	if err := client.RestartDeployment(context.Background(), "project-demo", "api-stateful"); err != nil {
+		t.Fatalf("RestartDeployment returned error: %v", err)
+	}
+	statefulSet, err := client.client.AppsV1().StatefulSets("project-demo").Get(context.Background(), "api-stateful", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Get statefulset returned error: %v", err)
+	}
+	if statefulSet.Spec.Template.Annotations["existing"] != "keep" {
+		t.Fatalf("existing annotation was not preserved: %#v", statefulSet.Spec.Template.Annotations)
+	}
+	if statefulSet.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] == "" {
+		t.Fatalf("restart annotation was not set: %#v", statefulSet.Spec.Template.Annotations)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
@@ -136,7 +137,7 @@ func (r *Runner) syncReleaseRuntimeSnapshot(ctx context.Context, release model.R
 	snapshot, err := manager.GetDeploymentSnapshot(ctx, namespace, resourceName)
 	if err != nil {
 		if isKubernetesNotFound(err) {
-			message := fmt.Sprintf("deployment_missing: Kubernetes Deployment %s/%s not found", namespace, resourceName)
+			message := fmt.Sprintf("deployment_missing: Kubernetes %s %s/%s not found", deploymentTargetWorkloadKind(deploymentTarget), namespace, resourceName)
 			return r.markReleaseRuntimeDrift(release, message)
 		}
 		return err
@@ -156,6 +157,15 @@ func (r *Runner) syncReleaseRuntimeSnapshot(ctx context.Context, release model.R
 		}).Error
 	}
 	return nil
+}
+
+func deploymentTargetWorkloadKind(target model.DeploymentTarget) string {
+	switch strings.ToLower(strings.TrimSpace(target.WorkloadType)) {
+	case "statefulset", "stateful-set":
+		return "StatefulSet"
+	default:
+		return "Deployment"
+	}
 }
 
 func (r *Runner) markReleaseRuntimeDrift(release model.Release, message string) error {

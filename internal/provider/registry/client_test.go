@@ -72,7 +72,7 @@ func TestSearchCatalogRepositoriesFiltersAndLimits(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := SearchRepositories(context.Background(), "gitea-registry", server.URL, "team", "w", 1, 2, security.AdminEgressPolicy(), Credential{})
+	result, err := SearchRepositories(context.Background(), "generic-oci", server.URL, "team", "w", 1, 2, security.AdminEgressPolicy(), Credential{})
 	if err != nil {
 		t.Fatalf("SearchRepositories() error = %v", err)
 	}
@@ -102,7 +102,7 @@ func TestListRegistryTagsLimitsRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := ListTags(context.Background(), "gitea-registry", server.URL, "team/web", 200, security.AdminEgressPolicy(), Credential{})
+	result, err := ListTags(context.Background(), "generic-oci", server.URL, "team/web", 200, security.AdminEgressPolicy(), Credential{})
 	if err != nil {
 		t.Fatalf("ListTags() error = %v", err)
 	}

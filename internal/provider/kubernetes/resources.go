@@ -11,6 +11,7 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -364,6 +365,15 @@ func (c *Client) GetManagedResource(ctx context.Context, kind string, namespace 
 			return ResourceSnapshot{}, err
 		}
 		return managedSnapshot(deploymentSnapshot(*item))
+	case "statefulset":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(statefulSetSnapshot(*item))
 	case "pod":
 		if namespace == "" {
 			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
@@ -373,6 +383,15 @@ func (c *Client) GetManagedResource(ctx context.Context, kind string, namespace 
 			return ResourceSnapshot{}, err
 		}
 		return managedSnapshot(podSnapshot(*item))
+	case "horizontalpodautoscaler":
+		if namespace == "" {
+			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return ResourceSnapshot{}, err
+		}
+		return managedSnapshot(hpaSnapshot(*item))
 	case "service":
 		if namespace == "" {
 			return ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
@@ -469,6 +488,22 @@ func (c *Client) GetManagedResourceYAML(ctx context.Context, kind string, namesp
 		item.ManagedFields = nil
 		content, err := yaml.Marshal(item)
 		return string(content), snapshot, err
+	case "statefulset":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(statefulSetSnapshot(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "apps/v1", Kind: "StatefulSet"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
 	case "pod":
 		if namespace == "" {
 			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
@@ -482,6 +517,22 @@ func (c *Client) GetManagedResourceYAML(ctx context.Context, kind string, namesp
 			return "", ResourceSnapshot{}, err
 		}
 		item.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"}
+		item.ManagedFields = nil
+		content, err := yaml.Marshal(item)
+		return string(content), snapshot, err
+	case "horizontalpodautoscaler":
+		if namespace == "" {
+			return "", ResourceSnapshot{}, fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		snapshot, err := managedSnapshot(hpaSnapshot(*item))
+		if err != nil {
+			return "", ResourceSnapshot{}, err
+		}
+		item.TypeMeta = metav1.TypeMeta{APIVersion: "autoscaling/v2", Kind: "HorizontalPodAutoscaler"}
 		item.ManagedFields = nil
 		content, err := yaml.Marshal(item)
 		return string(content), snapshot, err
@@ -626,6 +677,18 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
 		}
 		return c.client.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "statefulset":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.AppsV1().StatefulSets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "pod":
 		if namespace == "" {
 			return fmt.Errorf("resource namespace is required")
@@ -638,6 +701,18 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
 		}
 		return c.client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	case "horizontalpodautoscaler":
+		if namespace == "" {
+			return fmt.Errorf("resource namespace is required")
+		}
+		item, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if !isManagedResource(item.Labels) {
+			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		}
+		return c.client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "service":
 		if namespace == "" {
 			return fmt.Errorf("resource namespace is required")
@@ -797,13 +872,27 @@ func (c *Client) listManagedWorkloads(ctx context.Context, options ResourceListO
 	if err != nil {
 		return nil, err
 	}
+	statefulSets, err := c.client.AppsV1().StatefulSets(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return nil, err
+	}
 	pods, err := c.client.CoreV1().Pods(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return nil, err
 	}
-	items := make([]ResourceSnapshot, 0, len(deployments.Items)+len(pods.Items))
+	hpas, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(options.Namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]ResourceSnapshot, 0, len(deployments.Items)+len(statefulSets.Items)+len(pods.Items)+len(hpas.Items))
 	for _, item := range deployments.Items {
 		items = append(items, deploymentSnapshot(item))
+	}
+	for _, item := range statefulSets.Items {
+		items = append(items, statefulSetSnapshot(item))
+	}
+	for _, item := range hpas.Items {
+		items = append(items, hpaSnapshot(item))
 	}
 	for _, item := range pods.Items {
 		items = append(items, podSnapshot(item))
@@ -905,6 +994,30 @@ func deploymentSnapshot(item appsv1.Deployment) ResourceSnapshot {
 		status = "ready"
 	}
 	return snapshotFromMeta("Deployment", item.ObjectMeta, "", status, fmt.Sprintf("ready %d/%d", item.Status.ReadyReplicas, desired))
+}
+
+func statefulSetSnapshot(item appsv1.StatefulSet) ResourceSnapshot {
+	desired := int32(0)
+	if item.Spec.Replicas != nil {
+		desired = *item.Spec.Replicas
+	}
+	status := "progressing"
+	if item.Status.ReadyReplicas >= desired {
+		status = "ready"
+	}
+	return snapshotFromMeta("StatefulSet", item.ObjectMeta, "", status, fmt.Sprintf("ready %d/%d", item.Status.ReadyReplicas, desired))
+}
+
+func hpaSnapshot(item autoscalingv2.HorizontalPodAutoscaler) ResourceSnapshot {
+	summary := fmt.Sprintf("%d-%d replicas", firstNonNilInt32(item.Spec.MinReplicas, 1), item.Spec.MaxReplicas)
+	return snapshotFromMeta("HorizontalPodAutoscaler", item.ObjectMeta, "", fmt.Sprintf("%d current", item.Status.CurrentReplicas), summary)
+}
+
+func firstNonNilInt32(value *int32, fallbackValue int32) int32 {
+	if value == nil {
+		return fallbackValue
+	}
+	return *value
 }
 
 func podSnapshot(item corev1.Pod) ResourceSnapshot {
@@ -1128,8 +1241,12 @@ func normalizeResourceObjectKind(value string) string {
 		return "namespace"
 	case "deployment", "deployments":
 		return "deployment"
+	case "statefulset", "statefulsets", "sts":
+		return "statefulset"
 	case "pod", "pods":
 		return "pod"
+	case "horizontalpodautoscaler", "horizontalpodautoscalers", "hpa", "hpas":
+		return "horizontalpodautoscaler"
 	case "service", "services":
 		return "service"
 	case "httproute", "httproutes":

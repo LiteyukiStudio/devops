@@ -12,6 +12,7 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/model"
 	kubeprovider "github.com/LiteyukiStudio/devops/internal/provider/kubernetes"
 	"github.com/gin-gonic/gin"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -96,14 +97,61 @@ func normalizeDataVolumes(ctx *gin.Context, value string, enabled bool, fallback
 			}
 		}
 		capacity := fallback(strings.TrimSpace(item.Capacity), "1Gi")
-		if _, ok := normalizeDataCapacity(ctx, capacity, true); !ok {
-			return nil, false
+		sourceType := normalizeDataVolumeSourceType(item.SourceType)
+		existingClaimName := strings.TrimSpace(item.ExistingClaimName)
+		emptyDirSizeLimit := strings.TrimSpace(item.EmptyDirSizeLimit)
+		emptyDirMedium := normalizeEmptyDirMedium(item.EmptyDirMedium)
+		if sourceType == "managed" {
+			if _, ok := normalizeDataCapacity(ctx, capacity, true); !ok {
+				return nil, false
+			}
+		} else if sourceType == "existingClaim" {
+			if existingClaimName == "" {
+				writeError(ctx, http.StatusBadRequest, "已有 PVC 数据卷必须填写 PVC 名称")
+				return nil, false
+			}
+			capacity = ""
+		} else if sourceType == "emptyDir" {
+			if emptyDirSizeLimit != "" {
+				if _, ok := normalizeDataCapacity(ctx, emptyDirSizeLimit, true); !ok {
+					return nil, false
+				}
+			}
+			capacity = ""
 		}
 		seenNames[name] = true
 		seenMountPaths = append(seenMountPaths, mountPath)
-		volumes = append(volumes, deploymentTargetDataVolumeInput{Name: name, MountPath: mountPath, Capacity: capacity})
+		volumes = append(volumes, deploymentTargetDataVolumeInput{
+			Name:              name,
+			MountPath:         mountPath,
+			Capacity:          capacity,
+			SourceType:        sourceType,
+			ExistingClaimName: existingClaimName,
+			EmptyDirMedium:    emptyDirMedium,
+			EmptyDirSizeLimit: emptyDirSizeLimit,
+		})
 	}
 	return volumes, true
+}
+
+func normalizeDataVolumeSourceType(value string) string {
+	switch strings.TrimSpace(value) {
+	case "existingClaim":
+		return "existingClaim"
+	case "emptyDir":
+		return "emptyDir"
+	default:
+		return "managed"
+	}
+}
+
+func normalizeEmptyDirMedium(value string) string {
+	switch strings.TrimSpace(value) {
+	case string(corev1.StorageMediumMemory):
+		return string(corev1.StorageMediumMemory)
+	default:
+		return ""
+	}
 }
 
 func normalizeDataVolumeName(value string, mountPath string, index int) string {
@@ -189,6 +237,9 @@ func (h *Handlers) syncDeploymentTargetDataVolume(ctx *gin.Context, target model
 		DataCapacity:         target.DataCapacity,
 		DataMountPath:        deploymentTargetDataMountPath(target),
 		DataVolumes:          deploymentTargetKubernetesDataVolumes(target),
+		DataStorageClassName: strings.TrimSpace(target.DataStorageClassName),
+		DataAccessMode:       strings.TrimSpace(target.DataAccessMode),
+		DataVolumeMode:       strings.TrimSpace(target.DataVolumeMode),
 	}); err != nil {
 		writeError(ctx, http.StatusBadGateway, "运行数据容量同步失败，请检查集群是否支持扩容")
 		return false
@@ -224,9 +275,13 @@ func deploymentTargetKubernetesDataVolumes(target model.DeploymentTarget) []kube
 	output := make([]kubeprovider.ApplicationDataVolume, 0, len(volumes))
 	for _, volume := range volumes {
 		output = append(output, kubeprovider.ApplicationDataVolume{
-			Name:      volume.Name,
-			MountPath: volume.MountPath,
-			Capacity:  volume.Capacity,
+			Name:              volume.Name,
+			MountPath:         volume.MountPath,
+			Capacity:          volume.Capacity,
+			SourceType:        normalizeDataVolumeSourceType(volume.SourceType),
+			ExistingClaimName: strings.TrimSpace(volume.ExistingClaimName),
+			EmptyDirMedium:    normalizeEmptyDirMedium(volume.EmptyDirMedium),
+			EmptyDirSizeLimit: strings.TrimSpace(volume.EmptyDirSizeLimit),
 		})
 	}
 	return output
@@ -241,9 +296,17 @@ func deploymentTargetDataExportVolumes(target model.DeploymentTarget) []kubeprov
 	output := make([]kubeprovider.DataExportVolume, 0, len(volumes))
 	for _, volume := range volumes {
 		name := normalizeDataVolumeName(volume.Name, volume.MountPath, len(output))
+		if normalizeDataVolumeSourceType(volume.SourceType) == "emptyDir" {
+			continue
+		}
 		pvcName := resourceName + "-data"
-		if name != "data" {
+		if normalizeDataVolumeSourceType(volume.SourceType) == "existingClaim" {
+			pvcName = strings.TrimSpace(volume.ExistingClaimName)
+		} else if name != "data" {
 			pvcName = runtimeDNSLabel(resourceName + "-" + name + "-data")
+		}
+		if pvcName == "" {
+			continue
 		}
 		output = append(output, kubeprovider.DataExportVolume{Name: name, PVCName: pvcName})
 	}
