@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { Globe2, Package, Play, Plus, Save } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
@@ -23,12 +23,21 @@ import { Card } from '@/components/ui/card'
 import { TabsContent } from '@/components/ui/tabs'
 import { WORKFLOW_STATUS_REFETCH_INTERVAL_MS } from '@/lib/polling'
 import { APPLICATION_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
-import { RepositoryBindingsPage } from '@/pages/repositories/RepositoryBindingsPage'
-import { ApplicationBuildsPanel } from './application-builds-panel'
 import { firstReleaseReadyTarget } from './application-config-utils'
-import { ApplicationDeploymentsPanel } from './application-deployments-panel'
-import { ApplicationGatewayPanel } from './application-gateway-panel'
 import { ApplicationOverviewPanel } from './application-overview-panel'
+
+const RepositoryBindingsPage = lazy(() =>
+  import('@/pages/repositories/RepositoryBindingsPage').then(module => ({ default: module.RepositoryBindingsPage })),
+)
+const ApplicationBuildsPanel = lazy(() =>
+  import('./application-builds-panel').then(module => ({ default: module.ApplicationBuildsPanel })),
+)
+const ApplicationDeploymentsPanel = lazy(() =>
+  import('./application-deployments-panel').then(module => ({ default: module.ApplicationDeploymentsPanel })),
+)
+const ApplicationGatewayPanel = lazy(() =>
+  import('./application-gateway-panel').then(module => ({ default: module.ApplicationGatewayPanel })),
+)
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('apps.nameRequired')),
@@ -238,53 +247,71 @@ export function ApplicationConfigPage() {
           </Card>
         </TabsContent>
         <TabsContent value="repositories">
-          <RepositoryBindingsPage
-            ref={repositoryBindingsPageRef}
-            applicationId={applicationId}
-            applicationName={application.data?.name}
-            embedded
-            projectId={projectId}
-          />
+          <Suspense fallback={<TabFallback />}>
+            <RepositoryBindingsPage
+              ref={repositoryBindingsPageRef}
+              applicationId={applicationId}
+              applicationName={application.data?.name}
+              embedded
+              projectId={projectId}
+            />
+          </Suspense>
         </TabsContent>
         <TabsContent value="builds">
-          <ApplicationBuildsPanel
-            ref={buildsPanelRef}
-            applicationId={applicationId}
-            appSlug={application.data?.slug ?? ''}
-            binding={binding}
-            repositoryBindings={appRepositoryBindings}
-            buildJobs={appBuildJobs}
-            deploymentTargets={deploymentTargetRows}
-            buildRuns={appBuildRuns}
-            projectId={projectId}
-            projectSlug={project.data?.slug ?? ''}
-            registries={registries.data ?? []}
-          />
+          <Suspense fallback={<TabFallback />}>
+            <ApplicationBuildsPanel
+              ref={buildsPanelRef}
+              applicationId={applicationId}
+              appSlug={application.data?.slug ?? ''}
+              binding={binding}
+              repositoryBindings={appRepositoryBindings}
+              buildJobs={appBuildJobs}
+              deploymentTargets={deploymentTargetRows}
+              buildRuns={appBuildRuns}
+              projectId={projectId}
+              projectSlug={project.data?.slug ?? ''}
+              registries={registries.data ?? []}
+            />
+          </Suspense>
         </TabsContent>
         <TabsContent value="deployments">
-          <ApplicationDeploymentsPanel
-            ref={deploymentsPanelRef}
-            applicationId={applicationId}
-            appSlug={application.data?.slug ?? ''}
-            buildRuns={appBuildRuns}
-            deploymentTargets={deploymentTargetRows}
-            projectId={projectId}
-            projectSlug={project.data?.slug ?? ''}
-            registries={registries.data ?? []}
-            repositoryBindings={appRepositoryBindings}
-            releases={appReleases}
-          />
+          <Suspense fallback={<TabFallback />}>
+            <ApplicationDeploymentsPanel
+              ref={deploymentsPanelRef}
+              applicationId={applicationId}
+              appSlug={application.data?.slug ?? ''}
+              buildRuns={appBuildRuns}
+              deploymentTargets={deploymentTargetRows}
+              projectId={projectId}
+              projectSlug={project.data?.slug ?? ''}
+              registries={registries.data ?? []}
+              repositoryBindings={appRepositoryBindings}
+              releases={appReleases}
+            />
+          </Suspense>
         </TabsContent>
         <TabsContent value="gateway">
-          <ApplicationGatewayPanel
-            ref={gatewayPanelRef}
-            applicationId={applicationId}
-            deploymentTargets={deploymentTargetRows}
-            projectId={projectId}
-            routes={appRoutes}
-          />
+          <Suspense fallback={<TabFallback />}>
+            <ApplicationGatewayPanel
+              ref={gatewayPanelRef}
+              applicationId={applicationId}
+              deploymentTargets={deploymentTargetRows}
+              projectId={projectId}
+              routes={appRoutes}
+            />
+          </Suspense>
         </TabsContent>
       </ContentTabs>
+    </div>
+  )
+}
+
+function TabFallback() {
+  const { t } = useTranslation()
+
+  return (
+    <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">
+      {t('common.loading')}
     </div>
   )
 }
