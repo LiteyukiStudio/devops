@@ -10,6 +10,8 @@ export function GatewayRouteFormFields({
   applications = [],
   deploymentTargetIdField,
   deploymentTargets,
+  domainSuffixField,
+  domainSuffixOptions = [],
   enabledField,
   hostField,
   pathField,
@@ -22,6 +24,8 @@ export function GatewayRouteFormFields({
   applications?: Array<{ id: string, name: string }>
   deploymentTargetIdField: UseFormRegisterReturn<'deploymentTargetId'>
   deploymentTargets: Array<{ id: string, label: string }>
+  domainSuffixField: UseFormRegisterReturn<'domainSuffix'>
+  domainSuffixOptions?: Array<{ label: string, value: string }>
   enabledField: UseFormRegisterReturn<'enabled'>
   hostField: UseFormRegisterReturn<'host'>
   pathField: UseFormRegisterReturn<'path'>
@@ -50,6 +54,14 @@ export function GatewayRouteFormFields({
       </Field>
       <Field hint={t('gatewayRoutesPage.hostHint')} label={t('gatewayRoutesPage.host')}>
         <Input {...hostField} />
+      </Field>
+      <Field hint={t('gatewayRoutesPage.domainSuffixHint')} label={t('gatewayRoutesPage.domainSuffix')} required>
+        <Select {...domainSuffixField}>
+          {domainSuffixOptions.length === 0 && <option value="">{t('common.select')}</option>}
+          {domainSuffixOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
       </Field>
       <Field label={t('gatewayRoutesPage.path')}>
         <Input {...pathField} />

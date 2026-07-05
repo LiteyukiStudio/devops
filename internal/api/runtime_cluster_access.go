@@ -62,6 +62,8 @@ func deploymentTargetNamespace(project model.Project, target model.DeploymentTar
 
 func (h *Handlers) runtimeClusterResponseForUser(user model.User, cluster model.RuntimeCluster) model.RuntimeCluster {
 	cluster.ProjectIDs = h.scopedResourceProjectIDs(scopedResourceRuntimeCluster, cluster.ID)
+	cluster.GatewayDomainSuffixes = decodeGatewayDomainSuffixes(cluster.GatewayDomainSuffixesRaw, cluster.GatewayRootDomain, h.legacyGatewayRootDomain())
+	cluster.GatewayRootDomain = cluster.GatewayDomainSuffixes[0]
 	cluster.KubeconfigSet = cluster.KubeconfigRef != ""
 	cluster.Kubeconfig = ""
 	if !h.canInspectScopedResourceConfigByID(user, cluster.Scope, cluster.OwnerRef, scopedResourceRuntimeCluster, cluster.ID) {

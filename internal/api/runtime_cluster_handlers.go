@@ -96,6 +96,8 @@ func (h *Handlers) UpdateRuntimeCluster(ctx *gin.Context) {
 	existing.MaxConcurrentBuilds = next.MaxConcurrentBuilds
 	existing.GatewayProvider = next.GatewayProvider
 	existing.GatewayRootDomain = next.GatewayRootDomain
+	existing.GatewayDomainSuffixesRaw = next.GatewayDomainSuffixesRaw
+	existing.GatewayDomainSuffixes = next.GatewayDomainSuffixes
 	existing.GatewayPublicScheme = next.GatewayPublicScheme
 	existing.GatewayPublicPort = next.GatewayPublicPort
 	existing.GatewayControllerType = next.GatewayControllerType

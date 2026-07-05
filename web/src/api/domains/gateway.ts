@@ -2,6 +2,12 @@ import type { AccessToken, AccessTokenScopeCatalog, GatewayDomainCheckResult, Ga
 import { paginationQuery, request } from '../core'
 
 type GatewayRoutePayload = Omit<GatewayRoute, 'id' | 'projectId' | 'createdBy' | 'createdAt' | 'cnameName' | 'cnameTarget' | 'accessUrl' | 'routeSummary' | 'conditions' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'>
+interface GatewayDomainCheckParams {
+  deploymentTargetId?: string
+  domainSuffix?: string
+  host: string
+  routeId?: string
+}
 
 export const gatewayApi = {
   listGatewayRoutes: (projectId: string) =>
@@ -14,8 +20,13 @@ export const gatewayApi = {
     request<GatewayRoute>(`/projects/${projectId}/gateway-routes/${routeId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteGatewayRoute: (projectId: string, routeId: string) =>
     request<void>(`/projects/${projectId}/gateway-routes/${routeId}`, { method: 'DELETE' }),
-  checkGatewayDomain: (projectId: string, host: string, routeId?: string) =>
-    request<GatewayDomainCheckResult>(`/projects/${projectId}/gateway-routes/check-domain?${new URLSearchParams({ host, ...(routeId ? { routeId } : {}) }).toString()}`),
+  checkGatewayDomain: (projectId: string, params: GatewayDomainCheckParams) =>
+    request<GatewayDomainCheckResult>(`/projects/${projectId}/gateway-routes/check-domain?${new URLSearchParams({
+      host: params.host,
+      ...(params.routeId ? { routeId: params.routeId } : {}),
+      ...(params.deploymentTargetId ? { deploymentTargetId: params.deploymentTargetId } : {}),
+      ...(params.domainSuffix ? { domainSuffix: params.domainSuffix } : {}),
+    }).toString()}`),
 
   listAccessTokens: (params: PaginationParams) =>
     request<PaginatedResponse<AccessToken>>(`/access-tokens?${paginationQuery(params)}`),

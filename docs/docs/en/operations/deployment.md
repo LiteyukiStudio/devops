@@ -88,6 +88,8 @@ The application deployment list refreshes runtime metrics every second through S
 
 Routes connect domain, path, TLS, and backend service. After creating one, the platform shows apply status and checks so you can verify the service is reachable.
 
+Domain suffixes come from the deployment target's runtime cluster. Administrators can maintain multiple suffixes on a cluster, and each access route selects exactly one. Short host prefixes and generated default domains use the selected suffix, while full custom domains can still be entered directly.
+
 The runtime cluster's external access scheme and external access port only control the URLs the console displays and opens. If an outer CDN or reverse proxy already terminates HTTPS, set the external access scheme to `https` and choose upstream TLS termination; the platform will bind HTTPRoutes to the internal HTTP listener and will not request an in-cluster certificate just because the displayed URL is HTTPS.
 
 Access routes are backed by Kubernetes Gateway API. A runtime cluster owns one platform-managed `Gateway`, and each access route creates an `HTTPRoute` in the project namespace that forwards to the deployment target `Service`. Install the Gateway API CRDs before enabling routes. Traefik clusters also need `--providers.kubernetesGateway`.

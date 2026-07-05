@@ -45,7 +45,16 @@ func TestNormalizeGatewayHostUsesClusterRootDomain(t *testing.T) {
 	h := &Handlers{configs: &configCache{values: map[string]string{}}}
 	cluster := model.RuntimeCluster{GatewayRootDomain: "Apps.Example.Com."}
 
-	if got := h.normalizeGatewayHost("demo", cluster); got != "demo.apps.example.com" {
+	if got := h.normalizeGatewayHost("demo", cluster, ""); got != "demo.apps.example.com" {
+		t.Fatalf("host = %q", got)
+	}
+}
+
+func TestNormalizeGatewayHostUsesSelectedDomainSuffix(t *testing.T) {
+	h := &Handlers{configs: &configCache{values: map[string]string{}}}
+	cluster := model.RuntimeCluster{GatewayDomainSuffixesRaw: "apps.example.com\ninternal.example.com"}
+
+	if got := h.normalizeGatewayHost("demo", cluster, "internal.example.com"); got != "demo.internal.example.com" {
 		t.Fatalf("host = %q", got)
 	}
 }
@@ -55,5 +64,18 @@ func TestGatewayRootDomainFallsBackToLegacyConfig(t *testing.T) {
 
 	if got := h.gatewayRootDomain(model.RuntimeCluster{}); got != "legacy.example.com" {
 		t.Fatalf("root domain = %q", got)
+	}
+}
+
+func TestNormalizeGatewayDomainSuffixesUsesExplicitValuesOnly(t *testing.T) {
+	got := normalizeGatewayDomainSuffixes([]string{"Apps.Example.Com.", "internal.example.com", "apps.example.com"}, "legacy.example.com", "fallback.example.com")
+	want := []string{"apps.example.com", "internal.example.com"}
+	if len(got) != len(want) {
+		t.Fatalf("suffixes = %#v", got)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("suffixes = %#v", got)
+		}
 	}
 }

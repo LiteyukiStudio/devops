@@ -13,6 +13,7 @@ type GatewayRoute struct {
 	EnvironmentID          string           `gorm:"index" json:"environmentId"`
 	DeploymentTargetID     string           `gorm:"index;not null;default:''" json:"deploymentTargetId"`
 	Host                   string           `gorm:"index;not null" json:"host"`
+	DomainSuffix           string           `gorm:"not null;default:''" json:"domainSuffix"`
 	Path                   string           `gorm:"not null;default:/" json:"path"`
 	ServicePort            int              `gorm:"not null;default:80" json:"servicePort"`
 	TLSMode                string           `gorm:"not null;default:http-only" json:"tlsMode"`

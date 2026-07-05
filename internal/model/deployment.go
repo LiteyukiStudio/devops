@@ -23,6 +23,8 @@ type RuntimeCluster struct {
 	MaxConcurrentBuilds           int            `gorm:"not null;default:4" json:"maxConcurrentBuilds"`
 	GatewayProvider               string         `gorm:"not null;default:gateway-api" json:"gatewayProvider"`
 	GatewayRootDomain             string         `gorm:"not null;default:apps.local" json:"gatewayRootDomain"`
+	GatewayDomainSuffixesRaw      string         `gorm:"column:gateway_domain_suffixes;type:text;not null;default:''" json:"-"`
+	GatewayDomainSuffixes         []string       `gorm:"-" json:"gatewayDomainSuffixes"`
 	GatewayPublicScheme           string         `gorm:"not null;default:http" json:"gatewayPublicScheme"`
 	GatewayPublicPort             int            `gorm:"not null;default:80" json:"gatewayPublicPort"`
 	GatewayControllerType         string         `gorm:"not null;default:traefik" json:"gatewayControllerType"`

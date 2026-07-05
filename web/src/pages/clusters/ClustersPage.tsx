@@ -28,7 +28,10 @@ import { TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { inspectKubeconfig, selectSingleKubeconfigContext } from '@/lib/kubeconfig'
 
-type ClusterForm = Omit<RuntimeCluster, 'id' | 'createdBy' | 'createdAt' | 'kubeconfigSet' | 'lastCheckedAt'> & { kubeconfig?: string }
+type ClusterForm = Omit<RuntimeCluster, 'gatewayDomainSuffixes' | 'id' | 'createdBy' | 'createdAt' | 'kubeconfigSet' | 'lastCheckedAt'> & {
+  gatewayDomainSuffixesText: string
+  kubeconfig?: string
+}
 
 const clusterDefaults: ClusterForm = {
   endpoint: '',
@@ -43,6 +46,7 @@ const clusterDefaults: ClusterForm = {
   gatewayName: 'liteyuki-gateway',
   gatewayNamespace: 'kube-system',
   gatewayProvider: 'gateway-api',
+  gatewayDomainSuffixesText: 'apps.local',
   gatewayPublicPort: 80,
   gatewayPublicScheme: 'http',
   gatewayRootDomain: 'apps.local',
@@ -169,8 +173,12 @@ export function ClustersPage() {
 
   const saveCluster = useMutation({
     mutationFn: (values: ClusterForm) => {
+      const { gatewayDomainSuffixesText, ...clusterValues } = values
+      const gatewayDomainSuffixes = parseGatewayDomainSuffixes(gatewayDomainSuffixesText)
       const payload = {
-        ...values,
+        ...clusterValues,
+        gatewayDomainSuffixes,
+        gatewayRootDomain: gatewayDomainSuffixes[0] ?? values.gatewayRootDomain,
         ownerRef: '',
         projectIds: values.scope === 'project' ? values.projectIds : [],
       }
@@ -253,6 +261,7 @@ export function ClustersPage() {
           gatewayName: cluster.gatewayName || 'liteyuki-gateway',
           gatewayNamespace: cluster.gatewayNamespace || 'kube-system',
           gatewayProvider: cluster.gatewayProvider || 'gateway-api',
+          gatewayDomainSuffixesText: formatGatewayDomainSuffixes(cluster),
           gatewayPublicPort: cluster.gatewayPublicPort || defaultGatewayPublicPort(cluster.gatewayPublicScheme || 'http'),
           gatewayPublicScheme: cluster.gatewayPublicScheme || 'http',
           gatewayRootDomain: cluster.gatewayRootDomain || 'apps.local',
@@ -299,6 +308,7 @@ export function ClustersPage() {
       ...values,
       gatewayHttpListenerPort: normalizeFormPort(values.gatewayHttpListenerPort, 8080),
       gatewayHttpsListenerPort: normalizeFormPort(values.gatewayHttpsListenerPort, 8443),
+      gatewayRootDomain: parseGatewayDomainSuffixes(values.gatewayDomainSuffixesText)[0] ?? values.gatewayRootDomain,
       gatewayPublicPort: normalizeFormPort(values.gatewayPublicPort, defaultGatewayPublicPort(values.gatewayPublicScheme)),
       kubeconfig,
       maxConcurrentBuilds,
@@ -405,7 +415,7 @@ export function ClustersPage() {
               { key: 'scope', header: t('common.scope'), width: 'status', render: item => scopeLabel(item, projectMap, t) },
               { key: 'default', header: t('clustersPage.defaultCluster'), width: 'status', render: item => item.isDefault ? t('common.yes') : t('common.no') },
               { key: 'buildConcurrency', header: t('clustersPage.maxConcurrentBuilds'), width: 'number', render: item => item.maxConcurrentBuilds || 4 },
-              { key: 'gatewayRootDomain', header: t('clustersPage.gatewayRootDomain'), width: 'secondary', render: item => item.gatewayRootDomain || 'apps.local' },
+              { key: 'gatewayRootDomain', header: t('clustersPage.gatewayDomainSuffixes'), width: 'secondary', render: item => gatewayDomainSuffixSummary(item) },
               { key: 'gatewayPublicScheme', header: t('clustersPage.gatewayPublicScheme'), width: 'compact', render: item => item.gatewayPublicScheme || 'http' },
               { key: 'gatewayPublicPort', header: t('clustersPage.gatewayPublicPort'), width: 'compact', render: item => gatewayPublicPortSummary(item) },
               { key: 'status', header: t('common.status'), width: 'status', render: item => <StatusValueBadge value={item.status} /> },
@@ -505,8 +515,8 @@ export function ClustersPage() {
                   title={t('clustersPage.gatewayExternalAccessConfig')}
                 >
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Field hint={t('clustersPage.gatewayRootDomainHint')} label={t('clustersPage.gatewayRootDomain')} required>
-                      <Input {...form.register('gatewayRootDomain', { required: true })} placeholder={t('clustersPage.gatewayRootDomainPlaceholder')} />
+                    <Field hint={t('clustersPage.gatewayDomainSuffixesHint')} label={t('clustersPage.gatewayDomainSuffixes')} required>
+                      <Textarea {...form.register('gatewayDomainSuffixesText', { required: true })} placeholder={t('clustersPage.gatewayDomainSuffixesPlaceholder')} rows={3} />
                     </Field>
                     <Field hint={t('clustersPage.gatewayPublicSchemeHint')} label={t('clustersPage.gatewayPublicScheme')} required>
                       <Select {...form.register('gatewayPublicScheme', {
@@ -973,6 +983,37 @@ function gatewayPublicPortSummary(cluster: RuntimeCluster) {
   const scheme = cluster.gatewayPublicScheme || 'http'
   const port = cluster.gatewayPublicPort || defaultGatewayPublicPort(scheme)
   return `${scheme}:${port}`
+}
+
+function gatewayDomainSuffixSummary(cluster: RuntimeCluster) {
+  const suffixes = runtimeClusterDomainSuffixes(cluster)
+  if (suffixes.length <= 1)
+    return suffixes[0] ?? 'apps.local'
+  return `${suffixes[0]} +${suffixes.length - 1}`
+}
+
+function formatGatewayDomainSuffixes(cluster: RuntimeCluster) {
+  return runtimeClusterDomainSuffixes(cluster).join('\n')
+}
+
+function runtimeClusterDomainSuffixes(cluster: RuntimeCluster) {
+  const values = cluster.gatewayDomainSuffixes?.length ? cluster.gatewayDomainSuffixes : [cluster.gatewayRootDomain]
+  return parseGatewayDomainSuffixes(values.join('\n'))
+}
+
+function parseGatewayDomainSuffixes(value: string) {
+  const seen = new Set<string>()
+  const suffixes = value
+    .split(/[\n,;]/)
+    .map(item => item.trim().toLowerCase().replace(/^\.+|\.+$/g, ''))
+    .filter(Boolean)
+    .filter((item) => {
+      if (seen.has(item))
+        return false
+      seen.add(item)
+      return true
+    })
+  return suffixes.length > 0 ? suffixes : ['apps.local']
 }
 
 function defaultGatewayPublicPort(scheme: RuntimeCluster['gatewayPublicScheme']) {

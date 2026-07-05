@@ -88,6 +88,8 @@ PVC 的 `storageClassName` 和 `accessMode` 只会在首次创建数据卷时写
 
 访问入口负责把域名、路径、TLS 和后端服务连接起来。创建后，平台会展示下发状态和检查结果，方便你确认服务是否真的能访问。
 
+域名后缀来自部署配置所属运行集群。管理员可以在集群上维护多个可用后缀，创建访问入口时只选择其中一个；短域名前缀和留空自动生成都会使用所选后缀，完整自定义域名仍可直接填写。
+
 运行集群里的“外层访问协议”和“外层访问端口”只影响控制台展示和打开访问入口时使用的 URL。如果外层 CDN 或反向代理已经提供 HTTPS，可以把外层访问协议设为 `https`，同时外部 TLS 模式选择“上游代理已终止 TLS”，平台会让 HTTPRoute 绑定内部 HTTP listener，不会因此额外申请集群内证书。
 
 平台访问入口底层使用 Kubernetes Gateway API：运行集群维护一个平台管理的 `Gateway`，每条访问入口在项目命名空间下生成一个 `HTTPRoute` 并转发到部署配置对应的 `Service`。集群需要先安装 Gateway API CRD；Traefik 集群需要启用 `--providers.kubernetesGateway`。

@@ -1,7 +1,7 @@
-import type { DeploymentTarget, GatewayRoute } from '@/api'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { DeploymentTarget, GatewayRoute, RuntimeCluster } from '@/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { SearchCheck, Trash2 } from 'lucide-react'
-import { useImperativeHandle, useMemo, useState } from 'react'
+import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -29,6 +29,7 @@ const routeDefaults: RouteForm = {
   certificateStatus: 'disabled',
   deploymentTargetId: '',
   dnsStatus: 'pending',
+  domainSuffix: '',
   enabled: true,
   environmentId: '',
   host: '',
@@ -69,18 +70,32 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
   const [editingRoute, setEditingRoute] = useState<GatewayRoute | null>(null)
   const [routeToDelete, setRouteToDelete] = useState<GatewayRoute | null>(null)
   const form = useForm<RouteForm>({ defaultValues: routeDefaults, mode: 'onChange' })
+  const runtimeClusters = useQuery({ queryKey: ['runtime-clusters', projectId], queryFn: () => api.listRuntimeClusters(projectId), enabled: Boolean(projectId) })
   const deploymentTargetOptions = useMemo(() => deploymentTargets.map(target => ({
     id: target.id,
     label: gatewayDeploymentTargetLabel(target, t),
   })), [deploymentTargets, t])
-  const selectedDeploymentTarget = deploymentTargets.find(target => target.id === form.watch('deploymentTargetId')) ?? deploymentTargets[0]
+  const selectedDeploymentTargetId = form.watch('deploymentTargetId')
+  const selectedDomainSuffix = form.watch('domainSuffix')
+  const selectedDeploymentTarget = deploymentTargets.find(target => target.id === selectedDeploymentTargetId) ?? deploymentTargets[0]
+  const domainSuffixOptions = useMemo(() => {
+    const cluster = runtimeClusterForDeploymentTarget(selectedDeploymentTarget, runtimeClusters.data ?? [])
+    return runtimeClusterDomainSuffixes(cluster).map(suffix => ({ label: suffix, value: suffix }))
+  }, [runtimeClusters.data, selectedDeploymentTarget])
   const servicePortOptions = selectedDeploymentTarget ? deploymentTargetServicePortOptions(selectedDeploymentTarget) : []
+  useEffect(() => {
+    if (!dialogOpen || selectedDomainSuffix || domainSuffixOptions.length === 0)
+      return
+    form.setValue('domainSuffix', domainSuffixOptions[0].value, { shouldDirty: true, shouldValidate: true })
+  }, [dialogOpen, domainSuffixOptions, form, selectedDomainSuffix])
   const saveRoute = useMutation({
     mutationFn: (values: RouteForm) => {
       const target = deploymentTargets.find(item => item.id === values.deploymentTargetId)
+      const domainSuffix = values.domainSuffix || firstGatewayDomainSuffix(target, runtimeClusters.data ?? [])
       const payload = {
         ...values,
         applicationId,
+        domainSuffix,
         environmentId: target?.environmentId ?? values.environmentId,
         sectionName: '',
         servicePort: Number(values.servicePort) || deploymentTargetPrimaryServicePort(target),
@@ -106,7 +121,12 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
     onError: error => toast.error(error.message),
   })
   const checkDomain = useMutation({
-    mutationFn: ({ host, routeId }: { host: string, routeId?: string }) => api.checkGatewayDomain(projectId, host, routeId),
+    mutationFn: ({ deploymentTargetId, domainSuffix, host, routeId }: { deploymentTargetId?: string, domainSuffix?: string, host: string, routeId?: string }) => api.checkGatewayDomain(projectId, {
+      deploymentTargetId,
+      domainSuffix,
+      host,
+      routeId,
+    }),
     onSuccess: (result) => {
       const messageKey = result.status === 'current'
         ? 'gatewayRoutesPage.domainCurrent'
@@ -121,9 +141,11 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
     const matchedTarget = route?.deploymentTargetId
       ? deploymentTargets.find(target => target.id === route.deploymentTargetId)
       : deploymentTargets.find(target => target.environmentId === route?.environmentId)
+    const target = matchedTarget ?? defaultTarget
+    const domainSuffix = route?.domainSuffix || firstGatewayDomainSuffix(target, runtimeClusters.data ?? [])
     form.reset(route
-      ? { ...route, deploymentTargetId: route.deploymentTargetId || matchedTarget?.id || '', environmentId: matchedTarget?.environmentId ?? route.environmentId }
-      : { ...routeDefaults, applicationId, deploymentTargetId: defaultTarget?.id ?? '', environmentId: defaultTarget?.environmentId ?? '', servicePort: deploymentTargetPrimaryServicePort(defaultTarget) })
+      ? { ...route, deploymentTargetId: route.deploymentTargetId || target?.id || '', domainSuffix, environmentId: target?.environmentId ?? route.environmentId }
+      : { ...routeDefaults, applicationId, deploymentTargetId: defaultTarget?.id ?? '', domainSuffix, environmentId: defaultTarget?.environmentId ?? '', servicePort: deploymentTargetPrimaryServicePort(defaultTarget) })
     setDialogOpen(true)
   }
   useImperativeHandle(ref, () => ({ openCreateDialog: () => openRouteDialog() }))
@@ -145,7 +167,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
             const deleting = item.deleteStatus === 'deleting'
             return (
               <div className="flex justify-end gap-2">
-                <Button disabled={deleting} size="sm" variant="ghost" onClick={() => checkDomain.mutate({ host: item.host, routeId: item.id })}>
+                <Button disabled={deleting} size="sm" variant="ghost" onClick={() => checkDomain.mutate({ deploymentTargetId: item.deploymentTargetId, domainSuffix: item.domainSuffix, host: item.host, routeId: item.id })}>
                   <SearchCheck className="size-4" />
                   {t('gatewayRoutesPage.checkDomain')}
                 </Button>
@@ -181,9 +203,12 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
                     const target = deploymentTargets.find(item => item.id === event.target.value)
                     form.setValue('environmentId', target?.environmentId ?? '', { shouldDirty: true, shouldValidate: true })
                     form.setValue('servicePort', deploymentTargetPrimaryServicePort(target), { shouldDirty: true, shouldValidate: true })
+                    form.setValue('domainSuffix', firstGatewayDomainSuffix(target, runtimeClusters.data ?? []), { shouldDirty: true, shouldValidate: true })
                   },
                 })}
                 deploymentTargets={deploymentTargetOptions}
+                domainSuffixField={form.register('domainSuffix', { required: true })}
+                domainSuffixOptions={domainSuffixOptions}
                 enabledField={form.register('enabled')}
                 hostField={form.register('host')}
                 pathField={form.register('path')}
@@ -278,4 +303,33 @@ function deploymentTargetServicePortOptions(target: DeploymentTarget) {
     label: item.name ? `${item.name} · ${item.port}` : String(item.port),
     value: item.port,
   }))
+}
+
+function firstGatewayDomainSuffix(target: DeploymentTarget | undefined, clusters: RuntimeCluster[]) {
+  return runtimeClusterDomainSuffixes(runtimeClusterForDeploymentTarget(target, clusters))[0] ?? ''
+}
+
+function runtimeClusterForDeploymentTarget(target: DeploymentTarget | undefined, clusters: RuntimeCluster[]) {
+  if (clusters.length === 0)
+    return undefined
+  const defaultCluster = clusters.find(cluster => cluster.isDefault) ?? clusters[0]
+  if (!target?.clusterId)
+    return defaultCluster
+  return clusters.find(cluster => cluster.id === target.clusterId) ?? defaultCluster
+}
+
+function runtimeClusterDomainSuffixes(cluster?: RuntimeCluster) {
+  const candidates = cluster?.gatewayDomainSuffixes?.length
+    ? cluster.gatewayDomainSuffixes
+    : [cluster?.gatewayRootDomain ?? '']
+  const seen = new Set<string>()
+  const suffixes: string[] = []
+  for (const candidate of candidates) {
+    const suffix = candidate.trim().toLowerCase().replace(/^\.+|\.+$/g, '')
+    if (!suffix || seen.has(suffix))
+      continue
+    seen.add(suffix)
+    suffixes.push(suffix)
+  }
+  return suffixes
 }

@@ -39,7 +39,7 @@ Repository and tag templates both render only static values known when the deplo
 
 Runtime clusters are release targets. The platform turns Releases into Kubernetes resources, then shows status, logs, and diagnostics.
 
-Runtime clusters also own access-route default domain suffixes, external access schemes, external access ports, and Gateway API defaults. Access routes use the deployment target's cluster to generate default domains, expand short host prefixes, and return console access links, so multiple clusters can use different GatewayClasses, shared Gateways, or root domains.
+Runtime clusters also own available access-route domain suffixes, external access schemes, external access ports, and Gateway API defaults. A cluster can define multiple suffixes; when users create an access route, they choose one suffix from the deployment target's cluster. Access routes use the selected suffix to generate default domains, expand short host prefixes, and return console access links, so multiple clusters can use different GatewayClasses, shared Gateways, or root domains, and one cluster can expose public, internal, or business-specific domains.
 
 Gateway config is split into external display and internal cluster layers:
 

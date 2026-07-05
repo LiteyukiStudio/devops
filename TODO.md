@@ -703,6 +703,7 @@
 - [x] 生成 CNAME 目标并返回给前端展示。
 - [x] 支持 HTTP-only 访问开关。
 - [x] 将默认域名后缀和外层访问协议下沉到运行集群级别：访问入口按部署配置所在集群生成默认域名、短前缀补全、CNAME 目标和控制台访问 URL，支持不同集群使用不同 Gateway 域名。
+- [x] 运行集群支持多个可用域名后缀：管理员在集群层维护后缀列表，创建访问入口时按部署配置所属集群单选一个后缀，短域名前缀和默认域名生成均使用该选择。
 - [x] 运行集群补齐 Gateway API 默认配置：Gateway Provider、控制器类型、GatewayClass、Gateway 名称/命名空间、外部 TLS 模式、转发头策略、可信代理 CIDR 和默认请求/响应头。
 - [x] 访问入口补齐高级 Gateway API 配置：支持 Parent Gateway 覆盖、路径匹配、请求/响应头、URL rewrite、redirect、后端权重和备用域名字段，并按项目/平台管理员收紧高风险 header。
 - [x] 破坏性迁移访问入口底层：未发版阶段清空旧 GatewayRoute 数据，Worker 主路径从 Kubernetes Ingress 切换到 Gateway API HTTPRoute，并新增 Gateway API CRD 探测和 HTTPRoute 状态读取。

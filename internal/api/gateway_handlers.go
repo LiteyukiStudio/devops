@@ -119,6 +119,7 @@ func (h *Handlers) UpdateGatewayRoute(ctx *gin.Context) {
 	route.EnvironmentID = next.EnvironmentID
 	route.DeploymentTargetID = next.DeploymentTargetID
 	route.Host = next.Host
+	route.DomainSuffix = next.DomainSuffix
 	route.Path = next.Path
 	route.ServicePort = next.ServicePort
 	route.TLSMode = next.TLSMode
@@ -193,7 +194,11 @@ func (h *Handlers) CheckGatewayDomain(ctx *gin.Context) {
 		return
 	}
 	cluster := h.gatewayClusterForDomainCheck(ctx)
-	host := h.normalizeGatewayHost(strings.TrimSpace(ctx.Query("host")), cluster)
+	domainSuffix, ok := h.gatewayRouteDomainSuffix(ctx, ctx.Query("domainSuffix"), cluster)
+	if !ok {
+		return
+	}
+	host := h.normalizeGatewayHost(strings.TrimSpace(ctx.Query("host")), cluster, domainSuffix)
 	if host == "" {
 		writeError(ctx, http.StatusBadRequest, "请输入域名")
 		return
@@ -246,9 +251,13 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 	if !ok {
 		return model.GatewayRoute{}, false
 	}
-	host := h.normalizeGatewayHost(input.Host, cluster)
+	domainSuffix, ok := h.gatewayRouteDomainSuffix(ctx, input.DomainSuffix, cluster)
+	if !ok {
+		return model.GatewayRoute{}, false
+	}
+	host := h.normalizeGatewayHost(input.Host, cluster, domainSuffix)
 	if host == "" {
-		host = h.defaultGatewayHost(project, target.Stage, application.Slug, cluster)
+		host = h.defaultGatewayHost(project, target.Stage, application.Slug, cluster, domainSuffix)
 	}
 	if host == "" {
 		writeError(ctx, http.StatusBadRequest, "请输入域名或选择部署配置")
@@ -284,12 +293,13 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 		EnvironmentID:          environment.ID,
 		DeploymentTargetID:     target.ID,
 		Host:                   host,
+		DomainSuffix:           domainSuffix,
 		Path:                   fallback(strings.TrimSpace(input.Path), "/"),
 		ServicePort:            servicePort,
 		TLSMode:                tlsMode,
 		CertificateStatus:      certStatus,
 		CNAMEName:              host,
-		CNAMETarget:            h.gatewayCNAMETarget(cluster),
+		CNAMETarget:            h.gatewayCNAMETarget(cluster, domainSuffix),
 		DNSStatus:              fallback(strings.TrimSpace(input.DNSStatus), "pending"),
 		Status:                 fallback(strings.TrimSpace(input.Status), "pending"),
 		Enabled:                gatewayRouteInputEnabled(input.Enabled),
@@ -543,8 +553,8 @@ func (h *Handlers) runtimeClusterForDeploymentTargetValue(target model.Deploymen
 	return cluster, err
 }
 
-func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationSlug string, cluster model.RuntimeCluster) string {
-	rootDomain := h.gatewayRootDomain(cluster)
+func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationSlug string, cluster model.RuntimeCluster, domainSuffix string) string {
+	rootDomain := h.gatewayDomainSuffix(cluster, domainSuffix)
 	if rootDomain == "" {
 		return ""
 	}
@@ -568,20 +578,20 @@ func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationS
 	return fmt.Sprintf("%s-%s.%s", base, id.New("gw"), rootDomain)
 }
 
-func (h *Handlers) gatewayCNAMETarget(cluster model.RuntimeCluster) string {
-	rootDomain := h.gatewayRootDomain(cluster)
+func (h *Handlers) gatewayCNAMETarget(cluster model.RuntimeCluster, domainSuffix string) string {
+	rootDomain := h.gatewayDomainSuffix(cluster, domainSuffix)
 	if rootDomain == "" {
 		return ""
 	}
 	return fmt.Sprintf("*.%s", rootDomain)
 }
 
-func (h *Handlers) normalizeGatewayHost(value string, cluster model.RuntimeCluster) string {
+func (h *Handlers) normalizeGatewayHost(value string, cluster model.RuntimeCluster, domainSuffix string) string {
 	host := strings.Trim(strings.ToLower(strings.TrimSpace(value)), ".")
 	if host == "" {
 		return ""
 	}
-	rootDomain := h.gatewayRootDomain(cluster)
+	rootDomain := h.gatewayDomainSuffix(cluster, domainSuffix)
 	if rootDomain != "" && !strings.Contains(host, ".") {
 		prefix := gatewayHostSegment(host)
 		if prefix == "" {
@@ -593,7 +603,44 @@ func (h *Handlers) normalizeGatewayHost(value string, cluster model.RuntimeClust
 }
 
 func (h *Handlers) gatewayRootDomain(cluster model.RuntimeCluster) string {
-	return normalizeGatewayRootDomain(cluster.GatewayRootDomain, h.legacyGatewayRootDomain())
+	return h.gatewayDomainSuffix(cluster, "")
+}
+
+func (h *Handlers) gatewayDomainSuffix(cluster model.RuntimeCluster, selected string) string {
+	selected = normalizeGatewayDomainSuffixValue(selected)
+	for _, suffix := range h.gatewayDomainSuffixes(cluster) {
+		if selected != "" && suffix == selected {
+			return suffix
+		}
+	}
+	suffixes := h.gatewayDomainSuffixes(cluster)
+	if len(suffixes) == 0 {
+		return ""
+	}
+	return suffixes[0]
+}
+
+func (h *Handlers) gatewayDomainSuffixes(cluster model.RuntimeCluster) []string {
+	return decodeGatewayDomainSuffixes(cluster.GatewayDomainSuffixesRaw, cluster.GatewayRootDomain, h.legacyGatewayRootDomain())
+}
+
+func (h *Handlers) gatewayRouteDomainSuffix(ctx *gin.Context, selected string, cluster model.RuntimeCluster) (string, bool) {
+	selected = normalizeGatewayDomainSuffixValue(selected)
+	suffixes := h.gatewayDomainSuffixes(cluster)
+	if len(suffixes) == 0 {
+		writeError(ctx, http.StatusBadRequest, "运行集群未配置可用域名后缀")
+		return "", false
+	}
+	if selected == "" {
+		return suffixes[0], true
+	}
+	for _, suffix := range suffixes {
+		if suffix == selected {
+			return suffix, true
+		}
+	}
+	writeError(ctx, http.StatusBadRequest, "域名后缀不属于当前部署配置的运行集群")
+	return "", false
 }
 
 func (h *Handlers) gatewayPublicScheme(cluster model.RuntimeCluster) string {
@@ -725,6 +772,7 @@ type gatewayRouteInput struct {
 	EnvironmentID          string `json:"environmentId"`
 	DeploymentTargetID     string `json:"deploymentTargetId" binding:"required"`
 	Host                   string `json:"host"`
+	DomainSuffix           string `json:"domainSuffix"`
 	Path                   string `json:"path"`
 	ServicePort            int    `json:"servicePort"`
 	TLSMode                string `json:"tlsMode"`

@@ -623,6 +623,7 @@ export interface RuntimeCluster {
   isDefault: boolean
   maxConcurrentBuilds: number
   gatewayRootDomain: string
+  gatewayDomainSuffixes: string[]
   gatewayPublicScheme: 'http' | 'https'
   gatewayPublicPort: number
   gatewayProvider: 'gateway-api'
@@ -740,6 +741,7 @@ export interface GatewayRoute {
   environmentId: string
   deploymentTargetId: string
   host: string
+  domainSuffix: string
   path: string
   servicePort: number
   tlsMode: 'http-only' | 'http-challenge' | 'manual-cert'

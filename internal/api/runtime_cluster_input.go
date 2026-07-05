@@ -45,6 +45,7 @@ func (h *Handlers) runtimeClusterFromInput(ctx *gin.Context, user model.User, in
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return model.RuntimeCluster{}, false
 	}
+	gatewayDomainSuffixes := normalizeGatewayDomainSuffixes(input.GatewayDomainSuffixes, input.GatewayRootDomain, h.legacyGatewayRootDomain())
 	return model.RuntimeCluster{
 		ID:                            clusterID,
 		Name:                          strings.TrimSpace(input.Name),
@@ -57,7 +58,9 @@ func (h *Handlers) runtimeClusterFromInput(ctx *gin.Context, user model.User, in
 		IsDefault:                     input.IsDefault,
 		MaxConcurrentBuilds:           normalizeBuildConcurrency(input.MaxConcurrentBuilds, defaultClusterBuildConcurrency),
 		GatewayProvider:               normalizeGatewayProvider(input.GatewayProvider),
-		GatewayRootDomain:             normalizeGatewayRootDomain(input.GatewayRootDomain, h.legacyGatewayRootDomain()),
+		GatewayRootDomain:             gatewayDomainSuffixes[0],
+		GatewayDomainSuffixesRaw:      encodeGatewayDomainSuffixes(gatewayDomainSuffixes),
+		GatewayDomainSuffixes:         gatewayDomainSuffixes,
 		GatewayPublicScheme:           normalizeGatewayPublicScheme(input.GatewayPublicScheme),
 		GatewayPublicPort:             normalizeGatewayPublicPort(input.GatewayPublicPort, input.GatewayPublicScheme),
 		GatewayControllerType:         normalizeGatewayControllerType(input.GatewayControllerType),
@@ -133,6 +136,7 @@ type runtimeClusterInput struct {
 	MaxConcurrentBuilds           int      `json:"maxConcurrentBuilds"`
 	GatewayProvider               string   `json:"gatewayProvider"`
 	GatewayRootDomain             string   `json:"gatewayRootDomain"`
+	GatewayDomainSuffixes         []string `json:"gatewayDomainSuffixes"`
 	GatewayPublicScheme           string   `json:"gatewayPublicScheme"`
 	GatewayPublicPort             int      `json:"gatewayPublicPort"`
 	GatewayControllerType         string   `json:"gatewayControllerType"`
@@ -160,6 +164,45 @@ func normalizeGatewayRootDomain(value string, fallbackValue string) string {
 		return "apps.local"
 	}
 	return rootDomain
+}
+
+func normalizeGatewayDomainSuffixes(values []string, legacyValue string, fallbackValue string) []string {
+	if output := normalizeGatewayDomainSuffixList(values); len(output) > 0 {
+		return output
+	}
+	output := normalizeGatewayDomainSuffixList([]string{legacyValue, fallbackValue, "apps.local"})
+	if len(output) == 0 {
+		return []string{"apps.local"}
+	}
+	return output
+}
+
+func normalizeGatewayDomainSuffixList(values []string) []string {
+	seen := map[string]bool{}
+	output := make([]string, 0, len(values))
+	for _, value := range values {
+		suffix := normalizeGatewayDomainSuffixValue(value)
+		if suffix == "" || seen[suffix] {
+			continue
+		}
+		seen[suffix] = true
+		output = append(output, suffix)
+	}
+	return output
+}
+
+func normalizeGatewayDomainSuffixValue(value string) string {
+	return strings.Trim(strings.ToLower(strings.TrimSpace(value)), ".")
+}
+
+func encodeGatewayDomainSuffixes(values []string) string {
+	return strings.Join(normalizeGatewayDomainSuffixList(values), "\n")
+}
+
+func decodeGatewayDomainSuffixes(raw string, legacyValue string, fallbackValue string) []string {
+	return normalizeGatewayDomainSuffixes(strings.FieldsFunc(raw, func(char rune) bool {
+		return char == '\n' || char == ',' || char == ';'
+	}), legacyValue, fallbackValue)
 }
 
 func normalizeGatewayPublicScheme(value string) string {
