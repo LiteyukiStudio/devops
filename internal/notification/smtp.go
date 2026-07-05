@@ -72,17 +72,9 @@ func (adapter SMTPAdapter) Send(ctx context.Context, config json.RawMessage, _ j
 }
 
 func (adapter SMTPAdapter) Test(ctx context.Context, config json.RawMessage, secrets json.RawMessage, resolver SecretResolver) error {
-	event := Event{
-		ID:         "test",
-		Type:       "notification.test",
-		Severity:   SeverityInfo,
-		OccurredAt: time.Now(),
-		Message:    "Liteyuki notification test",
-	}
-	message, err := adapter.Render(ctx, event, Template{
-		Subject: "Liteyuki notification test",
-		Body:    "{{.Event.Message}}",
-	}, config, secrets, resolver, "")
+	event := TestEvent(time.Now())
+	template := DefaultTemplateFor(AdapterKindSMTP, event.Type, event.Locale)
+	message, err := adapter.Render(ctx, event, TemplateFromModel(template), config, secrets, resolver, "")
 	if err != nil {
 		return err
 	}

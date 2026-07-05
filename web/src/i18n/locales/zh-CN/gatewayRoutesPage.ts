@@ -14,6 +14,7 @@ const gatewayRoutesPage = {
   deleteRouteDescription: '该域名路由会被删除。',
   emptyRoutes: '暂无域名路由',
   host: '域名',
+  hostPlaceholder: '留空自动生成默认域名',
   hostHint: '可填写短前缀，例如 blog-frontend-dev，平台会自动拼接所选域名后缀；也可以填写完整自定义域名。留空时平台按所选后缀自动生成并避让重复。',
   domainSuffix: '域名后缀',
   domainSuffixHint: '来自部署配置所属运行集群的可用域名后缀。每条访问入口只能选择一个后缀。',

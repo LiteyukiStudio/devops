@@ -14,6 +14,7 @@ const gatewayRoutesPage = {
   deleteRouteDescription: 'This gateway route will be deleted.',
   emptyRoutes: 'No gateway routes',
   host: 'Domain',
+  hostPlaceholder: 'Leave empty to generate a default domain',
   hostHint: 'Enter a short prefix, such as blog-frontend-dev, and the platform will append the selected domain suffix. You can also enter a full custom domain. Leaving it empty generates a unique domain with the selected suffix.',
   domainSuffix: 'Domain suffix',
   domainSuffixHint: 'Available domain suffixes come from the runtime cluster used by the deploy config. Each access route selects exactly one suffix.',

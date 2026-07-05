@@ -57,10 +57,12 @@ const gatewayRouteTlsModeLabels: Record<GatewayRoute['tlsMode'], string> = {
 export interface ApplicationGatewayPanelHandle {
   openCreateDialog: (environmentId?: string, deploymentTargetId?: string) => void
 }
-export function ApplicationGatewayPanel({ applicationId, deploymentTargets, projectId, ref, routes }: {
+export function ApplicationGatewayPanel({ applicationId, appSlug, deploymentTargets, projectId, projectSlug, ref, routes }: {
   applicationId: string
+  appSlug: string
   deploymentTargets: DeploymentTarget[]
   projectId: string
+  projectSlug: string
   ref?: React.Ref<ApplicationGatewayPanelHandle>
   routes: GatewayRoute[]
 }) {
@@ -83,6 +85,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
     return runtimeClusterDomainSuffixes(cluster).map(suffix => ({ label: suffix, value: suffix }))
   }, [runtimeClusters.data, selectedDeploymentTarget])
   const servicePortOptions = selectedDeploymentTarget ? deploymentTargetServicePortOptions(selectedDeploymentTarget) : []
+  const defaultHostPlaceholder = defaultGatewayHostPlaceholder(projectSlug, appSlug, selectedDeploymentTarget?.stage, selectedDomainSuffix)
   useEffect(() => {
     if (!dialogOpen || selectedDomainSuffix || domainSuffixOptions.length === 0)
       return
@@ -211,6 +214,7 @@ export function ApplicationGatewayPanel({ applicationId, deploymentTargets, proj
                 domainSuffixOptions={domainSuffixOptions}
                 enabledField={form.register('enabled')}
                 hostField={form.register('host')}
+                hostPlaceholder={defaultHostPlaceholder}
                 pathField={form.register('path')}
                 servicePortOptions={servicePortOptions}
                 servicePortField={form.register('servicePort', { valueAsNumber: true })}
@@ -332,4 +336,22 @@ function runtimeClusterDomainSuffixes(cluster?: RuntimeCluster) {
     suffixes.push(suffix)
   }
   return suffixes
+}
+
+function defaultGatewayHostPlaceholder(projectSlug: string, appSlug: string, stage: string | undefined, domainSuffix: string) {
+  const suffix = domainSuffix.trim().toLowerCase().replace(/^\.+|\.+$/g, '')
+  if (!suffix)
+    return ''
+  const prefix = [
+    gatewayHostSegment(projectSlug),
+    gatewayHostSegment(appSlug),
+    gatewayHostSegment(stage || 'prod'),
+  ].filter(Boolean).join('-')
+  return prefix ? `${prefix}.${suffix}` : ''
+}
+
+const gatewayHostSegmentPattern = /[^a-z0-9-]+/g
+
+function gatewayHostSegment(value: string) {
+  return value.trim().toLowerCase().replace(gatewayHostSegmentPattern, '-').replace(/^-+|-+$/g, '')
 }

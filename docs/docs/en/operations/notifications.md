@@ -42,7 +42,7 @@ Built-in presets:
 | Slack Incoming Webhook | `WebhookPath` | `mrkdwn` blocks | Enter only the path after `hooks.slack.com/services/`, so the full Webhook URL is not stored as plain business data. |
 | Discord Webhook | `WebhookID`, `WebhookToken` | embeds | Uses the Discord Webhook execute API embed payload. |
 
-Webhook channels support `testJsonBodyTemplate`. Presets write a platform-specific test body into the channel config, so the test action sends a valid payload for that platform instead of one generic JSON shape.
+Webhook channels support `testJsonBodyTemplate`. Presets write a platform-specific test body into the channel config, so after a second confirmation the test action renders a test event with preset template variables and sends a valid payload for that platform instead of one generic JSON shape.
 
 References:
 
@@ -130,7 +130,7 @@ The password is stored in Secret Store. You do not need to fill it again when ed
 Suggested verification flow:
 
 1. Create a Webhook or SMTP channel.
-2. Click the test action and confirm that the target platform receives the test message.
+2. Click the test action, review the template variable note in the confirmation dialog, then send the test message.
 3. Create or confirm a notification template.
 4. Create a rule, select failure events and a channel.
 5. Trigger a build failure or hook failure intentionally.

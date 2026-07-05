@@ -21,7 +21,7 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://open.feishu.cn/open-apis/bot/v2/hook/{{.Secrets.WebhookToken}}", map[string]string{
 				"Content-Type": "application/json",
-			}, feishuTextTestTemplate),
+			}, feishuPostTemplate("zh_cn", "项目空间", "应用", "部署配置", "时间")),
 			JSONBodyTemplate: feishuPostTemplate("zh_cn", "项目空间", "应用", "部署配置", "时间"),
 			SecretFields:     []string{"WebhookToken"},
 		},
@@ -32,7 +32,7 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://open.larksuite.com/open-apis/bot/v2/hook/{{.Secrets.WebhookToken}}", map[string]string{
 				"Content-Type": "application/json",
-			}, feishuTextTestTemplate),
+			}, feishuPostTemplate("en_us", "Project", "Application", "Deployment", "Time")),
 			JSONBodyTemplate: feishuPostTemplate("en_us", "Project", "Application", "Deployment", "Time"),
 			SecretFields:     []string{"WebhookToken"},
 		},
@@ -43,7 +43,7 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{.Secrets.WebhookKey}}", map[string]string{
 				"Content-Type": "application/json",
-			}, wecomMarkdownTestTemplate),
+			}, wecomMarkdownTemplate),
 			JSONBodyTemplate: wecomMarkdownTemplate,
 			SecretFields:     []string{"WebhookKey"},
 		},
@@ -55,7 +55,7 @@ func WebhookPresets() []WebhookPreset {
 			ConfigTemplate: webhookPresetConfig("POST", "https://{{.Secrets.GotifyHost}}/message", map[string]string{
 				"Content-Type": "application/json",
 				"X-Gotify-Key": "{{.Secrets.AppToken}}",
-			}, gotifyTestTemplate),
+			}, gotifyMarkdownTemplate),
 			JSONBodyTemplate: gotifyMarkdownTemplate,
 			SecretFields:     []string{"GotifyHost", "AppToken"},
 		},
@@ -66,7 +66,7 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://oapi.dingtalk.com/robot/send?access_token={{.Secrets.AccessToken}}", map[string]string{
 				"Content-Type": "application/json",
-			}, dingtalkTextTestTemplate),
+			}, dingtalkMarkdownTemplate),
 			JSONBodyTemplate: dingtalkMarkdownTemplate,
 			SecretFields:     []string{"AccessToken"},
 		},
@@ -77,7 +77,7 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://hooks.slack.com/services/{{.Secrets.WebhookPath}}", map[string]string{
 				"Content-Type": "application/json",
-			}, slackTextTestTemplate),
+			}, slackBlocksTemplate),
 			JSONBodyTemplate: slackBlocksTemplate,
 			SecretFields:     []string{"WebhookPath"},
 		},
@@ -88,7 +88,7 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://discord.com/api/webhooks/{{.Secrets.WebhookID}}/{{.Secrets.WebhookToken}}", map[string]string{
 				"Content-Type": "application/json",
-			}, discordTextTestTemplate),
+			}, discordEmbedTemplate),
 			JSONBodyTemplate: discordEmbedTemplate,
 			SecretFields:     []string{"WebhookID", "WebhookToken"},
 		},
@@ -140,35 +140,10 @@ func feishuPostTemplate(locale string, projectLabel string, applicationLabel str
 }`
 }
 
-const feishuTextTestTemplate = `{
-  "msg_type": "text",
-  "content": {
-    "text": {{json .Event.Message}}
-  }
-}`
-
-const wecomMarkdownTestTemplate = `{
-  "msgtype": "markdown",
-  "markdown": {
-    "content": {{json (printf "**%s**\n%s" .Event.Type .Event.Message)}}
-  }
-}`
-
 const wecomMarkdownTemplate = `{
   "msgtype": "markdown",
   "markdown": {
     "content": {{json (printf "**[%s] %s**\n> %s\n> 项目空间：%s\n> 应用：%s\n> 部署配置：%s\n> 时间：%s" .Event.Severity .Event.Type .Event.Message (default "-" .Event.Project.Name) (default "-" .Event.Application.Name) (default "-" .Event.DeploymentTarget.Name) (time .Event.OccurredAt "2006-01-02 15:04:05 MST"))}}
-  }
-}`
-
-const gotifyTestTemplate = `{
-  "title": {{json .Event.Type}},
-  "message": {{json .Event.Message}},
-  "priority": 5,
-  "extras": {
-    "client::display": {
-      "contentType": "text/markdown"
-    }
   }
 }`
 
@@ -183,23 +158,12 @@ const gotifyMarkdownTemplate = `{
   }
 }`
 
-const dingtalkTextTestTemplate = `{
-  "msgtype": "text",
-  "text": {
-    "content": {{json .Event.Message}}
-  }
-}`
-
 const dingtalkMarkdownTemplate = `{
   "msgtype": "markdown",
   "markdown": {
     "title": {{json (printf "[%s] %s" .Event.Severity .Event.Type)}},
     "text": {{json (printf "### [%s] %s\n\n%s\n\n- Project: %s\n- Application: %s\n- Deployment: %s\n- Time: %s" .Event.Severity .Event.Type .Event.Message (default "-" .Event.Project.Name) (default "-" .Event.Application.Name) (default "-" .Event.DeploymentTarget.Name) (time .Event.OccurredAt "2006-01-02 15:04:05 MST"))}}
   }
-}`
-
-const slackTextTestTemplate = `{
-  "text": {{json .Event.Message}}
 }`
 
 const slackBlocksTemplate = `{
@@ -220,10 +184,6 @@ const slackBlocksTemplate = `{
       }
     }
   ]
-}`
-
-const discordTextTestTemplate = `{
-  "content": {{json .Event.Message}}
 }`
 
 const discordEmbedTemplate = `{

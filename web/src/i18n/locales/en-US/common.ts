@@ -1,5 +1,6 @@
 const common = {
   cancel: 'Cancel',
+  create: 'Create',
   save: 'Save',
   edit: 'Edit',
   delete: 'Delete',

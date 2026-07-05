@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { DataList } from '@/components/common/data-list'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
@@ -33,6 +34,7 @@ export function NotificationsPage() {
   const [presetDialog, setPresetDialog] = useState<PresetFormState | null>(null)
   const [templateDialog, setTemplateDialog] = useState<TemplateFormState | null>(null)
   const [ruleDialog, setRuleDialog] = useState<RuleFormState | null>(null)
+  const [testChannelTarget, setTestChannelTarget] = useState<NotificationChannel | null>(null)
 
   const presets = useQuery({ queryKey: ['notifications', 'presets'], queryFn: api.listNotificationPresets })
   const channels = useQuery({
@@ -153,6 +155,7 @@ export function NotificationsPage() {
     mutationFn: api.testNotificationChannel,
     onSuccess: () => {
       toast.success(t('notificationsPage.testSent'))
+      setTestChannelTarget(null)
       refreshNotifications()
     },
     onError: error => toast.error(error.message),
@@ -163,8 +166,8 @@ export function NotificationsPage() {
     { key: 'enabled', header: t('common.status'), width: 'status', render: item => <StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? t('common.enabled') : t('common.disabled')}</StatusBadge> },
     { key: 'lastDeliveryStatus', header: t('notificationsPage.lastDelivery'), width: 'status', render: item => item.lastDeliveryStatus ? <StatusValueBadge value={item.lastDeliveryStatus} /> : '-' },
     { key: 'secretSet', header: t('notificationsPage.secrets'), width: 'normal', render: item => Object.keys(item.secretSet ?? {}).filter(key => item.secretSet?.[key]).join(', ') || '-' },
-    { key: 'actions', header: t('common.actions'), sticky: 'right', render: item => <Actions onDelete={() => deleteChannel.mutate(item.id)} onEdit={() => setChannelDialog(channelStateFromItem(item))} onTest={() => testChannel.mutate(item.id)} /> },
-  ], [deleteChannel, t, testChannel])
+    { key: 'actions', header: t('common.actions'), sticky: 'right', render: item => <Actions onDelete={() => deleteChannel.mutate(item.id)} onEdit={() => setChannelDialog(channelStateFromItem(item))} onTest={() => setTestChannelTarget(item)} /> },
+  ], [deleteChannel, t])
 
   const templateColumns = useMemo<DataListColumn<NotificationTemplate>[]>(() => [
     { key: 'name', header: t('notificationsPage.name'), width: 'primary', render: item => <NameCell name={item.name} sub={`${item.eventType} · ${item.adapterKind}`} /> },
@@ -267,6 +270,18 @@ export function NotificationsPage() {
       <PresetDialog openState={presetDialog} presets={presets.data ?? []} saving={createPreset.isPending} onClose={() => setPresetDialog(null)} onSave={state => createPreset.mutate(state)} onUpdate={setPresetDialog} />
       <TemplateDialog openState={templateDialog} saving={saveTemplate.isPending} onClose={() => setTemplateDialog(null)} onSave={state => saveTemplate.mutate(state)} onUpdate={setTemplateDialog} />
       <RuleDialog channels={channelOptions.data?.items ?? []} openState={ruleDialog} saving={saveRule.isPending} templates={templateOptions.data?.items ?? []} onClose={() => setRuleDialog(null)} onSave={state => saveRule.mutate(state)} onUpdate={setRuleDialog} />
+      <ConfirmDialog
+        cancelText={t('common.cancel')}
+        confirmText={t('notificationsPage.sendTest')}
+        confirmVariant="default"
+        content={<TestNotificationVariables />}
+        description={t('notificationsPage.testChannelDescription', { name: testChannelTarget?.name ?? '' })}
+        open={Boolean(testChannelTarget)}
+        pending={testChannel.isPending}
+        title={t('notificationsPage.testChannelTitle')}
+        onConfirm={() => testChannelTarget && testChannel.mutate(testChannelTarget.id)}
+        onOpenChange={open => !open && setTestChannelTarget(null)}
+      />
     </div>
   )
 }
@@ -417,6 +432,32 @@ function Actions({ onDelete, onEdit, onTest }: { onDelete: () => void, onEdit: (
       {onTest && <Button aria-label={t('notificationsPage.testChannel')} size="icon" variant="ghost" onClick={onTest}><FlaskConical className="size-4" /></Button>}
       <Button aria-label={t('common.edit')} size="icon" variant="ghost" onClick={onEdit}><Pencil className="size-4" /></Button>
       <Button aria-label={t('common.delete')} size="icon" variant="ghost" onClick={onDelete}><Trash2 className="size-4" /></Button>
+    </div>
+  )
+}
+
+function TestNotificationVariables() {
+  const { t } = useTranslation()
+  const variables = [
+    '.Event.Type',
+    '.Event.Project.Name',
+    '.Event.Application.Name',
+    '.Event.DeploymentTarget.Name',
+    '.Event.Build.ID',
+    '.Event.Release.ID',
+    '.Event.Hook.Name',
+    '.Event.Gateway.Domain',
+  ]
+  return (
+    <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+      <p className="text-muted-foreground">{t('notificationsPage.testVariablesIntro')}</p>
+      <div className="flex flex-wrap gap-2">
+        {variables.map(variable => (
+          <code key={variable} className="rounded-md bg-surface px-2 py-1 font-mono text-xs text-foreground">
+            {variable}
+          </code>
+        ))}
+      </div>
     </div>
   )
 }

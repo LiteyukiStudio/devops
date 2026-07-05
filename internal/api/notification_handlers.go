@@ -180,7 +180,7 @@ func (h *Handlers) TestNotificationChannel(ctx *gin.Context) {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := adapter.Test(context.Background(), json.RawMessage(channel.ConfigJSON), json.RawMessage(channel.SecretRefsJSON), h.secrets); err != nil {
+	if err := adapter.Test(ctx.Request.Context(), json.RawMessage(channel.ConfigJSON), json.RawMessage(channel.SecretRefsJSON), h.secrets); err != nil {
 		h.audit(user.ID, "notification.channel.test", channel.ID, false, err.Error())
 		writeError(ctx, http.StatusBadGateway, err.Error())
 		return

@@ -295,8 +295,10 @@ export function ApplicationConfigPage() {
             <ApplicationGatewayPanel
               ref={gatewayPanelRef}
               applicationId={applicationId}
+              appSlug={application.data?.slug ?? ''}
               deploymentTargets={deploymentTargetRows}
               projectId={projectId}
+              projectSlug={project.data?.slug ?? ''}
               routes={appRoutes}
             />
           </Suspense>

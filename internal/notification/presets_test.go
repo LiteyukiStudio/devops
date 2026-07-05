@@ -66,13 +66,7 @@ func TestWebhookPresetsIncludePlatformTestTemplates(t *testing.T) {
 			if cfg.TestJSONBodyTemplate == "" {
 				t.Fatal("test body template is empty")
 			}
-			if _, err := renderMessage(Event{
-				ID:         "test",
-				Type:       "notification.test",
-				Severity:   SeverityInfo,
-				Message:    "Liteyuki notification test",
-				OccurredAt: time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
-			}, Template{JSON: cfg.TestJSONBodyTemplate}, nil); err != nil {
+			if _, err := renderMessage(TestEvent(time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)), Template{JSON: cfg.TestJSONBodyTemplate}, nil); err != nil {
 				t.Fatalf("test template does not render: %v", err)
 			}
 		})

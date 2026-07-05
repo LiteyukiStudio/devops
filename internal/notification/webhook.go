@@ -146,16 +146,10 @@ func (adapter WebhookAdapter) Test(ctx context.Context, config json.RawMessage, 
 	if err != nil {
 		return err
 	}
-	event := Event{
-		ID:         "test",
-		Type:       "notification.test",
-		Severity:   SeverityInfo,
-		OccurredAt: time.Now(),
-		Message:    "Liteyuki notification test",
-	}
+	event := TestEvent(time.Now())
 	testBody := strings.TrimSpace(cfg.TestJSONBodyTemplate)
 	if testBody == "" {
-		testBody = `{"text": {{json .Event.Message}}}`
+		testBody = TemplateFromModel(DefaultTemplateFor(AdapterKindWebhook, event.Type, event.Locale)).JSON
 	}
 	message, err := adapter.Render(ctx, event, Template{JSON: testBody}, config, secrets, resolver, "")
 	if err != nil {

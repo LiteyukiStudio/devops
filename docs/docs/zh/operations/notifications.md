@@ -42,7 +42,7 @@ Webhook 渠道会限制请求方法为 `POST`、`PUT` 或 `PATCH`，并按平台
 | Slack Incoming Webhook | `WebhookPath` | `mrkdwn` blocks | 只填写 `hooks.slack.com/services/` 后面的路径，避免完整 Webhook URL 明文落表。 |
 | Discord Webhook | `WebhookID`、`WebhookToken` | embeds | 使用 Discord Webhook execute API 的 embed 结构。 |
 
-Webhook 渠道支持 `testJsonBodyTemplate`，预设会为每个平台写入对应的测试消息体。这样点击“测试”时会按平台协议发送，而不是用一个通用 JSON 去尝试所有机器人。
+Webhook 渠道支持 `testJsonBodyTemplate`，预设会为每个平台写入对应的测试消息体。这样点击“测试”并二次确认后，会使用一组预设模板变量渲染平台协议匹配的测试消息，而不是用一个通用 JSON 去尝试所有机器人。
 
 参考：
 
@@ -130,7 +130,7 @@ password=邮箱或 SMTP 密码
 建议按以下顺序验收：
 
 1. 创建一个 Webhook 或 SMTP 渠道。
-2. 点击渠道的测试按钮，确认目标平台收到测试消息。
+2. 点击渠道的测试按钮，确认测试弹窗里的模板变量说明，然后发送测试消息。
 3. 创建或确认通知模板。
 4. 创建规则，选择失败事件和通知渠道。
 5. 人为触发一次构建失败或 Hook 失败。

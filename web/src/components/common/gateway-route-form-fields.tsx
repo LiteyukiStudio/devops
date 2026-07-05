@@ -14,6 +14,7 @@ export function GatewayRouteFormFields({
   domainSuffixOptions = [],
   enabledField,
   hostField,
+  hostPlaceholder,
   pathField,
   servicePortField,
   servicePortOptions = [],
@@ -28,6 +29,7 @@ export function GatewayRouteFormFields({
   domainSuffixOptions?: Array<{ label: string, value: string }>
   enabledField: UseFormRegisterReturn<'enabled'>
   hostField: UseFormRegisterReturn<'host'>
+  hostPlaceholder?: string
   pathField: UseFormRegisterReturn<'path'>
   servicePortField: UseFormRegisterReturn<'servicePort'>
   servicePortOptions?: Array<{ label: string, value: number }>
@@ -53,7 +55,7 @@ export function GatewayRouteFormFields({
         </Select>
       </Field>
       <Field hint={t('gatewayRoutesPage.hostHint')} label={t('gatewayRoutesPage.host')}>
-        <Input {...hostField} />
+        <Input {...hostField} placeholder={hostPlaceholder || t('gatewayRoutesPage.hostPlaceholder')} />
       </Field>
       <Field hint={t('gatewayRoutesPage.domainSuffixHint')} label={t('gatewayRoutesPage.domainSuffix')} required>
         <Select {...domainSuffixField}>
