@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LiteyukiStudio/devops/internal/authz"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	kubeprovider "github.com/LiteyukiStudio/devops/internal/provider/kubernetes"
 	"github.com/gin-gonic/gin"
@@ -51,6 +52,42 @@ func (h *Handlers) runtimeClusterForDeploymentTarget(ctx *gin.Context, target mo
 		return cluster, false
 	}
 	return cluster, true
+}
+
+func (h *Handlers) runtimeClusterForProjectUse(ctx *gin.Context, user model.User, projectID string, clusterID string) (model.RuntimeCluster, bool) {
+	clusterID = strings.TrimSpace(clusterID)
+	if clusterID == "" {
+		return model.RuntimeCluster{}, true
+	}
+	var cluster model.RuntimeCluster
+	if err := h.db.First(&cluster, "id = ? and type in ?", clusterID, []string{"kubernetes", "k3s"}).Error; err != nil {
+		writeError(ctx, http.StatusBadRequest, "运行集群不存在")
+		return cluster, false
+	}
+	if canUseRuntimeClusterForProject(user, cluster, projectID, h.scopedResourceProjectIDs(scopedResourceRuntimeCluster, cluster.ID)) {
+		return cluster, true
+	}
+	writeErrorCode(ctx, http.StatusForbidden, "runtime_cluster.forbidden", "无权使用该运行集群")
+	return cluster, false
+}
+
+func canUseRuntimeClusterForProject(user model.User, cluster model.RuntimeCluster, projectID string, boundProjectIDs []string) bool {
+	if authz.IsPlatformAdmin(user.Role) {
+		return true
+	}
+	switch normalizeOwnerScope(cluster.Scope) {
+	case "global":
+		return true
+	case "project":
+		for _, boundProjectID := range boundProjectIDs {
+			if boundProjectID == projectID {
+				return true
+			}
+		}
+	case "user":
+		return cluster.OwnerRef == user.ID
+	}
+	return false
 }
 
 func deploymentTargetNamespace(project model.Project, target model.DeploymentTarget) string {

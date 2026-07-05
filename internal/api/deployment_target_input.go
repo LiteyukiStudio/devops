@@ -115,16 +115,8 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 	}
 	clusterID := strings.TrimSpace(input.ClusterID)
 	targetRegistryID := strings.TrimSpace(input.TargetRegistryID)
-	if clusterID != "" {
-		var count int64
-		if err := h.db.Model(&model.RuntimeCluster{}).Where("id = ? and type in ?", clusterID, []string{"kubernetes", "k3s"}).Count(&count).Error; err != nil {
-			writeError(ctx, http.StatusInternalServerError, err.Error())
-			return model.DeploymentTarget{}, false
-		}
-		if count == 0 {
-			writeError(ctx, http.StatusBadRequest, "运行集群不存在")
-			return model.DeploymentTarget{}, false
-		}
+	if _, ok := h.runtimeClusterForProjectUse(ctx, user, app.ProjectID, clusterID); !ok {
+		return model.DeploymentTarget{}, false
 	}
 	targetRepository, targetTag, ok = h.applyRegistryCredentialImageTemplate(ctx, user, app, sourceType, targetRegistryID, targetRepository, targetTag, model.DeploymentTarget{
 		ID:    targetID,

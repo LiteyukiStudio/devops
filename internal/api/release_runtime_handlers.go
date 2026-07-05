@@ -56,6 +56,9 @@ func (h *Handlers) ExecReleaseRuntimeCommand(ctx *gin.Context) {
 	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeRuntimeExec) {
+		return
+	}
 	release, ok := h.findRelease(ctx)
 	if !ok {
 		return
@@ -103,6 +106,9 @@ func (h *Handlers) StreamReleaseRuntimeTerminal(ctx *gin.Context) {
 		return
 	}
 	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeRuntimeTerminal) {
 		return
 	}
 	release, ok := h.findRelease(ctx)

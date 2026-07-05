@@ -106,6 +106,14 @@ var configDefinitions = []configDefinition{
 		Default:     "",
 	},
 	{
+		Key:         "security.stepUpMfa.enabled",
+		Label:       "敏感操作二次验证",
+		Description: "开启后，Web Console、运行命令、数据导出、密钥、镜像凭据、kubeconfig、身份源和用户管理等敏感操作需要当前会话完成短时二次验证。",
+		Type:        "boolean",
+		Public:      false,
+		Default:     "false",
+	},
+	{
 		Key:         "billing.creditsDisplayName",
 		Label:       "Credits 展示名称",
 		Description: "控制台展示平台内部 credits 时使用的名称。底层仍统一按 credits 存储和结算。",

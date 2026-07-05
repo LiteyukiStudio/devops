@@ -40,6 +40,7 @@ const errors = {
     failed: 'Cannot connect to the platform backend. Check the local service, network proxy, or VPN settings.',
   },
   rate_limited: 'Too many requests. Try again later',
+  mfa_required: 'This operation requires step-up verification. Complete verification and try again.',
   internal_error: 'The service is temporarily unavailable. Try again later',
   git: {
     network_failed: 'Failed to connect to the Git platform. Check server network, proxy/VPN, DNS resolution, or FakeIP settings and try again.',

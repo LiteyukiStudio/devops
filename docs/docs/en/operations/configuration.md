@@ -13,6 +13,14 @@ Public settings affect what users see:
 
 These can be shown to the frontend, but should never contain tokens, passwords, or internal-only addresses.
 
+## Security policy
+
+In production mode, API responses for the console include security headers such as `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`. The default CSP allows only same-origin scripts and connections, inline styles needed by Tailwind/shadcn, `data:` fonts and images, and HTTPS images.
+
+`Strict-Transport-Security` should only be enabled for production HTTPS deployments. It is enabled by default when `APP_ENV=production`; use `APP_ENABLE_HSTS=true` to force it on, or `APP_ENABLE_HSTS=false` to disable it. Do not enable HSTS for local or test domains that still need HTTP access.
+
+Step-up verification for sensitive operations is controlled by the site config key `security.stepUpMfa.enabled` and is disabled by default. When enabled, Web Console, runtime terminal, data export, secret and registry credential writes, kubeconfig updates, auth provider updates, and administrator user changes require a matching Step-up assertion for the current session and purpose; otherwise the API returns the stable error code `mfa_required`. This version includes the backend checkpoint and shared assertion storage. TOTP enrollment, recovery codes, and the unified frontend MFA dialog are still tracked in TODO, so do not enable this policy in production until those interactions are complete.
+
 ## Git providers
 
 Git providers connect GitHub or Gitea. After setup, users can bind repositories, receive webhooks, and trigger builds by branch or tag.

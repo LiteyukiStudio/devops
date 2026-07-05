@@ -28,6 +28,7 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.UserSession{},
+		&model.StepUpAssertion{},
 		&model.UserRememberToken{},
 		&model.AuthProvider{},
 		&model.ExternalIdentity{},

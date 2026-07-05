@@ -67,6 +67,9 @@ func (h *Handlers) CreateDeploymentTarget(ctx *gin.Context) {
 	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeDataExport) {
+		return
+	}
 	app, ok := h.findApplication(ctx)
 	if !ok {
 		return

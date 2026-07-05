@@ -190,6 +190,7 @@
 - [x] 实现 Access Token scope 校验。
 - [x] 收紧 Access Token scope：未知 API 默认拒绝，创建 scope 白名单化，普通用户只能创建读类和明确自动化触发类 scope。
 - [x] 增加 API CORS 白名单、Cookie 会话 Origin 防护和基础安全响应头。
+- [x] 补齐生产安全响应头：API 增加默认 CSP，HSTS 按 `APP_ENV=production` 或 `APP_ENABLE_HSTS=true` 启用，本地 development 不强制 HSTS。
 - [x] 为本地登录和首个管理员初始化增加基础限流。
 - [x] Access Token 列表隐藏已撤销 Token，时间列单行展示，有效期改为固定选项并支持 0 无限有效。
 - [x] 实现登录页。
@@ -218,6 +219,7 @@
 - [ ] 为用户生成一次性恢复码：恢复码只展示一次、仅存 hash、单个恢复码只能使用一次，支持用户重新生成并作废旧码。
 - [ ] 敏感操作 API 增加 MFA step-up 校验：Web Console、Secret/Registry Credential 查看或修改、kubeconfig/数据导出、删除资源、修改 OIDC/Git Provider/站点安全设置、管理员账号变更和高风险部署操作在策略开启后必须先完成 MFA。
 - [ ] MFA challenge/assertion 状态后端化：按 user/session/purpose 记录验证状态，支持 Redis 或数据库存储，多副本部署下共享；敏感操作通过后刷新 last activity，超过无操作时间或绝对有效期后重新要求 OTP。
+- [x] Step-up MFA 后端第一阶段：新增 `security.stepUpMfa.enabled` 开关、`step_up_assertions` 共享表和 `requireStepUp` 统一检查点；已接入 runtime exec/terminal、数据导出、Secret/Registry Credential 写入、kubeconfig 更新、Auth Provider 更新和管理员用户变更，未通过时返回 `mfa_required`。
 - [ ] 前端统一 MFA Dialog：敏感操作遇到 `mfa_required` 后弹出 OTP/恢复码输入框，验证通过后自动继续原操作，所有文案走 i18n。
 - [ ] MFA 安全控制：OTP 校验允许小时间漂移，验证接口按用户和 IP 限流，OTP/恢复码不写日志，密码重置、禁用账号、角色变化和 MFA 重置后清理已有 assertion。
 - [ ] MFA 管理与审计：用户解绑 MFA、重新生成恢复码、使用恢复码、管理员重置用户 MFA、敏感操作 MFA 通过/失败均写入 AuditLog；管理员不可查看用户 TOTP secret 或恢复码明文。
@@ -613,6 +615,7 @@
 - [x] 实现 RuntimeCluster 模型、迁移和 CRUD API。
 - [x] 支持设置默认集群。
 - [x] RuntimeCluster 支持 global/project/user scope，project scope 支持多个项目空间绑定；只有 global 集群允许设为默认集群，列表按当前用户可访问范围返回。
+- [x] 收紧运行集群使用授权：创建/更新部署配置、环境和模板安装时统一校验集群 scope、项目空间绑定、用户归属和平台管理员旁路，避免通过构造 `clusterId` 越权部署或读取运行态资源。
 - [x] 实现 kubeconfig 保存、替换和测试连接 API：仅创建者本人或平台管理员可以替换 kubeconfig，接口不回显 kubeconfig 明文。
 - [x] 运行集群测试改为真实 Kubernetes API Server `/version` 连通性检测；无 kubeconfig、无效 kubeconfig 或网络不可达时写入失败状态并返回错误。
 - [x] 集群前端接入改为 kubeconfig-only YAML 代码框，普通用户列表不展示无权维护集群的 endpoint 配置。
@@ -776,6 +779,8 @@
 - [x] 拆分并退场旧 `internal/api/builder_handlers.go` 主路径：Builder 认证与心跳、任务 claim/lease、日志/进度回写等旧 Agent API 已不再注册路由；构建 payload 组装迁入 Worker 可复用运行时，镜像引用和 tag 渲染 helper 继续复用。验收：构建主路径走 `build:run` + Kubernetes Job，`go test ./...` 通过。
 - [x] 拆分 `internal/api/deployment_handlers.go`：按运行集群、项目环境、部署配置、发布/回滚、自动部署匹配拆为独立文件；集群 kubeconfig flatten、环境 slug 校验和自动部署匹配规则迁入独立 helper/service。验收：每个 handler 文件只处理一个资源族，自动部署匹配规则有单测覆盖，`go test ./...` 通过。
 - [x] 后端热点第二轮拆分：继续拆分部署配置、发布运行时和运行集群资源文件；`deployment_target_handlers.go` 只保留部署配置 HTTP 入口，发布运行时日志/exec/terminal 独立到 `release_runtime_handlers.go`，运行集群资源浏览/权限/响应/kubeconfig helper 独立成文件。验收：`go test ./...` 通过。
+- [x] Kubernetes provider 热点拆分：`resources.go` 拆出 runtime 日志、exec、terminal 和 metrics 逻辑，`deploy_resources.go` 拆出 Hook Job 逻辑；行为不变，`go test ./internal/provider/kubernetes` 与 `go test ./...` 通过。
+- [x] 前端热点页面继续拆分：运行集群页抽出集群资源面板和资源权限 helper，部署面板抽出部署配置编辑弹窗；`ClustersPage.tsx` 和 `application-deployments-panel.tsx` 均降到 1000 行以内，`pnpm --dir web lint/build` 通过。
 - [x] 拆分 `web/src/api/client.ts`：已拆为 `web/src/api/core.ts`、`urls.ts`、`types.ts` 和 `web/src/api/domains/*`，入口只组合领域 API；业务页面统一改从 `@/api` 引入。验收：`pnpm --dir web lint`、`pnpm --dir web build` 通过。
 - [x] 拆分 `web/src/pages/registries/RegistriesPage.tsx`：已拆出 `registry-form-model.ts`、`registry-list-panels.tsx`、`registry-dialogs.tsx`；主页面保留 tab、查询和 mutation 编排。验收：`pnpm --dir web lint`、`pnpm --dir web build` 通过。
 - [x] 拆分 `internal/builder/agent.go` 遗留 executor 工具：旧 `agent.go` 已不存在，现有 builder 已收敛为 `executor/run.sh`、`logs.go`、`payload.go`、`types.go` 等中性模块；无 Docker executor/Agent 生命周期残留。验收：`go test ./...` 通过。

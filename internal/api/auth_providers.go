@@ -50,9 +50,16 @@ func (h *Handlers) CreateAuthProvider(ctx *gin.Context) {
 	if !h.requirePlatformAdmin(ctx) {
 		return
 	}
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
 
 	var input authProviderInput
 	if !bindJSON(ctx, &input) {
+		return
+	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeAuthProviderUpdate) {
 		return
 	}
 	providerID := id.New("ap")
@@ -86,6 +93,10 @@ func (h *Handlers) UpdateAuthProvider(ctx *gin.Context) {
 	if !h.requirePlatformAdmin(ctx) {
 		return
 	}
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
 
 	var provider model.AuthProvider
 	if err := h.db.First(&provider, "id = ?", ctx.Param("providerId")).Error; err != nil {
@@ -95,6 +106,9 @@ func (h *Handlers) UpdateAuthProvider(ctx *gin.Context) {
 
 	var input authProviderInput
 	if !bindJSON(ctx, &input) {
+		return
+	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeAuthProviderUpdate) {
 		return
 	}
 	if secret := strings.TrimSpace(input.ClientSecret); secret != "" {

@@ -265,9 +265,16 @@ func (h *Handlers) CreateUser(ctx *gin.Context) {
 	if !h.requirePlatformAdmin(ctx) {
 		return
 	}
+	currentUser, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
 
 	var input userInput
 	if !bindJSON(ctx, &input) {
+		return
+	}
+	if !h.requireStepUp(ctx, currentUser, stepUpPurposeUserAdminUpdate) {
 		return
 	}
 
@@ -314,6 +321,9 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 	}
 	if currentUser.Role != "platform_admin" {
 		writeErrorKey(ctx, http.StatusForbidden, currentUser.Language, "config.admin.required")
+		return
+	}
+	if !h.requireStepUp(ctx, currentUser, stepUpPurposeUserAdminUpdate) {
 		return
 	}
 

@@ -232,12 +232,39 @@ func cors() gin.HandlerFunc {
 }
 
 func securityHeaders() gin.HandlerFunc {
+	csp := strings.Join([]string{
+		"default-src 'self'",
+		"script-src 'self'",
+		"style-src 'self' 'unsafe-inline'",
+		"img-src 'self' data: https:",
+		"font-src 'self' data:",
+		"connect-src 'self'",
+		"frame-ancestors 'self'",
+		"base-uri 'self'",
+		"form-action 'self'",
+	}, "; ")
+	enableHSTS := hstsEnabled()
 	return func(ctx *gin.Context) {
 		ctx.Writer.Header().Set("X-Content-Type-Options", "nosniff")
 		ctx.Writer.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		ctx.Writer.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		ctx.Writer.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		ctx.Writer.Header().Set("Content-Security-Policy", csp)
+		if enableHSTS {
+			ctx.Writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		ctx.Next()
+	}
+}
+
+func hstsEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENABLE_HSTS"))) {
+	case "true", "1", "yes", "on":
+		return true
+	case "false", "0", "no", "off":
+		return false
+	default:
+		return config.RuntimeMode() == "production"
 	}
 }
 

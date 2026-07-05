@@ -40,6 +40,7 @@ const errors = {
     failed: '无法连接到平台后端，请检查本地服务、网络代理或 VPN 设置。',
   },
   rate_limited: '请求过于频繁，请稍后再试',
+  mfa_required: '该操作需要完成二次验证，请完成验证后重试。',
   internal_error: '服务暂时不可用，请稍后再试',
   git: {
     network_failed: 'Git 平台连接失败。请检查服务端网络、代理/VPN、DNS 解析或 FakeIP 设置后重试。',

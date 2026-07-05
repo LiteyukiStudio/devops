@@ -38,7 +38,10 @@ func (h *Handlers) CreateEnvironment(ctx *gin.Context) {
 	if !validateEnvironmentSlug(ctx, input.Slug) {
 		return
 	}
-	environment := environmentFromInput(ctx.Param("projectId"), user.ID, input, "")
+	environment := environmentFromInput(project.ID, user.ID, input, "")
+	if _, ok := h.runtimeClusterForProjectUse(ctx, user, project.ID, environment.ClusterID); !ok {
+		return
+	}
 	environment.ID = id.New("env")
 	if err := h.db.Create(&environment).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
@@ -48,7 +51,7 @@ func (h *Handlers) CreateEnvironment(ctx *gin.Context) {
 }
 
 func (h *Handlers) UpdateEnvironment(ctx *gin.Context) {
-	project, ok := h.findProjectForCurrentUserWithRoles(ctx, "owner", "admin", "developer")
+	user, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
 	if !ok {
 		return
 	}
@@ -66,7 +69,10 @@ func (h *Handlers) UpdateEnvironment(ctx *gin.Context) {
 	if !validateEnvironmentSlug(ctx, input.Slug) {
 		return
 	}
-	next := environmentFromInput(ctx.Param("projectId"), environment.CreatedBy, input, environment.ID)
+	next := environmentFromInput(project.ID, environment.CreatedBy, input, environment.ID)
+	if _, ok := h.runtimeClusterForProjectUse(ctx, user, project.ID, next.ClusterID); !ok {
+		return
+	}
 	environment.Name = next.Name
 	environment.Slug = next.Slug
 	environment.ClusterID = next.ClusterID

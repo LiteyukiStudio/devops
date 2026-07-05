@@ -13,6 +13,14 @@
 
 这些内容可以放心展示给前端，但不要放 Token、密码或内部地址。
 
+## 安全策略
+
+生产模式下，API 会为控制台响应增加基础安全响应头，包括 `Content-Security-Policy`、`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy` 和 `Permissions-Policy`。CSP 默认只允许同源脚本和连接，允许 Tailwind/shadcn 所需的 inline style、`data:` 字体和图片，以及 HTTPS 图片资源。
+
+`Strict-Transport-Security` 只建议在生产 HTTPS 环境开启。平台默认在 `APP_ENV=production` 时启用，也可以通过 `APP_ENABLE_HSTS=true` 显式开启，或用 `APP_ENABLE_HSTS=false` 关闭。不要在仍需 HTTP 访问的本地或测试域名上开启 HSTS。
+
+敏感操作二次验证由站点配置 `security.stepUpMfa.enabled` 控制，默认关闭。开启后，Web Console、运行终端、数据导出、密钥/镜像站凭据写入、kubeconfig 更新、认证源更新和管理员账号变更会先检查当前会话是否已有对应 purpose 的 Step-up assertion；未通过时 API 返回稳定错误码 `mfa_required`。当前版本已具备后端检查点和共享 assertion 存储，TOTP 绑定、恢复码和前端统一 MFA Dialog 仍在 TODO 中；在这些交互完成前，不建议在生产打开该策略。
+
 ## Git Provider
 
 Git Provider 用来连接 GitHub 或 Gitea。配置完成后，用户可以绑定仓库、接收 Webhook，并按分支或标签触发构建。

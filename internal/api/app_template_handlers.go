@@ -229,7 +229,7 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 	if clusterID == "" {
 		clusterID = h.defaultRuntimeClusterID()
 	}
-	if clusterID != "" && !h.runtimeClusterExists(ctx, clusterID) {
+	if _, ok := h.runtimeClusterForProjectUse(ctx, user, project.ID, clusterID); !ok {
 		return templateInstallPlan{}, false
 	}
 
@@ -419,19 +419,6 @@ func (h *Handlers) defaultRuntimeClusterID() string {
 		return cluster.ID
 	}
 	return ""
-}
-
-func (h *Handlers) runtimeClusterExists(ctx *gin.Context, clusterID string) bool {
-	var count int64
-	if err := h.db.Model(&model.RuntimeCluster{}).Where("id = ? and type in ?", clusterID, []string{"kubernetes", "k3s"}).Count(&count).Error; err != nil {
-		writeError(ctx, http.StatusInternalServerError, err.Error())
-		return false
-	}
-	if count == 0 {
-		writeError(ctx, http.StatusBadRequest, "运行集群不存在")
-		return false
-	}
-	return true
 }
 
 func safeTemplateValues(template appstore.Template, values map[string]string) map[string]string {

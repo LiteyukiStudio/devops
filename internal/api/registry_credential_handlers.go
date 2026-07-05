@@ -67,6 +67,9 @@ func (h *Handlers) CreateRegistryCredential(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeRegistryCredentialUpdate) {
+		return
+	}
 	if strings.TrimSpace(input.Password) != "" || strings.TrimSpace(input.Token) != "" {
 		if err := secret.ValidateEncryptionConfig(); err != nil {
 			status := http.StatusInternalServerError
@@ -142,6 +145,9 @@ func (h *Handlers) UpdateRegistryCredential(ctx *gin.Context) {
 
 	var input registryCredentialInput
 	if !bindJSON(ctx, &input) {
+		return
+	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeRegistryCredentialUpdate) {
 		return
 	}
 	if strings.TrimSpace(input.Password) != "" || strings.TrimSpace(input.Token) != "" {
