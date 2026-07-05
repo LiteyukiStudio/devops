@@ -19,6 +19,7 @@ import gatewayRoutesPage from './en-US/gatewayRoutesPage'
 import languages from './en-US/languages'
 import loginPage from './en-US/loginPage'
 import nav from './en-US/nav'
+import notificationsPage from './en-US/notificationsPage'
 import operationsDashboardPage from './en-US/operationsDashboardPage'
 import pagination from './en-US/pagination'
 import projectHooks from './en-US/projectHooks'
@@ -63,6 +64,7 @@ const enUS = {
   dashboardPage,
   auth,
   nav,
+  notificationsPage,
   loginPage,
   bootstrap,
   usersPage,

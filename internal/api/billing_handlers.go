@@ -38,6 +38,52 @@ func (h *Handlers) GetBillingSummary(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, summary)
 }
 
+type gatewayTrafficStatusResponse struct {
+	Available             bool       `json:"available"`
+	Installed             bool       `json:"installed"`
+	Status                string     `json:"status"`
+	ComponentID           string     `json:"componentId"`
+	InstallableTemplateID string     `json:"installableTemplateId"`
+	LastReportedAt        *time.Time `json:"lastReportedAt"`
+	LastWindowStart       *time.Time `json:"lastWindowStart"`
+	LastWindowEnd         *time.Time `json:"lastWindowEnd"`
+	LastError             string     `json:"lastError"`
+}
+
+func (h *Handlers) GetGatewayTrafficStatus(ctx *gin.Context) {
+	if _, ok := h.currentUser(ctx); !ok {
+		return
+	}
+	var installation model.SystemComponentInstallation
+	err := h.db.Where("component_id = ?", systemComponentGatewayTrafficProbe).
+		Order("case when status = 'ready' then 0 when status = 'deployed' then 1 when status = 'pending' then 2 else 3 end, updated_at desc").
+		First(&installation).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx.JSON(http.StatusOK, gatewayTrafficStatusResponse{
+			Available:             false,
+			Installed:             false,
+			ComponentID:           systemComponentGatewayTrafficProbe,
+			InstallableTemplateID: "liteyuki-gateway-traffic-probe",
+		})
+		return
+	}
+	if err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ctx.JSON(http.StatusOK, gatewayTrafficStatusResponse{
+		Available:             installation.Status == "ready",
+		Installed:             true,
+		Status:                installation.Status,
+		ComponentID:           installation.ComponentID,
+		InstallableTemplateID: "liteyuki-gateway-traffic-probe",
+		LastReportedAt:        installation.LastReportedAt,
+		LastWindowStart:       installation.LastWindowStart,
+		LastWindowEnd:         installation.LastWindowEnd,
+		LastError:             installation.LastError,
+	})
+}
+
 func (h *Handlers) ListBillingLedgerEntries(ctx *gin.Context) {
 	user, ok := h.currentUser(ctx)
 	if !ok {
@@ -479,13 +525,26 @@ func (h *Handlers) CreateExternalBillingTransaction(ctx *gin.Context) {
 }
 
 func (h *Handlers) CreateGatewayTrafficUsage(ctx *gin.Context) {
-	user, ok := h.currentUser(ctx)
-	if !ok {
-		return
+	actorID := ""
+	var component model.SystemComponentInstallation
+	componentAuthenticated := false
+	if token := bearerTokenFromHeader(ctx.GetHeader("Authorization")); token != "" {
+		if item, ok := h.systemComponentForBearerToken(token, systemComponentGatewayTrafficProbe); ok {
+			component = item
+			componentAuthenticated = true
+			actorID = item.ID
+		}
 	}
-	if user.Role != "platform_admin" {
-		writeErrorKey(ctx, http.StatusForbidden, user.Language, "config.admin.required")
-		return
+	if !componentAuthenticated {
+		user, ok := h.currentUser(ctx)
+		if !ok {
+			return
+		}
+		if user.Role != "platform_admin" {
+			writeErrorKey(ctx, http.StatusForbidden, user.Language, "config.admin.required")
+			return
+		}
+		actorID = user.ID
 	}
 	var input gatewayTrafficUsageInput
 	if !bindJSON(ctx, &input) {
@@ -515,13 +574,17 @@ func (h *Handlers) CreateGatewayTrafficUsage(ctx *gin.Context) {
 		writeError(ctx, http.StatusNotFound, "gateway route not found")
 		return
 	}
+	if componentAuthenticated && !h.gatewayRouteBelongsToRuntimeCluster(route, component.RuntimeClusterID) {
+		writeErrorCode(ctx, http.StatusForbidden, "billing.gateway_route_cluster_forbidden", "gateway route does not belong to the probe runtime cluster")
+		return
+	}
 	err = (billing.Service{DB: h.db}).SettleGatewayTrafficWindow(billing.GatewayTrafficUsageInput{
 		Route:         route,
 		ResponseBytes: input.ResponseBytes,
 		RequestCount:  input.RequestCount,
 		PeriodStart:   periodStart,
 		PeriodEnd:     periodEnd,
-		ActorID:       user.ID,
+		ActorID:       actorID,
 	})
 	if errors.Is(err, billing.ErrAlreadySettled) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "already_settled"})
@@ -531,8 +594,43 @@ func (h *Handlers) CreateGatewayTrafficUsage(ctx *gin.Context) {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	h.audit(user.ID, "billing.gateway_traffic", route.ID, true, "")
+	if componentAuthenticated {
+		now := time.Now()
+		_ = h.db.Model(&component).Updates(map[string]any{
+			"status":            "ready",
+			"message":           "gateway traffic probe reported usage",
+			"last_reported_at":  &now,
+			"last_window_start": &periodStart,
+			"last_window_end":   &periodEnd,
+			"last_error":        "",
+		}).Error
+	}
+	h.audit(actorID, "billing.gateway_traffic", route.ID, true, "")
 	ctx.JSON(http.StatusCreated, gin.H{"status": "settled"})
+}
+
+func bearerTokenFromHeader(header string) string {
+	header = strings.TrimSpace(header)
+	if len(header) < len("Bearer ") || !strings.EqualFold(header[:len("Bearer ")], "Bearer ") {
+		return ""
+	}
+	return strings.TrimSpace(header[len("Bearer "):])
+}
+
+func (h *Handlers) gatewayRouteBelongsToRuntimeCluster(route model.GatewayRoute, clusterID string) bool {
+	clusterID = strings.TrimSpace(clusterID)
+	if clusterID == "" {
+		return false
+	}
+	var target model.DeploymentTarget
+	if err := h.db.Select("id", "cluster_id").First(&target, "id = ? and project_id = ?", route.DeploymentTargetID, route.ProjectID).Error; err != nil {
+		return false
+	}
+	targetClusterID := strings.TrimSpace(target.ClusterID)
+	if targetClusterID == "" {
+		targetClusterID = h.defaultRuntimeClusterID()
+	}
+	return targetClusterID == clusterID
 }
 
 func (h *Handlers) billingScopeForUser(ctx *gin.Context, user model.User) (billingScope, bool) {

@@ -21,6 +21,11 @@
   },
   {
     "type": "file",
+    "name": "notifications",
+    "label": "Notifications"
+  },
+  {
+    "type": "file",
     "name": "external-compatibility",
     "label": "External Compatibility"
   },

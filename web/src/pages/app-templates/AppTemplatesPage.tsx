@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import type { AppTemplate, AppTemplateInstallPayload, Project, RuntimeCluster } from '@/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Box, Database, Link2, PackageOpen, Rocket, Search } from 'lucide-react'
+import { Box, Database, Link2, PackageOpen, Rocket, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { api } from '@/api'
+import { useSession } from '@/app/session-context'
 import { CheckboxField } from '@/components/common/checkbox-field'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -26,6 +27,8 @@ const FALLBACK_ICON = '/app-templates/icons/fallback.svg'
 export function AppTemplatesPage() {
   const { i18n, t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { user } = useSession()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
@@ -34,13 +37,15 @@ export function AppTemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<AppTemplate | null>(null)
   const [projectId, setProjectId] = useState('')
   const [form, setForm] = useState<AppTemplateInstallPayload>(emptyInstallPayload())
+  const selectedTemplateIsSystem = isSystemComponentTemplate(selectedTemplate)
+  const canInstallSystemComponent = user?.role === 'platform_admin'
 
   const templates = useQuery({ queryKey: ['app-templates'], queryFn: api.listAppTemplates })
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
   const clusters = useQuery({
-    queryKey: ['runtime-clusters', projectId],
-    queryFn: () => api.listRuntimeClusters(projectId),
-    enabled: Boolean(projectId),
+    queryKey: ['runtime-clusters', selectedTemplateIsSystem ? 'system' : projectId],
+    queryFn: () => api.listRuntimeClusters(selectedTemplateIsSystem ? undefined : projectId),
+    enabled: selectedTemplateIsSystem || Boolean(projectId),
   })
   const projectItems = projects.data ?? []
   const clusterItems = clusters.data ?? []
@@ -49,6 +54,15 @@ export function AppTemplatesPage() {
     if (!projectId && projectItems.length > 0)
       setProjectId(projectItems[0].id)
   }, [projectId, projectItems])
+
+  useEffect(() => {
+    const templateID = searchParams.get('template')
+    if (!templateID || selectedTemplate || !templates.data)
+      return
+    const template = templates.data.find(item => item.id === templateID)
+    if (template)
+      openInstallDialog(template)
+  }, [searchParams, selectedTemplate, templates.data])
 
   const categoryOptions = useMemo(() => {
     const categories = new Set((templates.data ?? []).map(template => template.category).filter(Boolean))
@@ -96,6 +110,28 @@ export function AppTemplatesPage() {
     onError: error => toast.error(error.message),
   })
 
+  const installSystemTemplate = useMutation({
+    mutationFn: (payload: { templateId: string, clusterId: string, apiBaseUrl: string }) =>
+      api.installSystemAppTemplate(payload.templateId, {
+        apiBaseUrl: payload.apiBaseUrl,
+        clusterId: payload.clusterId,
+        mode: 'traefik-metrics',
+        namespace: 'liteyuki-system',
+      }),
+    onSuccess: async () => {
+      toast.success(t('appTemplatesPage.systemInstallStarted'))
+      setSelectedTemplate(null)
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        next.delete('template')
+        return next
+      }, { replace: true })
+      await queryClient.invalidateQueries({ queryKey: ['system-components'] })
+      await queryClient.invalidateQueries({ queryKey: ['billing', 'gateway-traffic-status'] })
+    },
+    onError: error => toast.error(error.message),
+  })
+
   function openInstallDialog(template: AppTemplate) {
     setSelectedTemplate(template)
     setForm(payloadFromTemplate(template))
@@ -110,7 +146,19 @@ export function AppTemplatesPage() {
   }
 
   function submitInstall() {
-    if (!selectedTemplate || !projectId)
+    if (!selectedTemplate)
+      return
+    if (isSystemComponentTemplate(selectedTemplate)) {
+      if (!canInstallSystemComponent)
+        return
+      installSystemTemplate.mutate({
+        apiBaseUrl: form.values.apiBaseUrl ?? '',
+        clusterId: form.clusterId,
+        templateId: selectedTemplate.id,
+      })
+      return
+    }
+    if (!projectId)
       return
     installTemplate.mutate({ ...form, projectId, templateId: selectedTemplate.id })
   }
@@ -172,7 +220,12 @@ export function AppTemplatesPage() {
       {sortedTemplates.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sortedTemplates.map(template => (
-            <TemplateCard key={template.id} template={template} onInstall={() => openInstallDialog(template)} />
+            <TemplateCard
+              key={template.id}
+              canInstallSystemComponent={canInstallSystemComponent}
+              template={template}
+              onInstall={() => openInstallDialog(template)}
+            />
           ))}
         </div>
       )}
@@ -180,8 +233,9 @@ export function AppTemplatesPage() {
       <InstallTemplateDialog
         clusterItems={clusterItems}
         clustersLoading={clusters.isLoading}
+        canInstallSystemComponent={canInstallSystemComponent}
         form={form}
-        installing={installTemplate.isPending}
+        installing={installTemplate.isPending || installSystemTemplate.isPending}
         projectId={projectId}
         projects={projectItems}
         template={selectedTemplate}
@@ -195,9 +249,11 @@ export function AppTemplatesPage() {
   )
 }
 
-function TemplateCard({ template, onInstall }: { template: AppTemplate, onInstall: () => void }) {
+function TemplateCard({ canInstallSystemComponent, template, onInstall }: { canInstallSystemComponent: boolean, template: AppTemplate, onInstall: () => void }) {
   const { t } = useTranslation()
   const CategoryIcon = template.category === 'database' ? Database : Box
+  const systemComponent = isSystemComponentTemplate(template)
+  const installDisabled = systemComponent && !canInstallSystemComponent
   return (
     <Card className="flex min-h-56 flex-col gap-4 p-5">
       <div className="flex items-start gap-4">
@@ -215,6 +271,7 @@ function TemplateCard({ template, onInstall }: { template: AppTemplate, onInstal
           <div className="flex items-center gap-2">
             <h2 className="truncate text-lg font-semibold">{template.name}</h2>
             <StatusBadge tone="neutral">{t(`appTemplatesPage.categories.${template.category}`, { defaultValue: template.category })}</StatusBadge>
+            {systemComponent && <StatusBadge tone="info">{t('appTemplatesPage.platformComponent')}</StatusBadge>}
           </div>
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
             {t(`appTemplatesPage.templates.${template.id}.description`, { defaultValue: template.description || t('common.noDescription') })}
@@ -245,8 +302,8 @@ function TemplateCard({ template, onInstall }: { template: AppTemplate, onInstal
           </span>
         </div>
         <div className="shrink-0">
-          <Button className="rounded-full" type="button" onClick={onInstall}>
-            <Rocket className="size-4" />
+          <Button className="rounded-full" disabled={installDisabled} type="button" onClick={onInstall}>
+            {systemComponent ? <ShieldCheck className="size-4" /> : <Rocket className="size-4" />}
             {t('appTemplatesPage.install')}
           </Button>
         </div>
@@ -297,6 +354,7 @@ function TemplateFact({ label, value }: { label: string, value: string }) {
 function InstallTemplateDialog({
   clusterItems,
   clustersLoading,
+  canInstallSystemComponent,
   form,
   installing,
   projectId,
@@ -310,6 +368,7 @@ function InstallTemplateDialog({
 }: {
   clusterItems: RuntimeCluster[]
   clustersLoading: boolean
+  canInstallSystemComponent: boolean
   form: AppTemplateInstallPayload
   installing: boolean
   projectId: string
@@ -322,105 +381,133 @@ function InstallTemplateDialog({
   onUpdate: <K extends keyof AppTemplateInstallPayload>(key: K, value: AppTemplateInstallPayload[K]) => void
 }) {
   const { t } = useTranslation()
-  const canSubmit = Boolean(template && projectId && form.applicationName.trim() && form.applicationSlug.trim() && form.imageRef.trim() && !installing)
+  const systemComponent = isSystemComponentTemplate(template)
+  const canSubmit = systemComponent
+    ? Boolean(template && canInstallSystemComponent && form.clusterId.trim() && (form.values.apiBaseUrl ?? '').trim() && !installing)
+    : Boolean(template && projectId && form.applicationName.trim() && form.applicationSlug.trim() && form.imageRef.trim() && !installing)
   return (
     <Dialog open={Boolean(template)} onOpenChange={open => !open && onClose()}>
       <DialogContent className="flex max-h-[min(92vh,54rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-border px-6 py-5">
           <DialogTitle>{t('appTemplatesPage.installDialogTitle', { name: template?.name ?? '' })}</DialogTitle>
-          <DialogDescription>{t('appTemplatesPage.installDialogDescription')}</DialogDescription>
+          <DialogDescription>{systemComponent ? t('appTemplatesPage.systemInstallDialogDescription') : t('appTemplatesPage.installDialogDescription')}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <div className="grid gap-5 md:grid-cols-2">
-            <Field label={t('projectSpaces.title')}>
-              <ProjectSpaceSelect
-                disabled={projects.length === 0 || installing}
-                projects={projects}
-                value={projectId}
-                onChange={onProjectChange}
-              />
-            </Field>
-            <Field label={t('appTemplatesPage.runtimeCluster')}>
-              <Select
-                disabled={clustersLoading || installing}
-                value={form.clusterId}
-                onChange={event => onUpdate('clusterId', event.target.value)}
-              >
-                <option value="">{t('appTemplatesPage.defaultCluster')}</option>
-                {clusterItems.map(cluster => (
-                  <option key={cluster.id} value={cluster.id}>
-                    {cluster.name}
-                    {cluster.isDefault ? ` (${t('common.default')})` : ''}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label={t('appTemplatesPage.applicationName')} required>
-              <Input value={form.applicationName} onChange={event => onUpdate('applicationName', event.target.value)} />
-            </Field>
-            <Field label={t('appTemplatesPage.applicationSlug')} required>
-              <Input value={form.applicationSlug} onChange={event => onUpdate('applicationSlug', normalizeSlugInput(event.target.value))} />
-            </Field>
-            <Field label={t('appTemplatesPage.deploymentName')}>
-              <Input value={form.deploymentName} onChange={event => onUpdate('deploymentName', event.target.value)} />
-            </Field>
-            <Field label={t('appTemplatesPage.stage')}>
-              <Select value={form.stage} onChange={event => onUpdate('stage', event.target.value)}>
-                {['prod', 'staging', 'test', 'dev'].map(stage => (
-                  <option key={stage} value={stage}>{t(`appTemplatesPage.stageOptions.${stage}`)}</option>
-                ))}
-              </Select>
-            </Field>
-            <div className="md:col-span-2">
-              <Field label={t('appTemplatesPage.imageRef')} required>
-                <Input
-                  value={form.imageRef}
-                  onChange={event => onUpdate('imageRef', event.target.value)}
+          {!systemComponent && (
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label={t('projectSpaces.title')}>
+                <ProjectSpaceSelect
+                  disabled={projects.length === 0 || installing}
+                  projects={projects}
+                  value={projectId}
+                  onChange={onProjectChange}
                 />
-                <p className="text-xs text-muted-foreground">{t('appTemplatesPage.imageRefHint')}</p>
+              </Field>
+              <Field label={t('appTemplatesPage.runtimeCluster')}>
+                <Select
+                  disabled={clustersLoading || installing}
+                  value={form.clusterId}
+                  onChange={event => onUpdate('clusterId', event.target.value)}
+                >
+                  <option value="">{t('appTemplatesPage.defaultCluster')}</option>
+                  {clusterItems.map(cluster => (
+                    <option key={cluster.id} value={cluster.id}>
+                      {cluster.name}
+                      {cluster.isDefault ? ` (${t('common.default')})` : ''}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t('appTemplatesPage.applicationName')} required>
+                <Input value={form.applicationName} onChange={event => onUpdate('applicationName', event.target.value)} />
+              </Field>
+              <Field label={t('appTemplatesPage.applicationSlug')} required>
+                <Input value={form.applicationSlug} onChange={event => onUpdate('applicationSlug', normalizeSlugInput(event.target.value))} />
+              </Field>
+              <Field label={t('appTemplatesPage.deploymentName')}>
+                <Input value={form.deploymentName} onChange={event => onUpdate('deploymentName', event.target.value)} />
+              </Field>
+              <Field label={t('appTemplatesPage.stage')}>
+                <Select value={form.stage} onChange={event => onUpdate('stage', event.target.value)}>
+                  {['prod', 'staging', 'test', 'dev'].map(stage => (
+                    <option key={stage} value={stage}>{t(`appTemplatesPage.stageOptions.${stage}`)}</option>
+                  ))}
+                </Select>
+              </Field>
+              <div className="md:col-span-2">
+                <Field label={t('appTemplatesPage.imageRef')} required>
+                  <Input
+                    value={form.imageRef}
+                    onChange={event => onUpdate('imageRef', event.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">{t('appTemplatesPage.imageRefHint')}</p>
+                </Field>
+              </div>
+              <div className="grid gap-5 md:col-span-2 md:grid-cols-4">
+                <Field label={t('appTemplatesPage.replicas')}>
+                  <Input min={1} type="number" value={form.replicas} onChange={event => onUpdate('replicas', Number(event.target.value || 1))} />
+                </Field>
+                <Field label={t('appTemplatesPage.cpu')}>
+                  <UnitInput
+                    unitSelectLabel={t('appTemplatesPage.cpu')}
+                    units={[
+                      { label: 'm', value: 'm' },
+                      { label: t('deploymentsPage.cpuUnits.core'), value: '' },
+                    ]}
+                    value={form.cpuRequest}
+                    onChange={value => onUpdate('cpuRequest', value)}
+                  />
+                </Field>
+                <Field label={t('appTemplatesPage.memory')}>
+                  <UnitInput
+                    unitSelectLabel={t('appTemplatesPage.memory')}
+                    units={[
+                      { label: 'Mi', value: 'Mi' },
+                      { label: 'Gi', value: 'Gi' },
+                    ]}
+                    value={form.memoryRequest}
+                    onChange={value => onUpdate('memoryRequest', value)}
+                  />
+                </Field>
+                <Field label={t('appTemplatesPage.dataCapacity')}>
+                  <UnitInput
+                    disabled={!template?.dataRetentionEnabled}
+                    inputProps={{ placeholder: t('deploymentsPage.dataCapacityPlaceholder') }}
+                    unitSelectLabel={t('appTemplatesPage.dataCapacity')}
+                    units={[
+                      { label: 'Mi', value: 'Mi' },
+                      { label: 'Gi', value: 'Gi' },
+                    ]}
+                    value={form.dataCapacity}
+                    onChange={value => onUpdate('dataCapacity', value)}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          {systemComponent && (
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label={t('appTemplatesPage.runtimeCluster')} required>
+                <Select
+                  disabled={clustersLoading || installing}
+                  value={form.clusterId}
+                  onChange={event => onUpdate('clusterId', event.target.value)}
+                >
+                  <option value="">{t('appTemplatesPage.selectRuntimeCluster')}</option>
+                  {clusterItems.map(cluster => (
+                    <option key={cluster.id} value={cluster.id}>
+                      {cluster.name}
+                      {cluster.isDefault ? ` (${t('common.default')})` : ''}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t('appTemplatesPage.componentNamespace')}>
+                <Input disabled value="liteyuki-system" />
               </Field>
             </div>
-            <div className="grid gap-5 md:col-span-2 md:grid-cols-4">
-              <Field label={t('appTemplatesPage.replicas')}>
-                <Input min={1} type="number" value={form.replicas} onChange={event => onUpdate('replicas', Number(event.target.value || 1))} />
-              </Field>
-              <Field label={t('appTemplatesPage.cpu')}>
-                <UnitInput
-                  unitSelectLabel={t('appTemplatesPage.cpu')}
-                  units={[
-                    { label: 'm', value: 'm' },
-                    { label: t('deploymentsPage.cpuUnits.core'), value: '' },
-                  ]}
-                  value={form.cpuRequest}
-                  onChange={value => onUpdate('cpuRequest', value)}
-                />
-              </Field>
-              <Field label={t('appTemplatesPage.memory')}>
-                <UnitInput
-                  unitSelectLabel={t('appTemplatesPage.memory')}
-                  units={[
-                    { label: 'Mi', value: 'Mi' },
-                    { label: 'Gi', value: 'Gi' },
-                  ]}
-                  value={form.memoryRequest}
-                  onChange={value => onUpdate('memoryRequest', value)}
-                />
-              </Field>
-              <Field label={t('appTemplatesPage.dataCapacity')}>
-                <UnitInput
-                  disabled={!template?.dataRetentionEnabled}
-                  inputProps={{ placeholder: t('deploymentsPage.dataCapacityPlaceholder') }}
-                  unitSelectLabel={t('appTemplatesPage.dataCapacity')}
-                  units={[
-                    { label: 'Mi', value: 'Mi' },
-                    { label: 'Gi', value: 'Gi' },
-                  ]}
-                  value={form.dataCapacity}
-                  onChange={value => onUpdate('dataCapacity', value)}
-                />
-              </Field>
-            </div>
-          </div>
+          )}
 
           {template && template.values.length > 0 && (
             <div className="mt-6 grid gap-4 border-t border-border pt-5">
@@ -447,15 +534,23 @@ function InstallTemplateDialog({
             </div>
           )}
 
-          <CheckboxField
-            checked={form.installNow}
-            className="mt-6 rounded-lg border border-border p-4"
-            description={t('appTemplatesPage.installNowDescription')}
-            disabled={installing}
-            onChange={event => onUpdate('installNow', event.target.checked)}
-          >
-            {t('appTemplatesPage.installNow')}
-          </CheckboxField>
+          {!systemComponent && (
+            <CheckboxField
+              checked={form.installNow}
+              className="mt-6 rounded-lg border border-border p-4"
+              description={t('appTemplatesPage.installNowDescription')}
+              disabled={installing}
+              onChange={event => onUpdate('installNow', event.target.checked)}
+            >
+              {t('appTemplatesPage.installNow')}
+            </CheckboxField>
+          )}
+
+          {systemComponent && !canInstallSystemComponent && (
+            <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              {t('appTemplatesPage.systemInstallAdminOnly')}
+            </div>
+          )}
         </div>
         <DialogFooter className="shrink-0 border-t border-border bg-surface px-6 py-4">
           <Button disabled={installing} type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
@@ -512,6 +607,10 @@ function payloadFromTemplate(template: AppTemplate): AppTemplateInstallPayload {
     dataCapacity: template.dataCapacity,
     values: Object.fromEntries(template.values.filter(value => !value.autoGenerate).map(value => [value.key, value.default])),
   }
+}
+
+function isSystemComponentTemplate(template: AppTemplate | null | undefined) {
+  return template?.kind === 'system_component' || Boolean(template?.systemComponent)
 }
 
 function normalizeSlugInput(value: string) {

@@ -22,6 +22,7 @@ type NamespaceManager interface {
 	EnsureNamespace(ctx context.Context, name string, labels map[string]string) error
 	EnsureBuildNetworkPolicy(ctx context.Context, spec BuildNetworkPolicySpec) error
 	EnsureBuildPolicy(ctx context.Context, policy networkpolicy.BuildPolicy) error
+	ApplyGatewayTrafficProbe(ctx context.Context, spec GatewayTrafficProbeSpec) error
 	ApplyApplicationRuntimeConfig(ctx context.Context, spec ApplicationResourcesSpec) error
 	ApplyApplicationResources(ctx context.Context, spec ApplicationResourcesSpec) error
 	RunHookJob(ctx context.Context, spec HookJobSpec) (HookJobResult, error)

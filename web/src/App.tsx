@@ -14,6 +14,7 @@ const ClustersPage = lazyNamed(() => import('./pages/clusters/ClustersPage'), 'C
 const CodeRepositoriesPage = lazyNamed(() => import('./pages/code-repositories/CodeRepositoriesPage'), 'CodeRepositoriesPage')
 const DashboardPage = lazyNamed(() => import('./pages/dashboard/DashboardPage'), 'DashboardPage')
 const LoginPage = lazyNamed(() => import('./pages/login/LoginPage'), 'LoginPage')
+const NotificationsPage = lazyNamed(() => import('./pages/settings/NotificationsPage'), 'NotificationsPage')
 const OperationsDashboardPage = lazyNamed(() => import('./pages/settings/OperationsDashboardPage'), 'OperationsDashboardPage')
 const ProjectsPage = lazyNamed(() => import('./pages/projects/ProjectsPage'), 'ProjectsPage')
 const ProjectWorkspacePage = lazyNamed(() => import('./pages/projects/ProjectWorkspacePage'), 'ProjectWorkspacePage')
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="/settings/security" element={<Navigate to="/settings/account" replace />} />
             <Route path="/settings/account" element={<AccountPage />} />
             <Route path="/settings/auth-providers" element={<AuthProvidersPage />} />
+            <Route path="/settings/notifications" element={<NotificationsPage />} />
             <Route path="/settings/operations" element={<OperationsDashboardPage />} />
             <Route path="/settings/site" element={<SiteSettingsPage />} />
             <Route path="/settings/users" element={<UsersPage />} />

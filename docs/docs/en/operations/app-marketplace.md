@@ -2,6 +2,8 @@
 
 The app marketplace installs common infrastructure apps into project spaces from templates. The MVP includes Redis, Valkey, Memcached, PostgreSQL, MySQL, MariaDB, MongoDB, RabbitMQ, Garage, Prometheus, Grafana, Uptime Kuma, Memos, IT-Tools, Excalidraw, Verdaccio, Docker Registry, pgAdmin4, Meilisearch, and Bytebase for quick cache, database, queue, object storage, observability, and small-team tooling setup.
 
+The marketplace can also host a small set of platform component templates. Platform components can only be installed by platform administrators into runtime clusters. They do not create normal project-space applications and are not billed as user project workloads. The built-in `Liteyuki Gateway Traffic Probe` is the optional component for gateway traffic billing collection.
+
 Installing a template creates:
 
 - An application, with the template icon applied by default. Application icons support preset icon names, site-local asset paths, or `http(s)` image URLs.
@@ -23,6 +25,17 @@ Secret parameters are written to the platform secret store. Deployment targets k
 5. Keep “Deploy after install” enabled, or disable it and release manually from the application deployment page later.
 
 After a successful install, the page navigates to the new application's deployment tab.
+
+## Platform components
+
+Platform components are still installed from “App Marketplace”, but they follow a different flow from regular applications:
+
+1. A platform administrator selects a template marked as “Platform Component”.
+2. They choose the target runtime cluster.
+3. They fill in the small set of component parameters, such as the DevOps API URL.
+4. The platform creates a system component installation record, generates a dedicated reporting token, and the worker applies the `liteyuki-system` namespace, read-only RBAC, Secret, ConfigMap, and component Deployment to the target cluster.
+
+When Gateway Traffic Probe is not installed, the billing page shows gateway traffic as unavailable and guides platform administrators to install it from the marketplace. After installation, gateway traffic becomes available only after the probe successfully reports its first time window.
 
 The template list supports category filtering, search by template name, image, website, or repository, and sorting by popularity weight or name. Built-in templates intentionally skip PHP applications such as Adminer and phpMyAdmin for now.
 

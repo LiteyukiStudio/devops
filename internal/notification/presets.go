@@ -1,13 +1,13 @@
 package notification
 
 type WebhookPreset struct {
-	ID               string
-	Name             string
-	Description      string
-	AdapterKind      string
-	ConfigTemplate   string
-	JSONBodyTemplate string
-	SecretFields     []string
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	AdapterKind      string   `json:"adapterKind"`
+	ConfigTemplate   string   `json:"configTemplate"`
+	JSONBodyTemplate string   `json:"jsonBodyTemplate"`
+	SecretFields     []string `json:"secretFields"`
 }
 
 func WebhookPresets() []WebhookPreset {

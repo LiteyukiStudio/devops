@@ -17,8 +17,14 @@ const appTemplatesPage = {
   install: 'Install',
   installing: 'Installing...',
   installStarted: 'App template installation started',
+  systemInstallStarted: 'Platform component installation started',
   installDialogTitle: 'Install {{name}}',
   installDialogDescription: 'The template creates an application and deployment target in the selected project space. Secret values are stored securely and are not echoed back.',
+  systemInstallDialogDescription: 'Platform components are installed into the system namespace of a runtime cluster to extend platform capabilities. They do not create project-space applications.',
+  platformComponent: 'Platform Component',
+  selectRuntimeCluster: 'Select runtime cluster',
+  componentNamespace: 'Component Namespace',
+  systemInstallAdminOnly: 'Only platform administrators can install platform components.',
   runtimeCluster: 'Runtime Cluster',
   defaultCluster: 'Use default cluster',
   applicationName: 'Application Name',
@@ -69,8 +75,12 @@ const appTemplatesPage = {
     metricsToken: 'Metrics Token',
     masterKey: 'Master Key',
     email: 'Email',
+    apiBaseUrl: 'DevOps API URL',
   },
   templates: {
+    'liteyuki-gateway-traffic-probe': {
+      description: 'Optional platform component that collects Gateway API traffic windows and reports them to billing.',
+    },
     'redis': {
       description: 'In-memory data store for cache, queues, and lightweight coordination.',
     },

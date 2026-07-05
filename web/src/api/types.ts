@@ -77,6 +77,8 @@ export interface AppTemplate {
   name: string
   description: string
   category: string
+  kind?: 'application' | 'system_component' | string
+  systemComponent?: string
   icon: string
   officialWebsite: string
   officialRepository: string
@@ -130,6 +132,170 @@ export interface AppTemplateInstallResponse {
   application: Application
   deploymentTarget: DeploymentTarget
   release?: Release
+}
+
+export interface SystemComponentInstallation {
+  id: string
+  componentId: string
+  componentVersion: string
+  runtimeClusterId: string
+  namespace: string
+  status: string
+  message: string
+  controllerType: string
+  mode: string
+  config: string
+  lastReportedAt?: string | null
+  lastWindowStart?: string | null
+  lastWindowEnd?: string | null
+  lastError: string
+  installedBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SystemComponentStatusResponse {
+  items: SystemComponentInstallation[]
+  gatewayTrafficProbeEnabled: boolean
+}
+
+export interface SystemComponentInstallPayload {
+  clusterId: string
+  namespace?: string
+  mode?: string
+  apiBaseUrl: string
+}
+
+export interface SystemComponentInstallResponse {
+  installation: SystemComponentInstallation
+}
+
+export interface GatewayTrafficStatus {
+  available: boolean
+  installed: boolean
+  status: string
+  componentId: string
+  installableTemplateId: string
+  lastReportedAt?: string | null
+  lastWindowStart?: string | null
+  lastWindowEnd?: string | null
+  lastError: string
+}
+
+export interface NotificationChannel {
+  id: string
+  projectId: string
+  name: string
+  adapterKind: 'webhook' | 'smtp' | string
+  configJson: string
+  config?: unknown
+  secretSet?: Record<string, boolean>
+  enabled: boolean
+  lastDeliveryStatus: string
+  lastDeliveryError: string
+  lastDeliveredAt?: string | null
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NotificationTemplate {
+  id: string
+  projectId: string
+  name: string
+  eventType: string
+  adapterKind: 'webhook' | 'smtp' | string
+  locale: string
+  subjectTemplate: string
+  bodyTemplate: string
+  jsonBodyTemplate: string
+  enabled: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NotificationRuleFilter {
+  severities?: string[]
+  projectIds?: string[]
+  applicationIds?: string[]
+  deploymentTargetIds?: string[]
+}
+
+export interface NotificationRule {
+  id: string
+  projectId: string
+  name: string
+  eventTypesJson: string
+  filterJson: string
+  channelIdsJson: string
+  templateId: string
+  locale: string
+  enabled: boolean
+  lastMatchedEventId: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NotificationDelivery {
+  id: string
+  projectId: string
+  eventId: string
+  eventType: string
+  severity: string
+  channelId: string
+  adapterKind: string
+  ruleId: string
+  templateId: string
+  status: string
+  attemptCount: number
+  durationMillis: number
+  errorMessage: string
+  requestSnapshot: string
+  responseSnippet: string
+  queuedAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface NotificationPreset {
+  id: string
+  name: string
+  description: string
+  adapterKind: string
+  secretFields: string[]
+}
+
+export interface NotificationChannelPayload {
+  name: string
+  adapterKind: string
+  config: unknown
+  secrets?: Record<string, string>
+  enabled: boolean
+}
+
+export interface NotificationTemplatePayload {
+  name: string
+  eventType: string
+  adapterKind: string
+  locale: string
+  subjectTemplate: string
+  bodyTemplate: string
+  jsonBodyTemplate: string
+  enabled: boolean
+}
+
+export interface NotificationRulePayload {
+  name: string
+  eventTypes: string[]
+  filter: NotificationRuleFilter
+  channelIds: string[]
+  templateId: string
+  locale: string
+  enabled: boolean
 }
 
 export interface GitProvider {

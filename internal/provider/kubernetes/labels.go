@@ -16,6 +16,9 @@ const (
 	HookRunIDLabel          = "liteyuki.devops/hook-run-id"
 	HookPhaseLabel          = "liteyuki.devops/hook-phase"
 	ScopeLabel              = "liteyuki.devops/scope"
+	SystemComponentLabel    = "liteyuki.devops/system-component"
+	SystemResourceLabel     = "liteyuki.devops/system"
+	RuntimeClusterIDLabel   = "liteyuki.devops/runtime-cluster-id"
 )
 
 func baseManagedLabels(name string) map[string]string {
@@ -38,5 +41,14 @@ func ProjectNamespaceLabels(projectID string) map[string]string {
 	labels := baseManagedLabels("")
 	labels[ScopeLabel] = "project"
 	setLabel(labels, ProjectIDLabel, projectID)
+	return labels
+}
+
+func SystemComponentLabels(componentID string, clusterID string) map[string]string {
+	labels := baseManagedLabels(componentID)
+	labels[ScopeLabel] = "system"
+	labels[SystemResourceLabel] = "true"
+	setLabel(labels, SystemComponentLabel, componentID)
+	setLabel(labels, RuntimeClusterIDLabel, clusterID)
 	return labels
 }

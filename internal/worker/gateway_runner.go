@@ -18,10 +18,14 @@ import (
 func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) (err error) {
 	startedAt := time.Now()
 	operation := "apply"
+	var route model.GatewayRoute
 	defer func() {
 		result := "succeeded"
 		if err != nil {
 			result = "failed"
+			if route.ID != "" {
+				r.emitGatewayApplyFailed(ctx, route, err.Error())
+			}
 		}
 		r.recordGatewaySyncMetric(operation, result, startedAt)
 		r.refreshGatewayRouteMetrics()
@@ -32,7 +36,6 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) (err 
 		return err
 	}
 
-	var route model.GatewayRoute
 	if err := r.db.First(&route, "id = ? and project_id = ?", payload.GatewayRouteID, payload.ProjectID).Error; err != nil {
 		return err
 	}

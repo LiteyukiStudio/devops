@@ -19,6 +19,7 @@ import gatewayRoutesPage from './zh-CN/gatewayRoutesPage'
 import languages from './zh-CN/languages'
 import loginPage from './zh-CN/loginPage'
 import nav from './zh-CN/nav'
+import notificationsPage from './zh-CN/notificationsPage'
 import operationsDashboardPage from './zh-CN/operationsDashboardPage'
 import pagination from './zh-CN/pagination'
 import projectHooks from './zh-CN/projectHooks'
@@ -45,6 +46,7 @@ const zhCN = {
   operationsDashboardPage,
   theme,
   nav,
+  notificationsPage,
   debugPanel,
   loginPage,
   projectSpaces,

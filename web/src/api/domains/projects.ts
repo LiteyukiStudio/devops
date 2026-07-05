@@ -1,4 +1,4 @@
-import type { AppTemplate, AppTemplateInstallPayload, AppTemplateInstallResponse, BillingDeploymentSpend, BillingLedgerEntry, BillingListParams, BillingPeriodParams, BillingRateRule, BillingRateRulePayload, BillingSummary, BillingUsageRecord, BillingUsageSettlementResult, BillingWalletTransactionPayload, GatewayTrafficUsagePayload, PaginatedResponse, PaginationParams, Project, ProjectListParams, ProjectMember, ProjectMemberCandidate, ProjectPin } from '../types'
+import type { AppTemplate, AppTemplateInstallPayload, AppTemplateInstallResponse, BillingDeploymentSpend, BillingLedgerEntry, BillingListParams, BillingPeriodParams, BillingRateRule, BillingRateRulePayload, BillingSummary, BillingUsageRecord, BillingUsageSettlementResult, BillingWalletTransactionPayload, GatewayTrafficStatus, GatewayTrafficUsagePayload, PaginatedResponse, PaginationParams, Project, ProjectListParams, ProjectMember, ProjectMemberCandidate, ProjectPin, SystemComponentInstallPayload, SystemComponentInstallResponse, SystemComponentStatusResponse } from '../types'
 import { billingQuery, billingSummaryQuery, paginationQuery, request } from '../core'
 
 export const projectsApi = {
@@ -8,8 +8,20 @@ export const projectsApi = {
   listAppTemplates: () => request<AppTemplate[]>('/app-templates'),
   installAppTemplate: (projectId: string, templateId: string, payload: AppTemplateInstallPayload) =>
     request<AppTemplateInstallResponse>(`/projects/${projectId}/app-templates/${encodeURIComponent(templateId)}/install`, { method: 'POST', body: JSON.stringify(payload) }),
+  listSystemComponents: (params?: { componentId?: string, clusterId?: string }) => {
+    const search = new URLSearchParams()
+    if (params?.componentId)
+      search.set('componentId', params.componentId)
+    if (params?.clusterId)
+      search.set('clusterId', params.clusterId)
+    const suffix = search.toString() ? `?${search.toString()}` : ''
+    return request<SystemComponentStatusResponse>(`/system-components${suffix}`)
+  },
+  installSystemAppTemplate: (templateId: string, payload: SystemComponentInstallPayload) =>
+    request<SystemComponentInstallResponse>(`/app-templates/${encodeURIComponent(templateId)}/system-install`, { method: 'POST', body: JSON.stringify(payload) }),
   getBillingSummary: (projectIds?: string[], period?: BillingPeriodParams) =>
     request<BillingSummary>(`/billing/summary${billingSummaryQuery(projectIds, period)}`),
+  getGatewayTrafficStatus: () => request<GatewayTrafficStatus>('/billing/gateway-traffic-status'),
   listBillingDeploymentSpend: (params: BillingListParams) =>
     request<PaginatedResponse<BillingDeploymentSpend>>(`/billing/deployment-spend?${billingQuery(params)}`),
   listBillingLedgerEntries: (params: BillingListParams) =>

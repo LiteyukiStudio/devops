@@ -21,6 +21,11 @@
   },
   {
     "type": "file",
+    "name": "notifications",
+    "label": "通知"
+  },
+  {
+    "type": "file",
     "name": "external-compatibility",
     "label": "外部组件兼容矩阵"
   },

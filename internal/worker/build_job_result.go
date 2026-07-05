@@ -225,6 +225,7 @@ func (r *Runner) failBuildJob(job model.BuildJob, run model.BuildRun, message st
 		run.Status = "failed"
 		run.FinishedAt = &finishedAt
 		r.recordBuildRunMetrics(run)
+		r.emitBuildFailed(context.Background(), run, message)
 	}
 	return err
 }

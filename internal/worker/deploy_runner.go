@@ -305,6 +305,9 @@ func (r *Runner) finishDeployRelease(release model.Release, status string, messa
 		release.Message = firstNonEmpty(message, "Deployment "+status)
 		release.FinishedAt = &finishedAt
 		r.recordReleaseMetrics(release)
+		if status == "failed" {
+			r.emitReleaseFailed(context.Background(), release, message)
+		}
 	}
 	return err
 }

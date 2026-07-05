@@ -89,7 +89,7 @@ storage credits = capacity_gib * duration_days * storage.gib_day
 
 ## 访问流量计费
 
-访问费用按平台访问入口的响应出站流量计费，不读取 Pod 网卡总流量，也不把集群内服务互访计入公网访问费用。所有外部 HTTP/HTTPS 访问都应经过平台创建的 GatewayRoute/HTTPRoute，再由网关日志或外部采集器上报用量：
+访问费用按平台访问入口的响应出站流量计费，不读取 Pod 网卡总流量，也不把集群内服务互访计入公网访问费用。访问流量采集默认不安装；未安装 Gateway Traffic Probe 或探针尚未成功上报时，账单页会显示访问流量不可用，并引导平台管理员从应用市场安装平台组件。所有外部 HTTP/HTTPS 访问都应经过平台创建的 GatewayRoute/HTTPRoute，再由网关日志或外部采集器上报用量：
 
 ```text
 gateway credits = response_bytes / 1024 / 1024 / 1024 * gateway.egress_gib
@@ -102,7 +102,7 @@ gateway credits = response_bytes / 1024 / 1024 / 1024 * gateway.egress_gib
 | `gateway.egress_gib` | `1 credits` |
 | `gateway.requests_1000` | `0 credits`，默认禁用 |
 
-上报接口要求平台管理员或 `billing:write` Access Token：
+上报接口要求平台管理员、`billing:write` Access Token，或平台系统组件生成的受限 Bearer Token。系统组件 Token 只能上报其运行集群内的 GatewayRoute：
 
 ```bash
 curl -X POST "$DEVOPS_BASE_URL/api/v1/billing/gateway-traffic" \

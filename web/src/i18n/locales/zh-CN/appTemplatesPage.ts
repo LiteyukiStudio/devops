@@ -17,8 +17,14 @@ const appTemplatesPage = {
   install: '安装',
   installing: '安装中...',
   installStarted: '应用模板已开始安装',
+  systemInstallStarted: '平台组件已开始安装',
   installDialogTitle: '安装 {{name}}',
   installDialogDescription: '模板会在目标项目空间中创建一个应用和部署配置；密钥类参数会安全存储，不会明文回显。',
+  systemInstallDialogDescription: '平台组件会安装到指定运行集群的系统命名空间，用于增强平台能力，不会创建项目空间应用。',
+  platformComponent: '平台组件',
+  selectRuntimeCluster: '请选择运行集群',
+  componentNamespace: '组件命名空间',
+  systemInstallAdminOnly: '只有平台管理员可以安装平台组件。',
   runtimeCluster: '运行集群',
   defaultCluster: '使用默认集群',
   applicationName: '应用名称',
@@ -69,8 +75,12 @@ const appTemplatesPage = {
     metricsToken: '指标 Token',
     masterKey: '主密钥',
     email: '邮箱',
+    apiBaseUrl: 'DevOps API 地址',
   },
   templates: {
+    'liteyuki-gateway-traffic-probe': {
+      description: '可选平台组件，用于采集 Gateway API 访问流量窗口并上报到账单。',
+    },
     'redis': {
       description: '用于缓存、队列和轻量协调的内存数据存储。',
     },

@@ -593,6 +593,37 @@
     "values": []
   },
   {
+    "id": "liteyuki-gateway-traffic-probe",
+    "slug": "gateway-traffic-probe",
+    "name": "Liteyuki Gateway Traffic Probe",
+    "description": "Optional platform component that collects Gateway API traffic windows and reports settled usage to Liteyuki DevOps billing.",
+    "category": "observability",
+    "kind": "system_component",
+    "systemComponent": "gateway-traffic-probe",
+    "icon": "/app-templates/icons/fallback.svg",
+    "officialWebsite": "https://liteyuki.org/",
+    "officialRepository": "https://github.com/LiteyukiStudio/devops",
+    "popularityWeight": 78,
+    "image": "liteyukistudio/devops-gateway-traffic-probe:nightly",
+    "version": "nightly",
+    "servicePort": 9090,
+    "defaultReplicas": 1,
+    "defaultCPU": "100m",
+    "defaultMemory": "128Mi",
+    "dataRetentionEnabled": false,
+    "dataMountPath": "",
+    "dataCapacity": "",
+    "values": [
+      {
+        "key": "apiBaseUrl",
+        "label": "DevOps API base URL",
+        "description": "Public or cluster-reachable Liteyuki DevOps API endpoint used by the probe to report traffic windows.",
+        "default": "",
+        "required": true
+      }
+    ]
+  },
+  {
     "id": "garage",
     "slug": "garage",
     "name": "Garage",

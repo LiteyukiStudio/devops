@@ -110,6 +110,12 @@ func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release m
 		}).Error; updateErr != nil {
 			return updateErr
 		}
+		if !result.Succeeded {
+			hookRun.Status = "failed"
+			hookRun.Message = result.Message
+			hookRun.FinishedAt = &finishedAt
+			r.emitHookFailed(ctx, hookRun, result.Message)
+		}
 		if result.Logs != "" {
 			r.appendReleaseLog(release, result.Logs)
 		}

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ActivitySquare, Container, CreditCard, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, PackageOpen, Server, Settings, ShieldCheck, Users } from 'lucide-react'
+import { ActivitySquare, Bell, Container, CreditCard, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, PackageOpen, Server, Settings, ShieldCheck, Users } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -56,6 +56,7 @@ const navSections = [
     items: [
       { to: '/settings/auth-providers', labelKey: 'authProviders', icon: ShieldCheck, permission: 'user.manage' },
       { to: '/settings/users', labelKey: 'users', icon: Users, permission: 'user.manage' },
+      { to: '/settings/notifications', labelKey: 'notifications', icon: Bell, permission: 'user.manage' },
       { to: '/settings/operations', labelKey: 'operationsDashboard', icon: ActivitySquare, permission: 'user.manage' },
       { to: '/settings/site', labelKey: 'siteSettings', icon: Settings },
     ],
@@ -76,6 +77,7 @@ const pageMetaRules = [
   { match: (pathname: string) => pathname === '/billing', titleKey: 'billing', descriptionKey: 'billingPage.description' },
   { match: (pathname: string) => pathname === '/settings/account' || pathname === '/settings/security', titleKey: 'account', descriptionKey: 'accountPage.description' },
   { match: (pathname: string) => pathname === '/settings/auth-providers', titleKey: 'authProvidersPage.title', descriptionKey: 'authProvidersPage.description' },
+  { match: (pathname: string) => pathname === '/settings/notifications', titleKey: 'notificationsPage.title', descriptionKey: 'notificationsPage.description' },
   { match: (pathname: string) => pathname === '/settings/operations', titleKey: 'operationsDashboard', descriptionKey: 'operationsDashboardPage.description' },
   { match: (pathname: string) => pathname === '/settings/users', titleKey: 'usersPage.title', descriptionKey: 'usersPage.description' },
   { match: (pathname: string) => pathname === '/settings/site', titleKey: 'siteSettings', descriptionKey: 'settings.siteDescription' },

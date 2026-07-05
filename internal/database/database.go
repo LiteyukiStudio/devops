@@ -47,6 +47,7 @@ func Migrate(db *gorm.DB) error {
 		&model.ScopedResourceProjectBinding{},
 		&model.Application{},
 		&model.AppTemplateInstallation{},
+		&model.SystemComponentInstallation{},
 		&model.GitProvider{},
 		&model.GitAccount{},
 		&model.RepositoryBinding{},

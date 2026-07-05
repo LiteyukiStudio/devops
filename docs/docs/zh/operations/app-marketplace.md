@@ -2,6 +2,8 @@
 
 应用市场用于把常见基础设施按模板安装到项目空间。第一版内置 Redis、Valkey、Memcached、PostgreSQL、MySQL、MariaDB、MongoDB、RabbitMQ、Garage、Prometheus、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry、pgAdmin4、Meilisearch 和 Bytebase，适合快速准备缓存、数据库、消息队列、对象存储、监控和小团队工具。
 
+应用市场也可以承载少量平台组件模板。平台组件只允许平台管理员安装到运行集群，不会创建普通项目空间应用，也不会参与用户项目账单。当前内置的 `Liteyuki Gateway Traffic Probe` 用于可选开启访问流量计费采集。
+
 模板安装会创建：
 
 - 一个应用，并默认使用模板声明的图标；应用图标支持内置图标名、站内资源路径或 `http(s)` 图片地址。
@@ -23,6 +25,17 @@
 5. 保持“安装后立即部署”开启，或关闭后稍后在应用部署页手动发布。
 
 安装成功后，页面会跳转到新应用的部署页。
+
+## 平台组件
+
+平台组件的安装入口仍在“应用市场”，但流程和普通应用不同：
+
+1. 平台管理员选择带有“平台组件”标识的模板。
+2. 选择目标运行集群。
+3. 填写组件需要的少量参数，例如 DevOps API 地址。
+4. 平台创建系统组件安装记录，生成独立上报 Token，并由 Worker 在目标集群下发 `liteyuki-system` 命名空间、只读 RBAC、Secret、ConfigMap 和组件 Deployment。
+
+未安装 Gateway Traffic Probe 时，账单页会把访问流量显示为不可用，并引导平台管理员从应用市场安装。组件安装后，探针首次成功上报一个时间窗口，账单页才会认为访问流量可用。
 
 模板列表支持按分类筛选、按模板名称、镜像、官网或仓库搜索，也可以按热度权重或名称排序。当前内置模板暂不收录 PHP 应用，例如 Adminer 和 phpMyAdmin。
 

@@ -33,6 +33,8 @@ type taskEnqueuer interface {
 	EnqueueGatewayApply(ctx context.Context, payload tasks.GatewayApplyPayload) (*asynq.TaskInfo, error)
 	EnqueueApplicationDelete(ctx context.Context, payload tasks.ApplicationDeletePayload) (*asynq.TaskInfo, error)
 	EnqueueResourceCleanup(ctx context.Context, payload tasks.ResourceCleanupPayload) (*asynq.TaskInfo, error)
+	EnqueueSystemComponentApply(ctx context.Context, payload tasks.SystemComponentApplyPayload) (*asynq.TaskInfo, error)
+	EnqueueNotificationDeliver(ctx context.Context, payload tasks.NotificationDeliverPayload) (*asynq.TaskInfo, error)
 }
 
 func NewHandlers(db *gorm.DB) *Handlers {
