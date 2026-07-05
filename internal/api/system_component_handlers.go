@@ -156,10 +156,12 @@ func (h *Handlers) InstallSystemAppTemplate(ctx *gin.Context) {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if err := h.db.First(&installation, "component_id = ? and runtime_cluster_id = ?", componentID, cluster.ID).Error; err != nil {
+	var persistedInstallation model.SystemComponentInstallation
+	if err := h.db.First(&persistedInstallation, "component_id = ? and runtime_cluster_id = ?", componentID, cluster.ID).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
+	installation = persistedInstallation
 	_, err = h.taskClient.EnqueueSystemComponentApply(ctx.Request.Context(), tasks.SystemComponentApplyPayload{
 		InstallationID: installation.ID,
 		ComponentID:    componentID,

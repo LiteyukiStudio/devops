@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { AppTemplate, AppTemplateInstallPayload, Project, RuntimeCluster } from '@/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Box, Database, Link2, PackageOpen, Rocket, Search, ShieldCheck } from 'lucide-react'
+import { Box, CircleHelp, Database, Link2, PackageOpen, Rocket, Search, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect as Select } from '@/components/ui/native-select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 const FALLBACK_ICON = '/app-templates/icons/fallback.svg'
@@ -528,11 +529,12 @@ function InstallTemplateDialog({
                 {template.values.map(value => (
                   <Field
                     key={value.key}
+                    hint={templateValueHint(value.key, t)}
                     label={t(`appTemplatesPage.valueLabels.${value.key}`, { defaultValue: value.label || value.key })}
                     required={value.required && !value.autoGenerate}
                   >
                     <Input
-                      placeholder={value.autoGenerate ? t('appTemplatesPage.autoGeneratePlaceholder') : value.default}
+                      placeholder={templateValuePlaceholder(value.key, value.autoGenerate, value.default, t)}
                       type={value.secret ? 'password' : 'text'}
                       value={form.values[value.key] ?? ''}
                       onChange={event => onTemplateValueChange(value.key, event.target.value)}
@@ -573,16 +575,50 @@ function InstallTemplateDialog({
   )
 }
 
-function Field({ children, label, required }: { children: React.ReactNode, label: string, required?: boolean }) {
+function Field({ children, hint, label, required }: { children: React.ReactNode, hint?: string, label: string, required?: boolean }) {
+  const { t } = useTranslation()
+
   return (
     <div className="grid gap-2">
-      <Label>
-        {label}
-        {required && <span className="ml-1 text-primary">*</span>}
+      <Label className="flex w-fit items-center gap-1.5">
+        <span>
+          {label}
+          {required && <span className="ml-1 text-primary">*</span>}
+        </span>
+        {hint && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                aria-label={`${label}${t('common.helpSuffix')}`}
+                className="inline-flex shrink-0 text-muted-foreground outline-none hover:text-primary focus:text-primary"
+                tabIndex={-1}
+                type="button"
+              >
+                <CircleHelp className="size-3.5 transition" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-80 leading-5" side="top">
+              {hint}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </Label>
       {children}
     </div>
   )
+}
+
+function templateValueHint(key: string, t: ReturnType<typeof useTranslation>['t']) {
+  if (key === 'apiBaseUrl')
+    return t('appTemplatesPage.valueHints.apiBaseUrl')
+}
+
+function templateValuePlaceholder(key: string, autoGenerate: boolean, defaultValue: string, t: ReturnType<typeof useTranslation>['t']) {
+  if (key === 'apiBaseUrl')
+    return t('appTemplatesPage.valuePlaceholders.apiBaseUrl')
+  if (autoGenerate)
+    return t('appTemplatesPage.autoGeneratePlaceholder')
+  return defaultValue
 }
 
 function emptyInstallPayload(): AppTemplateInstallPayload {

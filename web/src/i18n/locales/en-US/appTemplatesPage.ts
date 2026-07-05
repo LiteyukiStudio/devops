@@ -75,7 +75,13 @@ const appTemplatesPage = {
     metricsToken: 'Metrics Token',
     masterKey: 'Master Key',
     email: 'Email',
-    apiBaseUrl: 'Probe report URL',
+    apiBaseUrl: 'DevOps API Base URL',
+  },
+  valueHints: {
+    apiBaseUrl: 'Enter the platform base URL reachable from the probe, for example https://devops.liteyuki.org. Do not enter a concrete path such as /api/v1/billing/gateway-traffic; the probe appends the reporting endpoint automatically.',
+  },
+  valuePlaceholders: {
+    apiBaseUrl: 'https://devops.liteyuki.org',
   },
   templates: {
     'liteyuki-gateway-traffic-probe': {
