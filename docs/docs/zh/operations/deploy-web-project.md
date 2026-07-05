@@ -76,6 +76,7 @@ snowykami/neo-blog
 | 仓库 | `snowykami/neo-blog` |
 | Dockerfile | `Dockerfile` |
 | 构建上下文 | `.` |
+| Dockerfile Build Args | 可选，例如 `EMBED_WEB=true` |
 | 服务端口 | `8888` |
 | 镜像仓库 | 选择你的推送镜像站 |
 | 镜像标签 | `latest` 或 `${GIT_SHA}` |
@@ -111,10 +112,13 @@ snowykami/neo-blog
 | 仓库 | `snowykami/neo-blog` |
 | Dockerfile | `web/Dockerfile` |
 | 构建上下文 | `web` |
+| Dockerfile Build Args | 可选，例如 `VERSION=${{ github.sha }}` |
 | 服务端口 | `3000` |
 | 镜像仓库 | 选择你的推送镜像站 |
 | 镜像标签 | `latest` 或 `${GIT_SHA}` |
 | 副本数 | `1` |
+
+Dockerfile Build Args 会作为 BuildKit `build-arg` 传入 Dockerfile 的 `ARG` 指令，并随每次构建记录保存快照。它适合放 `EMBED_WEB=true`、`VERSION=${{ github.sha }}`、构建模式这类非密钥值；密码、Token、私有 npm 凭据等敏感值请放到项目空间“构建变量”里的密钥项。
 
 前端环境变量建议设置：
 

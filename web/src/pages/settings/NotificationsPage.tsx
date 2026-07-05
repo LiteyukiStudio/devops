@@ -60,6 +60,7 @@ export function NotificationsPage() {
     queryFn: () => api.listNotificationDeliveries({ page: deliveryPage, pageSize: PAGE_SIZE, sortBy: 'createdAt', sortOrder: 'desc' }),
   })
 
+  const openPresetDialog = () => setPresetDialog(emptyPresetState(presets.data?.[0]?.id ?? ''))
   const refreshNotifications = () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
   const saveChannel = useMutation({
     mutationFn: (state: ChannelFormState) => {
@@ -199,7 +200,7 @@ export function NotificationsPage() {
           <>
             {activeTab === 'channels' && (
               <>
-                <Button className="rounded-full" variant="outline" onClick={() => setPresetDialog(emptyPresetState(presets.data?.[0]?.id ?? ''))}>
+                <Button id="notification-channel-templates" className="rounded-full" variant="outline" onClick={openPresetDialog}>
                   <Bell className="size-4" />
                   {t('notificationsPage.fromPreset')}
                 </Button>
@@ -227,7 +228,29 @@ export function NotificationsPage() {
         onValueChange={setActiveTab}
       >
         <TabsContent value="channels">
-          <DataList columns={channelColumns} emptyTitle={t('notificationsPage.emptyChannels')} items={channels.data?.items ?? []} pagination={pagination(channels.data, channelPage, setChannelPage, t('notificationsPage.pageInfo', { page: channels.data?.page ?? channelPage, totalPages: channels.data?.totalPages ?? 1, total: channels.data?.total ?? 0 }))} rowKey={item => item.id} />
+          <DataList
+            columns={channelColumns}
+            emptyDescription={(
+              <>
+                {t('notificationsPage.emptyChannelsDescription')}
+                {' '}
+                <a
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  href="#notification-channel-templates"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    openPresetDialog()
+                  }}
+                >
+                  {t('notificationsPage.emptyChannelsAction')}
+                </a>
+              </>
+            )}
+            emptyTitle={t('notificationsPage.emptyChannels')}
+            items={channels.data?.items ?? []}
+            pagination={pagination(channels.data, channelPage, setChannelPage, t('notificationsPage.pageInfo', { page: channels.data?.page ?? channelPage, totalPages: channels.data?.totalPages ?? 1, total: channels.data?.total ?? 0 }))}
+            rowKey={item => item.id}
+          />
         </TabsContent>
         <TabsContent value="templates">
           <DataList columns={templateColumns} emptyTitle={t('notificationsPage.emptyTemplates')} items={templates.data?.items ?? []} pagination={pagination(templates.data, templatePage, setTemplatePage, t('notificationsPage.pageInfo', { page: templates.data?.page ?? templatePage, totalPages: templates.data?.totalPages ?? 1, total: templates.data?.total ?? 0 }))} rowKey={item => item.id} />

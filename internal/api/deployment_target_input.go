@@ -113,6 +113,10 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 	if !ok {
 		return model.DeploymentTarget{}, false
 	}
+	buildArgs, ok := normalizeBuildArgsInput(ctx, input.BuildArgs)
+	if !ok {
+		return model.DeploymentTarget{}, false
+	}
 	clusterID := strings.TrimSpace(input.ClusterID)
 	targetRegistryID := strings.TrimSpace(input.TargetRegistryID)
 	if _, ok := h.runtimeClusterForProjectUse(ctx, user, app.ProjectID, clusterID); !ok {
@@ -204,6 +208,7 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 		DockerfilePath:               fallback(strings.TrimSpace(input.DockerfilePath), "Dockerfile"),
 		BuildContext:                 fallback(strings.TrimSpace(input.BuildContext), "."),
 		BuildDirectory:               strings.TrimSpace(input.BuildDirectory),
+		BuildArgs:                    buildArgs,
 		BuildEnvironmentID:           strings.TrimSpace(input.BuildEnvironmentID),
 		BuildCPURequest:              buildCPURequest,
 		BuildMemoryRequest:           buildMemoryRequest,

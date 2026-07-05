@@ -78,6 +78,7 @@ func (h *Handlers) prepareBuildRunRequest(user model.User, run *model.BuildRun) 
 	run.DockerfilePath = fallback(strings.TrimSpace(config.DockerfilePath), "Dockerfile")
 	run.BuildContext = fallback(strings.TrimSpace(config.BuildContext), ".")
 	run.BuildDirectory = strings.TrimSpace(config.BuildDirectory)
+	run.BuildArgs = strings.TrimSpace(config.BuildArgs)
 	run.BuildEnvironmentID = strings.TrimSpace(config.BuildEnvironmentID)
 	buildCPURequest, err := normalizeBuildResourceQuantityValue(firstNonEmpty(run.BuildCPURequest, config.BuildCPURequest), defaultBuildCPURequest, "构建 CPU")
 	if err != nil {

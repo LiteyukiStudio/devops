@@ -21,6 +21,7 @@ type BuildRun struct {
 	DockerfilePath      string         `gorm:"not null;default:Dockerfile" json:"dockerfilePath"`
 	BuildContext        string         `gorm:"not null;default:." json:"buildContext"`
 	BuildDirectory      string         `json:"buildDirectory"`
+	BuildArgs           string         `gorm:"type:text;not null;default:''" json:"buildArgs"`
 	BuildEnvironmentID  string         `gorm:"index;not null;default:''" json:"buildEnvironmentId"`
 	BuildCPURequest     string         `gorm:"not null;default:'1'" json:"buildCpuRequest"`
 	BuildMemoryRequest  string         `gorm:"not null;default:'1Gi'" json:"buildMemoryRequest"`

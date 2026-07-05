@@ -168,8 +168,8 @@ replace_token() {
   printf "%s" "$3" | sed -E "s/$pattern/$replacement/g"
 }
 
-render_image_tag() {
-  template="${IMAGE_TAG_TEMPLATE:-latest}"
+render_template_value() {
+  template="$1"
   ref_name="${SOURCE_TAG:-$SOURCE_BRANCH}"
   ref_type="branch"
   ref_value=""
@@ -186,6 +186,11 @@ render_image_tag() {
   rendered="$(replace_token '${{ github.ref_type }}' "$ref_type" "$rendered")"
   rendered="$(replace_token '${{ github.ref }}' "$ref_value" "$rendered")"
   rendered="$(replace_token '{short_sha}' "$short_sha" "$rendered")"
+  printf "%s" "$rendered"
+}
+
+render_image_tag() {
+  rendered="$(render_template_value "${IMAGE_TAG_TEMPLATE:-latest}")"
   sanitized="$(sanitize_tag "$rendered")"
   if [ -z "$sanitized" ]; then
     sanitized="latest"
@@ -213,6 +218,14 @@ for key in ${BUILD_ENV_KEYS:-}; do
     continue
   fi
   eval "value=\${$key:-}"
+  set -- "$@" --opt "build-arg:${key}=${value}"
+done
+for key in ${BUILD_ARG_KEYS:-}; do
+  if [ -z "$key" ]; then
+    continue
+  fi
+  eval "value=\${$key:-}"
+  value="$(render_template_value "$value")"
   set -- "$@" --opt "build-arg:${key}=${value}"
 done
 IFS="$OLDIFS"

@@ -91,6 +91,7 @@ func (r Resolver) ResolveBuildTask(tx *gorm.DB, run model.BuildRun, job model.Bu
 	if err != nil {
 		return ResolvedTask{}, fmt.Errorf("build variables are unavailable: %w", err)
 	}
+	buildArgs := model.BuildArgs(run.BuildArgs)
 	hooks, err := r.hookPayloadsForRun(tx, run, job)
 	if err != nil {
 		return ResolvedTask{}, err
@@ -123,6 +124,7 @@ func (r Resolver) ResolveBuildTask(tx *gorm.DB, run model.BuildRun, job model.Bu
 				DockerfilePath: fallback(run.DockerfilePath, "Dockerfile"),
 				BuildContext:   fallback(run.BuildContext, "."),
 				BuildDirectory: run.BuildDirectory,
+				BuildArgs:      buildArgs,
 				Env:            buildEnv,
 				Hooks:          hooks,
 			},

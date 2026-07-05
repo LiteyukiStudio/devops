@@ -33,6 +33,75 @@ func normalizeBuildVariables(ctx *gin.Context, input map[string]string) (map[str
 	return output, true
 }
 
+func normalizeBuildArgsInput(ctx *gin.Context, raw string) (string, bool) {
+	values, err := parseBuildArgsInput(raw)
+	if err != nil {
+		writeError(ctx, http.StatusBadRequest, err.Error())
+		return "", false
+	}
+	return model.EncodeBuildArgs(values), true
+}
+
+func normalizeBuildArgsInputValue(raw string) string {
+	values, err := parseBuildArgsInput(raw)
+	if err != nil {
+		return model.EncodeBuildArgs(model.BuildArgs(raw))
+	}
+	return model.EncodeBuildArgs(values)
+}
+
+func parseBuildArgsInput(raw string) (map[string]string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return map[string]string{}, nil
+	}
+	if len(raw) > 64*1024 {
+		return nil, errors.New("Dockerfile Build Args 过长")
+	}
+	if strings.HasPrefix(raw, "{") {
+		values := map[string]string{}
+		if err := json.Unmarshal([]byte(raw), &values); err != nil {
+			return nil, errors.New("Dockerfile Build Args JSON 格式不正确")
+		}
+		return validateBuildArgs(values)
+	}
+	values := map[string]string{}
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			key, value, ok = strings.Cut(line, ":")
+		}
+		if !ok {
+			return nil, errors.New("Dockerfile Build Args 需要按 KEY=value 每行填写一个")
+		}
+		values[strings.TrimSpace(key)] = strings.TrimSpace(value)
+	}
+	return validateBuildArgs(values)
+}
+
+func validateBuildArgs(values map[string]string) (map[string]string, error) {
+	output := make(map[string]string)
+	for key, value := range values {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" && value == "" {
+			continue
+		}
+		if !model.IsBuildArgKey(key) {
+			return nil, errors.New("Dockerfile Build Args 名称只能使用字母、数字和下划线，且不能以数字开头")
+		}
+		if len(value) > 4096 {
+			return nil, errors.New("Dockerfile Build Args 单项值过长")
+		}
+		output[key] = value
+	}
+	return output, nil
+}
+
 func isBuildEnvKey(value string) bool {
 	if value == "" || len(value) > 128 {
 		return false

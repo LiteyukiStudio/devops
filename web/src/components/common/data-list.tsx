@@ -27,7 +27,7 @@ interface DataListProps<T> {
   title?: ReactNode
   variant?: 'card' | 'plain'
   emptyTitle: string
-  emptyDescription?: string
+  emptyDescription?: ReactNode
   search?: {
     value: string
     placeholder: string

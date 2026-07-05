@@ -50,11 +50,21 @@ func buildJobSecret(name string, task builder.Task, npmRegistry string, cacheEna
 		}
 	}
 	buildEnvKeys := make([]string, 0, len(buildEnv))
+	buildArgs := builder.NormalizedBuildEnv(task.Build.BuildArgs)
 	for key, value := range buildEnv {
+		if _, overridden := buildArgs[key]; overridden {
+			continue
+		}
 		env[key] = value
 		buildEnvKeys = append(buildEnvKeys, key)
 	}
 	env["BUILD_ENV_KEYS"] = strings.Join(buildEnvKeys, ",")
+	buildArgKeys := make([]string, 0, len(buildArgs))
+	for key, value := range buildArgs {
+		env[key] = value
+		buildArgKeys = append(buildArgKeys, key)
+	}
+	env["BUILD_ARG_KEYS"] = strings.Join(buildArgKeys, ",")
 
 	data := map[string]string{"run.sh": builder.ExecutorScript()}
 	for _, hook := range task.Build.Hooks {

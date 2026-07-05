@@ -61,6 +61,7 @@ type BuildPayload struct {
 	DockerfilePath string            `json:"dockerfilePath"`
 	BuildContext   string            `json:"buildContext"`
 	BuildDirectory string            `json:"buildDirectory"`
+	BuildArgs      map[string]string `json:"buildArgs"`
 	Env            map[string]string `json:"env"`
 	Hooks          []HookPayload     `json:"hooks"`
 }

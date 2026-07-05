@@ -420,7 +420,7 @@
 - [x] 实现 BuildJob 模型、迁移和列表/详情 API。
 - [x] 实现手动触发构建 API，先创建 queued 状态的 BuildRun/BuildJob。
 - [x] 实现构建触发器配置 API：manual、webhook、push branch、tag、API token。
-- [x] 实现构建参数配置 API：Dockerfile 路径、构建上下文、目标镜像、目标镜像站凭据、构建目录。
+- [x] 实现构建参数配置 API：Dockerfile 路径、构建上下文、Dockerfile Build Args、目标镜像、目标镜像站凭据、构建目录。
 - [x] 构建触发只允许用户填写目标镜像 Tag 模板；目标镜像名前缀由平台按镜像站和应用标识固定生成，DockerHub 不带域名前缀，其他镜像站强制带 registry domain；镜像站不再承载 repository namespace。
 - [ ] 支持平台 Dockerfile 模板构建：部署配置可选择“仓库 Dockerfile”或“平台模板”，模板支持 Node/Go/静态站点等预设及运行参数；Kubernetes 构建 Job 克隆仓库后，将平台渲染出的临时 Dockerfile 写入指定构建目录，并按部署配置中的构建上下文执行 BuildKit 构建；前端在仓库探测不到 Dockerfile 或用户主动切换时引导选择模板。
 - [x] 部署配置表单维护代码仓库、Dockerfile、构建上下文、目标镜像站、镜像引用模板和构建策略；应用配置只保留名称、标识、图标和服务默认端口，不再维护单一仓库或镜像来源。
@@ -433,6 +433,7 @@
 - [x] 应用部署配置表单按配置工作流重排为基础信息、代码来源、构建产物、触发与调度、部署配置和访问入口分区，弹窗正文内部滚动、底部保存操作固定，降低长表单配置负担。
 - [x] 部署配置表单分区支持折叠展开；基础信息、代码来源、构建产物、触发与调度、部署配置和访问入口默认展开，部署配置钩子默认收起；部署配置钩子改为按需添加阶段，再在阶段内选择 Hook 并拖拽排序，避免阶段和 Hook 全量铺开。
 - [x] 部署配置表单增加智能默认值：选择 Dockerfile 时自动填充构建上下文和构建目录为 Dockerfile 所在目录；目标镜像引用模板在用户未手动编辑前按镜像站命名空间、应用标识和部署配置标识自动生成。
+- [x] 部署配置支持显式 Dockerfile Build Args：按 `KEY=value` 配置非密钥 ARG，触发构建时快照到 BuildRun，并和项目空间构建变量一起作为 BuildKit `build-arg` 传入；同名时部署配置 Build Args 覆盖变量集默认值。
 - [x] 构建变量和密钥提升为项目空间级资源，在项目工作台集中维护；构建时默认注入项目空间启用的变量和密钥。
 - [x] 实现项目空间级构建/部署钩子 MVP：项目 Hook 页面只维护通用脚本库，不维护阶段、启停状态或执行顺序；部署配置把通用 Hook 绑定到构建/部署阶段并在部署配置内拖拽排序；运行时按部署配置绑定快照执行，并支持脚本快照、超时、失败策略、运行记录、日志和审计。
 - [x] 扩展部署配置阶段 Hook：支持 `prePull` / `postPull`（仓库拉取前后）、`preBuild` / `postBuild`（镜像构建前后）、`prePush` / `postPush`（镜像推送前后）以及 `preDeployment` / `postDeployment`；部署配置的 Hook 选择与排序 UI、Build Job 阶段调用点、Worker 部署阶段调用点、HookRun 展示和文档同步覆盖这些阶段。
@@ -441,6 +442,7 @@
 - [x] 收敛构建模板变量命名：同一个值只保留一个变量名，前端说明、后端预览渲染和 Build Job executor 渲染保持一致。
 - [x] 部署配置支持同配置并行策略：默认同一部署配置排队，不同部署配置可并行；配置为并行时同一部署配置也允许多个构建任务同时运行。
 - [x] Kubernetes 构建 Job 支持 BuildKit registry 镜像层缓存：通过 `BUILD_CACHE_ENABLED` / `BUILD_CACHE_TAG` 统一控制，启用后按目标镜像同仓库默认推送 `:buildcache`，executor 自动 import/export cache。
+- [ ] 构建高级参数后续补齐：Dockerfile target stage、目标平台 platform、多镜像 tag、BuildKit secret mount、BuildKit SSH mount、cache import/export 细粒度策略和构建网络策略可视化，保持在高级折叠区渐进开放。
 - [x] 新增 BuildVariableSet 构建变量和密钥模型、迁移和 CRUD API，支持 global/project/user 作用域。
 - [x] BuildRun 默认注入项目空间启用的变量和密钥，Worker 调度构建 Job 前按权限解析变量并从后端 Secret Store 解析密钥。
 - [x] 为 BuildRun 预留 cache 配置字段，MVP 先不启用缓存。
@@ -852,7 +854,7 @@
 - [x] 实现通知适配器 Registry：统一 `Validate`、`Render`、`Send`、`Test` 接口；业务模块只 emit `NotificationEvent`，不关心渠道平台和消息格式。
 - [x] 实现 Webhook 适配器内核：支持 method 白名单、URL/Header/JSON Body 模板、Go template 安全函数、JSON 校验、超时和 SSRF 防护；投递记录脱敏在异步投递层补齐。
 - [x] 实现 SMTP 适配器内核：支持 SMTP/STARTTLS/TLS、登录、From/To/Cc/Bcc、subject/body 模板和测试发送；密码通过 Secret Store 保存。
-- [x] 内置 Webhook 渠道预设定义：飞书 Bot、企微 Bot 以 webhook 模板表达；后续 API 从预设创建渠道快照，预设更新不影响已有渠道。
+- [x] 内置 Webhook 渠道预设定义：飞书 Bot、Lark Bot、企微 Bot、Gotify、钉钉 Bot、Slack Incoming Webhook、Discord Webhook 均以 webhook 模板表达；API 从预设创建渠道快照，预设更新不影响已有渠道。
 - [x] 实现通知渠道/模板/规则 CRUD API：平台管理员可管理全局通知资源，后续再按项目空间扩展项目级规则；保存渠道时把敏感字段写入 Secret Store，响应只回显 `secretSet`。
 - [x] 实现从 Webhook 预设创建渠道快照：用户填写预设密钥后生成普通 webhook 渠道配置和默认模板，后续可提供“按最新预设重置”。
 - [x] 实现通知规则匹配与异步投递：按事件类型、项目空间、应用、部署配置、严重级别过滤；生成 `NotificationDelivery` 后由 worker 调用适配器投递并记录结果、重试次数、耗时和脱敏错误。

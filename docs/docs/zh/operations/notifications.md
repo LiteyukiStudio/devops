@@ -24,11 +24,35 @@ Webhook 渠道会限制请求方法为 `POST`、`PUT` 或 `PATCH`，并按平台
 
 ## 预设快照
 
-平台内置飞书 Bot 和企业微信 Bot 预设。通过预设创建渠道时，平台会把预设转成普通 Webhook 渠道和默认模板快照：
+平台参考夜莺监控的通知媒介拆分方式，将常见协作平台做成 Webhook 预设。通过预设创建渠道时，平台会把预设转成普通 Webhook 渠道和默认模板快照：
 
 - 你只需要填写预设要求的 token 或 key。
 - 已创建渠道不会跟随未来预设变更自动修改。
 - 如果需要调整消息格式，可以编辑生成的模板或创建新的模板。
+
+内置预设：
+
+| 预设 | 必填密钥 | 消息形态 | 说明 |
+| --- | --- | --- | --- |
+| Feishu Bot | `WebhookToken` | 富文本 `post` | 使用飞书自定义机器人地址 `open.feishu.cn`，模板包含项目空间、应用、部署配置和时间。 |
+| Lark Bot | `WebhookToken` | 富文本 `post` | 使用 Lark 国际站自定义机器人地址 `open.larksuite.com`，模板字段使用英文标签。 |
+| WeCom Bot | `WebhookKey` | Markdown | 使用企业微信群机器人 `markdown` 消息。 |
+| Gotify | `GotifyHost`、`AppToken` | Markdown message | `GotifyHost` 填不含协议的域名，例如 `gotify.example.com`；平台默认使用 HTTPS 和 `X-Gotify-Key`。 |
+| DingTalk Bot | `AccessToken` | Markdown | 使用钉钉自定义机器人 `access_token` 地址；需要加签的机器人后续用专用能力支持。 |
+| Slack Incoming Webhook | `WebhookPath` | `mrkdwn` blocks | 只填写 `hooks.slack.com/services/` 后面的路径，避免完整 Webhook URL 明文落表。 |
+| Discord Webhook | `WebhookID`、`WebhookToken` | embeds | 使用 Discord Webhook execute API 的 embed 结构。 |
+
+Webhook 渠道支持 `testJsonBodyTemplate`，预设会为每个平台写入对应的测试消息体。这样点击“测试”时会按平台协议发送，而不是用一个通用 JSON 去尝试所有机器人。
+
+参考：
+
+- 飞书自定义机器人：[飞书开放平台文档](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
+- Lark 自定义机器人：[Lark Open Platform](https://open.larksuite.com/document/client-docs/bot-v3/add-custom-bot)
+- 企业微信群机器人：[企业微信开发者文档](https://developer.work.weixin.qq.com/document/path/91770)
+- Gotify 消息接口与 Markdown extras：[Gotify API](https://gotify.net/api-docs)、[Message Extras](https://gotify.net/docs/msgextras)
+- 钉钉自定义机器人：[钉钉开放平台文档](https://open.dingtalk.com/document/robots/custom-robot-access)
+- Slack Incoming Webhooks：[Slack API 文档](https://api.slack.com/messaging/webhooks)
+- Discord Webhook Execute：[Discord Developer Docs](https://discord.com/developers/docs/resources/webhook)
 
 ## 模板变量
 

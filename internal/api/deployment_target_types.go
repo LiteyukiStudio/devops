@@ -1,6 +1,7 @@
 package api
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -61,6 +62,7 @@ type deploymentTargetResponse struct {
 	DockerfilePath               string                               `json:"dockerfilePath"`
 	BuildContext                 string                               `json:"buildContext"`
 	BuildDirectory               string                               `json:"buildDirectory"`
+	BuildArgs                    string                               `json:"buildArgs"`
 	BuildEnvironmentID           string                               `json:"buildEnvironmentId"`
 	BuildCPURequest              string                               `json:"buildCpuRequest"`
 	BuildMemoryRequest           string                               `json:"buildMemoryRequest"`
@@ -164,6 +166,7 @@ func deploymentTargetResponseFromModel(target model.DeploymentTarget) deployment
 		DockerfilePath:               target.DockerfilePath,
 		BuildContext:                 target.BuildContext,
 		BuildDirectory:               target.BuildDirectory,
+		BuildArgs:                    buildArgsResponseText(target.BuildArgs),
 		BuildEnvironmentID:           strings.TrimSpace(target.BuildEnvironmentID),
 		BuildCPURequest:              fallback(strings.TrimSpace(target.BuildCPURequest), defaultBuildCPURequest),
 		BuildMemoryRequest:           fallback(strings.TrimSpace(target.BuildMemoryRequest), defaultBuildMemoryRequest),
@@ -203,6 +206,23 @@ func deploymentTargetResponseFromModel(target model.DeploymentTarget) deployment
 		CreatedBy:                    target.CreatedBy,
 		CreatedAt:                    target.CreatedAt,
 	}
+}
+
+func buildArgsResponseText(raw string) string {
+	values := model.BuildArgs(raw)
+	if len(values) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	lines := make([]string, 0, len(keys))
+	for _, key := range keys {
+		lines = append(lines, key+"="+values[key])
+	}
+	return strings.Join(lines, "\n")
 }
 
 func deploymentTargetEnvironmentProfile(target model.DeploymentTarget) model.Environment {
@@ -278,6 +298,7 @@ type deploymentTargetInput struct {
 	DockerfilePath               string                             `json:"dockerfilePath"`
 	BuildContext                 string                             `json:"buildContext"`
 	BuildDirectory               string                             `json:"buildDirectory"`
+	BuildArgs                    string                             `json:"buildArgs"`
 	BuildEnvironmentID           string                             `json:"buildEnvironmentId"`
 	BuildCPURequest              string                             `json:"buildCpuRequest"`
 	BuildMemoryRequest           string                             `json:"buildMemoryRequest"`

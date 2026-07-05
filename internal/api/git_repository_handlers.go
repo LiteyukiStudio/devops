@@ -448,6 +448,7 @@ func webhookBuildRunFromTarget(binding model.RepositoryBinding, target model.Dep
 		DockerfilePath:      fallback(strings.TrimSpace(target.DockerfilePath), "Dockerfile"),
 		BuildContext:        fallback(strings.TrimSpace(target.BuildContext), "."),
 		BuildDirectory:      strings.TrimSpace(target.BuildDirectory),
+		BuildArgs:           strings.TrimSpace(target.BuildArgs),
 		TargetRegistryID:    strings.TrimSpace(target.TargetRegistryID),
 		TargetRepository:    strings.Trim(strings.TrimSpace(target.TargetRepository), "/"),
 		TargetTag:           fallback(strings.TrimSpace(target.TargetTag), "latest"),

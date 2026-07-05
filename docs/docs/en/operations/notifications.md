@@ -24,11 +24,35 @@ Webhook channels restrict methods to `POST`, `PUT`, or `PATCH`, and validate tar
 
 ## Preset snapshots
 
-The platform includes Feishu Bot and WeCom Bot presets. Creating a channel from a preset turns the preset into an ordinary Webhook channel and default template snapshot:
+The platform follows Nightingale's split between notification media, templates, and delivery records, and provides common collaboration tools as Webhook presets. Creating a channel from a preset turns the preset into an ordinary Webhook channel and default template snapshot:
 
 - You only provide the token or key required by the preset.
 - Existing channels do not automatically follow future preset changes.
 - To change the message format, edit the generated template or create another template.
+
+Built-in presets:
+
+| Preset | Required secrets | Message shape | Notes |
+| --- | --- | --- | --- |
+| Feishu Bot | `WebhookToken` | Rich `post` | Uses the Feishu custom bot endpoint on `open.feishu.cn`; the template includes project space, application, deployment target, and time. |
+| Lark Bot | `WebhookToken` | Rich `post` | Uses the Lark custom bot endpoint on `open.larksuite.com` with English field labels. |
+| WeCom Bot | `WebhookKey` | Markdown | Uses the WeCom group robot `markdown` message type. |
+| Gotify | `GotifyHost`, `AppToken` | Markdown message | `GotifyHost` is a host without scheme, such as `gotify.example.com`; the platform uses HTTPS and `X-Gotify-Key`. |
+| DingTalk Bot | `AccessToken` | Markdown | Uses the DingTalk custom robot `access_token` endpoint; signed robots need a later dedicated capability. |
+| Slack Incoming Webhook | `WebhookPath` | `mrkdwn` blocks | Enter only the path after `hooks.slack.com/services/`, so the full Webhook URL is not stored as plain business data. |
+| Discord Webhook | `WebhookID`, `WebhookToken` | embeds | Uses the Discord Webhook execute API embed payload. |
+
+Webhook channels support `testJsonBodyTemplate`. Presets write a platform-specific test body into the channel config, so the test action sends a valid payload for that platform instead of one generic JSON shape.
+
+References:
+
+- Feishu custom bot: [Feishu Open Platform](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)
+- Lark custom bot: [Lark Open Platform](https://open.larksuite.com/document/client-docs/bot-v3/add-custom-bot)
+- WeCom group robot: [WeCom Developer Docs](https://developer.work.weixin.qq.com/document/path/91770)
+- Gotify message API and Markdown extras: [Gotify API](https://gotify.net/api-docs), [Message Extras](https://gotify.net/docs/msgextras)
+- DingTalk custom robot: [DingTalk Open Platform](https://open.dingtalk.com/document/robots/custom-robot-access)
+- Slack Incoming Webhooks: [Slack API docs](https://api.slack.com/messaging/webhooks)
+- Discord Webhook Execute: [Discord Developer Docs](https://discord.com/developers/docs/resources/webhook)
 
 ## Template variables
 

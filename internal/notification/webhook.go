@@ -16,10 +16,11 @@ import (
 type WebhookAdapter struct{}
 
 type WebhookConfig struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Timeout int               `json:"timeoutSeconds"`
+	Method               string            `json:"method"`
+	URL                  string            `json:"url"`
+	Headers              map[string]string `json:"headers"`
+	Timeout              int               `json:"timeoutSeconds"`
+	TestJSONBodyTemplate string            `json:"testJsonBodyTemplate"`
 }
 
 func (WebhookAdapter) Kind() string {
@@ -141,6 +142,10 @@ func (adapter WebhookAdapter) Send(ctx context.Context, config json.RawMessage, 
 }
 
 func (adapter WebhookAdapter) Test(ctx context.Context, config json.RawMessage, secrets json.RawMessage, resolver SecretResolver) error {
+	cfg, err := parseWebhookConfig(config)
+	if err != nil {
+		return err
+	}
 	event := Event{
 		ID:         "test",
 		Type:       "notification.test",
@@ -148,7 +153,11 @@ func (adapter WebhookAdapter) Test(ctx context.Context, config json.RawMessage, 
 		OccurredAt: time.Now(),
 		Message:    "Liteyuki notification test",
 	}
-	message, err := adapter.Render(ctx, event, Template{JSON: `{"text": {{json .Event.Message}}}`}, config, secrets, resolver, "")
+	testBody := strings.TrimSpace(cfg.TestJSONBodyTemplate)
+	if testBody == "" {
+		testBody = `{"text": {{json .Event.Message}}}`
+	}
+	message, err := adapter.Render(ctx, event, Template{JSON: testBody}, config, secrets, resolver, "")
 	if err != nil {
 		return err
 	}

@@ -587,6 +587,7 @@ export interface BuildRun {
   dockerfilePath: string
   buildContext: string
   buildDirectory: string
+  buildArgs: string
   buildEnvironmentId: string
   buildCpuRequest: string
   buildMemoryRequest: string
@@ -677,6 +678,7 @@ export interface DeploymentTarget {
   dockerfilePath: string
   buildContext: string
   buildDirectory: string
+  buildArgs: string
   buildEnvironmentId: string
   buildCpuRequest: string
   buildMemoryRequest: string

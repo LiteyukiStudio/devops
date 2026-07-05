@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
+import { Textarea } from '@/components/ui/textarea'
 import { useBillingDisplay } from '@/lib/billing-display'
 import { WORKFLOW_STATUS_REFETCH_INTERVAL_MS } from '@/lib/polling'
 import { defaultBuildCpuRequest, defaultBuildMemoryRequest, defaultBuildTimeoutSeconds } from './application-build-defaults'
@@ -395,6 +396,11 @@ export function ApplicationBuildsPanel({ applicationId, appSlug, binding, deploy
             <Field hint={t('buildsPage.inheritedModuleHint')} label={t('buildsPage.buildContext')}>
               <Input readOnly value={selectedDeploymentTarget?.buildContext || '.'} />
             </Field>
+            {selectedDeploymentTarget?.buildArgs?.trim() && (
+              <Field hint={t('buildsPage.inheritedBuildArgsHint')} label={t('buildsPage.buildArgs')}>
+                <Textarea readOnly className="min-h-20 font-mono" value={selectedDeploymentTarget.buildArgs} />
+              </Field>
+            )}
             <div className="grid gap-3">
               <div>
                 <h3 className="text-sm font-semibold">{t('deploymentsPage.buildEnvironment')}</h3>

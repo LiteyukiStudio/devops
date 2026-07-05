@@ -39,6 +39,8 @@ Deleting a registry also deletes all credentials that belong to it. Confirm that
 
 Automated builds need push credentials. Existing-image deployments mainly need the runtime cluster to pull the target image.
 
+Deployment targets support Dockerfile Build Args. Users can enter one Dockerfile `ARG` per line as `KEY=value`; the platform snapshots the current config into the BuildRun and passes the values to BuildKit. Build Args support the same build-time templates as image tags: `${{ github.sha }}`, `${{ github.ref_name }}`, `${{ github.ref_type }}`, `${{ github.ref }}`, and `{short_sha}`. Build Args are build parameters and appear in build records, so do not use them for secrets. Put sensitive values in project-space build secret variables.
+
 Registry credentials can define an image repository template and an image tag template. They are used only to seed the default push location when a deployment target is created. After the deployment target is saved, the repository and tag are stored as a snapshot and no longer follow credential template changes. For example, repository template `devopsns/{project}-{app}-{stage}` plus tag template `{projectSlug}-{appSlug}-{stage}` seeds image refs like `devopsns/blog-api-prod:blog-api-prod`.
 
 Repository and tag templates both render only static values known when the deployment target is created: `{registryNamespace}`, `{project}`, `{projectSlug}`, `{app}`, `{appSlug}`, `{stage}`, and `{target}`. If the tag template uses build-time variables such as `{commit}` or `{branch}`, the deployment target default falls back to `latest` so future builds are not implicitly rewritten by credential templates.

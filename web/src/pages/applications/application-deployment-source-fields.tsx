@@ -7,6 +7,7 @@ import { TargetImageRefInput } from '@/components/common/target-image-ref-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
+import { Textarea } from '@/components/ui/textarea'
 import { registryOptionLabel } from './application-config-utils'
 import { BuildEnvironmentFields } from './application-deployment-resource-fields'
 import { applyDockerfileBuildDefaults } from './application-deployments-panel-utils'
@@ -137,6 +138,9 @@ export function ApplicationDeploymentBuildSettingsFields({
           <datalist id="deployment-target-build-directory-options">
             {buildDirectorySuggestions.map(option => <option key={option} value={option} />)}
           </datalist>
+        </Field>
+        <Field hint={t('buildsPage.buildArgsHint')} label={t('buildsPage.buildArgs')}>
+          <Textarea className="min-h-24 font-mono" {...targetForm.register('buildArgs')} placeholder={t('buildsPage.buildArgsPlaceholder')} />
         </Field>
         <Field hint={t('buildsPage.targetImageRefHint')} label={t('buildsPage.targetImageRef')} required>
           <TargetImageRefInput

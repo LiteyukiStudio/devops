@@ -60,6 +60,7 @@ Use these values:
 | Source | Build from repository |
 | Dockerfile | `Dockerfile` |
 | Build context | `.` |
+| Dockerfile Build Args | Optional, for example `EMBED_WEB=true` |
 | Service port | `8888` |
 | Image tag | `latest` or `${GIT_SHA}` |
 
@@ -84,8 +85,11 @@ If you start with SQLite, mount a data volume at `/app/data`.
 | Source | Build from repository |
 | Dockerfile | `web/Dockerfile` |
 | Build context | `web` |
+| Dockerfile Build Args | Optional, for example `VERSION=${{ github.sha }}` |
 | Service port | `3000` |
 | Image tag | `latest` or `${GIT_SHA}` |
+
+Dockerfile Build Args are passed to Dockerfile `ARG` instructions as BuildKit `build-arg` values and snapshotted into each build run. Use them for non-secret values such as `EMBED_WEB=true`, `VERSION=${{ github.sha }}`, or build modes. Put passwords, tokens, and private package credentials in project-space build secret variables instead.
 
 Set `BACKEND_URL` to the backend service URL, for example:
 

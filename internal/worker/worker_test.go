@@ -251,6 +251,40 @@ func TestBuildJobSpecUsesRestrictedServiceAccountAndBuildScope(t *testing.T) {
 	}
 }
 
+func TestBuildJobSecretSeparatesExplicitBuildArgs(t *testing.T) {
+	secret := buildJobSecret(
+		"build-secret",
+		builder.Task{
+			Build: builder.BuildPayload{
+				Env: map[string]string{
+					"EMBED_WEB": "false",
+					"NODE_ENV":  "production",
+				},
+				BuildArgs: map[string]string{
+					"EMBED_WEB": "true",
+					"VERSION":   "${{ github.sha }}",
+				},
+			},
+		},
+		"",
+		false,
+		"buildcache",
+	)
+
+	if secret.StringData["env-EMBED_WEB"] != "true" {
+		t.Fatalf("expected explicit build arg to override env value, got %q", secret.StringData["env-EMBED_WEB"])
+	}
+	if strings.Contains(secret.StringData["env-BUILD_ENV_KEYS"], "EMBED_WEB") {
+		t.Fatalf("BUILD_ENV_KEYS should not include overridden arg: %q", secret.StringData["env-BUILD_ENV_KEYS"])
+	}
+	if !strings.Contains(secret.StringData["env-BUILD_ENV_KEYS"], "NODE_ENV") {
+		t.Fatalf("BUILD_ENV_KEYS should include env variable: %q", secret.StringData["env-BUILD_ENV_KEYS"])
+	}
+	if !strings.Contains(secret.StringData["env-BUILD_ARG_KEYS"], "EMBED_WEB") || !strings.Contains(secret.StringData["env-BUILD_ARG_KEYS"], "VERSION") {
+		t.Fatalf("BUILD_ARG_KEYS missing explicit args: %q", secret.StringData["env-BUILD_ARG_KEYS"])
+	}
+}
+
 func TestBuildJobSpecCopiesOnlyProjectedExecutorFiles(t *testing.T) {
 	spec := buildJobSpec(
 		"build-job-1",

@@ -153,6 +153,7 @@ func (h *Handlers) RetryBuildRun(ctx *gin.Context) {
 		DockerfilePath:      previous.DockerfilePath,
 		BuildContext:        previous.BuildContext,
 		BuildDirectory:      previous.BuildDirectory,
+		BuildArgs:           previous.BuildArgs,
 		BuildEnvironmentID:  previous.BuildEnvironmentID,
 		BuildCPURequest:     previous.BuildCPURequest,
 		BuildMemoryRequest:  previous.BuildMemoryRequest,
@@ -363,6 +364,7 @@ func (h *Handlers) buildRunFromInput(projectID string, user model.User, input bu
 		DockerfilePath:      fallback(strings.TrimSpace(input.DockerfilePath), "Dockerfile"),
 		BuildContext:        fallback(strings.TrimSpace(input.BuildContext), "."),
 		BuildDirectory:      strings.TrimSpace(input.BuildDirectory),
+		BuildArgs:           normalizeBuildArgsInputValue(input.BuildArgs),
 		BuildEnvironmentID:  strings.TrimSpace(input.BuildEnvironmentID),
 		BuildCPURequest:     strings.TrimSpace(input.BuildCPURequest),
 		BuildMemoryRequest:  strings.TrimSpace(input.BuildMemoryRequest),
@@ -408,6 +410,7 @@ type buildRunInput struct {
 	DockerfilePath      string   `json:"dockerfilePath"`
 	BuildContext        string   `json:"buildContext"`
 	BuildDirectory      string   `json:"buildDirectory"`
+	BuildArgs           string   `json:"buildArgs"`
 	BuildEnvironmentID  string   `json:"buildEnvironmentId"`
 	BuildCPURequest     string   `json:"buildCpuRequest"`
 	BuildMemoryRequest  string   `json:"buildMemoryRequest"`

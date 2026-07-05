@@ -3,7 +3,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '
 
 interface EmptyStateProps {
   title: string
-  description?: string
+  description?: ReactNode
   actions?: ReactNode
   variant?: 'card' | 'plain'
 }

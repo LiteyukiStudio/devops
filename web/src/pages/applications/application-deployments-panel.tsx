@@ -59,6 +59,21 @@ function upsertRuntimeConfigRef(refs: DeploymentRuntimeConfigRef[], nextRef: Dep
   return [...next, nextRef]
 }
 
+function buildArgLineCount(raw?: string) {
+  const value = raw?.trim()
+  if (!value)
+    return 0
+  if (value.startsWith('{')) {
+    try {
+      return Object.keys(JSON.parse(value) as Record<string, string>).length
+    }
+    catch {
+      return 0
+    }
+  }
+  return value.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).length
+}
+
 export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns, deploymentTargets, projectId, projectSlug, ref, registries, releases, repositoryBindings }: {
   applicationId: string
   appSlug: string
@@ -298,6 +313,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
       buildCpuRequest: target?.buildCpuRequest || defaultBuildCpuRequest,
       buildMemoryRequest: target?.buildMemoryRequest || defaultBuildMemoryRequest,
       buildTimeoutSeconds: target?.buildTimeoutSeconds || defaultBuildTimeoutSeconds,
+      buildArgs: target?.buildArgs || '',
       repositoryBindingId: target?.repositoryBindingId ?? defaultBinding?.id ?? '',
       targetRegistryId: target?.targetRegistryId ?? defaultRegistry?.id ?? '',
       targetImageRef: deploymentTargetImageRef(target ?? undefined) || defaultTargetImageRef(defaultRegistry, projectSlug, appSlug),
@@ -381,6 +397,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
         cpu: targetForm.watch('buildCpuRequest') || defaultBuildCpuRequest,
         dockerfile: targetForm.watch('dockerfilePath') || 'Dockerfile',
         memory: targetForm.watch('buildMemoryRequest') || defaultBuildMemoryRequest,
+        args: buildArgLineCount(targetForm.watch('buildArgs')),
         timeout: buildTimeoutMinutes,
       })
   const targetRuntimeSummary = t('deploymentsPage.progressiveRuntimeSummary', {
