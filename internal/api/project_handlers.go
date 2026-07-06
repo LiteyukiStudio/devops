@@ -33,9 +33,7 @@ func (h *Handlers) ListProjects(ctx *gin.Context) {
 		Joins("left join project_members on project_members.project_id = projects.id and project_members.user_id = ?", user.ID).
 		Joins("left join project_pins on project_pins.project_id = projects.id and project_pins.user_id = project_members.user_id").
 		Where("projects.deleted_at is null")
-	if user.Role == "platform_admin" && projectListScope(ctx.Query("scope")) == "related" {
-		baseQuery = baseQuery.Where("(project_members.user_id = ? or projects.system_key <> '')", user.ID)
-	} else if user.Role != "platform_admin" {
+	if !authz.IsPlatformAdmin(user.Role) {
 		baseQuery = baseQuery.Where("project_members.user_id = ?", user.ID)
 	}
 	baseQuery = applySearch(ctx, baseQuery, "projects.name", "projects.slug")

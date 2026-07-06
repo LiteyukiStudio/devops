@@ -1,12 +1,12 @@
 package api
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const (
@@ -19,7 +19,14 @@ func isSystemProject(project model.Project) bool {
 }
 
 func (h *Handlers) ensurePlatformSystemProject(user model.User) (model.Project, error) {
-	project := model.Project{
+	var project model.Project
+	if err := h.db.First(&project, "system_key = ?", platformSystemProjectKey).Error; err == nil {
+		return h.ensurePlatformSystemProjectBillingOwner(project, user)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.Project{}, err
+	}
+
+	project = model.Project{
 		ID:                  id.New("prj"),
 		Slug:                platformSystemProjectSlug,
 		Name:                "Liteyuki Platform",
@@ -30,20 +37,17 @@ func (h *Handlers) ensurePlatformSystemProject(user model.User) (model.Project, 
 		SystemKey:           platformSystemProjectKey,
 		DeleteStatus:        "active",
 	}
-	err := h.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "system_key"}},
-		DoNothing: true,
-	}).Create(&project).Error
-	if err != nil {
+	if err := h.db.Create(&project).Error; err != nil {
+		var existing model.Project
+		if findErr := h.db.First(&existing, "system_key = ?", platformSystemProjectKey).Error; findErr == nil {
+			return h.ensurePlatformSystemProjectBillingOwner(existing, user)
+		}
 		return model.Project{}, err
 	}
-	err = h.db.First(&project, "system_key = ?", platformSystemProjectKey).Error
-	if err != nil && err == gorm.ErrRecordNotFound {
-		return model.Project{}, err
-	}
-	if err != nil {
-		return model.Project{}, err
-	}
+	return h.ensurePlatformSystemProjectBillingOwner(project, user)
+}
+
+func (h *Handlers) ensurePlatformSystemProjectBillingOwner(project model.Project, user model.User) (model.Project, error) {
 	if strings.TrimSpace(project.BillingOwnerUserID) == "" && strings.TrimSpace(user.ID) != "" {
 		project.BillingOwnerUserID = user.ID
 		if err := h.db.Model(&project).Update("billing_owner_user_id", user.ID).Error; err != nil {
