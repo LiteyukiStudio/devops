@@ -22,6 +22,7 @@ const billingPage = {
     notInstalled: 'Not deployed',
     waitingReport: 'Waiting for report',
   },
+  gatewayTrafficMetricsDocs: 'Configure Traefik metrics',
   selectedPeriod: 'Current period: {{period}}',
   periodStartDate: 'Period start date',
   periodEndDate: 'Period end date',

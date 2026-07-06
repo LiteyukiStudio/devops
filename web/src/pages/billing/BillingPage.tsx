@@ -3,7 +3,7 @@ import type { BillingDeploymentSpend, BillingLedgerEntry, BillingUsageRecord, Ga
 import type { DataListColumn } from '@/components/common/data-list'
 import type { StatusTone } from '@/components/common/status-tone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CalendarDays, Coins, CreditCard, Plus, TrendingDown, WalletCards } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Coins, CreditCard, ExternalLink, Plus, TrendingDown, WalletCards } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
 const BILLING_PROJECT_SCOPE_CACHE_KEY = 'liteyuki.billing.projectScope'
+const DOCS_BASE_URL = String(import.meta.env.VITE_DOCS_BASE_URL || 'https://devops-docs.liteyuki.org').replace(/\/+$/, '')
+const GATEWAY_TRAFFIC_METRICS_DOC_URL = `${DOCS_BASE_URL}/operations/billing#traefik-prometheus-metrics-for-gateway-traffic-probe`
 type BillingPeriodPreset = 'thisWeek' | 'last7Days' | 'thisMonth' | 'last30Days' | 'thisYear' | 'lastYear' | 'custom'
 
 interface BillingPeriodSelection {
@@ -441,6 +443,17 @@ export function BillingPage() {
             : null}
           {showGatewayTrafficStatusCard && (
             <SpendCategoryCard
+              action={(
+                <a
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                  href={GATEWAY_TRAFFIC_METRICS_DOC_URL}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {t('billingPage.gatewayTrafficMetricsDocs')}
+                  <ExternalLink className="size-3" />
+                </a>
+              )}
               label={t('billingPage.categories.gateway')}
               value={gatewayTrafficStatusLabel(gatewayTrafficStatus, t)}
             />
@@ -683,7 +696,7 @@ function MetricCard({ fiatValue, icon, label, loading, value }: { fiatValue?: st
   )
 }
 
-function SpendCategoryCard({ label, value }: { label: string, value: string }) {
+function SpendCategoryCard({ action, label, value }: { action?: ReactNode, label: string, value: string }) {
   return (
     <div className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
       <p className="truncate text-xs text-muted-foreground">
@@ -692,6 +705,7 @@ function SpendCategoryCard({ label, value }: { label: string, value: string }) {
       <p className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">
         {value}
       </p>
+      {action}
     </div>
   )
 }

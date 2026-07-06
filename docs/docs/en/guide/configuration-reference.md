@@ -34,6 +34,12 @@ Before login, the frontend picks the first supported language from the browser l
 
 Available access-route domain suffixes, external access schemes, external access ports, and Gateway API defaults are managed on runtime clusters. Different clusters can use different gateway domain suffixes, GatewayClasses, and shared Gateways; the same cluster can also define multiple suffixes. A deployment target's cluster decides which suffixes are selectable, and each access route chooses exactly one suffix for default-domain generation, short-host expansion, and console access links. Set a cluster's external access scheme to `https` when an outer CDN or reverse proxy already terminates HTTPS; this only changes console display and link targets, does not change internal Gateway listeners, and does not request certificates.
 
+## Frontend Build Settings
+
+| Type | Key | Default | Purpose and when to change |
+| --- | --- | --- | --- |
+| Advanced | `VITE_DOCS_BASE_URL` | `https://devops-docs.liteyuki.org` | Documentation site base URL. Help links on pages such as Billing are generated from it. Set it before building the frontend when the docs site uses another domain or path. |
+
 ## Worker Settings
 
 | Type | Key | Default | Purpose and when to change |

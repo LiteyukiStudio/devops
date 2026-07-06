@@ -33,3 +33,71 @@ Traffic collection is optional and is not installed by default. The billing page
 A gateway or external collector reports response bytes by GatewayRoute and time window. The platform converts the bytes to GiB with the `gateway.egress_gib` billing rule and writes settled usage records. Gateway Traffic Probe reports with a dedicated system component token, and the backend checks that the reported GatewayRoute belongs to the probe's runtime cluster to prevent cross-cluster usage spoofing. Request count is currently stored for audit and future anti-abuse analysis; it is disabled for billing by default.
 
 The built-in Gateway Traffic Probe currently uses Traefik Prometheus metrics mode. It lists platform-managed HTTPRoutes in the cluster, maps them by the `liteyuki.devops/gateway-route-id` label, scrapes Traefik response-byte and request counters, calculates per-minute deltas, and reports the window back to the platform. The default metrics endpoint is `http://traefik.<Gateway namespace>.svc.cluster.local:9100/metrics`; if the Traefik Service name, namespace, or metrics port is different in the cluster, override it with the “Traefik Metrics URL” template parameter during installation. Traefik must expose Prometheus metrics with router/service labels enabled, such as `--metrics.prometheus.addrouterslabels=true` and `--metrics.prometheus.addserviceslabels=true`, and the probe Pod must be able to reach that endpoint.
+
+### Traefik Prometheus metrics for Gateway Traffic Probe
+
+Gateway Traffic Probe relies on router/service labels in Traefik Prometheus metrics to attribute traffic back to platform HTTPRoutes. Entrypoint-level metrics alone are not enough. If the probe logs keep showing:
+
+```text
+gateway traffic scrape completed routes=9 matchedRoutes=0 windows=0 reportableWindows=0 reportedWindows=0
+```
+
+the probe can list HTTPRoutes and scrape metrics, but the metrics labels cannot be matched to platform routes. Enable Prometheus metrics and router/service labels on Traefik.
+
+For the packaged K3s Traefik, use `HelmChartConfig` to override values. After confirming that the `kube-system/traefik` HelmChart exists, create or update:
+
+```yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    metrics:
+      prometheus:
+        addRoutersLabels: true
+        addServicesLabels: true
+```
+
+If Traefik is installed with Helm directly, set the Traefik chart values:
+
+```yaml
+metrics:
+  prometheus:
+    addRoutersLabels: true
+    addServicesLabels: true
+```
+
+If Traefik is managed as a hand-written Deployment or argument list, make sure the equivalent flags are present:
+
+```text
+--metrics.prometheus=true
+--metrics.prometheus.addrouterslabels=true
+--metrics.prometheus.addserviceslabels=true
+```
+
+Changing Traefik static configuration usually rolls Traefik Pods, so ingress traffic may be briefly affected. For production clusters, apply this during a low-traffic window and keep the original configuration available for rollback.
+
+After updating Traefik, first verify that the probe can read the metrics endpoint:
+
+```bash
+kubectl -n <probe-namespace> exec -it <probe-pod> -- sh -c '
+wget -qO- "$TRAEFIK_METRICS_URL" | grep -E "traefik_.*(requests|responses).*total" | head -30
+'
+```
+
+The output should contain metrics with `router="...@kubernetesgateway"` or `service="..."` labels. Then compare them with platform HTTPRoutes:
+
+```bash
+kubectl get httproute -A \
+  -l app.kubernetes.io/managed-by=liteyuki-devops \
+  -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,ROUTE_ID:.metadata.labels.liteyuki\.devops/gateway-route-id,HOST:.spec.hostnames[*]'
+```
+
+After real access traffic is generated, probe logs should move from `matchedRoutes=0` to at least `matchedRoutes>0`, and `gateway traffic window reported` should appear when response-byte counters increase. The billing page changes from “Waiting for report” to normal gateway spend after the first positive traffic window is received.
+
+References:
+
+- [Traefik Prometheus metrics](https://doc.traefik.io/traefik/observability/metrics/prometheus/)
+- [K3s HelmChartConfig](https://docs.k3s.io/add-ons/helm)

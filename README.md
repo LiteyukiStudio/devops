@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/">文档站</a>
+  <a href="https://devops-docs.liteyuki.org">文档站</a>
   ·
   <a href="Doc/devops/README.md">工程文档</a>
   ·
@@ -300,7 +300,7 @@ notes/                  产品方案、场景记录和代码健康 SOP
 
 推荐阅读顺序：
 
-1. [文档站](docs/)
+1. [文档站](https://devops-docs.liteyuki.org)
 2. [产品与一体化方案](notes/01-产品与一体化方案.md)
 3. [代码健康检查 SOP](notes/07-代码健康检查SOP.md)
 4. [TODO](TODO.md)

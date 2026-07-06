@@ -22,6 +22,7 @@ const billingPage = {
     notInstalled: '未部署',
     waitingReport: '等待上报',
   },
+  gatewayTrafficMetricsDocs: '配置 Traefik 指标',
   selectedPeriod: '当前周期：{{period}}',
   periodStartDate: '周期开始日期',
   periodEndDate: '周期结束日期',
