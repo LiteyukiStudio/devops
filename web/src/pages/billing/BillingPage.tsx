@@ -697,7 +697,7 @@ function GatewayTrafficUnavailableCard({ canInstall, status }: { canInstall: boo
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="truncate text-xs font-medium">
-              {t('billingPage.gatewayTrafficUnavailableTitle')}
+              {status.installed ? t('billingPage.gatewayTrafficWaitingTitle') : t('billingPage.gatewayTrafficUnavailableTitle')}
             </p>
             {status.installed && <StatusValueBadge labelKeyPrefix="billingPage.gatewayTrafficStatuses" value={status.status || 'unknown'} />}
           </div>

@@ -108,20 +108,25 @@ func (c *Collector) scrapeAndReport(ctx context.Context) error {
 	}
 	now := time.Now().UTC().Truncate(time.Minute)
 	windows := c.windowsForCounters(counters, routes, now)
+	reportedWindows := 0
+	reportableWindows := 0
 	for _, window := range windows {
 		if window.ResponseBytes <= 0 {
 			c.markReported(window.RouteID, counters[window.RouteID], now)
 			continue
 		}
+		reportableWindows++
 		if err := c.reporter.Report(ctx, window); err != nil {
 			return err
 		}
+		reportedWindows++
 		c.markReported(window.RouteID, counters[window.RouteID], now)
 		c.logger.Info("gateway traffic window reported", "routeId", window.RouteID, "responseBytes", window.ResponseBytes, "requestCount", window.RequestCount, "periodStart", window.PeriodStart, "periodEnd", window.PeriodEnd)
 	}
+	c.logger.Info("gateway traffic scrape completed", "routes", len(routes), "matchedRoutes", len(counters), "windows", len(windows), "reportableWindows", reportableWindows, "reportedWindows", reportedWindows)
 	c.mu.Lock()
 	c.lastScrape = time.Now()
-	if len(windows) > 0 {
+	if reportedWindows > 0 {
 		c.lastReport = time.Now()
 	}
 	c.lastError = ""
