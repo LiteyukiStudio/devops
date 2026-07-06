@@ -3,10 +3,9 @@ import type { BillingDeploymentSpend, BillingLedgerEntry, BillingUsageRecord, Ga
 import type { DataListColumn } from '@/components/common/data-list'
 import type { StatusTone } from '@/components/common/status-tone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CalendarDays, Coins, CreditCard, Plus, TrendingDown, WalletCards, WifiOff } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Coins, CreditCard, Plus, TrendingDown, WalletCards } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { api } from '@/api'
 import { useSession } from '@/app/session-context'
@@ -15,7 +14,7 @@ import { DataList } from '@/components/common/data-list'
 import { FormField as Field } from '@/components/common/form-field'
 import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
-import { formatAbsoluteDateTime, formatSmartDateTime } from '@/components/common/time-format'
+import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -150,7 +149,8 @@ export function BillingPage() {
   const scopedSummary = scopedSummaryQuery.data
   const balanceStatus = normalizeBalanceStatus(accountSummary?.balanceStatus)
   const periodCategories = scopedSummary?.periodCategories ?? []
-  const showGatewayTrafficUnavailable = gatewayTrafficStatusQuery.isSuccess && !gatewayTrafficStatusQuery.data.available
+  const gatewayTrafficStatus = gatewayTrafficStatusQuery.data
+  const showGatewayTrafficStatusCard = gatewayTrafficStatusQuery.isSuccess && gatewayTrafficStatus && !gatewayTrafficStatus.available
 
   const billingScopeTools = (
     <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -431,24 +431,21 @@ export function BillingPage() {
         </div>
         <div className="mt-4 grid min-h-[5.75rem] gap-3 md:grid-cols-3 xl:grid-cols-6">
           {periodCategories.length > 0
-            ? periodCategories.map(category => (
-                <div key={category.category} className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
-                  <p className="truncate text-xs text-muted-foreground">
-                    {t(`billingPage.categories.${category.category}`, { defaultValue: category.category })}
-                  </p>
-                  <p className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">
-                    {billingDisplay.formatAmountWithUnit(category.amountCredits)}
-                  </p>
-                </div>
+            ? periodCategories.filter(category => !(showGatewayTrafficStatusCard && category.category === 'gateway')).map(category => (
+                <SpendCategoryCard
+                  key={category.category}
+                  label={t(`billingPage.categories.${category.category}`, { defaultValue: category.category })}
+                  value={billingDisplay.formatAmountWithUnit(category.amountCredits)}
+                />
               ))
             : null}
-          {showGatewayTrafficUnavailable && (
-            <GatewayTrafficUnavailableCard
-              canInstall={canManageBilling}
-              status={gatewayTrafficStatusQuery.data}
+          {showGatewayTrafficStatusCard && (
+            <SpendCategoryCard
+              label={t('billingPage.categories.gateway')}
+              value={gatewayTrafficStatusLabel(gatewayTrafficStatus, t)}
             />
           )}
-          {periodCategories.length === 0 && !showGatewayTrafficUnavailable && (
+          {periodCategories.length === 0 && !showGatewayTrafficStatusCard && (
             <div className="flex min-h-[5.75rem] items-center rounded-md border border-dashed border-border bg-muted/10 px-4 text-sm text-muted-foreground md:col-span-3 xl:col-span-6">
               {scopedSummaryQuery.isFetching ? t('common.loading') : t('billingPage.emptyPeriodCategories')}
             </div>
@@ -686,77 +683,25 @@ function MetricCard({ fiatValue, icon, label, loading, value }: { fiatValue?: st
   )
 }
 
-function GatewayTrafficUnavailableCard({ canInstall, status }: { canInstall: boolean, status: GatewayTrafficStatus }) {
-  const { t } = useTranslation()
-  const navigate = useNavigate()
-  const hasReportedWindow = Boolean(status.lastReportedAt || status.lastWindowStart || status.lastWindowEnd)
+function SpendCategoryCard({ label, value }: { label: string, value: string }) {
   return (
-    <div className="min-w-0 rounded-md border border-dashed border-amber-300/70 bg-amber-50/70 p-3 text-amber-900 md:col-span-3 xl:col-span-6 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
-      <div className="flex min-w-0 items-start gap-3">
-        <WifiOff className="mt-0.5 size-4 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="truncate text-xs font-medium">
-              {status.installed ? t('billingPage.gatewayTrafficWaitingTitle') : t('billingPage.gatewayTrafficUnavailableTitle')}
-            </p>
-            {status.installed && <StatusValueBadge labelKeyPrefix="billingPage.gatewayTrafficStatuses" value={status.status || 'unknown'} />}
-          </div>
-          <p className="mt-1 text-xs opacity-80">
-            {status.installed
-              ? hasReportedWindow
-                ? t('billingPage.gatewayTrafficReportedButUnavailableDescription')
-                : t('billingPage.gatewayTrafficWaitingDescription')
-              : t('billingPage.gatewayTrafficUnavailableDescription')}
-          </p>
-          {status.installed && (
-            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
-              <GatewayTrafficStatusFact
-                label={t('billingPage.gatewayTrafficLastReportedAt')}
-                value={status.lastReportedAt ? formatSmartDateTime(status.lastReportedAt, t) : t('billingPage.gatewayTrafficNotReportedYet')}
-              />
-              <GatewayTrafficStatusFact
-                label={t('billingPage.gatewayTrafficLastWindow')}
-                value={formatGatewayTrafficWindow(status, t)}
-              />
-              <GatewayTrafficStatusFact
-                label={t('billingPage.gatewayTrafficComponentStatus')}
-                value={t(`billingPage.gatewayTrafficStatuses.${status.status || 'unknown'}`, { defaultValue: status.status || t('common.unknown') })}
-              />
-              <GatewayTrafficStatusFact
-                className={status.lastError ? 'sm:col-span-2 xl:col-span-1' : undefined}
-                label={t('billingPage.gatewayTrafficLastError')}
-                value={status.lastError || t('common.none')}
-              />
-            </dl>
-          )}
-          {canInstall
-            ? (
-                <Button className="mt-3 h-8 rounded-full px-3 text-xs" variant="outline" onClick={() => navigate('/app-templates?template=liteyuki-gateway-traffic-probe')}>
-                  {status.installed ? t('billingPage.reinstallGatewayTrafficProbe') : t('billingPage.installGatewayTrafficProbe')}
-                </Button>
-              )
-            : (
-                <p className="mt-2 text-xs opacity-80">{t('billingPage.gatewayTrafficAskAdmin')}</p>
-              )}
-        </div>
-      </div>
+    <div className="min-w-0 rounded-md border border-border bg-muted/20 p-3">
+      <p className="truncate text-xs text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">
+        {value}
+      </p>
     </div>
   )
 }
 
-function GatewayTrafficStatusFact({ className, label, value }: { className?: string, label: string, value: string }) {
-  return (
-    <div className={cn('min-w-0 rounded-md border border-amber-200/80 bg-white/50 px-2.5 py-2 dark:border-amber-900/50 dark:bg-black/10', className)}>
-      <dt className="truncate opacity-70">{label}</dt>
-      <dd className="mt-0.5 truncate font-medium tabular-nums">{value}</dd>
-    </div>
-  )
-}
-
-function formatGatewayTrafficWindow(status: GatewayTrafficStatus, t: ReturnType<typeof useTranslation>['t']) {
-  if (!status.lastWindowStart && !status.lastWindowEnd)
-    return t('billingPage.gatewayTrafficNoWindow')
-  return `${formatAbsoluteDateTime(status.lastWindowStart ?? undefined)} - ${formatAbsoluteDateTime(status.lastWindowEnd ?? undefined)}`
+function gatewayTrafficStatusLabel(status: GatewayTrafficStatus, t: ReturnType<typeof useTranslation>['t']) {
+  if (!status.installed)
+    return t('billingPage.gatewayTrafficProbeStates.notInstalled')
+  if (!status.lastReportedAt)
+    return t('billingPage.gatewayTrafficProbeStates.waitingReport')
+  return t(`billingPage.gatewayTrafficStatuses.${status.status || 'unknown'}`, { defaultValue: status.status || t('common.unknown') })
 }
 
 function ProjectCell({
