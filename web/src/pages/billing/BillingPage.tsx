@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { BillingDeploymentSpend, BillingLedgerEntry, BillingUsageRecord, GatewayTrafficStatus, Project, User } from '@/api'
+import type { BillingDeploymentSpend, BillingLedgerEntry, BillingUsageRecord, GatewayTrafficStatus, Project } from '@/api'
 import type { DataListColumn } from '@/components/common/data-list'
 import type { StatusTone } from '@/components/common/status-tone'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,6 +15,7 @@ import { FormField as Field } from '@/components/common/form-field'
 import { ProjectSpaceMultiSelect } from '@/components/common/project-space-select'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
+import { UserSelect } from '@/components/common/user-select'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -48,6 +49,7 @@ export function BillingPage() {
   const [deploymentSpendPage, setDeploymentSpendPage] = useState(1)
   const [ledgerPage, setLedgerPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
+  const [selectedBillingUserId, setSelectedBillingUserId] = useState('')
   const [transactionOpen, setTransactionOpen] = useState(false)
   const [transactionUserId, setTransactionUserId] = useState('')
   const [transactionType, setTransactionType] = useState<'credit' | 'adjustment'>('credit')
@@ -60,9 +62,18 @@ export function BillingPage() {
     queryFn: () => api.listProjectsPage({ page: 1, pageSize: 100, scope: canManageBilling ? 'all' : 'related', sortBy: 'lastUsedAt', sortOrder: 'desc' }),
   })
   const projectItems = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items])
+  const visibleProjectItems = useMemo(() => {
+    if (!canManageBilling || !selectedBillingUserId)
+      return projectItems
+    return projectItems.filter(project => project.billingOwnerUserId === selectedBillingUserId)
+  }, [canManageBilling, projectItems, selectedBillingUserId])
   const projectMap = useMemo(() => new Map(projectItems.map(project => [project.id, project])), [projectItems])
   const projectIds = selectedProjectIds.length > 0 ? selectedProjectIds : undefined
   const billingPeriodQuery = useMemo(() => billingPeriodToQuery(billingPeriod), [billingPeriod])
+  const billingUserQuery = canManageBilling && selectedBillingUserId ? selectedBillingUserId : undefined
+  const accountSummaryParams = canManageBilling && !billingUserQuery
+    ? { ...billingPeriodQuery, userId: billingUserQuery }
+    : { ...billingPeriodQuery, accountScope: 'current' as const, userId: billingUserQuery }
   const usersQuery = useQuery({
     enabled: canManageBilling,
     queryKey: ['billing', 'users'],
@@ -71,42 +82,45 @@ export function BillingPage() {
   const userItems = useMemo(() => usersQuery.data?.items ?? [], [usersQuery.data?.items])
 
   const accountSummaryQuery = useQuery({
-    queryKey: ['billing', 'summary', 'account', billingPeriodQuery],
-    queryFn: () => api.getBillingSummary(undefined, { ...billingPeriodQuery, accountScope: 'current' }),
+    queryKey: ['billing', 'summary', 'account', billingPeriodQuery, billingUserQuery, canManageBilling],
+    queryFn: () => api.getBillingSummary(undefined, accountSummaryParams),
   })
   const scopedSummaryQuery = useQuery({
-    queryKey: ['billing', 'summary', 'scope', selectedProjectIds, billingPeriodQuery],
-    queryFn: () => api.getBillingSummary(projectIds, billingPeriodQuery),
+    queryKey: ['billing', 'summary', 'scope', selectedProjectIds, billingPeriodQuery, billingUserQuery],
+    queryFn: () => api.getBillingSummary(projectIds, { ...billingPeriodQuery, userId: billingUserQuery }),
   })
   const deploymentSpendQuery = useQuery({
-    queryKey: ['billing', 'deployment-spend', selectedProjectIds, billingPeriodQuery, deploymentSpendPage],
+    queryKey: ['billing', 'deployment-spend', selectedProjectIds, billingPeriodQuery, billingUserQuery, deploymentSpendPage],
     queryFn: () => api.listBillingDeploymentSpend({
       page: deploymentSpendPage,
       pageSize: PAGE_SIZE,
       ...billingPeriodQuery,
       projectIds,
+      userId: billingUserQuery,
       sortBy: 'amountCredits',
       sortOrder: 'desc',
     }),
   })
   const ledgerQuery = useQuery({
-    queryKey: ['billing', 'ledger', selectedProjectIds, billingPeriodQuery, ledgerPage],
+    queryKey: ['billing', 'ledger', selectedProjectIds, billingPeriodQuery, billingUserQuery, ledgerPage],
     queryFn: () => api.listBillingLedgerEntries({
       page: ledgerPage,
       pageSize: PAGE_SIZE,
       ...billingPeriodQuery,
       projectIds,
+      userId: billingUserQuery,
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
   })
   const usageQuery = useQuery({
-    queryKey: ['billing', 'usage', selectedProjectIds, billingPeriodQuery, usagePage],
+    queryKey: ['billing', 'usage', selectedProjectIds, billingPeriodQuery, billingUserQuery, usagePage],
     queryFn: () => api.listBillingUsageRecords({
       page: usagePage,
       pageSize: PAGE_SIZE,
       ...billingPeriodQuery,
       projectIds,
+      userId: billingUserQuery,
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
@@ -135,6 +149,15 @@ export function BillingPage() {
   function handleProjectFilterChange(projectIds: string[]) {
     setSelectedProjectIds(projectIds)
     writeCachedBillingProjectScope(projectIds)
+    resetBillingPages()
+  }
+
+  function handleBillingUserChange(userId: string) {
+    setSelectedBillingUserId(userId)
+    handleProjectFilterChange([])
+  }
+
+  function resetBillingPages() {
     setDeploymentSpendPage(1)
     setLedgerPage(1)
     setUsagePage(1)
@@ -158,10 +181,25 @@ export function BillingPage() {
     <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 flex-1 flex-col gap-2 xl:flex-row xl:items-center">
         <BillingPeriodPicker period={billingPeriod} onChange={handlePeriodChange} />
+        {canManageBilling && (
+          <div className="w-full sm:w-80">
+            <UserSelect
+              allLabel={t('billingPage.allUsers')}
+              ariaLabel={t('billingPage.billingUserScope')}
+              disabled={usersQuery.isLoading}
+              emptyLabel={t('billingPage.emptyUsers')}
+              includeAll
+              placeholder={t('billingPage.selectBillingUser')}
+              users={userItems}
+              value={selectedBillingUserId}
+              onChange={handleBillingUserChange}
+            />
+          </div>
+        )}
         <div className="w-full sm:w-80">
           <ProjectSpaceMultiSelect
             disabled={projectsQuery.isLoading}
-            projects={projectItems}
+            projects={visibleProjectItems}
             value={selectedProjectIds}
             onChange={handleProjectFilterChange}
           />
@@ -548,18 +586,14 @@ export function BillingPage() {
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <Field label={t('billingPage.user')}>
-              <Select value={transactionUserId} onValueChange={setTransactionUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('billingPage.selectUser')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {userItems.map(item => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {userLabel(item)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <UserSelect
+                disabled={usersQuery.isLoading}
+                emptyLabel={t('billingPage.emptyUsers')}
+                placeholder={t('billingPage.selectUser')}
+                users={userItems}
+                value={transactionUserId}
+                onChange={setTransactionUserId}
+              />
             </Field>
             <Field hint={t('billingPage.walletTransactionTypeHint')} label={t('billingPage.walletTransactionType')}>
               <Select value={transactionType} onValueChange={value => setTransactionType(value as 'credit' | 'adjustment')}>
@@ -667,10 +701,6 @@ function BillingPeriodPicker({ period, onChange }: { period: BillingPeriodSelect
       </div>
     </div>
   )
-}
-
-function userLabel(user: User) {
-  return `${user.name || user.email} · ${user.email}`
 }
 
 function MetricCard({ fiatValue, icon, label, loading, value }: { fiatValue?: string, icon: ReactNode, label: string, loading: boolean, value: string }) {

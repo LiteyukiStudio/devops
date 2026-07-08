@@ -23,7 +23,11 @@ func (h *Handlers) GetBillingSummary(ctx *gin.Context) {
 		return
 	}
 	if strings.TrimSpace(ctx.Query("accountScope")) == "current" {
-		scope.UserIDs = []string{user.ID}
+		accountUserID := user.ID
+		if user.Role == "platform_admin" && scope.SelectedUserID != "" {
+			accountUserID = scope.SelectedUserID
+		}
+		scope.UserIDs = []string{accountUserID}
 		scope.ProjectIDs = nil
 		scope.FilterProjectIDs = false
 	}
@@ -661,26 +665,41 @@ func (h *Handlers) billingScopeForUser(ctx *gin.Context, user model.User) (billi
 	}
 	requested = normalizeStringList(requested)
 	if user.Role == "platform_admin" {
+		selectedUserID := strings.TrimSpace(ctx.Query("userId"))
+		scope.SelectedUserID = selectedUserID
 		scope.ProjectIDs = requested
 		scope.FilterProjectIDs = len(requested) > 0
-		var wallets []model.UserWallet
-		if err := h.db.Select("user_id").Find(&wallets).Error; err != nil {
-			writeError(ctx, http.StatusInternalServerError, err.Error())
-			return scope, false
-		}
-		for _, wallet := range wallets {
-			if strings.TrimSpace(wallet.UserID) != "" {
-				scope.UserIDs = append(scope.UserIDs, wallet.UserID)
-			}
-		}
-		if len(scope.UserIDs) == 0 {
-			var users []model.User
-			if err := h.db.Select("id").Find(&users).Error; err != nil {
+		if selectedUserID != "" {
+			var count int64
+			if err := h.db.Model(&model.User{}).Where("id = ?", selectedUserID).Count(&count).Error; err != nil {
 				writeError(ctx, http.StatusInternalServerError, err.Error())
 				return scope, false
 			}
-			for _, item := range users {
-				scope.UserIDs = append(scope.UserIDs, item.ID)
+			if count == 0 {
+				writeErrorCode(ctx, http.StatusNotFound, "billing.user_not_found", "billing user not found")
+				return scope, false
+			}
+			scope.UserIDs = []string{selectedUserID}
+		} else {
+			var wallets []model.UserWallet
+			if err := h.db.Select("user_id").Find(&wallets).Error; err != nil {
+				writeError(ctx, http.StatusInternalServerError, err.Error())
+				return scope, false
+			}
+			for _, wallet := range wallets {
+				if strings.TrimSpace(wallet.UserID) != "" {
+					scope.UserIDs = append(scope.UserIDs, wallet.UserID)
+				}
+			}
+			if len(scope.UserIDs) == 0 {
+				var users []model.User
+				if err := h.db.Select("id").Find(&users).Error; err != nil {
+					writeError(ctx, http.StatusInternalServerError, err.Error())
+					return scope, false
+				}
+				for _, item := range users {
+					scope.UserIDs = append(scope.UserIDs, item.ID)
+				}
 			}
 		}
 		if scope.FilterProjectIDs && !h.ensureBillingProjectsExist(ctx, requested) {
@@ -728,6 +747,7 @@ type billingScope struct {
 	UserIDs          []string
 	ProjectIDs       []string
 	FilterProjectIDs bool
+	SelectedUserID   string
 }
 
 type updateBillingRateRulesInput struct {

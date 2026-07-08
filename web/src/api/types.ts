@@ -1139,12 +1139,14 @@ export interface BillingListParams extends PaginationParams {
   meter?: string
   periodStart?: string
   periodEnd?: string
+  userId?: string
 }
 
 export interface BillingPeriodParams {
   periodStart?: string
   periodEnd?: string
   accountScope?: 'current'
+  userId?: string
 }
 
 export interface PaginatedResponse<T> {
