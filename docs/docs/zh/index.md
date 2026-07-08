@@ -5,7 +5,7 @@ pageType: home
 hero:
   name: Liteyuki DevOps
   text: Code once, deploy anywhere.
-  tagline: 先把平台跑起来，再把项目部署出去。构建、发布、访问入口和状态都在一条清晰路径里。
+  tagline: 仅需要轻松几步即可简单部署自己的项目（面向小型团队和企业的DevOps解决方案）
   actions:
     - theme: brand
       text: 快速开始
