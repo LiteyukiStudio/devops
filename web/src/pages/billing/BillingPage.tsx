@@ -49,13 +49,14 @@ export function BillingPage() {
   const [deploymentSpendPage, setDeploymentSpendPage] = useState(1)
   const [ledgerPage, setLedgerPage] = useState(1)
   const [usagePage, setUsagePage] = useState(1)
-  const [selectedBillingUserId, setSelectedBillingUserId] = useState('')
+  const [selectedBillingUserId, setSelectedBillingUserId] = useState<string | null>(null)
   const [transactionOpen, setTransactionOpen] = useState(false)
   const [transactionUserId, setTransactionUserId] = useState('')
   const [transactionType, setTransactionType] = useState<'credit' | 'adjustment'>('credit')
   const [transactionAmount, setTransactionAmount] = useState('')
   const [transactionDescription, setTransactionDescription] = useState('')
   const canManageBilling = user?.role === 'platform_admin'
+  const billingUserScopeId = selectedBillingUserId ?? (canManageBilling ? user?.id ?? '' : '')
 
   const projectsQuery = useQuery({
     queryKey: ['billing', 'projects', canManageBilling],
@@ -63,14 +64,14 @@ export function BillingPage() {
   })
   const projectItems = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items])
   const visibleProjectItems = useMemo(() => {
-    if (!canManageBilling || !selectedBillingUserId)
+    if (!canManageBilling || !billingUserScopeId)
       return projectItems
-    return projectItems.filter(project => project.billingOwnerUserId === selectedBillingUserId)
-  }, [canManageBilling, projectItems, selectedBillingUserId])
+    return projectItems.filter(project => project.billingOwnerUserId === billingUserScopeId)
+  }, [billingUserScopeId, canManageBilling, projectItems])
   const projectMap = useMemo(() => new Map(projectItems.map(project => [project.id, project])), [projectItems])
   const projectIds = selectedProjectIds.length > 0 ? selectedProjectIds : undefined
   const billingPeriodQuery = useMemo(() => billingPeriodToQuery(billingPeriod), [billingPeriod])
-  const billingUserQuery = canManageBilling && selectedBillingUserId ? selectedBillingUserId : undefined
+  const billingUserQuery = canManageBilling && billingUserScopeId ? billingUserScopeId : undefined
   const accountSummaryParams = canManageBilling && !billingUserQuery
     ? { ...billingPeriodQuery, userId: billingUserQuery }
     : { ...billingPeriodQuery, accountScope: 'current' as const, userId: billingUserQuery }
@@ -191,7 +192,7 @@ export function BillingPage() {
               includeAll
               placeholder={t('billingPage.selectBillingUser')}
               users={userItems}
-              value={selectedBillingUserId}
+              value={billingUserScopeId}
               onChange={handleBillingUserChange}
             />
           </div>
