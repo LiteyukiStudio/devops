@@ -15,6 +15,7 @@ var envLoadOnce sync.Once
 
 type Config struct {
 	APIAddr                      string
+	PublicBaseURL                string
 	DatabaseURL                  string
 	DatabaseMaxOpenConns         int
 	DatabaseMaxIdleConns         int
@@ -45,6 +46,7 @@ func Load() Config {
 
 	return Config{
 		APIAddr:                      env("API_ADDR", ":8080"),
+		PublicBaseURL:                strings.TrimRight(env("PUBLIC_BASE_URL", ""), "/"),
 		DatabaseURL:                  env("DATABASE_URL", "postgres://devops:devops@localhost:5432/devops?sslmode=disable"),
 		DatabaseMaxOpenConns:         envInt("DB_MAX_OPEN_CONNS", 20),
 		DatabaseMaxIdleConns:         envInt("DB_MAX_IDLE_CONNS", 5),

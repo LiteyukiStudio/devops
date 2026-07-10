@@ -34,13 +34,13 @@ Built-in presets:
 
 | Preset | Required secrets | Message shape | Notes |
 | --- | --- | --- | --- |
-| Feishu Bot | `WebhookToken` | Rich `post` | Uses the Feishu custom bot endpoint on `open.feishu.cn`; the template includes project space, application, deployment target, and time. |
-| Lark Bot | `WebhookToken` | Rich `post` | Uses the Lark custom bot endpoint on `open.larksuite.com` with English field labels. |
-| WeCom Bot | `WebhookKey` | Markdown | Uses the WeCom group robot `markdown` message type. |
-| Gotify | `GotifyHost`, `AppToken` | Markdown message | `GotifyHost` is a host without scheme, such as `gotify.example.com`; the platform uses HTTPS and `X-Gotify-Key`. |
+| Feishu Bot | `WebhookToken` | Rich `post` | Uses the Feishu custom bot endpoint on `open.feishu.cn`; the template includes event summary, project space, application, deployment target, build/release/hook/gateway details, and a clickable detail link. |
+| Lark Bot | `WebhookToken` | Rich `post` | Uses the Lark custom bot endpoint on `open.larksuite.com` with English field labels and a platform detail link. |
+| WeCom Bot | `WebhookKey` | Markdown | Uses the WeCom group robot `markdown` message type with resource context and a platform detail link. |
+| Gotify | `GotifyHost`, `AppToken` | Markdown message | `GotifyHost` is a host without scheme, such as `gotify.example.com`; the platform uses HTTPS and `X-Gotify-Key`, and message extras render Markdown details. |
 | DingTalk Bot | `AccessToken` | Markdown | Uses the DingTalk custom robot `access_token` endpoint; signed robots need a later dedicated capability. |
-| Slack Incoming Webhook | `WebhookPath` | `mrkdwn` blocks | Enter only the path after `hooks.slack.com/services/`, so the full Webhook URL is not stored as plain business data. |
-| Discord Webhook | `WebhookID`, `WebhookToken` | embeds | Uses the Discord Webhook execute API embed payload. |
+| Slack Incoming Webhook | `WebhookPath` | `mrkdwn` blocks | Enter only the path after `hooks.slack.com/services/`, so the full Webhook URL is not stored as plain business data; the block includes the detail link. |
+| Discord Webhook | `WebhookID`, `WebhookToken` | embeds | Uses the Discord Webhook execute API embed payload, with full event details in the description. |
 
 Webhook channels support `testJsonBodyTemplate`. Presets write a platform-specific test body into the channel config, so after a second confirmation the test action renders a test event with preset template variables and sends a valid payload for that platform instead of one generic JSON shape.
 
@@ -70,6 +70,8 @@ Templates use Go template syntax with missing-field errors enabled, so typoed va
 | `.Event.Release.ID` / `.Event.Release.ImageRef` / `.Event.Release.Revision` | Release context. |
 | `.Event.Hook.Name` / `.Event.Hook.Phase` | Hook context. |
 | `.Event.Gateway.Domain` / `.Event.Gateway.Path` | Access route context. |
+| `.Event.Actor.Name` / `.Event.Actor.Email` | Actor context, when the event source provides it. |
+| `.Event.Links` | Platform detail link map. Built-in failure events generate `primary`, `project`, `application`, and event-specific `build`/`release`/`hook`/`gateway` links when `PUBLIC_BASE_URL` is configured, jumping to the build, deployment, or gateway tab according to the event type. Use `{{ link .Event.Links "primary" }}` to avoid missing-key render errors. |
 | `.Secrets.<Name>` | Channel secret value injected only while rendering. It is not echoed by APIs. |
 
 Available functions:
@@ -77,7 +79,12 @@ Available functions:
 - `json`: encode a value as a JSON string.
 - `time`: format a timestamp.
 - `default`: use a fallback for empty values.
+- `detailsTitle`: render a consistent event title, such as `[error] release.failed`.
+- `details`: render multiline event details with resource context, event-specific fields, and a detail link. Pass `zh` or `en` as the second argument.
+- `link`: safely read a key from `.Event.Links` without failing on a missing map key.
 - `truncate`: shorten long text.
+
+To include direct platform links, configure the same `PUBLIC_BASE_URL` for both API and Worker. Events are still delivered without it, but no platform detail link is added.
 
 ## Rules
 

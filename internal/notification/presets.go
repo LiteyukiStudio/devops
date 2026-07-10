@@ -21,8 +21,8 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://open.feishu.cn/open-apis/bot/v2/hook/{{.Secrets.WebhookToken}}", map[string]string{
 				"Content-Type": "application/json",
-			}, feishuPostTemplate("zh_cn", "项目空间", "应用", "部署配置", "时间")),
-			JSONBodyTemplate: feishuPostTemplate("zh_cn", "项目空间", "应用", "部署配置", "时间"),
+			}, feishuPostTemplate("zh_cn", "zh", "详情链接", "打开详情")),
+			JSONBodyTemplate: feishuPostTemplate("zh_cn", "zh", "详情链接", "打开详情"),
 			SecretFields:     []string{"WebhookToken"},
 		},
 		{
@@ -32,8 +32,8 @@ func WebhookPresets() []WebhookPreset {
 			AdapterKind: AdapterKindWebhook,
 			ConfigTemplate: webhookPresetConfig("POST", "https://open.larksuite.com/open-apis/bot/v2/hook/{{.Secrets.WebhookToken}}", map[string]string{
 				"Content-Type": "application/json",
-			}, feishuPostTemplate("en_us", "Project", "Application", "Deployment", "Time")),
-			JSONBodyTemplate: feishuPostTemplate("en_us", "Project", "Application", "Deployment", "Time"),
+			}, feishuPostTemplate("en_us", "en", "Detail link", "Open details")),
+			JSONBodyTemplate: feishuPostTemplate("en_us", "en", "Detail link", "Open details"),
 			SecretFields:     []string{"WebhookToken"},
 		},
 		{
@@ -106,32 +106,24 @@ func webhookPresetConfig(method string, url string, headers map[string]string, t
 	return string(data)
 }
 
-func feishuPostTemplate(locale string, projectLabel string, applicationLabel string, deploymentLabel string, timeLabel string) string {
+func feishuPostTemplate(locale string, detailsLocale string, detailLabel string, openDetailsLabel string) string {
 	return `{
   "msg_type": "post",
   "content": {
     "post": {
       "` + locale + `": {
-        "title": {{json (printf "[%s] %s" .Event.Severity .Event.Type)}},
+        "title": {{json (detailsTitle .Event)}},
         "content": [
           [
-            {"tag": "text", "text": {{json .Event.Message}}}
+            {"tag": "text", "text": {{json (details .Event "` + detailsLocale + `")}}}
           ],
           [
-            {"tag": "text", "text": "` + projectLabel + `: "},
-            {"tag": "text", "text": {{json (default "-" .Event.Project.Name)}}}
-          ],
-          [
-            {"tag": "text", "text": "` + applicationLabel + `: "},
-            {"tag": "text", "text": {{json (default "-" .Event.Application.Name)}}}
-          ],
-          [
-            {"tag": "text", "text": "` + deploymentLabel + `: "},
-            {"tag": "text", "text": {{json (default "-" .Event.DeploymentTarget.Name)}}}
-          ],
-          [
-            {"tag": "text", "text": "` + timeLabel + `: "},
-            {"tag": "text", "text": {{json (time .Event.OccurredAt "2006-01-02 15:04:05 MST")}}}
+            {"tag": "text", "text": "` + detailLabel + `: "},
+            {{if (link .Event.Links "primary")}}
+            {"tag": "a", "text": "` + openDetailsLabel + `", "href": {{json (link .Event.Links "primary")}}}
+            {{else}}
+            {"tag": "text", "text": "-"}
+            {{end}}
           ]
         ]
       }
@@ -143,13 +135,13 @@ func feishuPostTemplate(locale string, projectLabel string, applicationLabel str
 const wecomMarkdownTemplate = `{
   "msgtype": "markdown",
   "markdown": {
-    "content": {{json (printf "**[%s] %s**\n> %s\n> 项目空间：%s\n> 应用：%s\n> 部署配置：%s\n> 时间：%s" .Event.Severity .Event.Type .Event.Message (default "-" .Event.Project.Name) (default "-" .Event.Application.Name) (default "-" .Event.DeploymentTarget.Name) (time .Event.OccurredAt "2006-01-02 15:04:05 MST"))}}
+    "content": {{json (printf "**%s**\n%s" (detailsTitle .Event) (details .Event "zh"))}}
   }
 }`
 
 const gotifyMarkdownTemplate = `{
-  "title": {{json (printf "[%s] %s" .Event.Severity .Event.Type)}},
-  "message": {{json (printf "**%s**\n\n- Project: %s\n- Application: %s\n- Deployment: %s\n- Time: %s" .Event.Message (default "-" .Event.Project.Name) (default "-" .Event.Application.Name) (default "-" .Event.DeploymentTarget.Name) (time .Event.OccurredAt "2006-01-02 15:04:05 MST"))}},
+  "title": {{json (detailsTitle .Event)}},
+  "message": {{json (details .Event "en")}},
   "priority": 5,
   "extras": {
     "client::display": {
@@ -161,26 +153,26 @@ const gotifyMarkdownTemplate = `{
 const dingtalkMarkdownTemplate = `{
   "msgtype": "markdown",
   "markdown": {
-    "title": {{json (printf "[%s] %s" .Event.Severity .Event.Type)}},
-    "text": {{json (printf "### [%s] %s\n\n%s\n\n- Project: %s\n- Application: %s\n- Deployment: %s\n- Time: %s" .Event.Severity .Event.Type .Event.Message (default "-" .Event.Project.Name) (default "-" .Event.Application.Name) (default "-" .Event.DeploymentTarget.Name) (time .Event.OccurredAt "2006-01-02 15:04:05 MST"))}}
+    "title": {{json (detailsTitle .Event)}},
+    "text": {{json (printf "### %s\n\n%s" (detailsTitle .Event) (details .Event "zh"))}}
   }
 }`
 
 const slackBlocksTemplate = `{
-  "text": {{json (printf "[%s] %s: %s" .Event.Severity .Event.Type .Event.Message)}},
+  "text": {{json (printf "%s: %s" (detailsTitle .Event) .Event.Message)}},
   "blocks": [
     {
       "type": "header",
       "text": {
         "type": "plain_text",
-        "text": {{json (printf "[%s] %s" .Event.Severity .Event.Type)}}
+        "text": {{json (detailsTitle .Event)}}
       }
     },
     {
       "type": "section",
       "text": {
         "type": "mrkdwn",
-        "text": {{json (printf "%s\n\n*Project:* %s\n*Application:* %s\n*Deployment:* %s\n*Time:* %s" .Event.Message (default "-" .Event.Project.Name) (default "-" .Event.Application.Name) (default "-" .Event.DeploymentTarget.Name) (time .Event.OccurredAt "2006-01-02 15:04:05 MST"))}}
+        "text": {{json (details .Event "en")}}
       }
     }
   ]
@@ -190,13 +182,13 @@ const discordEmbedTemplate = `{
   "embeds": [
     {
       "title": {{json (printf "[%s] %s" .Event.Severity .Event.Type)}},
-      "description": {{json .Event.Message}},
+      "description": {{json (details .Event "en")}},
       "color": 15158332,
       "fields": [
         {"name": "Project", "value": {{json (default "-" .Event.Project.Name)}}, "inline": true},
         {"name": "Application", "value": {{json (default "-" .Event.Application.Name)}}, "inline": true},
         {"name": "Deployment", "value": {{json (default "-" .Event.DeploymentTarget.Name)}}, "inline": true},
-        {"name": "Time", "value": {{json (time .Event.OccurredAt "2006-01-02 15:04:05 MST")}}, "inline": false}
+        {"name": "Status", "value": {{json (default "-" (default .Event.Build.Status .Event.Release.Status))}}, "inline": true}
       ]
     }
   ]

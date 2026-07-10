@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -33,6 +35,7 @@ func (r *Runner) emitBuildFailed(ctx context.Context, run model.BuildRun, messag
 			GitSHA:  run.SourceCommit,
 		},
 		OccurredAt: time.Now(),
+		Links:      r.notificationLinks(run.ProjectID, run.ApplicationID, "builds", "build"),
 		Message:    firstNonEmpty(message, "Build failed"),
 	})
 }
@@ -53,6 +56,7 @@ func (r *Runner) emitReleaseFailed(ctx context.Context, release model.Release, m
 			Message:  strings.TrimSpace(message),
 		},
 		OccurredAt: time.Now(),
+		Links:      r.notificationLinks(release.ProjectID, release.ApplicationID, "deployments", "release"),
 		Message:    firstNonEmpty(message, "Release failed"),
 	})
 }
@@ -73,6 +77,7 @@ func (r *Runner) emitHookFailed(ctx context.Context, run model.HookRun, message 
 			Message: strings.TrimSpace(message),
 		},
 		OccurredAt: time.Now(),
+		Links:      r.notificationLinks(run.ProjectID, run.ApplicationID, "deployments", "hook"),
 		Message:    firstNonEmpty(message, "Hook failed"),
 	})
 }
@@ -93,6 +98,7 @@ func (r *Runner) emitGatewayApplyFailed(ctx context.Context, route model.Gateway
 			Message: strings.TrimSpace(message),
 		},
 		OccurredAt: time.Now(),
+		Links:      r.notificationLinks(route.ProjectID, route.ApplicationID, "gateway", "gateway"),
 		Message:    firstNonEmpty(message, "Gateway route apply failed"),
 	})
 }
@@ -113,4 +119,29 @@ func (r *Runner) notificationContext(projectID string, applicationID string, tar
 
 func entityRef(id string, name string, slug string) notification.EntityRef {
 	return notification.EntityRef{ID: id, Name: name, Slug: slug}
+}
+
+func (r *Runner) notificationLinks(projectID string, applicationID string, tab string, primaryKey string) map[string]string {
+	base := strings.TrimRight(strings.TrimSpace(r.publicBaseURL), "/")
+	if base == "" {
+		return nil
+	}
+	links := map[string]string{}
+	if strings.TrimSpace(projectID) != "" {
+		links["project"] = fmt.Sprintf("%s/projects/%s", base, url.PathEscape(projectID))
+		links["primary"] = links["project"]
+	}
+	if strings.TrimSpace(projectID) != "" && strings.TrimSpace(applicationID) != "" {
+		applicationLink := fmt.Sprintf("%s/projects/%s/apps/%s", base, url.PathEscape(projectID), url.PathEscape(applicationID))
+		links["application"] = applicationLink
+		links["primary"] = applicationLink
+		if strings.TrimSpace(tab) != "" {
+			tabLink := applicationLink + "#tab=" + url.QueryEscape(tab)
+			links["primary"] = tabLink
+			if strings.TrimSpace(primaryKey) != "" {
+				links[primaryKey] = tabLink
+			}
+		}
+	}
+	return links
 }

@@ -80,6 +80,7 @@ func main() {
 	options := worker.Options{
 		DeployRolloutTimeoutSeconds: cfg.DeployRolloutTimeoutSeconds,
 		CertManagerClusterIssuer:    cfg.CertManagerClusterIssuer,
+		PublicBaseURL:               cfg.PublicBaseURL,
 		WorkerMetrics:               workerMetrics,
 		BuildExecutorImage:          cfg.BuildExecutorImage,
 		BuildNPMRegistry:            cfg.BuildNPMRegistry,

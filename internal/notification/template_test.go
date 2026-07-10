@@ -44,3 +44,27 @@ func TestRenderMessageRejectsInvalidJSONBody(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestRenderMessageSupportsDetailHelpers(t *testing.T) {
+	event := TestEvent(time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC))
+	message, err := renderMessage(event, Template{
+		Body: `{{detailsTitle .Event}}
+{{details .Event "zh"}}
+{{link .Event.Links "primary"}}`,
+	}, nil)
+	if err != nil {
+		t.Fatalf("renderMessage returned error: %v", err)
+	}
+	for _, want := range []string{
+		"[info] notification.test",
+		"项目空间: Demo Project Space / demo-space / prj_test",
+		"构建详情",
+		"发布详情",
+		"访问入口详情",
+		"https://devops.example.com/projects/prj_test/apps/app_test#tab=deployments",
+	} {
+		if !strings.Contains(message.Body, want) {
+			t.Fatalf("body does not contain %q:\n%s", want, message.Body)
+		}
+	}
+}

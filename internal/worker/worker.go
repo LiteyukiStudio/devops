@@ -22,6 +22,7 @@ type Runner struct {
 	secrets                     secret.Store
 	deployRolloutTimeoutSeconds int64
 	certManagerClusterIssuer    string
+	publicBaseURL               string
 	buildExecutorImage          string
 	buildNPMRegistry            string
 	buildEgressMode             string
@@ -47,6 +48,7 @@ const (
 type Options struct {
 	DeployRolloutTimeoutSeconds int64
 	CertManagerClusterIssuer    string
+	PublicBaseURL               string
 	WorkerMetrics               *observability.WorkerMetrics
 	BuildExecutorImage          string
 	BuildNPMRegistry            string
@@ -194,6 +196,7 @@ func NewRunner(db *gorm.DB, options Options) *Runner {
 		secrets:                     secret.NewStore(db, nil),
 		deployRolloutTimeoutSeconds: deployRolloutTimeoutSeconds,
 		certManagerClusterIssuer:    certManagerClusterIssuer,
+		publicBaseURL:               strings.TrimRight(strings.TrimSpace(options.PublicBaseURL), "/"),
 		buildExecutorImage:          buildExecutorImage,
 		buildNPMRegistry:            strings.TrimSpace(options.BuildNPMRegistry),
 		buildEgressMode:             buildEgressMode,
