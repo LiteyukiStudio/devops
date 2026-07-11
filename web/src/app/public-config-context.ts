@@ -5,7 +5,7 @@ export const defaultPublicConfigs: Record<string, string> = {
   'billing.creditsDisplayName': 'Credits',
   'billing.creditsPerFiatUnit': '1000',
   'billing.fiatCurrencyUnit': 'CNY',
-  'site.title': 'Liteyuki DevOps',
+  'site.title': 'Luna DevOps',
   'site.logoUrl': '/liteyuki-logo.svg',
   'site.faviconUrl': '/liteyuki-logo.svg',
   'site.loginSubtitle': i18next.t('loginPage.subtitle'),

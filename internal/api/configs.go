@@ -31,7 +31,7 @@ var configDefinitions = []configDefinition{
 		Description: "浏览器标题和控制台品牌名称。",
 		Type:        "string",
 		Public:      true,
-		Default:     "Liteyuki DevOps",
+		Default:     "Luna DevOps",
 	},
 	{
 		Key:         "site.logoUrl",

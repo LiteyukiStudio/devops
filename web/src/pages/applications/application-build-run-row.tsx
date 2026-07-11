@@ -78,7 +78,7 @@ export function ApplicationBuildRunRow({ binding, deploymentTargetName, cancelin
               <span className="shrink-0 font-mono font-medium text-primary">{branch}</span>
               {commitUrl
                 ? (
-                    <a className="min-w-0 truncate font-medium text-foreground/80 transition-colors hover:text-primary" href={commitUrl} rel="noreferrer" target="_blank" title={`${binding.owner}/${binding.repo}`}>
+                    <a className="min-w-0 truncate font-medium text-primary transition-colors hover:text-primary/80" href={commitUrl} rel="noreferrer" target="_blank" title={`${binding.owner}/${binding.repo}`}>
                       {binding.owner}
                       /
                       {binding.repo}
@@ -101,12 +101,12 @@ export function ApplicationBuildRunRow({ binding, deploymentTargetName, cancelin
                   {sourceAuthor && <span className="shrink-0">·</span>}
                   {sourceAuthor && (
                     authorUrl
-                      ? <a className="shrink-0 transition-colors hover:text-primary" href={authorUrl} rel="noreferrer" target="_blank">{t('buildsPage.committedBy', { actor: sourceAuthor })}</a>
+                      ? <a className="shrink-0 text-primary transition-colors hover:text-primary/80" href={authorUrl} rel="noreferrer" target="_blank">{t('buildsPage.committedBy', { actor: sourceAuthor })}</a>
                       : <span className="shrink-0">{t('buildsPage.committedBy', { actor: sourceAuthor })}</span>
                   )}
                   <span className="shrink-0">{t('buildsPage.commitAction')}</span>
                   {commitUrl
-                    ? <a className="shrink-0 font-mono text-foreground/70 transition-colors hover:text-primary" href={commitUrl} rel="noreferrer" target="_blank">{commit}</a>
+                    ? <a className="shrink-0 font-mono text-primary transition-colors hover:text-primary/80" href={commitUrl} rel="noreferrer" target="_blank">{commit}</a>
                     : <span className="shrink-0 font-mono text-foreground/70">{commit}</span>}
                 </>
               )}

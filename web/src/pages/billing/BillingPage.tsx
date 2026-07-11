@@ -464,7 +464,6 @@ export function BillingPage() {
         <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h3 className="text-base font-semibold text-foreground">{t('billingPage.periodCategoriesTitle')}</h3>
-            <p className="text-sm text-muted-foreground">{t('billingPage.periodCategoriesDescription', { period: periodRangeLabel(billingPeriod, i18n.language) })}</p>
           </div>
           <StatusBadge tone={balanceStatusTone(balanceStatus)}>
             {t(`billingPage.balanceStatuses.${balanceStatus}`)}
@@ -934,15 +933,6 @@ function billingPeriodToQuery(period: BillingPeriodSelection) {
     periodEnd: endExclusive.toISOString(),
     periodStart: start.toISOString(),
   }
-}
-
-function periodRangeLabel(period: BillingPeriodSelection, locale: string) {
-  const start = parseDateInput(period.startDate)
-  const end = parseDateInput(period.endDate)
-  if (!start || !end)
-    return ''
-  const formatter = new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' })
-  return `${formatter.format(start)} - ${formatter.format(end)}`
 }
 
 function startOfLocalDay(date: Date) {

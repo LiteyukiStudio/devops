@@ -68,6 +68,6 @@ func TestEvent(now time.Time) Event {
 			"gateway":     "https://devops.example.com/projects/prj_test/apps/app_test#tab=gateway",
 		},
 		OccurredAt: now,
-		Message:    "Liteyuki DevOps test notification with preset template variables.",
+		Message:    "Luna DevOps test notification with preset template variables.",
 	}
 }

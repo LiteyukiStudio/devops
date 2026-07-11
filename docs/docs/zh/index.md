@@ -1,9 +1,9 @@
 ---
-description: Liteyuki DevOps 文档首页，帮助个人开发者和小团队完成从代码到上线的应用交付。
+description: Luna DevOps 文档首页，帮助个人开发者和小团队完成从代码到上线的应用交付。
 pageType: home
 
 hero:
-  name: Liteyuki DevOps
+  name: Luna DevOps
   text: Code once, deploy anywhere.
   tagline: 轻松几步部署自己的项目，为小型团队和企业提供一套清晰的 DevOps 方案。
   actions:
@@ -15,7 +15,7 @@ hero:
       link: /operations/deploy-web-project
   image:
     src: /brand/mascot-liteyuki-catgirl-alpha.webp
-    alt: Liteyuki DevOps mascot
+    alt: Luna DevOps mascot
 features:
   - title: Kubernetes (Helm) 部署
     details: 已经有 Kubernetes 或 K3s？用 Helm 一次安装 API、Worker、PostgreSQL 和 Redis。

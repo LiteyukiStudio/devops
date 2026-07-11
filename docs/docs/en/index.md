@@ -1,9 +1,9 @@
 ---
-description: Liteyuki DevOps documentation home for shipping applications from source code to reachable services.
+description: Luna DevOps documentation home for shipping applications from source code to reachable services.
 pageType: home
 
 hero:
-  name: Liteyuki DevOps
+  name: Luna DevOps
   text: Code once, deploy anywhere.
   tagline: Deploy your projects in a few clear steps with a DevOps platform built for small teams and businesses.
   actions:
@@ -15,7 +15,7 @@ hero:
       link: /operations/deploy-web-project
   image:
     src: /brand/mascot-liteyuki-catgirl-alpha.webp
-    alt: Liteyuki DevOps mascot
+    alt: Luna DevOps mascot
 features:
   - title: Kubernetes (Helm)
     details: Already running Kubernetes or K3s? Install API, Worker, PostgreSQL, and Redis together with Helm.

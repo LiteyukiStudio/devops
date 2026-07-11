@@ -129,7 +129,7 @@ docker compose exec worker printenv PUBLIC_BASE_URL
   "port": 587,
   "security": "starttls",
   "username": "notice@example.com",
-  "from": "Liteyuki DevOps <notice@example.com>",
+  "from": "Luna DevOps <notice@example.com>",
   "to": ["ops@example.com"],
   "timeoutSeconds": 15
 }

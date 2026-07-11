@@ -680,7 +680,7 @@
 
 ### 8.3 集群资源管理
 
-- [x] 明确集群资源管理边界：只展示和管理 Liteyuki DevOps 创建或显式打平台标签的 Kubernetes 资源，不接管已有集群中的第三方/历史资源。
+- [x] 明确集群资源管理边界：只展示和管理 Luna DevOps 创建或显式打平台标签的 Kubernetes 资源，不接管已有集群中的第三方/历史资源。
 - [x] 统一平台写入 Kubernetes 资源的 labels/annotations：`app.kubernetes.io/managed-by=liteyuki-devops`、项目空间、应用、环境、发布和网关路由引用，作为后续实时查询和权限映射依据。
 - [x] 设计后端 Kubernetes 资源聚合 DTO：Namespace、Workload、Pod、Service、HTTPRoute、Gateway、ConfigMap、Secret、PVC/Event 等只返回前端需要的摘要、状态、归属引用和时间，不返回 Secret 明文。
 - [x] 新增后端集群资源 provider/list 接口：按 RuntimeCluster kubeconfig 实时请求 Kubernetes API，支持 namespace、resourceType、projectId、applicationId、environmentId 过滤，并默认只查平台自有资源。

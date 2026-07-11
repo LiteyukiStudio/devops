@@ -65,7 +65,7 @@ async function main() {
   await ok('/users/me', { method: 'PUT', ...json({ name: me.name || 'Platform Admin', language: 'zh-CN', avatarUrl: me.avatarUrl ?? '' }) })
   await ok('/public/configs', { method: 'POST', ...json({ keys: ['site.title', 'site.logo'] }) })
   await ok('/configs/definitions')
-  await ok('/configs', { method: 'PUT', ...json({ values: { 'site.title': `Liteyuki DevOps ${runId}` } }) })
+  await ok('/configs', { method: 'PUT', ...json({ values: { 'site.title': `Luna DevOps ${runId}` } }) })
 
   await ok('/auth/providers')
   const providers = await ok('/auth/providers?includeDisabled=true')

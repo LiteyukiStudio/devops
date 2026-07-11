@@ -85,7 +85,7 @@ export function DashboardPage() {
     <div className="grid min-w-0 gap-4">
       <Card className="min-w-0 max-w-full p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <SectionTitle icon={<FolderKanban size={18} />} title={t('dashboardPage.projectShortcuts')} description={t('dashboardPage.projectShortcutsDescription')} />
+          <SectionTitle icon={<FolderKanban size={18} />} title={t('dashboardPage.projectShortcuts')} />
           {hasMoreProjects && (
             <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary" to="/projects">
               {t('dashboardPage.viewAllProjects')}
@@ -121,7 +121,6 @@ export function DashboardPage() {
               <StatusBadge>{t('dashboardPage.projectSample', { count: visibleProjects.length })}</StatusBadge>
             </div>
             <h2 className="mt-3 text-2xl font-semibold tracking-normal">{t('dashboardPage.heading')}</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t('dashboardPage.subtitle')}</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <DashboardMetric icon={<FolderKanban size={18} />} label={t('dashboardPage.projects')} to="/projects" value={projectTotal} />
               <DashboardMetric icon={<AppWindow size={18} />} label={t('dashboardPage.applications')} to="/projects" value={summary.totalApplications} />
@@ -228,13 +227,13 @@ function DashboardMetric({ icon, label, to, value }: { icon: ReactNode, label: s
     : <div className={className}>{content}</div>
 }
 
-function SectionTitle({ description, icon, title }: { description: string, icon: ReactNode, title: string }) {
+function SectionTitle({ description, icon, title }: { description?: string, icon: ReactNode, title: string }) {
   return (
     <div className="flex items-start gap-2">
       <div className="mt-0.5 text-muted-foreground">{icon}</div>
       <div className="min-w-0">
         <h3 className="text-base font-semibold">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
     </div>
   )

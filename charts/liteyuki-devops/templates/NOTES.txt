@@ -1,4 +1,4 @@
-Liteyuki DevOps has been installed.
+Luna DevOps has been installed.
 
 Check pods:
   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}

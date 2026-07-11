@@ -1,6 +1,6 @@
 # Kubernetes (Helm) 部署
 
-如果准备把 Liteyuki DevOps 长期运行在 Kubernetes 或 K3s 中，推荐使用 Helm。Chart 会一起部署 API、Worker、PostgreSQL 和 Redis，也可以改为连接已有的外部数据库与 Redis。
+如果准备把 Luna DevOps 长期运行在 Kubernetes 或 K3s 中，推荐使用 Helm。Chart 会一起部署 API、Worker、PostgreSQL 和 Redis，也可以改为连接已有的外部数据库与 Redis。
 
 ## 开始前准备
 

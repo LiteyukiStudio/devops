@@ -1,6 +1,6 @@
 # 应用市场
 
-不想从空白部署数据库、缓存或监控工具时，可以直接从应用市场选择模板安装到项目空间。内置模板包括 Redis、Valkey、Memcached、PostgreSQL、MySQL、MariaDB、MongoDB、RabbitMQ、Garage、Prometheus、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry、pgAdmin4、Meilisearch 和 Bytebase，覆盖缓存、数据库、消息队列、对象存储、监控和常用小团队工具。
+不想从空白部署数据库、缓存或监控工具时，可以直接从应用市场选择模板安装到项目空间。内置模板覆盖数据库、缓存、消息队列、对象存储、搜索、监控、制品仓库、数据库管理、Web 服务和常用自托管应用，例如 PostgreSQL、Redis、NATS、ClickHouse、Qdrant、Typesense、Garage、Prometheus、Grafana、Gitea、Vaultwarden、NocoDB、Wiki.js 和 WordPress。
 
 应用市场也提供少量平台组件模板。它们只允许平台管理员安装，会进入平台自有项目空间 `platform-system`，并像普通应用一样创建应用、部署配置和 Release。这个空间只有平台管理员能看到，不能删除，也不会计入用户项目账单。内置的 `Liteyuki Gateway Traffic Probe` 用于按需开启访问流量计费采集。
 
@@ -32,7 +32,7 @@
 
 1. 平台管理员选择带有“平台组件”标识的模板。
 2. 选择目标运行集群。
-3. 填写组件需要的少量参数，例如 DevOps API 地址。
+3. 填写组件需要的少量参数，例如 Luna DevOps API 地址。
 4. 平台创建或复用 `platform-system` 项目空间下的组件应用，为目标运行集群创建部署配置和 Release，并生成独立上报 Token。
 5. Worker 使用普通应用部署链路下发 ConfigMap、Secret、Deployment 和 Service；平台额外确保探针 ServiceAccount 与只读 RBAC，因此组件可以在应用部署页查看发布日志、运行日志和 Web Console。
 
@@ -40,10 +40,10 @@
 
 Gateway Traffic Probe 作为独立镜像 `liteyukistudio/devops-gateway-traffic-probe` 发布。安装时平台会注入 `API_BASE_URL`、`REPORT_TOKEN`、`RUNTIME_CLUSTER_ID`、`TRAEFIK_METRICS_URL` 等环境变量；其中 `REPORT_TOKEN` 只保存哈希到平台数据库，普通部署 Secret 保存明文 token 用于上报。`TRAEFIK_METRICS_URL` 默认按运行集群的 Gateway 命名空间推导，也可以在安装模板中显式填写集群内可访问的 Traefik Prometheus metrics 地址。
 
-模板列表支持按分类筛选、按模板名称、镜像、官网或仓库搜索，也可以按热度权重或名称排序。当前内置模板暂不收录 PHP 应用，例如 Adminer 和 phpMyAdmin。
+模板列表支持按分类筛选、按模板名称、镜像、官网或仓库搜索，也可以按热度权重或名称排序。
 
 ## 使用边界
 
-目前的模板适合使用镜像默认命令即可启动的应用。Prometheus 当前提供抓取自身 `/metrics` 的最小配置，Grafana 和 Prometheus 仍是独立单应用模板，不会自动创建 Grafana 数据源或发现业务工作负载。Garage 当前作为单节点轻量对象存储模板提供，平台会生成基础配置文件；多节点 layout 初始化、bucket/key 输出和更完整的连接信息会在后续模板 outputs 能力中补齐。
+目前的模板适合使用镜像默认命令即可启动的应用。Prometheus 当前提供抓取自身 `/metrics` 的最小配置，Grafana 和 Prometheus 仍是独立单应用模板，不会自动创建 Grafana 数据源或发现业务工作负载。Garage 当前作为单节点轻量对象存储模板提供，平台会生成基础配置文件；多节点 layout 初始化、bucket/key 输出和更完整的连接信息会在后续模板 outputs 能力中补齐。WordPress、Mongo Express 等模板需要连接已有数据库，安装前先准备对应的数据库地址和账号。
 
 应用市场模板来自后端内置 JSON。后续第三方模板市场可以继续复用同一份 schema，由后端负责拉取、校验和缓存。

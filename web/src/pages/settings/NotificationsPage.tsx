@@ -233,22 +233,6 @@ export function NotificationsPage() {
         <TabsContent value="channels">
           <DataList
             columns={channelColumns}
-            emptyDescription={(
-              <>
-                {t('notificationsPage.emptyChannelsDescription')}
-                {' '}
-                <a
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                  href="#notification-channel-templates"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    openPresetDialog()
-                  }}
-                >
-                  {t('notificationsPage.emptyChannelsAction')}
-                </a>
-              </>
-            )}
             emptyTitle={t('notificationsPage.emptyChannels')}
             items={channels.data?.items ?? []}
             pagination={pagination(channels.data, channelPage, setChannelPage, t('notificationsPage.pageInfo', { page: channels.data?.page ?? channelPage, totalPages: channels.data?.totalPages ?? 1, total: channels.data?.total ?? 0 }))}

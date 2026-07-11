@@ -184,7 +184,6 @@ export function AppTemplatesPage() {
       <Card className="grid gap-3 p-3 sm:gap-4 sm:p-4 xl:grid-cols-[minmax(0,1fr)_18rem_12rem_10rem_10rem] xl:items-center">
         <div className="min-w-0">
           <h2 className="text-base font-semibold">{t('appTemplatesPage.heroTitle')}</h2>
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground sm:line-clamp-none">{t('appTemplatesPage.heroDescription')}</p>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

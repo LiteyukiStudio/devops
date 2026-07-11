@@ -1,6 +1,6 @@
 # How the Platform Fits Together
 
-Liteyuki DevOps connects code, images, clusters, and access routes into one delivery path. You do not need to understand every underlying component on day one; this page explains what each part is responsible for.
+Luna DevOps connects code, images, clusters, and access routes into one delivery path. You do not need to understand every underlying component on day one; this page explains what each part is responsible for.
 
 For a click-through walkthrough, see [Deploy a Web Project](/en/operations/deploy-web-project). It uses `snowykami/neo-blog` as the example and covers project space, applications, deployment targets, builds, releases, and the public route.
 

@@ -334,7 +334,6 @@ export function EventsPage() {
 
       <DataList
         columns={columns}
-        emptyDescription={t('eventsPage.emptyDescription')}
         emptyTitle={events.isLoading ? t('common.loading') : t('eventsPage.emptyTitle')}
         items={events.data?.items ?? []}
         pagination={{

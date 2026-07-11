@@ -18,7 +18,7 @@ export function splitText(value?: string) {
 export function gitProviderGuide(type: GitProvider['type'], baseUrl?: string, name?: string): GitProviderGuide {
   const normalizedBaseUrl = normalizeGitBaseUrl(type, baseUrl)
   const callbackUrl = `${apiBaseOrigin()}/api/v1/git/oauth/callback`
-  const appName = name?.trim() || 'Liteyuki DevOps'
+  const appName = name?.trim() || 'Luna DevOps'
   if (type === 'gitea') {
     return {
       appName,

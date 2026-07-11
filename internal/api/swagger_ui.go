@@ -15,5 +15,5 @@ func registerSwaggerUI(router *gin.Engine) {
 	router.GET("/swagger", func(ctx *gin.Context) {
 		ctx.Redirect(http.StatusMovedPermanently, "/swagger/")
 	})
-	router.Any("/swagger/*any", gin.WrapH(v5emb.New("Liteyuki DevOps API", "/openapi.yaml", "/swagger/")))
+	router.Any("/swagger/*any", gin.WrapH(v5emb.New("Luna DevOps API", "/openapi.yaml", "/swagger/")))
 }

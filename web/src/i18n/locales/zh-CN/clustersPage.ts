@@ -24,7 +24,7 @@ const clustersPage = {
   servicesEmptyTitle: '还没有平台管理的服务或路由',
   configsEmptyTitle: '还没有平台管理的配置或密钥',
   storageEmptyTitle: '还没有平台管理的存储资源',
-  resourceEmptyDescription: '这里只展示 Liteyuki DevOps 创建或打了平台标签的资源，不接管集群里已有的第三方资源。',
+  resourceEmptyDescription: '这里只展示 Luna DevOps 创建或打了平台标签的资源，不接管集群里已有的第三方资源。',
   selectResourceCluster: '选择集群',
   noManageableClusterTitle: '没有可维护的集群',
   noManageableClusterDescription: '只有平台管理员、项目 Owner/Admin 或个人集群创建者可以查看集群资源。',

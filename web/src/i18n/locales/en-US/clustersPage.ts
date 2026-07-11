@@ -1,5 +1,5 @@
 const clustersPage = {
-  description: 'Manage runtime clusters and Liteyuki-managed Kubernetes resources. Developers use clusters through deploy configs and releases instead of maintaining cluster config directly.',
+  description: 'Manage runtime clusters and platform-managed Kubernetes resources. Developers use clusters through deploy configs and releases instead of maintaining cluster config directly.',
   dialogDescription: 'Save cluster basics, scope, and kubeconfig. Secrets are only stored by the backend.',
   basicClusterConfig: 'Basic cluster config',
   basicClusterConfigDescription: 'Configure cluster name, scope, type, and build concurrency.',
@@ -24,7 +24,7 @@ const clustersPage = {
   servicesEmptyTitle: 'No managed services or routes',
   configsEmptyTitle: 'No managed config or secrets',
   storageEmptyTitle: 'No managed storage resources',
-  resourceEmptyDescription: 'Only resources created by Liteyuki DevOps or labeled as platform-managed are shown. Existing third-party cluster resources are not adopted.',
+  resourceEmptyDescription: 'Only resources created by Luna DevOps or labeled as platform-managed are shown. Existing third-party cluster resources are not adopted.',
   selectResourceCluster: 'Select cluster',
   noManageableClusterTitle: 'No manageable clusters',
   noManageableClusterDescription: 'Only platform admins, project Owners/Admins, or personal cluster creators can inspect cluster resources.',

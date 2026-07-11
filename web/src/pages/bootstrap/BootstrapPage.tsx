@@ -71,7 +71,7 @@ export function BootstrapPage() {
               <h1 className="text-lg font-semibold">
                 {t('bootstrap.title')}
                 {' '}
-                {configs['site.title'] || 'Liteyuki DevOps'}
+                {configs['site.title'] || 'Luna DevOps'}
               </h1>
               <p className="text-sm text-muted-foreground">{t('bootstrap.description')}</p>
             </div>

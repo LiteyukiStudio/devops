@@ -89,7 +89,7 @@ rg -n "TODO|FIXME|临时|兼容|fallback|special case|module|Builder|builder" in
 - 账单、余额、充值补偿和资源用量归属。
 - 应用市场模板、镜像、官网和官方仓库元数据。
 - 数据库迁移、启动自动迁移和历史数据修复。
-- Rspress 文档站、工程文档和中英文内容同步。
+- Rspress 文档站、历史记录和中英文内容同步。
 - 前端布局、DataList、ContentTabs、ActionMenu。
 
 判断标准：
@@ -251,17 +251,17 @@ rg -n "TODO|FIXME|临时|兼容|fallback|special case|module|Builder|builder" in
 - 涉及核心链路的迁移需要用已有数据快照或集成库验证。
 - 迁移失败时 API 应明确失败并暴露可诊断日志，不允许静默跳过。
 
-### 5.7 文档站和工程文档
+### 5.7 文档站和历史记录
 
 风险：
 
-- 项目同时维护 `docs/` Rspress 用户文档、`Doc/` 工程文档和 `notes/` 设计记录，容易出现口径不一致。
+- 项目同时维护 `docs/` Rspress 用户文档和 `notes/` 设计记录，容易出现口径不一致。
 - 中英文导航、配置项表格和部署教程不一致会直接影响用户上手。
 
 建议：
 
 - 用户操作、部署、配置和故障排查优先写入 `docs/docs/{zh,en}`。
-- 工程内部设计沉淀写入 `Doc/` 或 `notes/`，不要混入用户文档。
+- 工程内部设计沉淀写入 `notes/`，不要混入用户文档。
 - 每次新增用户可见能力，检查中文和英文导航是否都有入口。
 
 ### 5.8 DataList、ContentTabs 和操作菜单

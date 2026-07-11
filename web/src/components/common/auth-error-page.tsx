@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { Card } from '@/components/ui/card'
 
 /**
@@ -14,9 +14,7 @@ export function AuthErrorPage({ title, description }: { title: string, descripti
       <Card className="w-full max-w-md">
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-        <Button className="mt-5">
-          <Link to="/login">{t('auth.backToLogin')}</Link>
-        </Button>
+        <Link className={buttonVariants({ className: 'mt-5' })} to="/login">{t('auth.backToLogin')}</Link>
       </Card>
     </div>
   )

@@ -69,7 +69,7 @@ Use this as a starting point rather than a universal production file. Adjust pat
 
 ```ini
 [Unit]
-Description=Liteyuki DevOps API
+Description=Luna DevOps API
 After=network.target postgresql.service redis.service
 
 [Service]

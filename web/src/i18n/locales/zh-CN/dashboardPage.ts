@@ -1,6 +1,6 @@
 const dashboardPage = {
   description: '跨项目查看构建、运行资源和平台健康状态。',
-  heading: 'DevOps 看板',
+  heading: 'Luna DevOps 看板',
   subtitle: '聚合你可见的项目空间、应用、近期构建、镜像站和集群状态。',
   healthy: '运行良好',
   needsAttention: '需要关注',

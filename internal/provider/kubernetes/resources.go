@@ -434,7 +434,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
 	case "deployment":
@@ -446,7 +446,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "statefulset":
@@ -458,7 +458,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.AppsV1().StatefulSets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "pod":
@@ -470,7 +470,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "horizontalpodautoscaler":
@@ -482,7 +482,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "service":
@@ -494,7 +494,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "httproute":
@@ -506,7 +506,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.GetLabels()) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.dynamic.Resource(httpRouteGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "gateway":
@@ -518,7 +518,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.GetLabels()) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.dynamic.Resource(gatewayGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "configmap":
@@ -530,7 +530,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.CoreV1().ConfigMaps(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "secret":
@@ -542,7 +542,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.CoreV1().Secrets(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	case "persistentvolumeclaim":
@@ -554,7 +554,7 @@ func (c *Client) DeleteManagedResource(ctx context.Context, kind string, namespa
 			return err
 		}
 		if !isManagedResource(item.Labels) {
-			return fmt.Errorf("resource is not managed by Liteyuki DevOps")
+			return fmt.Errorf("resource is not managed by Luna DevOps")
 		}
 		return c.client.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	default:

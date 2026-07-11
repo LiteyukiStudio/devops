@@ -1,6 +1,6 @@
-# Liteyuki DevOps Helm Chart
+# Luna DevOps Helm Chart
 
-This chart installs Liteyuki DevOps with API, worker, PostgreSQL, and Redis.
+This chart installs Luna DevOps with API, worker, PostgreSQL, and Redis.
 
 ## Install
 

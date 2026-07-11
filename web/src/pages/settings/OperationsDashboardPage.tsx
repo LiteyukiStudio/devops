@@ -8,7 +8,7 @@ import { useSession } from '@/app/session-context'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { ForbiddenPage } from '@/components/common/forbidden-page'
-import { buttonVariants } from '@/components/ui/button-variants'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
 const OPERATIONS_DASHBOARD_URL_KEY = 'site.operationsDashboardUrl'
@@ -44,10 +44,12 @@ export function OperationsDashboardPage() {
     return (
       <EmptyState
         actions={(
-          <Link className={buttonVariants()} to="/settings/site">
-            <Settings size={16} />
-            {t('operationsDashboardPage.configure')}
-          </Link>
+          <Button asChild>
+            <Link to="/settings/site">
+              <Settings size={16} />
+              {t('operationsDashboardPage.configure')}
+            </Link>
+          </Button>
         )}
         description={t('operationsDashboardPage.emptyDescription')}
         title={t('operationsDashboardPage.emptyTitle')}

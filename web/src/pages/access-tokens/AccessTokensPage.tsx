@@ -204,7 +204,6 @@ export function AccessTokensPanel() {
       )}
       <DataList
         columns={columns}
-        emptyDescription={t('accessTokens.emptyDescription')}
         emptyTitle={t('accessTokens.empty')}
         items={tokenItems}
         pagination={{

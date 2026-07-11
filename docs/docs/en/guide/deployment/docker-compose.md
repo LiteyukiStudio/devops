@@ -1,6 +1,6 @@
 # Docker Compose Deployment
 
-Docker Compose is the quickest way to try Liteyuki DevOps on a personal server, in a test environment, or with a small team. It starts every required service together, so PostgreSQL and Redis do not need to be installed separately.
+Docker Compose is the quickest way to try Luna DevOps on a personal server, in a test environment, or with a small team. It starts every required service together, so PostgreSQL and Redis do not need to be installed separately.
 
 If you want the platform itself to run in Kubernetes, start with [Kubernetes (Helm)](/en/guide/deployment/kubernetes-helm).
 

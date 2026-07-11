@@ -1,6 +1,6 @@
 # Status and Troubleshooting
 
-Do not start by retrying everything. First decide whether the failure is in build, release, application runtime, or the access route, then inspect the matching record. Liteyuki DevOps keeps those stages close together so you can follow the same delivery context.
+Do not start by retrying everything. First decide whether the failure is in build, release, application runtime, or the access route, then inspect the matching record. Luna DevOps keeps those stages close together so you can follow the same delivery context.
 
 ## Start with the event center
 

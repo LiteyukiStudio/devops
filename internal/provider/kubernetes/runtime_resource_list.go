@@ -50,7 +50,7 @@ func (c *Client) listManagedNamespaces(ctx context.Context, options ResourceList
 
 func managedSnapshot(snapshot ResourceSnapshot) (ResourceSnapshot, error) {
 	if !isManagedResource(snapshot.Labels) {
-		return ResourceSnapshot{}, fmt.Errorf("resource is not managed by Liteyuki DevOps")
+		return ResourceSnapshot{}, fmt.Errorf("resource is not managed by Luna DevOps")
 	}
 	return snapshot, nil
 }

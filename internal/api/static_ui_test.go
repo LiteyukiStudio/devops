@@ -14,7 +14,7 @@ func TestStaticUIServesIndexWithoutRedirect(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	files := fstest.MapFS{
 		"index.html": {
-			Data: []byte("<!doctype html><title>Liteyuki DevOps</title>"),
+			Data: []byte("<!doctype html><title>Luna DevOps</title>"),
 		},
 		"assets/app.js": {
 			Data: []byte("console.log('ok')"),
@@ -37,7 +37,7 @@ func TestStaticUIServesIndexWithoutRedirect(t *testing.T) {
 		if location := rec.Header().Get("Location"); location != "" {
 			t.Fatalf("GET %s should not redirect, got Location %q", path, location)
 		}
-		if !strings.Contains(rec.Body.String(), "Liteyuki DevOps") {
+		if !strings.Contains(rec.Body.String(), "Luna DevOps") {
 			t.Fatalf("GET %s expected index body, got %q", path, rec.Body.String())
 		}
 		if got := rec.Header().Get("Cache-Control"); got != "no-cache, must-revalidate" {
@@ -50,7 +50,7 @@ func TestStaticUIServesAssetsAndSkipsAPI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	files := fstest.MapFS{
 		"index.html": {
-			Data: []byte("<!doctype html><title>Liteyuki DevOps</title>"),
+			Data: []byte("<!doctype html><title>Luna DevOps</title>"),
 		},
 		"assets/app.js": {
 			Data: []byte("console.log('ok')"),

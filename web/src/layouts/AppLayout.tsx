@@ -65,24 +65,24 @@ const navSections = [
 ]
 
 const pageMetaRules = [
-  { match: (pathname: string) => pathname === '/dashboard', titleKey: 'dashboard', descriptionKey: 'dashboardPage.description' },
-  { match: (pathname: string) => /^\/projects\/[^/]+\/apps\/[^/]+$/.test(pathname), titleKey: 'apps.detailTitle', descriptionKey: 'apps.detailDescription' },
-  { match: (pathname: string) => /^\/projects\/[^/]+\/members$/.test(pathname), titleKey: 'projectMembers.title', descriptionKey: 'projectMembers.description' },
-  { match: (pathname: string) => /^\/projects\/[^/]+\/apps$/.test(pathname), titleKey: 'apps.title', descriptionKey: 'apps.description' },
-  { match: (pathname: string) => /^\/projects\/[^/]+$/.test(pathname), titleKey: 'projectSpaces.workspaceTitle', descriptionKey: 'projectSpaces.workspaceDescription' },
-  { match: (pathname: string) => pathname === '/projects', titleKey: 'projectSpaces.title', descriptionKey: 'projectSpaces.description' },
-  { match: (pathname: string) => pathname === '/events', titleKey: 'eventsPage.title', descriptionKey: 'eventsPage.description' },
-  { match: (pathname: string) => pathname === '/app-templates', titleKey: 'appTemplates', descriptionKey: 'appTemplatesPage.description' },
-  { match: (pathname: string) => pathname === '/code-repositories', titleKey: 'codeRepositories', descriptionKey: 'codeRepositoriesPage.description' },
-  { match: (pathname: string) => pathname === '/registries', titleKey: 'registries', descriptionKey: 'registriesPage.description' },
-  { match: (pathname: string) => pathname === '/clusters', titleKey: 'clusters', descriptionKey: 'clustersPage.description' },
-  { match: (pathname: string) => pathname === '/billing', titleKey: 'billing', descriptionKey: 'billingPage.description' },
-  { match: (pathname: string) => pathname === '/settings/account' || pathname === '/settings/security', titleKey: 'account', descriptionKey: 'accountPage.description' },
-  { match: (pathname: string) => pathname === '/settings/auth-providers', titleKey: 'authProvidersPage.title', descriptionKey: 'authProvidersPage.description' },
-  { match: (pathname: string) => pathname === '/settings/notifications', titleKey: 'notificationsPage.title', descriptionKey: 'notificationsPage.description' },
-  { match: (pathname: string) => pathname === '/settings/operations', titleKey: 'operationsDashboard', descriptionKey: 'operationsDashboardPage.description' },
-  { match: (pathname: string) => pathname === '/settings/users', titleKey: 'usersPage.title', descriptionKey: 'usersPage.description' },
-  { match: (pathname: string) => pathname === '/settings/site', titleKey: 'siteSettings', descriptionKey: 'settings.siteDescription' },
+  { match: (pathname: string) => pathname === '/dashboard', titleKey: 'dashboard' },
+  { match: (pathname: string) => /^\/projects\/[^/]+\/apps\/[^/]+$/.test(pathname), titleKey: 'apps.detailTitle' },
+  { match: (pathname: string) => /^\/projects\/[^/]+\/members$/.test(pathname), titleKey: 'projectMembers.title' },
+  { match: (pathname: string) => /^\/projects\/[^/]+\/apps$/.test(pathname), titleKey: 'apps.title' },
+  { match: (pathname: string) => /^\/projects\/[^/]+$/.test(pathname), titleKey: 'projectSpaces.workspaceTitle' },
+  { match: (pathname: string) => pathname === '/projects', titleKey: 'projectSpaces.title' },
+  { match: (pathname: string) => pathname === '/events', titleKey: 'eventsPage.title' },
+  { match: (pathname: string) => pathname === '/app-templates', titleKey: 'appTemplates' },
+  { match: (pathname: string) => pathname === '/code-repositories', titleKey: 'codeRepositories' },
+  { match: (pathname: string) => pathname === '/registries', titleKey: 'registries' },
+  { match: (pathname: string) => pathname === '/clusters', titleKey: 'clusters' },
+  { match: (pathname: string) => pathname === '/billing', titleKey: 'billing' },
+  { match: (pathname: string) => pathname === '/settings/account' || pathname === '/settings/security', titleKey: 'account' },
+  { match: (pathname: string) => pathname === '/settings/auth-providers', titleKey: 'authProvidersPage.title' },
+  { match: (pathname: string) => pathname === '/settings/notifications', titleKey: 'notificationsPage.title' },
+  { match: (pathname: string) => pathname === '/settings/operations', titleKey: 'operationsDashboard' },
+  { match: (pathname: string) => pathname === '/settings/users', titleKey: 'usersPage.title' },
+  { match: (pathname: string) => pathname === '/settings/site', titleKey: 'siteSettings' },
 ]
 
 function sidebarMenuButtonClassName(active?: boolean) {
@@ -133,7 +133,6 @@ export function AppLayout() {
       titleCrumbs.push({ label: application.name, to: `/projects/${application.projectId}/apps/${application.id}` })
     }
     return {
-      description: projectWorkspaceMatch && project ? project.description || t('common.noDescription') : rule?.descriptionKey ? t(rule.descriptionKey) : t('common.noDescription'),
       title,
       titleCrumbs,
       titlePrefix,
@@ -151,10 +150,10 @@ export function AppLayout() {
 
     return (
       <>
-        <SidebarHeader>
+        <SidebarHeader className="h-16">
           <Link
             aria-label={configs['site.title'] || t('appName')}
-            className="flex h-16 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-5"
+            className="flex h-full w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-5"
             to="/projects"
           >
             <img
@@ -265,7 +264,7 @@ export function AppLayout() {
         </Sheet>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="z-10 flex min-h-16 shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-2 backdrop-blur md:min-h-20 md:py-3 lg:px-5 xl:px-6">
+          <header className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/90 px-4 py-2 backdrop-blur lg:px-5 xl:px-6">
             <Button
               aria-label={t('nav.openSidebar')}
               className="mr-2 shrink-0 lg:hidden"
@@ -277,10 +276,9 @@ export function AppLayout() {
             </Button>
             <div className="min-w-0 flex-1">
               <TopbarTitle crumbs={pageMeta.titleCrumbs} prefix={pageMeta.titlePrefix} title={pageMeta.title} />
-              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:text-sm">{pageMeta.description}</p>
             </div>
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-4 lg:px-5 lg:pb-5 xl:px-6">
+          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
             <AnimatePresence mode="wait">
               <PageMotion key={pageMotionKey}>
                 <Outlet />

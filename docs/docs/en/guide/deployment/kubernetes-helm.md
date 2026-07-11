@@ -1,6 +1,6 @@
 # Kubernetes (Helm) Deployment
 
-For a long-running Liteyuki DevOps installation on Kubernetes or K3s, use Helm. The chart deploys API, Worker, PostgreSQL, and Redis together, and it can also connect to existing external database services.
+For a long-running Luna DevOps installation on Kubernetes or K3s, use Helm. The chart deploys API, Worker, PostgreSQL, and Redis together, and it can also connect to existing external database services.
 
 ## Before You Start
 

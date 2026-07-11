@@ -1,5 +1,5 @@
 const root = {
-  appName: 'Liteyuki DevOps',
+  appName: 'Luna DevOps',
   dashboard: '看板',
   projects: '项目空间',
   events: '事件',

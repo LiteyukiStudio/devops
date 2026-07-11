@@ -121,11 +121,6 @@ function ConfigSection({ definitions, form }: ConfigSectionProps) {
             : definition.type === 'select'
               ? <ConfigSelect definition={definition} form={form} />
               : <Input {...form.register(definition.key)} />}
-          <p className="text-xs font-normal text-muted-foreground">
-            {definition.key}
-            {' · '}
-            {definition.description}
-          </p>
         </Field>
       ))}
     </div>
@@ -160,7 +155,11 @@ function BillingRateRulesSection() {
       key: 'unit',
       header: t('settings.billingRateUnit'),
       className: 'min-w-32',
-      render: rule => <span className="font-mono text-xs text-muted-foreground">{rule.unit}</span>,
+      render: rule => (
+        <span className="text-sm text-muted-foreground" title={rule.unit}>
+          {t(`settings.billingRateUnits.${rule.unit}`, { defaultValue: rule.unit })}
+        </span>
+      ),
     },
     {
       key: 'price',
@@ -222,10 +221,7 @@ function BillingRateRulesSection() {
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">{t('settings.billingRateRulesTitle')}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{t('settings.billingRateRulesDescription')}</p>
-        </div>
+        <h3 className="text-base font-semibold text-foreground">{t('settings.billingRateRulesTitle')}</h3>
         <Button disabled={save.isPending || rules.length === 0} type="button" onClick={() => save.mutate(payload)}>
           <Save size={16} />
           {t('settings.saveBillingRateRules')}
@@ -234,7 +230,6 @@ function BillingRateRulesSection() {
       <DataList
         columns={columns}
         emptyTitle={t('settings.billingRateRulesTitle')}
-        emptyDescription={t('settings.billingRateRulesDescription')}
         items={rules}
         rowKey={rule => rule.meter}
       />

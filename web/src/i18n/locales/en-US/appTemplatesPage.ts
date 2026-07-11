@@ -50,14 +50,19 @@ const appTemplatesPage = {
   categories: {
     cache: 'Cache',
     collaboration: 'Collaboration',
+    cms: 'CMS',
     database: 'Database',
     databaseTool: 'Database Tool',
     developerTool: 'Developer Tool',
+    lowCode: 'Low-code',
     middleware: 'Middleware',
     objectStorage: 'Object Storage',
     observability: 'Observability',
+    passwordManager: 'Password Manager',
     registry: 'Registry',
     search: 'Search',
+    vectorDatabase: 'Vector Database',
+    webServer: 'Web Server',
   },
   stageOptions: {
     prod: 'Production',
@@ -74,8 +79,11 @@ const appTemplatesPage = {
     adminToken: 'Admin Token',
     metricsToken: 'Metrics Token',
     masterKey: 'Master Key',
+    apiKey: 'API Key',
+    mongodbUrl: 'MongoDB URL',
+    dbHost: 'Database Host',
     email: 'Email',
-    apiBaseUrl: 'DevOps API Base URL',
+    apiBaseUrl: 'Luna DevOps API Base URL',
     traefikMetricsUrl: 'Traefik Metrics URL',
   },
   valueHints: {
@@ -149,6 +157,42 @@ const appTemplatesPage = {
     },
     'garage': {
       description: 'Lightweight S3-compatible object storage for project files and artifacts.',
+    },
+    'nats': {
+      description: 'Lightweight messaging system for events, pub/sub, and service communication.',
+    },
+    'clickhouse': {
+      description: 'Column-oriented analytics database for logs, events, and real-time reporting.',
+    },
+    'qdrant': {
+      description: 'Vector database for semantic search, recommendations, and AI retrieval workloads.',
+    },
+    'typesense': {
+      description: 'Fast typo-tolerant search engine for product search and application search.',
+    },
+    'adminer': {
+      description: 'Small web database administration tool for MySQL, PostgreSQL, SQLite, and more.',
+    },
+    'mongo-express': {
+      description: 'Web administration interface for MongoDB databases.',
+    },
+    'caddy': {
+      description: 'Simple web server and reverse proxy starter with a minimal static response.',
+    },
+    'gitea': {
+      description: 'Lightweight self-hosted Git service for repositories, issues, and releases.',
+    },
+    'vaultwarden': {
+      description: 'Lightweight self-hosted password manager compatible with Bitwarden clients.',
+    },
+    'nocodb': {
+      description: 'Open-source no-code database interface for small internal tools and data apps.',
+    },
+    'wiki-js': {
+      description: 'Modern self-hosted wiki for team documentation and knowledge bases.',
+    },
+    'wordpress': {
+      description: 'Popular self-hosted CMS and blog platform; connect it to an existing MySQL-compatible database.',
     },
   },
 }

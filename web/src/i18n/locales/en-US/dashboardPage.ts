@@ -1,6 +1,6 @@
 const dashboardPage = {
   description: 'Review builds, runtime resources, and platform health across projects.',
-  heading: 'DevOps dashboard',
+  heading: 'Luna DevOps dashboard',
   subtitle: 'Aggregates visible project spaces, applications, recent builds, registries, and clusters.',
   healthy: 'Healthy',
   needsAttention: 'Needs attention',

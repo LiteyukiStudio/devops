@@ -1,6 +1,6 @@
 apiVersion: v2
 name: liteyuki-devops
-description: Liteyuki DevOps application delivery platform.
+description: Luna DevOps application delivery platform.
 type: application
 version: 0.1.0
 appVersion: nightly

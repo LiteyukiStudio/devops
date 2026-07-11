@@ -50,14 +50,19 @@ const appTemplatesPage = {
   categories: {
     cache: '缓存',
     collaboration: '协作',
+    cms: '内容管理',
     database: '数据库',
     databaseTool: '数据库工具',
     developerTool: '开发工具',
+    lowCode: '低代码',
     middleware: '中间件',
     objectStorage: '对象存储',
     observability: '监控观测',
+    passwordManager: '密码管理',
     registry: '制品仓库',
     search: '搜索',
+    vectorDatabase: '向量数据库',
+    webServer: 'Web 服务',
   },
   stageOptions: {
     prod: '生产',
@@ -74,8 +79,11 @@ const appTemplatesPage = {
     adminToken: '管理 Token',
     metricsToken: '指标 Token',
     masterKey: '主密钥',
+    apiKey: 'API Key',
+    mongodbUrl: 'MongoDB 地址',
+    dbHost: '数据库地址',
     email: '邮箱',
-    apiBaseUrl: 'DevOps API 基础地址',
+    apiBaseUrl: 'Luna DevOps API 基础地址',
     traefikMetricsUrl: 'Traefik Metrics 地址',
   },
   valueHints: {
@@ -149,6 +157,42 @@ const appTemplatesPage = {
     },
     'garage': {
       description: '轻量 S3 兼容对象存储，适合项目文件和构建产物存放。',
+    },
+    'nats': {
+      description: '轻量消息系统，适合事件、发布订阅和服务间通信。',
+    },
+    'clickhouse': {
+      description: '面向日志、事件和实时分析的列式数据库。',
+    },
+    'qdrant': {
+      description: '向量数据库，适合语义搜索、推荐和 AI 检索场景。',
+    },
+    'typesense': {
+      description: '支持容错输入的快速搜索引擎，适合商品搜索和应用内搜索。',
+    },
+    'adminer': {
+      description: '轻量数据库 Web 管理工具，支持 MySQL、PostgreSQL、SQLite 等。',
+    },
+    'mongo-express': {
+      description: 'MongoDB 的 Web 管理界面。',
+    },
+    'caddy': {
+      description: '简单的 Web 服务和反向代理启动模板，默认返回一段静态响应。',
+    },
+    'gitea': {
+      description: '轻量自托管 Git 服务，适合仓库、Issue 和 Release 管理。',
+    },
+    'vaultwarden': {
+      description: '兼容 Bitwarden 客户端的轻量自托管密码管理器。',
+    },
+    'nocodb': {
+      description: '开源无代码数据库界面，适合小型内部工具和数据应用。',
+    },
+    'wiki-js': {
+      description: '现代自托管 Wiki，适合团队文档和知识库。',
+    },
+    'wordpress': {
+      description: '常用自托管 CMS 和博客平台，需要连接已有 MySQL 兼容数据库。',
     },
   },
 }

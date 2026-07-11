@@ -1,21 +1,19 @@
 <p align="center">
-  <img src="web/public/liteyuki-logo.svg" width="132" alt="Liteyuki DevOps logo" />
+  <img src="web/public/liteyuki-logo.svg" width="132" alt="Luna DevOps logo" />
 </p>
 
-<h1 align="center">Liteyuki DevOps</h1>
+<h1 align="center">Luna DevOps</h1>
 
 <p align="center">
-  面向个人开发者和小团队的 DevOps 应用交付平台。
+  面向个人开发者和小团队的应用交付平台。
 </p>
 
 <p align="center">
-  <img src="web/public/images/liteyuki-devops-banner-v4.png" alt="Liteyuki DevOps automated delivery pipeline banner" />
+  <img src="web/public/images/liteyuki-devops-banner-v4.png" alt="Luna DevOps automated delivery pipeline banner" />
 </p>
 
 <p align="center">
   <a href="https://devops-docs.liteyuki.org">文档站</a>
-  ·
-  <a href="Doc/devops/README.md">工程文档</a>
   ·
   <a href="notes/01-产品与一体化方案.md">产品方案</a>
   ·
@@ -28,7 +26,7 @@
 
 ## 项目定位
 
-Liteyuki DevOps 将代码仓库、镜像站、构建、部署、网关和域名打通，让开发者只需要维护代码、`Dockerfile` 和少量配置，就能把应用交付成一个可访问的服务。
+Luna DevOps 将代码仓库、镜像站、构建、部署、网关和域名打通，让开发者只需要维护代码、`Dockerfile` 和少量配置，就能把应用交付成一个可访问的服务。
 
 第一阶段聚焦一条稳定闭环：
 
