@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
 import { AccessTokensPanel } from '@/pages/access-tokens/AccessTokensPage'
+import { AccountMFAPanel } from './account-mfa-panel'
 
 const profileSchema = z.object({
   name: z.string().min(1, i18next.t('accountPage.profileNameRequired')),
@@ -39,7 +40,12 @@ export function AccountPage() {
   const activeContent = (() => {
     switch (activeTab) {
       case 'security':
-        return <IdentityBindingsPanel />
+        return (
+          <div className="grid gap-4">
+            <AccountMFAPanel />
+            <IdentityBindingsPanel />
+          </div>
+        )
       case 'tokens':
         return <AccessTokensPanel />
       default:

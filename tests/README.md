@@ -9,7 +9,7 @@
 
 - API：`http://127.0.0.1:8080/api/v1`
 - Web：`http://127.0.0.1:5173`
-- 开发账号：`admin@liteyuki.dev / devops`
+- 开发账号：`admin@luna.dev / devops`
 
 运行：
 

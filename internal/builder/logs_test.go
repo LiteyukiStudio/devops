@@ -60,7 +60,7 @@ func TestHandleHookControlLineRendersAndDispatchesHookEvents(t *testing.T) {
 	hookLabels := HookLabelsByRunID([]HookPayload{{ID: "hrun_1", Name: "hello", Phase: "preBuild"}})
 
 	renderedLog, isLogControl := HandleHookControlLine(
-		"::liteyuki-hook-log::hrun_1::SGVsbG8gV29ybGQ=",
+		"::luna-devops-hook-log::hrun_1::SGVsbG8gV29ybGQ=",
 		hookLabels,
 		func(_ string, content string) error {
 			hookLogs = append(hookLogs, content)
@@ -73,7 +73,7 @@ func TestHandleHookControlLineRendersAndDispatchesHookEvents(t *testing.T) {
 	)
 
 	renderedComplete, isCompleteControl := HandleHookControlLine(
-		"::liteyuki-hook-complete::hrun_1::true::0::aG9vayBzdWNjZWVkZWQ=",
+		"::luna-devops-hook-complete::hrun_1::true::0::aG9vayBzdWNjZWVkZWQ=",
 		hookLabels,
 		func(_ string, content string) error {
 			hookLogs = append(hookLogs, content)
@@ -88,7 +88,7 @@ func TestHandleHookControlLineRendersAndDispatchesHookEvents(t *testing.T) {
 	if !isLogControl || !isCompleteControl {
 		t.Fatalf("expected hook control lines to be recognized")
 	}
-	if strings.Contains(renderedLog, "::liteyuki-hook") || strings.Contains(renderedComplete, "::liteyuki-hook") {
+	if strings.Contains(renderedLog, "::luna-devops-hook") || strings.Contains(renderedComplete, "::luna-devops-hook") {
 		t.Fatalf("rendered control output leaked raw hook markers: %q %q", renderedLog, renderedComplete)
 	}
 	if renderedLog != "[preBuild: hello] Hello World" {

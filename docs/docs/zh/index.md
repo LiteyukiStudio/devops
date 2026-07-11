@@ -14,7 +14,7 @@ hero:
       text: 部署项目
       link: /operations/deploy-web-project
   image:
-    src: /brand/mascot-liteyuki-catgirl-alpha.webp
+    src: /brand/mascot-luna-catgirl-alpha.webp
     alt: Luna DevOps mascot
 features:
   - title: Kubernetes (Helm) 部署

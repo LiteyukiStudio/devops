@@ -29,7 +29,7 @@ type RuntimeCluster struct {
 	GatewayPublicPort             int            `gorm:"not null;default:80" json:"gatewayPublicPort"`
 	GatewayControllerType         string         `gorm:"not null;default:traefik" json:"gatewayControllerType"`
 	GatewayClassName              string         `gorm:"not null;default:traefik" json:"gatewayClassName"`
-	GatewayName                   string         `gorm:"not null;default:liteyuki-gateway" json:"gatewayName"`
+	GatewayName                   string         `gorm:"not null;default:luna-gateway" json:"gatewayName"`
 	GatewayNamespace              string         `gorm:"not null;default:kube-system" json:"gatewayNamespace"`
 	GatewayHTTPListenerName       string         `gorm:"not null;default:web" json:"gatewayHttpListenerName"`
 	GatewayHTTPListenerPort       int            `gorm:"not null;default:8080" json:"gatewayHttpListenerPort"`

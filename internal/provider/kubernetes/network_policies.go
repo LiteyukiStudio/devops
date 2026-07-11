@@ -32,8 +32,8 @@ func (c *Client) EnsureBuildNetworkPolicy(ctx context.Context, spec BuildNetwork
 			Name:      spec.Name,
 			Namespace: spec.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "liteyuki-devops",
-				"liteyuki.devops/scope":        "build",
+				"app.kubernetes.io/managed-by": "luna-devops",
+				"luna.devops/scope":            "build",
 			},
 		},
 		Spec: networkingv1.NetworkPolicySpec{

@@ -4,7 +4,7 @@ import crypto from 'node:crypto'
 const apiBase = process.env.API_BASE_URL ?? 'http://127.0.0.1:8080/api/v1'
 const healthBase = apiBase.replace(/\/api\/v1\/?$/, '')
 const origin = process.env.WEB_BASE_URL ?? process.env.TEST_ORIGIN ?? 'http://127.0.0.1:5173'
-const adminEmail = process.env.TEST_ADMIN_EMAIL ?? 'admin@liteyuki.dev'
+const adminEmail = process.env.TEST_ADMIN_EMAIL ?? 'admin@luna.dev'
 const adminPassword = process.env.TEST_ADMIN_PASSWORD ?? 'devops'
 const runKey = `${Date.now().toString(36).slice(-6)}${crypto.randomBytes(2).toString('hex')}`
 const runId = `smk-${runKey}`
@@ -110,7 +110,7 @@ async function main() {
     slug: runId,
     name: runId,
     sourceType: 'repository',
-    repositoryUrl: 'https://example.com/liteyuki/demo.git',
+    repositoryUrl: 'https://example.com/luna/demo.git',
     imageReference: '',
     dockerfilePath: 'Dockerfile',
     buildContext: '.',
@@ -202,15 +202,15 @@ async function main() {
   await ok(`/git/accounts?projectId=${encodeURIComponent(project.id)}`)
   const repoList = await request(`/git/accounts/${gitAccount.id}/repositories?page=1&pageSize=10&search=demo`)
   assert(repoList.response.status >= 200 && repoList.response.status < 600)
-  const fileRead = await request(`/git/accounts/${gitAccount.id}/repositories/liteyuki/demo/file?path=Dockerfile`)
+  const fileRead = await request(`/git/accounts/${gitAccount.id}/repositories/luna/demo/file?path=Dockerfile`)
   assert(fileRead.response.status >= 200 && fileRead.response.status < 600)
 
   const binding = await ok(`/projects/${project.id}/repository-bindings`, { method: 'POST', ...json({
     applicationId: app.id,
     gitAccountId: gitAccount.id,
-    owner: 'liteyuki',
+    owner: 'luna',
     repo: 'demo',
-    cloneUrl: 'https://gitea.example.com/liteyuki/demo.git',
+    cloneUrl: 'https://gitea.example.com/luna/demo.git',
     defaultBranch: 'main',
     webhookStatus: 'pending',
   }) })

@@ -263,6 +263,16 @@ func TestLoadCertManagerClusterIssuer(t *testing.T) {
 	}
 }
 
+func TestLoadBootstrapToken(t *testing.T) {
+	resetEnvLoader(t)
+	t.Setenv("BOOTSTRAP_TOKEN", "  bootstrap-secret  ")
+
+	cfg := Load()
+	if cfg.BootstrapToken != "bootstrap-secret" {
+		t.Fatalf("BootstrapToken = %q", cfg.BootstrapToken)
+	}
+}
+
 func TestRuntimeModeDefaultsToProduction(t *testing.T) {
 	unsetEnv(t, "APP_ENV")
 

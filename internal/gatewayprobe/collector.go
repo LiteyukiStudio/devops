@@ -81,14 +81,14 @@ func (c *Collector) Metrics(w http.ResponseWriter, _ *http.Request) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	_, _ = fmt.Fprintf(w, "liteyuki_gateway_traffic_probe_routes %d\n", len(c.routes))
-	_, _ = fmt.Fprintf(w, "liteyuki_gateway_traffic_probe_last_scrape_timestamp_seconds %d\n", c.lastScrape.Unix())
-	_, _ = fmt.Fprintf(w, "liteyuki_gateway_traffic_probe_last_report_timestamp_seconds %d\n", c.lastReport.Unix())
+	_, _ = fmt.Fprintf(w, "luna_devops_gateway_traffic_probe_routes %d\n", len(c.routes))
+	_, _ = fmt.Fprintf(w, "luna_devops_gateway_traffic_probe_last_scrape_timestamp_seconds %d\n", c.lastScrape.Unix())
+	_, _ = fmt.Fprintf(w, "luna_devops_gateway_traffic_probe_last_report_timestamp_seconds %d\n", c.lastReport.Unix())
 	if c.lastError != "" {
-		_, _ = fmt.Fprintln(w, "liteyuki_gateway_traffic_probe_last_error 1")
+		_, _ = fmt.Fprintln(w, "luna_devops_gateway_traffic_probe_last_error 1")
 		return
 	}
-	_, _ = fmt.Fprintln(w, "liteyuki_gateway_traffic_probe_last_error 0")
+	_, _ = fmt.Fprintln(w, "luna_devops_gateway_traffic_probe_last_error 0")
 }
 
 func (c *Collector) scrapeAndReport(ctx context.Context) error {

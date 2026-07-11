@@ -2,7 +2,7 @@
 
 不想从空白部署数据库、缓存或监控工具时，可以直接从应用市场选择模板安装到项目空间。内置模板覆盖数据库、缓存、消息队列、对象存储、搜索、监控、制品仓库、数据库管理、Web 服务和常用自托管应用，例如 PostgreSQL、Redis、NATS、ClickHouse、Qdrant、Typesense、Garage、Prometheus、Grafana、Gitea、Vaultwarden、NocoDB、Wiki.js 和 WordPress。
 
-应用市场也提供少量平台组件模板。它们只允许平台管理员安装，会进入平台自有项目空间 `platform-system`，并像普通应用一样创建应用、部署配置和 Release。这个空间只有平台管理员能看到，不能删除，也不会计入用户项目账单。内置的 `Liteyuki Gateway Traffic Probe` 用于按需开启访问流量计费采集。
+应用市场也提供少量平台组件模板。它们只允许平台管理员安装，会进入平台自有项目空间 `platform-system`，并像普通应用一样创建应用、部署配置和 Release。这个空间只有平台管理员能看到，不能删除，也不会计入用户项目账单。内置的 `Luna Gateway Traffic Probe` 用于按需开启访问流量计费采集。
 
 模板安装会创建：
 

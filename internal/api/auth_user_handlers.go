@@ -1,17 +1,26 @@
 package api
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/LiteyukiStudio/devops/internal/config"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
+
+const bootstrapAdminAdvisoryLockID int64 = 0x4c554e4141444d49
+
+var errBootstrapAlreadyInitialized = errors.New("platform administrator is already initialized")
 
 func (h *Handlers) GetBootstrapStatus(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, bootstrapStatusResponse(h.mode, h.hasPlatformAdmin()))
@@ -37,13 +46,24 @@ func (h *Handlers) InitializeAdmin(ctx *gin.Context) {
 		return
 	}
 	if h.hasPlatformAdmin() {
-		writeError(ctx, http.StatusConflict, "平台管理员已经初始化")
+		writeErrorCode(ctx, http.StatusConflict, "bootstrap.already_initialized", "平台管理员已经初始化")
 		return
 	}
 
 	var input initializeAdminInput
 	if !bindJSON(ctx, &input) {
 		return
+	}
+	if h.mode == "production" {
+		expectedToken := config.Load().BootstrapToken
+		if expectedToken == "" {
+			writeErrorCode(ctx, http.StatusServiceUnavailable, "bootstrap.unavailable", "生产环境未配置 BOOTSTRAP_TOKEN")
+			return
+		}
+		if !bootstrapTokenMatches(expectedToken, input.BootstrapToken) {
+			writeErrorCode(ctx, http.StatusForbidden, "bootstrap.token_invalid", "Bootstrap Token 不正确")
+			return
+		}
 	}
 
 	email := strings.ToLower(strings.TrimSpace(input.Email))
@@ -52,7 +72,7 @@ func (h *Handlers) InitializeAdmin(ctx *gin.Context) {
 		name = email
 	}
 	if email == "" || len(input.Password) < 8 {
-		writeError(ctx, http.StatusBadRequest, "请输入有效邮箱和至少 8 位密码")
+		writeErrorCode(ctx, http.StatusBadRequest, "bootstrap.invalid_input", "请输入有效邮箱和至少 8 位密码")
 		return
 	}
 
@@ -71,24 +91,42 @@ func (h *Handlers) InitializeAdmin(ctx *gin.Context) {
 		Language: normalizeLanguage(input.Language),
 		Password: string(passwordHash),
 	}
-	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&user).Error; err != nil {
-			return err
+	if err := initializeAdminWithLock(h.db, user); err != nil {
+		if errors.Is(err, errBootstrapAlreadyInitialized) {
+			writeErrorCode(ctx, http.StatusConflict, "bootstrap.already_initialized", err.Error())
+			return
 		}
-		return createDefaultUserProject(tx, user)
-	}); err != nil {
-		writeError(ctx, http.StatusBadRequest, err.Error())
+		writeErrorCode(ctx, http.StatusInternalServerError, "bootstrap.initialize_failed", err.Error())
 		return
 	}
 
 	if !h.createSession(ctx, user.ID) {
 		return
 	}
-	if !h.createRememberToken(ctx, user.ID) {
+	if !h.createRememberToken(ctx, user.ID, input.RememberMe) {
 		return
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{"user": currentUserResponse(user)})
+}
+
+func initializeAdminWithLock(db *gorm.DB, user model.User) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", bootstrapAdminAdvisoryLockID).Error; err != nil {
+			return err
+		}
+		initialized, err := platformAdminExists(tx)
+		if err != nil {
+			return err
+		}
+		if initialized {
+			return errBootstrapAlreadyInitialized
+		}
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+		return createDefaultUserProject(tx, user)
+	})
 }
 
 func (h *Handlers) Login(ctx *gin.Context) {
@@ -115,7 +153,7 @@ func (h *Handlers) Login(ctx *gin.Context) {
 	if !h.createSession(ctx, user.ID) {
 		return
 	}
-	if !h.createRememberToken(ctx, user.ID) {
+	if !h.createRememberToken(ctx, user.ID, input.RememberMe) {
 		return
 	}
 
@@ -135,35 +173,36 @@ func (h *Handlers) ResumeLogin(ctx *gin.Context) {
 		return
 	}
 
-	var rememberToken model.UserRememberToken
-	err = h.db.First(
-		&rememberToken,
-		"token_hash = ? and user_id = ? and expires_at > ?",
-		hashToken(plainToken),
-		userID,
-		time.Now(),
-	).Error
-	if err != nil {
+	user, sessionToken, rememberToken, err := h.rotateRememberLogin(userID, plainToken)
+	if errors.Is(err, errRememberTokenInvalid) {
+		clearRememberCookie(ctx, userID)
 		writeErrorKey(ctx, http.StatusUnauthorized, requestLanguage(ctx), "auth.session.expired")
 		return
 	}
-
-	var user model.User
-	if err := h.db.First(&user, "id = ? and disabled = ?", rememberToken.UserID, false).Error; err != nil {
+	if errors.Is(err, errRememberUserDisabled) {
+		clearRememberCookie(ctx, userID)
 		writeErrorKey(ctx, http.StatusUnauthorized, requestLanguage(ctx), "auth.account.disabled")
 		return
 	}
-
-	if !h.createSession(ctx, user.ID) {
+	if err != nil {
+		writeErrorCode(ctx, http.StatusInternalServerError, "auth.session.resume_failed", err.Error())
 		return
 	}
+	setSessionCookie(ctx, sessionToken, h.mode == "production")
+	setRememberCookie(ctx, user.ID, rememberToken, h.mode == "production")
 
 	ctx.JSON(http.StatusOK, gin.H{"user": currentUserResponse(user)})
 }
 
 func (h *Handlers) Logout(ctx *gin.Context) {
 	if plainToken, err := ctx.Cookie(sessionCookieName); err == nil {
-		_ = h.db.Where("token_hash = ?", hashToken(plainToken)).Delete(&model.UserSession{}).Error
+		userID, revokeErr := h.revokeCurrentSessionAndRememberTokens(plainToken)
+		clearRememberCookie(ctx, userID)
+		if revokeErr != nil {
+			clearSessionCookie(ctx)
+			writeErrorCode(ctx, http.StatusInternalServerError, "auth.logout_failed", revokeErr.Error())
+			return
+		}
 	}
 	clearSessionCookie(ctx)
 	ctx.Status(http.StatusNoContent)
@@ -345,12 +384,15 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
+	originalRole := user.Role
+	originalDisabled := user.Disabled
+	passwordChanged := input.Password != ""
 	user.Email = email
 	user.Name = name
 	user.Role = normalizeUserRole(input.Role)
 	user.Language = normalizeLanguage(input.Language)
 	user.Disabled = input.Disabled
-	if input.Password != "" {
+	if passwordChanged {
 		if len(input.Password) < 8 {
 			writeError(ctx, http.StatusBadRequest, "密码至少 8 位")
 			return
@@ -368,7 +410,16 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	if err := h.db.Save(&user).Error; err != nil {
+	revokeAuthentication := shouldRevokeUserAuthentication(originalRole, user.Role, originalDisabled, user.Disabled, passwordChanged)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&user).Error; err != nil {
+			return err
+		}
+		if revokeAuthentication {
+			return revokeUserAuthentication(tx, user.ID)
+		}
+		return nil
+	}); err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -377,8 +428,9 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 }
 
 type loginInput struct {
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Email      string `json:"email" binding:"required"`
+	Password   string `json:"password" binding:"required"`
+	RememberMe bool   `json:"rememberMe"`
 }
 
 type resumeLoginInput struct {
@@ -401,10 +453,22 @@ type userInput struct {
 }
 
 type initializeAdminInput struct {
-	Email    string `json:"email" binding:"required"`
-	Name     string `json:"name"`
-	Password string `json:"password" binding:"required"`
-	Language string `json:"language"`
+	Email          string `json:"email" binding:"required"`
+	Name           string `json:"name"`
+	Password       string `json:"password" binding:"required"`
+	Language       string `json:"language"`
+	BootstrapToken string `json:"bootstrapToken"`
+	RememberMe     bool   `json:"rememberMe"`
+}
+
+func bootstrapTokenMatches(expected, provided string) bool {
+	expectedHash := sha256.Sum256([]byte(expected))
+	providedHash := sha256.Sum256([]byte(provided))
+	return subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) == 1
+}
+
+func shouldRevokeUserAuthentication(originalRole, nextRole string, originallyDisabled, nextDisabled, passwordChanged bool) bool {
+	return originalRole != nextRole || (!originallyDisabled && nextDisabled) || passwordChanged
 }
 
 func ensureDevelopmentAdmin(db *gorm.DB) {
@@ -451,7 +515,7 @@ func ensureDevelopmentAdmin(db *gorm.DB) {
 }
 
 func developmentAdminEmail() string {
-	return strings.ToLower(env("LOCAL_ADMIN_EMAIL", "admin@liteyuki.dev"))
+	return strings.ToLower(env("LOCAL_ADMIN_EMAIL", "admin@luna.dev"))
 }
 
 func developmentAdminPassword() string {

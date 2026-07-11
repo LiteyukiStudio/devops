@@ -131,6 +131,8 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.UserSession{},
+		&model.UserMFAConfig{},
+		&model.MFARecoveryCode{},
 		&model.StepUpAssertion{},
 		&model.UserRememberToken{},
 		&model.AuthProvider{},

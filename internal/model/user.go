@@ -30,16 +30,6 @@ type UserSession struct {
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
-type StepUpAssertion struct {
-	ID        string    `gorm:"primaryKey" json:"id"`
-	UserID    string    `gorm:"index;not null" json:"userId"`
-	SessionID string    `gorm:"index;not null" json:"sessionId"`
-	Purpose   string    `gorm:"index;not null" json:"purpose"`
-	ExpiresAt time.Time `gorm:"index;not null" json:"expiresAt"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
 type UserRememberToken struct {
 	ID        string    `gorm:"primaryKey" json:"id"`
 	UserID    string    `gorm:"index;not null" json:"userId"`

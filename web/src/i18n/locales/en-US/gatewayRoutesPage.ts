@@ -25,7 +25,7 @@ const gatewayRoutesPage = {
   parentGateway: 'Parent Gateway',
   parentGatewayName: 'Parent Gateway name',
   parentGatewayNameHint: 'Leave empty to use the runtime cluster default Gateway.',
-  parentGatewayNamePlaceholder: 'liteyuki-gateway',
+  parentGatewayNamePlaceholder: 'luna-gateway',
   parentGatewayNamespace: 'Parent Gateway namespace',
   parentGatewayNamespaceHint: 'Leave empty to use the runtime cluster default Gateway namespace.',
   parentGatewayNamespacePlaceholder: 'kube-system',

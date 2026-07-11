@@ -19,7 +19,7 @@ func TestApplyGatewayAPIResourcesCreatesGatewayAndHTTPRoute(t *testing.T) {
 	client := newGatewayAPITestClient()
 
 	if err := client.EnsureGateway(context.Background(), GatewaySpec{
-		Name:             "liteyuki-gateway",
+		Name:             "luna-gateway",
 		Namespace:        "kube-system",
 		GatewayClassName: "traefik",
 		ProjectID:        "prj_demo",
@@ -28,7 +28,7 @@ func TestApplyGatewayAPIResourcesCreatesGatewayAndHTTPRoute(t *testing.T) {
 	}
 
 	if err := client.ApplyHTTPRoute(context.Background(), HTTPRouteSpec{
-		Name:                   "liteyuki-gateway-gwr-demo",
+		Name:                   "luna-gateway-gwr-demo",
 		Namespace:              "ns-demo",
 		ProjectID:              "prj_demo",
 		ApplicationID:          "app_api",
@@ -38,7 +38,7 @@ func TestApplyGatewayAPIResourcesCreatesGatewayAndHTTPRoute(t *testing.T) {
 		Host:                   "api.example.com",
 		Path:                   "/api",
 		PathMatchType:          "PathPrefix",
-		ParentGatewayName:      "liteyuki-gateway",
+		ParentGatewayName:      "luna-gateway",
 		ParentGatewayNamespace: "kube-system",
 		ServiceName:            "dplt-api",
 		ServicePort:            8080,
@@ -50,7 +50,7 @@ func TestApplyGatewayAPIResourcesCreatesGatewayAndHTTPRoute(t *testing.T) {
 		t.Fatalf("ApplyHTTPRoute returned error: %v", err)
 	}
 
-	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "liteyuki-gateway", metav1.GetOptions{})
+	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "luna-gateway", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get gateway: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestApplyGatewayAPIResourcesCreatesGatewayAndHTTPRoute(t *testing.T) {
 		t.Fatalf("listeners = %#v", listeners)
 	}
 
-	route, err := client.dynamic.Resource(httpRouteGVR).Namespace("ns-demo").Get(context.Background(), "liteyuki-gateway-gwr-demo", metav1.GetOptions{})
+	route, err := client.dynamic.Resource(httpRouteGVR).Namespace("ns-demo").Get(context.Background(), "luna-gateway-gwr-demo", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get httproute: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestApplyGatewayAPIResourcesCreatesGatewayAndHTTPRoute(t *testing.T) {
 	}
 	parentRefs, _, _ := unstructured.NestedSlice(route.Object, "spec", "parentRefs")
 	parentRef := parentRefs[0].(map[string]any)
-	if parentRef["name"] != "liteyuki-gateway" || parentRef["namespace"] != "kube-system" {
+	if parentRef["name"] != "luna-gateway" || parentRef["namespace"] != "kube-system" {
 		t.Fatalf("parentRefs = %#v", parentRefs)
 	}
 	rules, _, _ := unstructured.NestedSlice(route.Object, "spec", "rules")
@@ -98,7 +98,7 @@ func TestGatewayAPIWebsecureListenerUsesHTTPSWhenGatewayTerminatesTLS(t *testing
 	client := newGatewayAPITestClient()
 
 	if err := client.EnsureGateway(context.Background(), GatewaySpec{
-		Name:               "liteyuki-gateway",
+		Name:               "luna-gateway",
 		Namespace:          "kube-system",
 		GatewayClassName:   "traefik",
 		ExternalTLSMode:    "gateway",
@@ -111,7 +111,7 @@ func TestGatewayAPIWebsecureListenerUsesHTTPSWhenGatewayTerminatesTLS(t *testing
 		t.Fatalf("EnsureGateway returned error: %v", err)
 	}
 
-	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "liteyuki-gateway", metav1.GetOptions{})
+	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "luna-gateway", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get gateway: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestGatewayAPIWebsecureListenerOmitsTLSSecretWhenNotGatewayTLS(t *testing.T
 	client := newGatewayAPITestClient()
 
 	if err := client.EnsureGateway(context.Background(), GatewaySpec{
-		Name:              "liteyuki-gateway",
+		Name:              "luna-gateway",
 		Namespace:         "kube-system",
 		GatewayClassName:  "traefik",
 		ExternalTLSMode:   "upstream",
@@ -146,7 +146,7 @@ func TestGatewayAPIWebsecureListenerOmitsTLSSecretWhenNotGatewayTLS(t *testing.T
 		t.Fatalf("EnsureGateway returned error: %v", err)
 	}
 
-	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "liteyuki-gateway", metav1.GetOptions{})
+	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "luna-gateway", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get gateway: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestGatewayAPIWebsecureListenerSupportsMultipleTLSSecrets(t *testing.T) {
 	client := newGatewayAPITestClient()
 
 	if err := client.EnsureGateway(context.Background(), GatewaySpec{
-		Name:              "liteyuki-gateway",
+		Name:              "luna-gateway",
 		Namespace:         "kube-system",
 		GatewayClassName:  "traefik",
 		ExternalTLSMode:   "gateway",
@@ -175,7 +175,7 @@ func TestGatewayAPIWebsecureListenerSupportsMultipleTLSSecrets(t *testing.T) {
 		t.Fatalf("EnsureGateway returned error: %v", err)
 	}
 
-	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "liteyuki-gateway", metav1.GetOptions{})
+	gateway, err := client.dynamic.Resource(gatewayGVR).Namespace("kube-system").Get(context.Background(), "luna-gateway", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get gateway: %v", err)
 	}

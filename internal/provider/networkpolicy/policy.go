@@ -42,10 +42,10 @@ func BuildPolicyWithPublicSources(namespace string) BuildPolicy {
 
 func PermissiveBuildPolicy(namespace string) BuildPolicy {
 	return BuildPolicy{
-		Name:      "liteyuki-build-egress",
+		Name:      "luna-build-egress",
 		Namespace: namespace,
 		PodLabels: map[string]string{
-			"liteyuki.devops/scope": "build",
+			"luna.devops/scope": "build",
 		},
 		Egress: []EgressRule{{}},
 	}
@@ -73,10 +73,10 @@ func BuildPolicyWithEgressControlsAndPorts(namespace string, privateCIDRs []stri
 
 func RestrictedBuildPolicy(namespace string) BuildPolicy {
 	return BuildPolicy{
-		Name:      "liteyuki-build-egress",
+		Name:      "luna-build-egress",
 		Namespace: namespace,
 		PodLabels: map[string]string{
-			"liteyuki.devops/scope": "build",
+			"luna.devops/scope": "build",
 		},
 		Egress: []EgressRule{
 			{

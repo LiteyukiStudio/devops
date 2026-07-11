@@ -593,15 +593,15 @@
     "values": []
   },
   {
-    "id": "liteyuki-gateway-traffic-probe",
+    "id": "luna-gateway-traffic-probe",
     "slug": "gateway-traffic-probe",
-    "name": "Liteyuki Gateway Traffic Probe",
+    "name": "Luna Gateway Traffic Probe",
     "description": "Optional platform component that collects Gateway API traffic windows and reports settled usage to Luna DevOps billing.",
     "category": "observability",
     "kind": "system_component",
     "systemComponent": "gateway-traffic-probe",
     "icon": "/app-templates/icons/fallback.svg",
-    "officialWebsite": "https://liteyuki.org/",
+    "officialWebsite": "https://luna.org/",
     "officialRepository": "https://github.com/LiteyukiStudio/devops",
     "popularityWeight": 78,
     "image": "liteyukistudio/devops-gateway-traffic-probe:nightly",

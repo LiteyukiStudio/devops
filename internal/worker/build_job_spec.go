@@ -118,8 +118,8 @@ func buildJobSpec(jobName string, secretName string, environment model.Environme
 	labels[kubeprovider.ApplicationIDLabel] = task.ApplicationID
 	labels[kubeprovider.EnvironmentIDLabel] = environment.ID
 	labels[kubeprovider.DeploymentTargetIDLabel] = task.DeploymentTargetID
-	labels["liteyuki.devops/build-run-id"] = task.BuildRunID
-	labels["liteyuki.devops/build-job-id"] = task.JobID
+	labels["luna.devops/build-run-id"] = task.BuildRunID
+	labels["luna.devops/build-job-id"] = task.JobID
 	items := []corev1.KeyToPath{{Key: "run.sh", Path: "run.sh", Mode: &mode}}
 	for _, hook := range task.Build.Hooks {
 		if strings.TrimSpace(hook.ID) == "" || strings.TrimSpace(hook.Script) == "" {

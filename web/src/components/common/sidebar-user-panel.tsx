@@ -24,7 +24,7 @@ export function SidebarUserPanel({
         <UserAvatar className="size-9 bg-primary text-primary-foreground" user={user} />
         <div className="min-w-0 flex-1 overflow-hidden">
           <p className="truncate text-sm font-medium">{user?.name ?? 'Demo User'}</p>
-          <p className="truncate text-xs text-muted-foreground">{user?.email ?? 'demo@liteyuki.dev'}</p>
+          <p className="truncate text-xs text-muted-foreground">{user?.email ?? 'demo@luna.dev'}</p>
         </div>
         <Button aria-label={logoutLabel} className="size-8 shrink-0 px-0" disabled={logoutPending} variant="ghost" onClick={onLogout}>
           <LogOut size={15} />

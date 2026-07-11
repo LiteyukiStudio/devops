@@ -159,8 +159,8 @@ func TestPathEscapePathPreservesPathSegments(t *testing.T) {
 
 func TestFilterGitRepositoriesMatchesNameAndFullName(t *testing.T) {
 	repos := []gitprovider.Repository{
-		{Name: "api", FullName: "liteyuki/api"},
-		{Name: "web", FullName: "liteyuki/web"},
+		{Name: "api", FullName: "luna/api"},
+		{Name: "web", FullName: "luna/web"},
 	}
 	filtered := gitprovider.FilterRepositories(repos, "API")
 	if len(filtered) != 1 || filtered[0].Name != "api" {

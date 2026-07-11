@@ -19,8 +19,8 @@
 在仓库根目录执行：
 
 ```bash
-go build -o bin/liteyuki-api ./cmd/api
-go build -o bin/liteyuki-worker ./cmd/worker
+go build -o bin/luna-devops-api ./cmd/api
+go build -o bin/luna-devops-worker ./cmd/worker
 ```
 
 API 会从内嵌文件系统提供前端页面。生产环境不需要单独启动 Vite。
@@ -42,7 +42,7 @@ export SECRET_ENCRYPTION_KEY='replace-with-a-stable-random-value'
 ## 启动 API
 
 ```bash
-./bin/liteyuki-api
+./bin/luna-devops-api
 ```
 
 默认监听端口以项目配置为准。确认健康检查：
@@ -58,7 +58,7 @@ curl http://127.0.0.1:8080/healthz
 另开一个进程启动 worker：
 
 ```bash
-./bin/liteyuki-worker
+./bin/luna-devops-worker
 ```
 
 worker 负责构建、部署、状态同步、证书申请和清理任务。只启动 API 可以打开控制台，但不能完整运行构建部署链路。
@@ -73,13 +73,13 @@ Description=Luna DevOps API
 After=network.target postgresql.service redis.service
 
 [Service]
-WorkingDirectory=/opt/liteyuki-devops
+WorkingDirectory=/opt/luna-devops
 Environment=APP_ENV=production
 Environment=DATABASE_URL=postgres://devops:password@127.0.0.1:5432/devops?sslmode=disable
 Environment=REDIS_ADDR=127.0.0.1:6379
 Environment=PUBLIC_BASE_URL=https://devops.example.com
 Environment=SECRET_ENCRYPTION_KEY=replace-with-a-stable-random-value
-ExecStart=/opt/liteyuki-devops/bin/liteyuki-api
+ExecStart=/opt/luna-devops/bin/luna-devops-api
 Restart=always
 
 [Install]
@@ -89,7 +89,7 @@ WantedBy=multi-user.target
 worker 可以使用同一组环境变量，`ExecStart` 改成：
 
 ```ini
-ExecStart=/opt/liteyuki-devops/bin/liteyuki-worker
+ExecStart=/opt/luna-devops/bin/luna-devops-worker
 ```
 
 ## 升级

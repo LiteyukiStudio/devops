@@ -27,8 +27,8 @@ type GatewayTrafficProbeSpec struct {
 }
 
 func (c *Client) ApplyGatewayTrafficProbe(ctx context.Context, spec GatewayTrafficProbeSpec) error {
-	spec.Name = dnsLabel(firstNonEmpty(spec.Name, "liteyuki-gateway-traffic-probe"))
-	spec.Namespace = dnsLabel(firstNonEmpty(spec.Namespace, "liteyuki-system"))
+	spec.Name = dnsLabel(firstNonEmpty(spec.Name, "luna-gateway-traffic-probe"))
+	spec.Namespace = dnsLabel(firstNonEmpty(spec.Namespace, "luna-system"))
 	if strings.TrimSpace(spec.RuntimeClusterID) == "" || strings.TrimSpace(spec.APIBaseURL) == "" || strings.TrimSpace(spec.ReportToken) == "" {
 		return fmt.Errorf("gateway traffic probe requires runtime cluster id, API base URL, and report token")
 	}
@@ -67,8 +67,8 @@ func (c *Client) ApplyGatewayTrafficProbe(ctx context.Context, spec GatewayTraff
 }
 
 func (c *Client) EnsureGatewayTrafficProbeAccess(ctx context.Context, spec GatewayTrafficProbeSpec) error {
-	spec.Name = dnsLabel(firstNonEmpty(spec.Name, "liteyuki-gateway-traffic-probe"))
-	spec.Namespace = dnsLabel(firstNonEmpty(spec.Namespace, "liteyuki-system"))
+	spec.Name = dnsLabel(firstNonEmpty(spec.Name, "luna-gateway-traffic-probe"))
+	spec.Namespace = dnsLabel(firstNonEmpty(spec.Namespace, "luna-system"))
 	if strings.TrimSpace(spec.RuntimeClusterID) == "" {
 		return fmt.Errorf("gateway traffic probe access requires runtime cluster id")
 	}

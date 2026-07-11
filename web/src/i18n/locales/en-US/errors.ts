@@ -27,6 +27,22 @@ const errors = {
   config: {
     admin: { required: 'Confirm that the current account has platform administrator permission.' },
   },
+  bootstrap: {
+    already_initialized: 'The platform administrator is already initialized. Sign in instead.',
+    invalid_input: 'Enter a valid email and a password with at least 8 characters.',
+    token_invalid: 'The bootstrap token is incorrect.',
+    unavailable: 'The production bootstrap token is not configured. Contact the deployment administrator.',
+  },
+  mfa: {
+    already_enabled: 'Two-step verification is already enabled.',
+    credential_required: 'Provide exactly one authenticator code or recovery code.',
+    invalid_code: 'The authenticator code or recovery code is invalid.',
+    invalid_purpose: 'This step-up verification purpose is not supported.',
+    last_admin_required: 'At least one MFA-enabled platform administrator must remain while the global policy is enabled.',
+    not_enabled: 'Two-step verification is not enabled for this account.',
+    secret_store_failed: 'The two-step verification secret could not be stored securely.',
+    session_required: 'Two-step verification management requires a valid browser session.',
+  },
   request: {
     invalid: 'The request parameters are invalid',
     invalid_json: 'The request JSON is invalid',

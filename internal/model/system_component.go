@@ -8,7 +8,7 @@ import (
 const (
 	PlatformSystemProjectKey                 = "platform"
 	GatewayTrafficProbeApplicationSlug       = "gateway-traffic-probe"
-	GatewayTrafficProbeServiceAccountName    = "liteyuki-gateway-traffic-probe"
+	GatewayTrafficProbeServiceAccountName    = "luna-gateway-traffic-probe"
 	GatewayTrafficProbeAutomountServiceToken = "true"
 )
 
@@ -21,7 +21,7 @@ type SystemComponentInstallation struct {
 	ApplicationID      string    `gorm:"index;not null;default:''" json:"applicationId"`
 	DeploymentTargetID string    `gorm:"index;not null;default:''" json:"deploymentTargetId"`
 	ReleaseID          string    `gorm:"index;not null;default:''" json:"releaseId"`
-	Namespace          string    `gorm:"index;not null;default:'liteyuki-system'" json:"namespace"`
+	Namespace          string    `gorm:"index;not null;default:'luna-system'" json:"namespace"`
 	Status             string    `gorm:"index;not null;default:pending" json:"status"`
 	Message            string    `gorm:"type:text;not null;default:''" json:"message"`
 	ControllerType     string    `gorm:"index;not null;default:''" json:"controllerType"`

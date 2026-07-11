@@ -40,7 +40,7 @@ function CodeEditorFallback({
   return (
     <div
       className={cn(
-        'liteyuki-code-editor min-w-0 max-w-full overflow-hidden rounded-md border border-input bg-surface shadow-xs transition-[border-color,box-shadow]',
+        'luna-devops-code-editor min-w-0 max-w-full overflow-hidden rounded-md border border-input bg-surface shadow-xs transition-[border-color,box-shadow]',
         ariaInvalid && 'border-destructive ring-destructive/20 dark:ring-destructive/40',
         className,
       )}

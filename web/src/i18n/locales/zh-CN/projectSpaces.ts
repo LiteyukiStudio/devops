@@ -11,7 +11,7 @@ const projectSpaces = {
   slugRequired: '请输入项目空间标识',
   slugHint: '用于生成 Kubernetes Namespace、默认域名和 API 路径，只能用小写字母、数字和短横线，建议保持简短，最多 {{count}} 个字符，创建后应尽量避免频繁修改。',
   slugMaxLength: '项目空间标识最多 {{count}} 个字符',
-  slugPlaceholder: 'liteyuki-workbench',
+  slugPlaceholder: 'luna-workbench',
   descriptionLabel: '描述',
   descriptionHint: '说明这个项目空间包含哪些服务、环境或负责人，便于多人协作时识别。',
   descriptionPlaceholder: '这个项目空间负责哪些应用',

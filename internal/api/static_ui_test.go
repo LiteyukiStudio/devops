@@ -19,7 +19,7 @@ func TestStaticUIServesIndexWithoutRedirect(t *testing.T) {
 		"assets/app.js": {
 			Data: []byte("console.log('ok')"),
 		},
-		"liteyuki-logo.svg": {
+		"luna-devops-logo.svg": {
 			Data: []byte("<svg></svg>"),
 		},
 	}
@@ -55,7 +55,7 @@ func TestStaticUIServesAssetsAndSkipsAPI(t *testing.T) {
 		"assets/app.js": {
 			Data: []byte("console.log('ok')"),
 		},
-		"liteyuki-logo.svg": {
+		"luna-devops-logo.svg": {
 			Data: []byte("<svg></svg>"),
 		},
 	}
@@ -75,7 +75,7 @@ func TestStaticUIServesAssetsAndSkipsAPI(t *testing.T) {
 		t.Fatalf("asset Cache-Control = %q", got)
 	}
 
-	publicReq := httptest.NewRequest(http.MethodGet, "/liteyuki-logo.svg", nil)
+	publicReq := httptest.NewRequest(http.MethodGet, "/luna-devops-logo.svg", nil)
 	publicRec := httptest.NewRecorder()
 	router.ServeHTTP(publicRec, publicReq)
 	if publicRec.Code != http.StatusOK {

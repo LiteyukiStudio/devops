@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -141,8 +142,8 @@ func TestDefaultUserProjectNameUsesLanguage(t *testing.T) {
 		t.Fatalf("zh project name = %q", zh)
 	}
 
-	en := defaultUserProjectName(model.User{Name: "Liteyuki", Language: "en-US"})
-	if en != "Liteyuki's Project Space" {
+	en := defaultUserProjectName(model.User{Name: "Luna", Language: "en-US"})
+	if en != "Luna's Project Space" {
 		t.Fatalf("en project name = %q", en)
 	}
 }
@@ -286,8 +287,8 @@ func TestSplitTargetImageRef(t *testing.T) {
 }
 
 func TestConfigValueToStringAcceptsStructuredValues(t *testing.T) {
-	text, err := configValueToString("Liteyuki")
-	if err != nil || text != "Liteyuki" {
+	text, err := configValueToString("Luna")
+	if err != nil || text != "Luna" {
 		t.Fatalf("string value = %q, %v", text, err)
 	}
 
@@ -296,8 +297,8 @@ func TestConfigValueToStringAcceptsStructuredValues(t *testing.T) {
 		t.Fatalf("bool value = %q, %v", text, err)
 	}
 
-	text, err = configValueToString(map[string]any{"url": "/liteyuki-logo.svg"})
-	if err != nil || text != `{"url":"/liteyuki-logo.svg"}` {
+	text, err = configValueToString(map[string]any{"url": "/luna-devops-logo.svg"})
+	if err != nil || text != `{"url":"/luna-devops-logo.svg"}` {
 		t.Fatalf("object value = %q, %v", text, err)
 	}
 }
@@ -318,6 +319,26 @@ func TestIPBlockListDefinitionDefaultsToReservedRanges(t *testing.T) {
 		if !strings.Contains(definition.Default, expected) {
 			t.Fatalf("expected default ip block list to include %s, got %q", expected, definition.Default)
 		}
+	}
+}
+
+func TestConfigDefinitionResponseUsesI18nKeys(t *testing.T) {
+	definition := configDefinitionResponse{
+		Key:            "site.title",
+		LabelKey:       "settings.configDefinitions.site.title.label",
+		DescriptionKey: "settings.configDefinitions.site.title.description",
+		Type:           "string",
+	}
+	payload, err := json.Marshal(definition)
+	if err != nil {
+		t.Fatalf("marshal config definition: %v", err)
+	}
+	text := string(payload)
+	if strings.Contains(text, `"label":`) || strings.Contains(text, `"description":`) {
+		t.Fatalf("localized config text must not be returned by the backend: %s", text)
+	}
+	if !strings.Contains(text, `"labelKey":"settings.configDefinitions.site.title.label"`) {
+		t.Fatalf("expected stable label key, got %s", text)
 	}
 }
 

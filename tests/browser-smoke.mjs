@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'
 
 const webBase = process.env.WEB_BASE_URL ?? 'http://127.0.0.1:5173'
-const adminEmail = process.env.TEST_ADMIN_EMAIL ?? 'admin@liteyuki.dev'
+const adminEmail = process.env.TEST_ADMIN_EMAIL ?? 'admin@luna.dev'
 const adminPassword = process.env.TEST_ADMIN_PASSWORD ?? 'devops'
 
 async function launchBrowser() {

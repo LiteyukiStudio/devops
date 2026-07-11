@@ -47,7 +47,7 @@ b64_line() {
 hook_emit_log() {
   hook_id="$1"
   content="$2"
-  printf "::liteyuki-hook-log::%s::%s\n" "$hook_id" "$(b64_line "$content")"
+  printf "::luna-devops-hook-log::%s::%s\n" "$hook_id" "$(b64_line "$content")"
 }
 
 hook_emit_complete() {
@@ -55,7 +55,7 @@ hook_emit_complete() {
   succeeded="$2"
   exit_code="$3"
   message="$4"
-  printf "::liteyuki-hook-complete::%s::%s::%s::%s\n" "$hook_id" "$succeeded" "$exit_code" "$(b64_line "$message")"
+  printf "::luna-devops-hook-complete::%s::%s::%s::%s\n" "$hook_id" "$succeeded" "$exit_code" "$(b64_line "$message")"
 }
 
 run_hook() {
@@ -112,7 +112,7 @@ run_hooks() {
   IFS="$OLDIFS"
 }
 
-export_liteyuki_build_context() {
+export_luna_devops_build_context() {
   ref_name="${SOURCE_TAG:-$SOURCE_BRANCH}"
   ref_type="branch"
   ref_value=""
@@ -132,7 +132,7 @@ export_liteyuki_build_context() {
   export LITEYUKI_IMAGE_REF="${IMAGE_REF:-}"
 }
 
-export_liteyuki_build_context
+export_luna_devops_build_context
 run_hooks "prePull" "${PRE_PULL_HOOK_IDS:-}"
 
 clone_with_retry
@@ -145,7 +145,7 @@ if [ -n "${SOURCE_COMMIT:-}" ]; then git checkout "$SOURCE_COMMIT"; fi
 CHECKED_OUT_COMMIT="$(git rev-parse HEAD)"
 SOURCE_AUTHOR_NAME="$(git log -1 --format=%an)"
 SOURCE_AUTHOR_EMAIL="$(git log -1 --format=%ae)"
-export_liteyuki_build_context
+export_luna_devops_build_context
 run_hooks "postPull" "${POST_PULL_HOOK_IDS:-}"
 
 sanitize_tag() {
@@ -201,7 +201,7 @@ render_image_tag() {
 if [ -n "${IMAGE_NAME_PREFIX:-}" ]; then
   IMAGE_REF="${IMAGE_NAME_PREFIX}:$(render_image_tag)"
 fi
-export_liteyuki_build_context
+export_luna_devops_build_context
 
 if [ -n "${NPM_REGISTRY:-}" ]; then
   mkdir -p "$PWD/$BUILD_CONTEXT"
@@ -268,10 +268,10 @@ build_with_retry() {
 run_hooks "prePush" "${PRE_PUSH_HOOK_IDS:-}"
 build_with_retry "$@"
 
-export_liteyuki_build_context
+export_luna_devops_build_context
 run_hooks "postPush" "${POST_PUSH_HOOK_IDS:-}"
 run_hooks "postBuild" "${POST_BUILD_HOOK_IDS:-}"
 
 RESULT_JSON="$(printf '{"imageRef":"%s","sourceCommit":"%s","sourceAuthorName":"%s","sourceAuthorEmail":"%s","message":"builder task succeeded"}' "$(json_escape "$IMAGE_REF")" "$(json_escape "$CHECKED_OUT_COMMIT")" "$(json_escape "$SOURCE_AUTHOR_NAME")" "$(json_escape "$SOURCE_AUTHOR_EMAIL")")"
 printf "%s" "$RESULT_JSON" > /workspace/result.json
-printf "::liteyuki-build-result::%s\n" "$(b64_line "$RESULT_JSON")"
+printf "::luna-devops-build-result::%s\n" "$(b64_line "$RESULT_JSON")"

@@ -71,7 +71,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("start worker metrics server: %v", err)
 		}
-		defer observability.ShutdownMetricsServer(shutdownContext(), metricsServer)
+		defer func() {
+			ctx, cancel := shutdownContext()
+			defer cancel()
+			observability.ShutdownMetricsServer(ctx, metricsServer)
+		}()
 		workerMetrics = observability.NewWorkerMetrics(metricsRegistry, "worker").WithQueueResolver(func(taskType string) string {
 			return tasks.PolicyForType(taskType).Queue
 		})
@@ -98,7 +102,6 @@ func main() {
 	}
 }
 
-func shutdownContext() context.Context {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	return ctx
+func shutdownContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
 }

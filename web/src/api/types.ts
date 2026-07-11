@@ -1316,18 +1316,39 @@ export interface AuthAdmissionPolicy {
 
 export interface ConfigDefinition {
   key: string
-  label: string
-  description: string
-  type: 'string' | 'textarea' | 'select'
+  label?: string
+  description?: string
+  labelKey?: string
+  descriptionKey?: string
+  type: 'string' | 'textarea' | 'select' | 'boolean'
   public: boolean
   default: string
   options?: string[]
+}
+
+export interface MFAStatus {
+  enabled: boolean
+  pending: boolean
+  policyEnabled: boolean
+  confirmedAt?: string | null
+  recoveryCodesRemaining: number
+}
+
+export interface MFAEnrollment {
+  secret: string
+  otpauthUrl: string
+  qrCodeDataUrl?: string
+}
+
+export interface MFARecoveryCodes {
+  recoveryCodes: string[]
 }
 
 export interface BootstrapStatus {
   mode: 'development' | 'production'
   initialized: boolean
   devLoginEnabled: boolean
+  bootstrapTokenRequired?: boolean
   devLoginHint?: {
     email: string
     password: string

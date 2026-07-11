@@ -25,7 +25,7 @@ const gatewayRoutesPage = {
   parentGateway: 'Parent Gateway',
   parentGatewayName: 'Parent Gateway 名称',
   parentGatewayNameHint: '留空时使用运行集群默认 Gateway。',
-  parentGatewayNamePlaceholder: 'liteyuki-gateway',
+  parentGatewayNamePlaceholder: 'luna-gateway',
   parentGatewayNamespace: 'Parent Gateway 命名空间',
   parentGatewayNamespaceHint: '留空时使用运行集群默认 Gateway 命名空间。',
   parentGatewayNamespacePlaceholder: 'kube-system',

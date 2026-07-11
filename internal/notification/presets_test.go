@@ -15,7 +15,7 @@ func TestWebhookPresetsRenderValidMessages(t *testing.T) {
 		Severity:    SeverityError,
 		Message:     "rollout failed",
 		OccurredAt:  time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC),
-		Project:     EntityRef{Name: "Liteyuki"},
+		Project:     EntityRef{Name: "Luna"},
 		Application: EntityRef{Name: "API"},
 		DeploymentTarget: EntityRef{
 			Name: "prod",

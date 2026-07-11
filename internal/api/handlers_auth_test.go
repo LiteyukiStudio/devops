@@ -1,13 +1,124 @@
 package api
 
 import (
+	"encoding/json"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/LiteyukiStudio/devops/internal/secret"
 )
+
+func TestLoginInputRequiresExplicitRememberChoice(t *testing.T) {
+	var defaultInput loginInput
+	if err := json.Unmarshal([]byte(`{"email":"user@example.com","password":"password"}`), &defaultInput); err != nil {
+		t.Fatalf("unmarshal default login input: %v", err)
+	}
+	if defaultInput.RememberMe {
+		t.Fatal("rememberMe must default to false")
+	}
+
+	var rememberedInput loginInput
+	if err := json.Unmarshal([]byte(`{"email":"user@example.com","password":"password","rememberMe":true}`), &rememberedInput); err != nil {
+		t.Fatalf("unmarshal remembered login input: %v", err)
+	}
+	if !rememberedInput.RememberMe {
+		t.Fatal("rememberMe=true must be preserved")
+	}
+}
+
+func TestCreateRememberTokenDefaultsToNoOp(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	h := &Handlers{}
+
+	if !h.createRememberToken(ctx, "usr_test") {
+		t.Fatal("omitted remember choice should succeed without issuing a token")
+	}
+	if got := recorder.Header().Values("Set-Cookie"); len(got) != 0 {
+		t.Fatalf("unexpected remember cookie: %#v", got)
+	}
+}
+
+func TestGeneratedSessionCredentialsUseExpectedLifetimeAndHash(t *testing.T) {
+	now := time.Date(2026, time.July, 12, 1, 2, 3, 0, time.UTC)
+	session, sessionToken := newUserSession("usr_test", "", now)
+	remember, rememberToken := newUserRememberToken("usr_test", now)
+
+	if !strings.HasPrefix(sessionToken, "sess_") || session.TokenHash != hashToken(sessionToken) {
+		t.Fatalf("invalid session token metadata: token=%q hash=%q", sessionToken, session.TokenHash)
+	}
+	if !session.ExpiresAt.Equal(now.Add(sessionDuration)) {
+		t.Fatalf("session expiry = %v", session.ExpiresAt)
+	}
+	if !strings.HasPrefix(rememberToken, "rem_") || remember.TokenHash != hashToken(rememberToken) {
+		t.Fatalf("invalid remember token metadata: token=%q hash=%q", rememberToken, remember.TokenHash)
+	}
+	if !remember.ExpiresAt.Equal(now.Add(rememberDuration)) {
+		t.Fatalf("remember expiry = %v", remember.ExpiresAt)
+	}
+}
+
+func TestClearAuthenticationCookies(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	clearSessionCookie(ctx)
+	clearRememberCookie(ctx, "usr:test")
+
+	cookies := recorder.Result().Cookies()
+	if len(cookies) != 2 {
+		t.Fatalf("cookie count = %d", len(cookies))
+	}
+	if cookies[0].Name != sessionCookieName || cookies[0].MaxAge >= 0 {
+		t.Fatalf("session cookie was not cleared: %#v", cookies[0])
+	}
+	if cookies[1].Name != rememberCookieNameForUser("usr:test") || cookies[1].MaxAge >= 0 {
+		t.Fatalf("remember cookie was not cleared: %#v", cookies[1])
+	}
+}
+
+func TestBootstrapTokenMatchesExactValue(t *testing.T) {
+	if !bootstrapTokenMatches("bootstrap-secret", "bootstrap-secret") {
+		t.Fatal("equal bootstrap tokens must match")
+	}
+	if bootstrapTokenMatches("bootstrap-secret", "bootstrap-secret ") {
+		t.Fatal("bootstrap token comparison must be exact")
+	}
+	if bootstrapTokenMatches("bootstrap-secret", "different") {
+		t.Fatal("different bootstrap tokens must not match")
+	}
+}
+
+func TestUserSecurityChangesRevokeAuthentication(t *testing.T) {
+	cases := []struct {
+		name               string
+		originalRole       string
+		nextRole           string
+		originallyDisabled bool
+		nextDisabled       bool
+		passwordChanged    bool
+		want               bool
+	}{
+		{name: "profile only", originalRole: "user", nextRole: "user", want: false},
+		{name: "role changed", originalRole: "user", nextRole: "platform_admin", want: true},
+		{name: "account disabled", originalRole: "user", nextRole: "user", nextDisabled: true, want: true},
+		{name: "password changed", originalRole: "user", nextRole: "user", passwordChanged: true, want: true},
+		{name: "account enabled", originalRole: "user", nextRole: "user", originallyDisabled: true, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := shouldRevokeUserAuthentication(tc.originalRole, tc.nextRole, tc.originallyDisabled, tc.nextDisabled, tc.passwordChanged)
+			if got != tc.want {
+				t.Fatalf("shouldRevokeUserAuthentication() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestBootstrapStatusIncludesDevLoginHintInDevelopment(t *testing.T) {
 	t.Setenv("LOCAL_ADMIN_EMAIL", "Admin@Example.com")

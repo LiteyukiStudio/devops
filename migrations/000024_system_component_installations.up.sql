@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS system_component_installations (
     component_id text NOT NULL,
     component_version text NOT NULL DEFAULT '',
     runtime_cluster_id text NOT NULL,
-    namespace text NOT NULL DEFAULT 'liteyuki-system',
+    namespace text NOT NULL DEFAULT 'luna-system',
     status text NOT NULL DEFAULT 'pending',
     message text NOT NULL DEFAULT '',
     controller_type text NOT NULL DEFAULT '',

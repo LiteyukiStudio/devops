@@ -521,7 +521,7 @@ function InstallTemplateDialog({
                 </Select>
               </Field>
               <Field label={t('appTemplatesPage.componentNamespace')}>
-                <Input disabled value="liteyuki-system" />
+                <Input disabled value="luna-system" />
               </Field>
             </div>
           )}

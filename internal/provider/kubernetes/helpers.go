@@ -21,7 +21,7 @@ func dnsLabel(value string) string {
 	value = dnsLabelInvalidPattern.ReplaceAllString(value, "-")
 	value = strings.Trim(value, "-")
 	if value == "" {
-		return "liteyuki-resource"
+		return "luna-resource"
 	}
 	if len(value) > 63 {
 		value = value[:63]

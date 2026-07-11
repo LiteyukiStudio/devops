@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "luna-devops.fullname" . }}-test-connection"
+  labels:
+    {{- include "luna-devops.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  containers:
+    - name: curl
+      image: curlimages/curl:8.16.0
+      args:
+        - --fail
+        - --silent
+        - --show-error
+        - http://{{ include "luna-devops.apiName" . }}:{{ .Values.api.service.port }}/healthz

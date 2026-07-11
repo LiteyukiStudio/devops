@@ -27,6 +27,22 @@ const errors = {
   config: {
     admin: { required: '请确认当前账号具有平台管理员权限。' },
   },
+  bootstrap: {
+    already_initialized: '平台管理员已经初始化，请直接登录。',
+    invalid_input: '请输入有效邮箱和至少 8 位密码。',
+    token_invalid: '初始化令牌不正确。',
+    unavailable: '生产环境尚未配置初始化令牌，请联系部署管理员。',
+  },
+  mfa: {
+    already_enabled: '两步验证已经启用。',
+    credential_required: '必须且只能提供动态验证码或恢复码之一。',
+    invalid_code: '动态验证码或恢复码无效。',
+    invalid_purpose: '不支持该二次验证用途。',
+    last_admin_required: '全局二次验证开启时，必须保留至少一名已绑定 MFA 的平台管理员。',
+    not_enabled: '当前账号尚未启用两步验证。',
+    secret_store_failed: '无法安全保存两步验证密钥。',
+    session_required: '两步验证管理仅支持有效的浏览器会话。',
+  },
   request: {
     invalid: '请求参数不正确',
     invalid_json: '请求 JSON 格式不正确',

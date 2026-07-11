@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "luna-devops.apiName" . }}
+  labels:
+    {{- include "luna-devops.componentLabels" (dict "root" . "component" "api") | nindent 4 }}
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "luna-devops.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api

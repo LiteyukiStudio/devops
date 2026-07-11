@@ -14,8 +14,8 @@ func HandleHookControlLine(line string, hookLabels map[string]string, onHookLog 
 	if strings.HasPrefix(line, ResultMarkerPrefix) {
 		return "", true
 	}
-	if strings.HasPrefix(line, "::liteyuki-hook-log::") && onHookLog != nil {
-		parts := strings.SplitN(strings.TrimPrefix(line, "::liteyuki-hook-log::"), "::", 2)
+	if strings.HasPrefix(line, "::luna-devops-hook-log::") && onHookLog != nil {
+		parts := strings.SplitN(strings.TrimPrefix(line, "::luna-devops-hook-log::"), "::", 2)
 		if len(parts) != 2 {
 			return "", true
 		}
@@ -29,8 +29,8 @@ func HandleHookControlLine(line string, hookLabels map[string]string, onHookLog 
 		}
 		return formatHookLog(parts[0], hookLog, hookLabels), true
 	}
-	if strings.HasPrefix(line, "::liteyuki-hook-complete::") && onHookComplete != nil {
-		parts := strings.SplitN(strings.TrimPrefix(line, "::liteyuki-hook-complete::"), "::", 4)
+	if strings.HasPrefix(line, "::luna-devops-hook-complete::") && onHookComplete != nil {
+		parts := strings.SplitN(strings.TrimPrefix(line, "::luna-devops-hook-complete::"), "::", 4)
 		if len(parts) != 4 {
 			return "", true
 		}

@@ -24,6 +24,7 @@ type Config struct {
 	DatabaseConnectRetryAttempts int
 	DatabaseConnectRetryInterval time.Duration
 	RedisAddr                    string
+	BootstrapToken               string
 	MetricsEnabled               bool
 	MetricsAddr                  string
 	MetricsPath                  string
@@ -55,6 +56,7 @@ func Load() Config {
 		DatabaseConnectRetryAttempts: envInt("DB_CONNECT_RETRY_ATTEMPTS", 12),
 		DatabaseConnectRetryInterval: envDuration("DB_CONNECT_RETRY_INTERVAL", 5*time.Second),
 		RedisAddr:                    env("REDIS_ADDR", "localhost:6379"),
+		BootstrapToken:               strings.TrimSpace(env("BOOTSTRAP_TOKEN", "")),
 		MetricsEnabled:               envBool("METRICS_ENABLED", false),
 		MetricsAddr:                  env("METRICS_ADDR", ""),
 		MetricsPath:                  normalizeMetricsPath(env("METRICS_PATH", "/metrics")),

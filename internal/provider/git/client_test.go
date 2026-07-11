@@ -121,18 +121,18 @@ func TestSearchPublicRepositoriesUsesGitHubSearchAPI(t *testing.T) {
 		if r.URL.Path != "/api/v3/search/repositories" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if r.URL.Query().Get("q") != "LiteyukiStudio/devops" {
+		if r.URL.Query().Get("q") != "luna-devops/luna-devops" {
 			t.Fatalf("query = %q", r.URL.Query().Get("q"))
 		}
 		writeJSON(t, w, map[string]any{
 			"items": []map[string]any{{
 				"name":           "devops",
-				"full_name":      "LiteyukiStudio/devops",
+				"full_name":      "luna-devops/luna-devops",
 				"clone_url":      "https://github.com/LiteyukiStudio/devops.git",
 				"default_branch": "main",
 				"private":        false,
 				"owner": map[string]any{
-					"login": "LiteyukiStudio",
+					"login": "LunaDevOps",
 				},
 			}},
 		})
@@ -140,11 +140,11 @@ func TestSearchPublicRepositoriesUsesGitHubSearchAPI(t *testing.T) {
 	defer server.Close()
 
 	client := NewClientWithPolicy(model.GitProvider{Type: "github", BaseURL: server.URL}, "", security.AdminEgressPolicy())
-	repos, err := client.SearchPublicRepositories(context.Background(), "LiteyukiStudio/devops", 1, 10)
+	repos, err := client.SearchPublicRepositories(context.Background(), "luna-devops/luna-devops", 1, 10)
 	if err != nil {
 		t.Fatalf("SearchPublicRepositories() error = %v", err)
 	}
-	if len(repos) != 1 || repos[0].FullName != "LiteyukiStudio/devops" || repos[0].Source != "public" {
+	if len(repos) != 1 || repos[0].FullName != "luna-devops/luna-devops" || repos[0].Source != "public" {
 		t.Fatalf("repos = %#v", repos)
 	}
 }

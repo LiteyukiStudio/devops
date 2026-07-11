@@ -11,6 +11,7 @@ import { api } from '@/api'
 import { useDocumentTitle } from '@/app/document-title'
 import { usePublicConfig } from '@/app/public-config-context'
 import { useSession } from '@/app/session-context'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { FormField as Field } from '@/components/common/form-field'
 import { PageMotion } from '@/components/common/motion'
 import { Button } from '@/components/ui/button'
@@ -19,9 +20,11 @@ import { Input } from '@/components/ui/input'
 import i18next from '@/i18n'
 
 const schema = z.object({
+  bootstrapToken: z.string(),
   email: z.string().email(i18next.t('common.validEmailRequired')),
   name: z.string().min(1, i18next.t('bootstrap.nameRequired')),
   password: z.string().min(8, i18next.t('usersPage.passwordMin')),
+  rememberMe: z.boolean(),
 })
 
 type BootstrapForm = z.infer<typeof schema>
@@ -36,9 +39,11 @@ export function BootstrapPage() {
     resolver: zodResolver(schema),
     mode: 'onChange',
     defaultValues: {
+      bootstrapToken: '',
       email: '',
       name: 'Platform Admin',
       password: '',
+      rememberMe: false,
     },
   })
   useDocumentTitle(t('bootstrap.title'))
@@ -49,6 +54,11 @@ export function BootstrapPage() {
   }, [navigate, status.data?.initialized])
 
   const handleInitialize = form.handleSubmit((values) => {
+    const bootstrapTokenRequired = status.data?.bootstrapTokenRequired ?? status.data?.mode === 'production'
+    if (bootstrapTokenRequired && !values.bootstrapToken.trim()) {
+      form.setError('bootstrapToken', { message: t('bootstrap.tokenRequired') })
+      return
+    }
     session.initializeAdmin({ ...values, language: i18n.language === 'en-US' ? 'en-US' : 'zh-CN' })
       .then(() => {
         toast.success(t('bootstrap.success'))
@@ -87,6 +97,14 @@ export function BootstrapPage() {
             <Field error={form.formState.errors.password?.message} hint={t('bootstrap.passwordHint')} label={t('loginPage.password')} required>
               <Input {...form.register('password')} aria-invalid={Boolean(form.formState.errors.password)} autoComplete="new-password" type="password" />
             </Field>
+            {(status.data?.bootstrapTokenRequired ?? status.data?.mode === 'production') && (
+              <Field error={form.formState.errors.bootstrapToken?.message} hint={t('bootstrap.tokenHint')} label={t('bootstrap.token')} required>
+                <Input {...form.register('bootstrapToken')} aria-invalid={Boolean(form.formState.errors.bootstrapToken)} autoComplete="off" type="password" />
+              </Field>
+            )}
+            <CheckboxField description={t('loginPage.rememberMeHint')} {...form.register('rememberMe')}>
+              {t('loginPage.rememberMe')}
+            </CheckboxField>
             <Button disabled={session.isLoggingIn || status.isLoading || !form.formState.isValid} type="submit">
               <ShieldPlus size={16} />
               {t('bootstrap.create')}

@@ -152,7 +152,7 @@ export function ApplicationDeploymentTargetDialog({
             <ProgressiveSection
               defaultOpen
               description={t('deploymentsPage.progressiveBasicDescription')}
-              storageKey="liteyuki.deployments.targetDialog.basic"
+              storageKey="luna.deployments.targetDialog.basic"
               summary={summaries.basic}
               title={t('deploymentsPage.progressiveBasicTitle')}
             >
@@ -195,7 +195,7 @@ export function ApplicationDeploymentTargetDialog({
             {sourceType === 'repository' && (
               <ProgressiveSection
                 description={t('deploymentsPage.progressiveBuildDescription')}
-                storageKey="liteyuki.deployments.targetDialog.build"
+                storageKey="luna.deployments.targetDialog.build"
                 summary={summaries.build}
                 title={t('deploymentsPage.progressiveBuildTitle')}
               >
@@ -215,7 +215,7 @@ export function ApplicationDeploymentTargetDialog({
             )}
             <ProgressiveSection
               description={t('deploymentsPage.progressiveRuntimeDescription')}
-              storageKey="liteyuki.deployments.targetDialog.runtime"
+              storageKey="luna.deployments.targetDialog.runtime"
               summary={summaries.runtime}
               title={t('deploymentsPage.progressiveRuntimeTitle')}
             >
@@ -223,7 +223,7 @@ export function ApplicationDeploymentTargetDialog({
             </ProgressiveSection>
             <ProgressiveSection
               description={t('deploymentsPage.progressivePolicyDescription')}
-              storageKey="liteyuki.deployments.targetDialog.policy"
+              storageKey="luna.deployments.targetDialog.policy"
               summary={summaries.policy}
               title={t('deploymentsPage.progressivePolicyTitle')}
             >
@@ -250,7 +250,7 @@ export function ApplicationDeploymentTargetDialog({
             </ProgressiveSection>
             <ProgressiveSection
               description={t('deploymentsPage.deploymentHooksDescription')}
-              storageKey="liteyuki.deployments.targetDialog.hooks"
+              storageKey="luna.deployments.targetDialog.hooks"
               summary={summaries.hooks}
               title={t('deploymentsPage.deploymentHooks')}
             >
@@ -273,7 +273,7 @@ export function ApplicationDeploymentTargetDialog({
             </ProgressiveSection>
             <ProgressiveSection
               description={t('deploymentsPage.runtimeDataDescription')}
-              storageKey="liteyuki.deployments.targetDialog.data"
+              storageKey="luna.deployments.targetDialog.data"
               summary={summaries.data}
               title={t('deploymentsPage.runtimeData')}
             >
@@ -291,7 +291,7 @@ export function ApplicationDeploymentTargetDialog({
             </ProgressiveSection>
             <ProgressiveSection
               description={t('deploymentsPage.progressiveKubernetesAdvancedDescription')}
-              storageKey="liteyuki.deployments.targetDialog.kubernetesAdvanced"
+              storageKey="luna.deployments.targetDialog.kubernetesAdvanced"
               summary={summaries.kubernetesAdvanced}
               title={t('deploymentsPage.progressiveKubernetesAdvancedTitle')}
             >
@@ -299,7 +299,7 @@ export function ApplicationDeploymentTargetDialog({
             </ProgressiveSection>
             <ProgressiveSection
               description={t('deploymentsPage.runtimeConfigDescription')}
-              storageKey="liteyuki.deployments.targetDialog.config"
+              storageKey="luna.deployments.targetDialog.config"
               summary={summaries.config}
               title={t('deploymentsPage.runtimeConfig')}
             >

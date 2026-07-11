@@ -84,7 +84,7 @@ const clustersPage = {
   gatewayClassNamePlaceholder: 'traefik',
   gatewayName: 'Gateway name',
   gatewayNameHint: 'Shared Gateway name managed by the platform for this runtime cluster.',
-  gatewayNamePlaceholder: 'liteyuki-gateway',
+  gatewayNamePlaceholder: 'luna-gateway',
   gatewayNamespace: 'Gateway namespace',
   gatewayNamespaceHint: 'Namespace for the shared Gateway. HTTPRoutes bind to it across namespaces.',
   gatewayNamespacePlaceholder: 'kube-system',

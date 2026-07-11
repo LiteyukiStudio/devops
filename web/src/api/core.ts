@@ -7,22 +7,66 @@ interface ApiErrorBody {
   code?: unknown
   detail?: unknown
   error?: unknown
+  purpose?: unknown
 }
+
+interface MFAChallenge {
+  purpose?: string
+}
+
+type MFAChallengeHandler = (challenge: MFAChallenge) => Promise<void>
+
+let mfaChallengeHandler: MFAChallengeHandler | undefined
+let mfaChallengeQueue = Promise.resolve()
+const activeMfaChallenges = new Map<string, Promise<void>>()
 
 export class ApiError extends Error {
   code: string
   detail?: string
   path: string
+  purpose?: string
   status: number
 
-  constructor(message: string, options: { code?: string, detail?: string, path: string, status: number }) {
+  constructor(message: string, options: { code?: string, detail?: string, path: string, purpose?: string, status: number }) {
     super(message)
     this.name = 'ApiError'
     this.code = options.code || 'request.failed'
     this.detail = options.detail
     this.path = options.path
+    this.purpose = options.purpose
     this.status = options.status
   }
+}
+
+export function registerMFAChallengeHandler(handler: MFAChallengeHandler) {
+  mfaChallengeHandler = handler
+  return () => {
+    if (mfaChallengeHandler === handler)
+      mfaChallengeHandler = undefined
+  }
+}
+
+function resolveMFAChallenge(challenge: MFAChallenge) {
+  const key = challenge.purpose || 'unknown'
+  const activeChallenge = activeMfaChallenges.get(key)
+  if (activeChallenge)
+    return activeChallenge
+
+  const handler = mfaChallengeHandler
+  if (!handler)
+    return Promise.reject(new Error('mfa_challenge_handler_unavailable'))
+
+  const queuedChallenge = mfaChallengeQueue
+    .catch(() => undefined)
+    .then(() => handler(challenge))
+    .then(() => undefined)
+  mfaChallengeQueue = queuedChallenge
+  activeMfaChallenges.set(key, queuedChallenge)
+  void queuedChallenge.then(
+    () => activeMfaChallenges.delete(key),
+    () => activeMfaChallenges.delete(key),
+  )
+  return queuedChallenge
 }
 
 export function optionalProjectQuery(projectId?: unknown) {
@@ -158,11 +202,13 @@ async function apiErrorFromResponse(response: Response, path: string) {
   const code = typeof body.code === 'string' && body.code.trim() ? body.code.trim() : ''
   const detail = typeof body.detail === 'string' && body.detail.trim() ? body.detail.trim() : ''
   const bodyError = typeof body.error === 'string' && body.error.trim() ? body.error.trim() : ''
+  const purpose = typeof body.purpose === 'string' && body.purpose.trim() ? body.purpose.trim() : ''
   const message = translatedErrorMessage(code) || detail || bodyError || fallbackMessageForStatus(response.status) || response.statusText
   return new ApiError(message, {
     code: code || `http.${response.status}`,
     detail: detail || bodyError,
     path,
+    purpose,
     status: response.status,
   })
 }
@@ -178,7 +224,7 @@ function apiNetworkError(path: string, error: unknown) {
   })
 }
 
-export async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function requestOnce<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers, ...requestOptions } = options ?? {}
   let response: Response
   try {
@@ -204,4 +250,23 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
     return undefined as T
 
   return response.json()
+}
+
+export async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  try {
+    return await requestOnce<T>(path, options)
+  }
+  catch (error) {
+    if (!(error instanceof ApiError) || error.code !== 'mfa_required' || path === '/auth/mfa/verify' || !mfaChallengeHandler)
+      throw error
+
+    try {
+      await resolveMFAChallenge({ purpose: error.purpose })
+    }
+    catch {
+      throw error
+    }
+
+    return requestOnce<T>(path, options)
+  }
 }

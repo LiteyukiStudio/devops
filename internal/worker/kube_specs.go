@@ -161,7 +161,7 @@ func shortID(value string) string {
 }
 
 func gatewayRuntimeName(route model.GatewayRoute) string {
-	return buildResourceName(route.ID, "liteyuki-gateway-")
+	return buildResourceName(route.ID, "luna-gateway-")
 }
 
 func gatewayTLSSecretName(route model.GatewayRoute) string {
@@ -173,7 +173,7 @@ func gatewayTLSSecretName(route model.GatewayRoute) string {
 
 func gatewaySpec(cluster model.RuntimeCluster, projectID string) kubeprovider.GatewaySpec {
 	return kubeprovider.GatewaySpec{
-		Name:               firstNonEmpty(cluster.GatewayName, "liteyuki-gateway"),
+		Name:               firstNonEmpty(cluster.GatewayName, "luna-gateway"),
 		Namespace:          firstNonEmpty(cluster.GatewayNamespace, "kube-system"),
 		GatewayClassName:   firstNonEmpty(cluster.GatewayClassName, "traefik"),
 		ExternalTLSMode:    firstNonEmpty(cluster.GatewayExternalTLSMode, "none"),
@@ -266,7 +266,7 @@ func httpRouteSpec(route model.GatewayRoute, project model.Project, application 
 		Host:                   strings.TrimSpace(route.Host),
 		Path:                   route.Path,
 		PathMatchType:          firstNonEmpty(route.PathMatchType, "PathPrefix"),
-		ParentGatewayName:      firstNonEmpty(route.ParentGatewayName, cluster.GatewayName, "liteyuki-gateway"),
+		ParentGatewayName:      firstNonEmpty(route.ParentGatewayName, cluster.GatewayName, "luna-gateway"),
 		ParentGatewayNamespace: firstNonEmpty(route.ParentGatewayNamespace, cluster.GatewayNamespace, "kube-system"),
 		SectionName:            gatewayRouteSectionName(route, cluster),
 		ServiceName:            firstNonEmpty(serviceName, dnsLabel(application.Slug)),
@@ -653,7 +653,7 @@ func dnsLabel(value string) string {
 		label = strings.TrimRight(label[:63], "-")
 	}
 	if label == "" {
-		return "liteyuki"
+		return "luna"
 	}
 	return label
 }

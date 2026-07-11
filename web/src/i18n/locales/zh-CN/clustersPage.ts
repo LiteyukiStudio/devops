@@ -84,7 +84,7 @@ const clustersPage = {
   gatewayClassNamePlaceholder: 'traefik',
   gatewayName: 'Gateway 名称',
   gatewayNameHint: '平台为该运行集群维护的共享 Gateway 名称。',
-  gatewayNamePlaceholder: 'liteyuki-gateway',
+  gatewayNamePlaceholder: 'luna-gateway',
   gatewayNamespace: 'Gateway 命名空间',
   gatewayNamespaceHint: '共享 Gateway 所在命名空间。HTTPRoute 会跨命名空间绑定到它。',
   gatewayNamespacePlaceholder: 'kube-system',

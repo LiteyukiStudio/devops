@@ -16,8 +16,8 @@ You need:
 Run this from the repository root:
 
 ```bash
-helm install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace
 ```
 
@@ -35,7 +35,7 @@ redis:8-alpine
 Forward the API Service:
 
 ```bash
-kubectl -n liteyuki-devops port-forward svc/liteyuki-devops-api 8088:80
+kubectl -n luna-devops port-forward svc/luna-devops-api 8088:80
 ```
 
 Then visit:
@@ -47,8 +47,8 @@ http://localhost:8088
 ## Use A Fixed Version
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace \
   --set api.image.tag=v0.1.0-rc.1 \
   --set worker.image.tag=v0.1.0-rc.1
@@ -59,8 +59,8 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 When exposing the console with Ingress, set `app.publicBaseUrl` to the real browser-facing URL:
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace \
   --set app.publicBaseUrl=https://devops.example.com \
   --set ingress.enabled=true \
@@ -89,8 +89,8 @@ externalRedis:
 Then install:
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace \
   -f values-prod.yaml
 ```
@@ -109,11 +109,11 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 ## Uninstall
 
 ```bash
-helm uninstall liteyuki-devops -n liteyuki-devops
+helm uninstall luna-devops -n luna-devops
 ```
 
 PVCs are retained by default to prevent accidental data loss. Remove them manually only after confirming the data is no longer needed:
 
 ```bash
-kubectl -n liteyuki-devops delete pvc -l app.kubernetes.io/instance=liteyuki-devops
+kubectl -n luna-devops delete pvc -l app.kubernetes.io/instance=luna-devops
 ```

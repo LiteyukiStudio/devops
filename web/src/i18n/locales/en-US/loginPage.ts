@@ -5,6 +5,8 @@ const loginPage = {
   password: 'Password',
   passwordHint: 'Local account password. The default development account hint is only shown in development mode.',
   passwordRequired: 'Enter password',
+  rememberMe: 'Keep me signed in',
+  rememberMeHint: 'Enable only on a trusted device. Otherwise you will need your password after the session ends or you sign out.',
   success: 'Signed in',
   devAccount: 'Development account: ',
   useProviderLogin: 'Sign in with {{provider}}',

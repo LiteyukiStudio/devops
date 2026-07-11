@@ -3,7 +3,7 @@ import type { ThemeContextValue, ThemeMode } from './theme-context'
 import { useEffect, useMemo, useState } from 'react'
 import { ThemeContext } from './theme-context'
 
-const storageKey = 'liteyuki-theme'
+const storageKey = 'luna-devops-theme'
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>(() => {

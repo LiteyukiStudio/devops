@@ -24,8 +24,43 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    name: Release Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: .go-version
+          cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            docs/pnpm-lock.yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Run release quality checks
+        run: scripts/release-check.sh
+
   container:
     name: Build & Publish ${{ matrix.title }} Image
+    needs: quality
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

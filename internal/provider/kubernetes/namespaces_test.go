@@ -11,18 +11,18 @@ import (
 func TestEnsureNamespaceCreatesNamespace(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset())
 
-	err := client.EnsureNamespace(context.Background(), "liteyuki-build", map[string]string{
-		"app.kubernetes.io/managed-by": "liteyuki-devops",
+	err := client.EnsureNamespace(context.Background(), "luna-build", map[string]string{
+		"app.kubernetes.io/managed-by": "luna-devops",
 	})
 	if err != nil {
 		t.Fatalf("EnsureNamespace returned error: %v", err)
 	}
 
-	namespace, err := client.client.CoreV1().Namespaces().Get(context.Background(), "liteyuki-build", metav1.GetOptions{})
+	namespace, err := client.client.CoreV1().Namespaces().Get(context.Background(), "luna-build", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get namespace: %v", err)
 	}
-	if namespace.Labels["app.kubernetes.io/managed-by"] != "liteyuki-devops" {
+	if namespace.Labels["app.kubernetes.io/managed-by"] != "luna-devops" {
 		t.Fatalf("labels = %#v", namespace.Labels)
 	}
 }
@@ -39,14 +39,14 @@ func TestEnsureNamespaceIsIdempotentAndMergesLabels(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset())
 	ctx := context.Background()
 
-	if err := client.EnsureNamespace(ctx, "liteyuki-build", map[string]string{"existing": "true"}); err != nil {
+	if err := client.EnsureNamespace(ctx, "luna-build", map[string]string{"existing": "true"}); err != nil {
 		t.Fatalf("create namespace: %v", err)
 	}
-	if err := client.EnsureNamespace(ctx, "liteyuki-build", map[string]string{"managed": "true"}); err != nil {
+	if err := client.EnsureNamespace(ctx, "luna-build", map[string]string{"managed": "true"}); err != nil {
 		t.Fatalf("update namespace: %v", err)
 	}
 
-	namespace, err := client.client.CoreV1().Namespaces().Get(ctx, "liteyuki-build", metav1.GetOptions{})
+	namespace, err := client.client.CoreV1().Namespaces().Get(ctx, "luna-build", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get namespace: %v", err)
 	}

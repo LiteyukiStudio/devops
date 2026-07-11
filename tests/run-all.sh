@@ -53,7 +53,7 @@ fi
 API_BASE_URL="$API_BASE_URL" pnpm --dir tests api
 
 if ! curl -fsS "$WEB_BASE_URL" >/dev/null 2>&1; then
-  pnpm --dir web dev --host 127.0.0.1 >/tmp/liteyuki-devops-vite.log 2>&1 &
+  pnpm --dir web dev --host 127.0.0.1 >/tmp/luna-devops-vite.log 2>&1 &
   WEB_PID="$!"
   for _ in $(seq 1 60); do
     if curl -fsS "$WEB_BASE_URL" >/dev/null 2>&1; then

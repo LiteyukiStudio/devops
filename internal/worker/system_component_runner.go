@@ -16,7 +16,7 @@ import (
 
 const (
 	systemComponentGatewayTrafficProbe = model.GatewayTrafficProbeApplicationSlug
-	systemComponentNamespaceDefault    = "liteyuki-system"
+	systemComponentNamespaceDefault    = "luna-system"
 )
 
 type systemComponentConfig struct {

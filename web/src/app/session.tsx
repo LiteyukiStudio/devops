@@ -9,8 +9,8 @@ import { api } from '@/api'
 import { SessionContext } from './session-context'
 
 const currentUserQueryKey = ['current-user'] as const
-const debugOverrideStorageKey = 'liteyuki-devops.debug.sessionOverride'
-const recentLoginUsersStorageKey = 'liteyuki-devops.auth.recentUsers'
+const debugOverrideStorageKey = 'luna-devops.debug.sessionOverride'
+const recentLoginUsersStorageKey = 'luna-devops.auth.recentUsers'
 const maxRecentLoginUsers = 3
 const adminPermissions = [
   'project.create',
@@ -80,7 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const updateLanguageMutation = useMutation({
     mutationFn: api.updateCurrentUser,
     onSuccess: (result) => {
-      localStorage.setItem('liteyuki-language', result.language)
+      localStorage.setItem('luna-devops-language', result.language)
       i18n.changeLanguage(result.language)
       setCurrentUser(queryClient, result)
       setRecentLoginUsers(cacheRecentLoginUser(result))
@@ -90,7 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const updateProfileMutation = useMutation({
     mutationFn: api.updateCurrentUser,
     onSuccess: (result) => {
-      localStorage.setItem('liteyuki-language', result.language)
+      localStorage.setItem('luna-devops-language', result.language)
       i18n.changeLanguage(result.language)
       setCurrentUser(queryClient, result)
       setRecentLoginUsers(cacheRecentLoginUser(result))
@@ -146,7 +146,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 }
 
 function setCurrentUser(queryClient: ReturnType<typeof useQueryClient>, user: CurrentUser) {
-  localStorage.setItem('liteyuki-language', user.language)
+  localStorage.setItem('luna-devops-language', user.language)
   queryClient.setQueryData(currentUserQueryKey, user)
 }
 

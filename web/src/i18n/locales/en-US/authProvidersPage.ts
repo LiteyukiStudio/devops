@@ -44,7 +44,7 @@ const authProvidersPage = {
   requireVerifiedOidcEmailHint: 'When enabled, the OIDC ID Token must contain a non-empty email and email_verified=true. Disable only for trusted internal identity providers that cannot return the standard verification claim.',
   allowedEmailDomains: 'Allowed email domains',
   allowedEmailDomainsHint: 'Allow OIDC users from these email domains to register or sign in. Separate with commas or new lines. Empty means no domain restriction; if groups and invited emails are also empty, all users with verified OIDC email can enter.',
-  allowedEmailDomainsPlaceholder: 'example.com, liteyuki.dev',
+  allowedEmailDomainsPlaceholder: 'example.com, luna.dev',
   allowedOidcGroups: 'Allowed OIDC groups',
   allowedOidcGroupsHint: 'Allow these OIDC groups to enter. Separate with commas or new lines. When filled, users must match at least one group. Empty means no group restriction.',
   allowedOidcGroupsPlaceholder: 'devops-admins, platform-users',

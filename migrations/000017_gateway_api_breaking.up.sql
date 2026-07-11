@@ -1,18 +1,18 @@
 -- Breaking change before first public release:
--- Liteyuki DevOps now uses Kubernetes Gateway API HTTPRoute as the access route runtime.
+-- Luna DevOps now uses Kubernetes Gateway API HTTPRoute as the access route runtime.
 -- Existing pre-release gateway_routes rows referenced the old Ingress path and are not migrated.
 DELETE FROM gateway_routes;
 
 ALTER TABLE IF EXISTS runtime_clusters
     ADD COLUMN IF NOT EXISTS gateway_provider text NOT NULL DEFAULT 'gateway-api',
     ADD COLUMN IF NOT EXISTS gateway_class_name text NOT NULL DEFAULT 'traefik',
-    ADD COLUMN IF NOT EXISTS gateway_name text NOT NULL DEFAULT 'liteyuki-gateway',
+    ADD COLUMN IF NOT EXISTS gateway_name text NOT NULL DEFAULT 'luna-gateway',
     ADD COLUMN IF NOT EXISTS gateway_namespace text NOT NULL DEFAULT 'kube-system';
 
 UPDATE runtime_clusters
 SET gateway_provider = 'gateway-api',
     gateway_class_name = COALESCE(NULLIF(gateway_class_name, ''), NULLIF(gateway_ingress_class_name, ''), 'traefik'),
-    gateway_name = COALESCE(NULLIF(gateway_name, ''), 'liteyuki-gateway'),
+    gateway_name = COALESCE(NULLIF(gateway_name, ''), 'luna-gateway'),
     gateway_namespace = COALESCE(NULLIF(gateway_namespace, ''), 'kube-system'),
     gateway_external_tls_mode = CASE
         WHEN gateway_external_tls_mode = 'ingress' THEN 'gateway'

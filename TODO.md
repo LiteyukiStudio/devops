@@ -287,7 +287,7 @@
 - [ ] 补齐部署失败诊断第二阶段：发布日志和集群工作负载页继续补 Pod events、重新同步入口和镜像架构提示。
 - [ ] 破坏式重建验收：主人确认 `docs/场景模拟.md` 后，清空本地旧库并按场景完成应用创建、部署配置创建、repository 构建、image 直部署、自动部署、域名、ConfigMap/Secret 覆盖、权限、Access Token、回滚和集群资源归属 smoke。
 - [x] Neo Blog 镜像直部署验收：清库后通过浏览器创建项目空间、环境、数据库/后端/前端应用、镜像来源部署配置和 `blogtest.local` 访问入口；Postgres、后端、前端均 rollout 成功，Ingress 通过 `http://blogtest.local:64111/` 返回 200。
-- [x] Browser 镜像直部署运行配置闭环：通过 UI 创建 nginx 镜像应用、部署配置、ConfigMap 环境变量、ConfigMap 文件、Release、运行日志、Web Console 和 `nginx-loop.local` 访问入口；`curl --resolve` 返回 `liteyuki browser loop ok`。
+- [x] Browser 镜像直部署运行配置闭环：通过 UI 创建 nginx 镜像应用、部署配置、ConfigMap 环境变量、ConfigMap 文件、Release、运行日志、Web Console 和 `nginx-loop.local` 访问入口；`curl --resolve` 返回 `luna browser loop ok`。
 - [x] 收紧运行集群和环境删除关系：运行集群被环境引用时禁止删除；环境被部署配置、访问入口或发布记录引用时禁止删除，避免父资源删除后子链路不可维护。
 - [x] 删除运行配置集成功后从部署配置中移除对应引用，避免部署配置继续指向已删除配置集。
 - [ ] 镜像架构与本地集群提示：镜像部署失败时在发布日志或资源详情中提示 `no matching manifest for linux/arm64` 等架构不匹配原因，并引导改用支持当前集群架构的镜像或平台构建产物。
@@ -482,7 +482,7 @@
 - [x] 将 Gateway Traffic Probe 从“特殊系统组件安装”迁移为平台系统项目空间下的普通应用：创建 Application、DeploymentTarget、Release 和运行态资源，复用正常部署、日志、Web Console、资源列表和审计链路；系统组件安装记录仅作为应用市场安装入口、状态索引或兼容迁移层。
 - [x] 为平台系统项目空间增加保护规则：禁止删除平台系统项目空间；探针相关运行费用不进入普通用户账单，系统组件安装记录仅保留安装索引，最近 heartbeat / 上报窗口改为 Redis 或进程内短 TTL 运行态。
 - [ ] 为平台组件实例增加卸载/重装二次确认：平台管理员删除或重装探针应用/部署配置时需要明确确认，并同步清理或更新系统组件安装记录。
-- [x] 为系统组件资源建立统一标记：平台自有集群组件写入 `liteyuki.devops/system=true`、组件类型、运行集群 ID 和版本等 labels/annotations，便于集群资源页过滤、审计和后续升级。
+- [x] 为系统组件资源建立统一标记：平台自有集群组件写入 `luna.devops/system=true`、组件类型、运行集群 ID 和版本等 labels/annotations，便于集群资源页过滤、审计和后续升级。
 - [x] 设计系统组件部署 API/Worker：由平台按运行集群下发或升级探针组件，支持版本记录、部署状态回写和失败原因展示；组件部署失败不能影响用户业务发布。
 - [x] 网络流量计费探针改为可选平台组件：默认不安装；账单页在没有可用探针时显示“访问流量不可用”，平台管理员可直接跳转应用市场安装 Gateway Traffic Probe。
 - [x] 应用市场支持平台组件模板安装：新增系统组件安装记录、独立上报 Token，安装到平台系统项目空间并复用普通应用部署链路；Worker 仅额外确保探针所需 Kubernetes RBAC。
@@ -681,7 +681,7 @@
 ### 8.3 集群资源管理
 
 - [x] 明确集群资源管理边界：只展示和管理 Luna DevOps 创建或显式打平台标签的 Kubernetes 资源，不接管已有集群中的第三方/历史资源。
-- [x] 统一平台写入 Kubernetes 资源的 labels/annotations：`app.kubernetes.io/managed-by=liteyuki-devops`、项目空间、应用、环境、发布和网关路由引用，作为后续实时查询和权限映射依据。
+- [x] 统一平台写入 Kubernetes 资源的 labels/annotations：`app.kubernetes.io/managed-by=luna-devops`、项目空间、应用、环境、发布和网关路由引用，作为后续实时查询和权限映射依据。
 - [x] 设计后端 Kubernetes 资源聚合 DTO：Namespace、Workload、Pod、Service、HTTPRoute、Gateway、ConfigMap、Secret、PVC/Event 等只返回前端需要的摘要、状态、归属引用和时间，不返回 Secret 明文。
 - [x] 新增后端集群资源 provider/list 接口：按 RuntimeCluster kubeconfig 实时请求 Kubernetes API，支持 namespace、resourceType、projectId、applicationId、environmentId 过滤，并默认只查平台自有资源。
 - [x] 新增 Kubernetes 事件读取接口：按平台资源归属查询相关 Events，用于排查部署、网关和证书问题。
@@ -825,7 +825,7 @@
 - [x] 访问入口补齐 Prometheus 指标：路由状态、TLS/DNS/证书状态分布、网关同步结果和耗时；入口真实流量优先复用 Traefik/Gateway API controller 指标。
 - [ ] 在 `PROMETHEUS_QUERY_ENABLED=true` 且 `PROMETHEUS_BASE_URL` 已配置时，后端提供受控查询 API，为看板、项目空间概览、应用概览和部署页返回聚合后的轻量趋势；未配置时 UI 隐藏趋势图并保留业务状态。
 - [ ] 在 `GRAFANA_LINKS_ENABLED=true` 且 `GRAFANA_BASE_URL` 已配置时，按页面上下文生成 Grafana dashboard 深链；未配置时不展示 Grafana 入口。
-- [x] 提供 Grafana dashboard JSON 或 Helm ConfigMap：Liteyuki Overview、API、Worker、Build、Release、Gateway、Runtime、Dependencies；不同指标按 stat、time series、bar gauge、table 选择合适图表。
+- [x] 提供 Grafana dashboard JSON：Luna Overview、API、Worker、Build、Release、Gateway、Runtime、Dependencies；文件放在 `grafana/dashboards/`，不同指标按 stat、time series、bar gauge、table 选择合适图表。
 
 ### 12.3 链路追踪
 

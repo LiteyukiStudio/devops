@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,12 +18,22 @@ import (
 
 type configDefinition struct {
 	Key         string   `json:"key"`
-	Label       string   `json:"label"`
-	Description string   `json:"description"`
+	Label       string   `json:"-"`
+	Description string   `json:"-"`
 	Type        string   `json:"type"`
 	Public      bool     `json:"public"`
 	Default     string   `json:"default"`
 	Options     []string `json:"options,omitempty"`
+}
+
+type configDefinitionResponse struct {
+	Key            string   `json:"key"`
+	LabelKey       string   `json:"labelKey"`
+	DescriptionKey string   `json:"descriptionKey"`
+	Type           string   `json:"type"`
+	Public         bool     `json:"public"`
+	Default        string   `json:"default"`
+	Options        []string `json:"options,omitempty"`
 }
 
 var configDefinitions = []configDefinition{
@@ -112,6 +124,22 @@ var configDefinitions = []configDefinition{
 		Type:        "boolean",
 		Public:      false,
 		Default:     "false",
+	},
+	{
+		Key:         "security.stepUpMfa.idleTimeoutMinutes",
+		Label:       "二次验证空闲超时",
+		Description: "完成二次验证后没有执行敏感操作的最长分钟数，超时后需要重新验证。",
+		Type:        "number",
+		Public:      false,
+		Default:     "10",
+	},
+	{
+		Key:         "security.stepUpMfa.absoluteTimeoutMinutes",
+		Label:       "二次验证最长有效期",
+		Description: "一次二次验证可以持续生效的最长分钟数，即使持续操作也不能超过该时间。",
+		Type:        "number",
+		Public:      false,
+		Default:     "60",
 	},
 	{
 		Key:         "billing.creditsDisplayName",
@@ -264,7 +292,20 @@ func (h *Handlers) ListConfigDefinitions(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, configDefinitions)
+	definitions := make([]configDefinitionResponse, 0, len(configDefinitions))
+	for _, definition := range configDefinitions {
+		definitions = append(definitions, configDefinitionResponse{
+			Key:            definition.Key,
+			LabelKey:       "settings.configDefinitions." + definition.Key + ".label",
+			DescriptionKey: "settings.configDefinitions." + definition.Key + ".description",
+			Type:           definition.Type,
+			Public:         definition.Public,
+			Default:        definition.Default,
+			Options:        definition.Options,
+		})
+	}
+
+	ctx.JSON(http.StatusOK, definitions)
 }
 
 func (h *Handlers) UpdateConfigs(ctx *gin.Context) {
@@ -280,6 +321,21 @@ func (h *Handlers) UpdateConfigs(ctx *gin.Context) {
 	var input updateConfigsInput
 	if !bindJSON(ctx, &input) {
 		return
+	}
+	stepUpConfigChanged := containsStepUpConfig(input.Values)
+	if stepUpConfigChanged {
+		targetEnabled, _, _, err := h.validateStepUpConfigUpdate(input.Values)
+		if err != nil {
+			writeErrorCode(ctx, http.StatusBadRequest, "mfa.invalid_policy", err.Error())
+			return
+		}
+		if targetEnabled && !h.hasMFAEnabledPlatformAdmin() {
+			writeErrorCode(ctx, http.StatusConflict, "mfa.admin_enrollment_required", "至少一名可用平台管理员绑定 MFA 后才能开启全局二次验证")
+			return
+		}
+		if (h.stepUpMFAEnabled() || targetEnabled) && !h.requireMFAAssertion(ctx, user, stepUpPurposeSecuritySettingsUpdate) {
+			return
+		}
 	}
 
 	for key, rawValue := range input.Values {
@@ -306,8 +362,79 @@ func (h *Handlers) UpdateConfigs(ctx *gin.Context) {
 		}
 	}
 	h.configs.reload(h.db)
+	if stepUpConfigChanged {
+		h.audit(user.ID, "mfa.policy_update", "security.stepUpMfa", true, "step-up MFA policy updated")
+	}
 
 	ctx.JSON(http.StatusOK, h.configs.get(knownConfigKeys()))
+}
+
+func containsStepUpConfig(values map[string]any) bool {
+	for key := range values {
+		if strings.HasPrefix(key, "security.stepUpMfa.") {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handlers) validateStepUpConfigUpdate(values map[string]any) (bool, int, int, error) {
+	enabledText, err := pendingConfigValue(values, "security.stepUpMfa.enabled", h.configValue("security.stepUpMfa.enabled"))
+	if err != nil {
+		return false, 0, 0, err
+	}
+	if !isBooleanConfigValue(enabledText) {
+		return false, 0, 0, fmt.Errorf("security.stepUpMfa.enabled must be a boolean")
+	}
+	idleText, err := pendingConfigValue(values, "security.stepUpMfa.idleTimeoutMinutes", h.configValue("security.stepUpMfa.idleTimeoutMinutes"))
+	if err != nil {
+		return false, 0, 0, err
+	}
+	absoluteText, err := pendingConfigValue(values, "security.stepUpMfa.absoluteTimeoutMinutes", h.configValue("security.stepUpMfa.absoluteTimeoutMinutes"))
+	if err != nil {
+		return false, 0, 0, err
+	}
+	idleMinutes, err := configMinuteValue(idleText, int(defaultStepUpIdleTimeout/time.Minute), 1, 120)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("invalid idle timeout: %w", err)
+	}
+	absoluteMinutes, err := configMinuteValue(absoluteText, int(defaultStepUpAbsoluteTimeout/time.Minute), 5, 1440)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("invalid absolute timeout: %w", err)
+	}
+	if idleMinutes > absoluteMinutes {
+		return false, 0, 0, fmt.Errorf("idle timeout cannot exceed absolute timeout")
+	}
+	return configBool(enabledText), idleMinutes, absoluteMinutes, nil
+}
+
+func pendingConfigValue(values map[string]any, key, current string) (string, error) {
+	value, exists := values[key]
+	if !exists {
+		return current, nil
+	}
+	return configValueToString(value)
+}
+
+func configMinuteValue(value string, fallback, minimum, maximum int) (int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback, nil
+	}
+	minutes, err := strconv.Atoi(value)
+	if err != nil || minutes < minimum || minutes > maximum {
+		return 0, fmt.Errorf("must be an integer from %d to %d", minimum, maximum)
+	}
+	return minutes, nil
+}
+
+func isBooleanConfigValue(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "false", "1", "0", "yes", "no", "on", "off", "enabled", "disabled":
+		return true
+	default:
+		return false
+	}
 }
 
 func publicConfigKeys(keys []string) []string {

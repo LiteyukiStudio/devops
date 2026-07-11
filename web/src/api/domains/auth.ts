@@ -1,17 +1,26 @@
-import type { AuthAdmissionPolicy, AuthProvider, BootstrapStatus, ConfigDefinition, CurrentUser, ExternalIdentity, OIDCCallbackConfig, PaginatedResponse, PaginationParams, User } from '../types'
+import type { AuthAdmissionPolicy, AuthProvider, BootstrapStatus, ConfigDefinition, CurrentUser, ExternalIdentity, MFAEnrollment, MFARecoveryCodes, MFAStatus, OIDCCallbackConfig, PaginatedResponse, PaginationParams, User } from '../types'
 import { paginationQuery, request } from '../core'
 
 export const authApi = {
   getPublicConfigs: (keys: string[]) =>
     request<Record<string, string>>('/public/configs', { method: 'POST', body: JSON.stringify({ keys }) }),
   getBootstrapStatus: () => request<BootstrapStatus>('/auth/bootstrap'),
-  initializeAdmin: (payload: { email: string, name: string, password: string, language: 'zh-CN' | 'en-US' }) =>
+  initializeAdmin: (payload: { email: string, name: string, password: string, language: 'zh-CN' | 'en-US', rememberMe: boolean, bootstrapToken: string }) =>
     request<{ user: CurrentUser }>('/auth/bootstrap/admin', { method: 'POST', body: JSON.stringify(payload) }),
-  login: (payload: { email: string, password: string }) =>
+  login: (payload: { email: string, password: string, rememberMe: boolean }) =>
     request<{ user: CurrentUser }>('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   resumeLogin: (payload: { userId: string }) =>
     request<{ user: CurrentUser }>('/auth/login/resume', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  getMFAStatus: () => request<MFAStatus>('/auth/mfa/status'),
+  enrollMFA: () => request<MFAEnrollment>('/auth/mfa/totp/enroll', { method: 'POST' }),
+  confirmMFAEnrollment: (payload: { code: string }) =>
+    request<MFARecoveryCodes>('/auth/mfa/totp/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyMFA: (payload: { code: string, purpose?: string } | { recoveryCode: string, purpose?: string }) =>
+    request<void>('/auth/mfa/verify', { method: 'POST', body: JSON.stringify(payload) }),
+  regenerateMFARecoveryCodes: () =>
+    request<MFARecoveryCodes>('/auth/mfa/recovery-codes', { method: 'POST' }),
+  disableMFA: () => request<void>('/auth/mfa', { method: 'DELETE' }),
   getOIDCCallbackConfig: () => request<OIDCCallbackConfig>('/auth/oidc/callback-url'),
   listAuthProviders: (includeDisabled = false) =>
     request<AuthProvider[]>(`/auth/providers${includeDisabled ? '?includeDisabled=true' : ''}`),

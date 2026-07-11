@@ -7,6 +7,7 @@ import App from './App.tsx'
 import { PublicConfigProvider } from './app/public-config'
 import { SessionProvider } from './app/session'
 import { ThemeProvider } from './app/theme'
+import { MFADialogProvider } from './components/common/mfa-dialog'
 import './index.css'
 import './i18n'
 
@@ -19,7 +20,9 @@ createRoot(document.getElementById('root')!).render(
         <PublicConfigProvider>
           <BrowserRouter>
             <SessionProvider>
-              <App />
+              <MFADialogProvider>
+                <App />
+              </MFADialogProvider>
               <Toaster richColors duration={4000} position="top-right" />
             </SessionProvider>
           </BrowserRouter>

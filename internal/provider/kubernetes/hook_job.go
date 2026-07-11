@@ -56,7 +56,7 @@ func (c *Client) RunHookJob(ctx context.Context, spec HookJobSpec) (HookJobResul
 					Containers: []corev1.Container{{
 						Name:    "hook",
 						Image:   spec.Image,
-						Command: []string{shell, "/liteyuki-hooks/run.sh"},
+						Command: []string{shell, "/luna-hooks/run.sh"},
 						EnvFrom: []corev1.EnvFromSource{
 							{ConfigMapRef: &corev1.ConfigMapEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: spec.ConfigMapName}}},
 							{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: spec.SecretName}}},
@@ -79,7 +79,7 @@ func (c *Client) RunHookJob(ctx context.Context, spec HookJobSpec) (HookJobResul
 							{Name: "LITEYUKI_GIT_SHA", Value: spec.GitSHA},
 							{Name: "LITEYUKI_GIT_SHORT_SHA", Value: spec.GitShortSHA},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "hook-script", MountPath: "/liteyuki-hooks", ReadOnly: true}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "hook-script", MountPath: "/luna-hooks", ReadOnly: true}},
 					}},
 					Volumes: []corev1.Volume{{Name: "hook-script", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
 						LocalObjectReference: corev1.LocalObjectReference{Name: scriptMapName},

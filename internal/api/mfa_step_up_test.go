@@ -1,0 +1,171 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/gin-gonic/gin"
+	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/bcrypt"
+)
+
+func TestMFARequiredResponseKeepsPurposeInProduction(t *testing.T) {
+	t.Setenv("APP_ENV", "production")
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	writeMFARequired(ctx, stepUpPurposeRuntimeTerminal)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["code"] != "mfa_required" || body["purpose"] != stepUpPurposeRuntimeTerminal {
+		t.Fatalf("unexpected response: %#v", body)
+	}
+	if body["error"] == "" {
+		t.Fatalf("expected a stable user-facing error: %#v", body)
+	}
+}
+
+func TestGenerateTOTPEnrollmentAndValidateWithOneStepSkew(t *testing.T) {
+	enrollment, err := generateTOTPEnrollment("admin@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enrollment.Secret == "" || !strings.HasPrefix(enrollment.OTPAuthURL, "otpauth://totp/") {
+		t.Fatalf("invalid enrollment: %#v", enrollment)
+	}
+	if !strings.HasPrefix(enrollment.QRCodeDataURL, "data:image/png;base64,") {
+		t.Fatalf("invalid QR code data URL: %q", enrollment.QRCodeDataURL)
+	}
+
+	now := time.Unix(1_750_000_000, 0)
+	code, err := totp.GenerateCodeCustom(enrollment.Secret, now, totp.ValidateOpts{Period: 30, Skew: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !validateTOTPCode(enrollment.Secret, code, now.Add(30*time.Second)) {
+		t.Fatal("expected code from the adjacent time step to be accepted")
+	}
+	if validateTOTPCode(enrollment.Secret, code, now.Add(90*time.Second)) {
+		t.Fatal("expected code outside the configured skew to be rejected")
+	}
+}
+
+func TestRecoveryCodesAreUniqueFormattedAndStronglyHashed(t *testing.T) {
+	codes, hashes, err := generateRecoveryCodes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(codes) != mfaRecoveryCodeCount || len(hashes) != mfaRecoveryCodeCount {
+		t.Fatalf("codes=%d hashes=%d", len(codes), len(hashes))
+	}
+	seen := map[string]bool{}
+	for index, code := range codes {
+		normalized := normalizeRecoveryCode(code)
+		if len(normalized) != 16 || strings.Count(code, "-") != 3 {
+			t.Fatalf("invalid recovery code format: %q", code)
+		}
+		if seen[normalized] {
+			t.Fatalf("duplicate recovery code: %q", code)
+		}
+		seen[normalized] = true
+		if hashes[index] == normalized || bcrypt.CompareHashAndPassword([]byte(hashes[index]), []byte(normalized)) != nil {
+			t.Fatalf("recovery code %d was not stored as a bcrypt hash", index)
+		}
+	}
+}
+
+func TestStepUpAssertionHonorsIdleAndAbsoluteExpiry(t *testing.T) {
+	now := time.Now()
+	assertion := model.StepUpAssertion{
+		ID:                "mfaas_test",
+		IdleExpiresAt:     now.Add(time.Minute),
+		AbsoluteExpiresAt: now.Add(2 * time.Minute),
+	}
+	if !stepUpAssertionActive(assertion, now) {
+		t.Fatal("expected assertion to be active")
+	}
+	assertion.IdleExpiresAt = now
+	if stepUpAssertionActive(assertion, now) {
+		t.Fatal("expected idle-expired assertion to be inactive")
+	}
+	assertion.IdleExpiresAt = now.Add(time.Minute)
+	assertion.AbsoluteExpiresAt = now
+	if stepUpAssertionActive(assertion, now) {
+		t.Fatal("expected absolute-expired assertion to be inactive")
+	}
+}
+
+func TestStepUpIdleRefreshNeverPassesAbsoluteExpiry(t *testing.T) {
+	now := time.Now()
+	absolute := now.Add(3 * time.Minute)
+	if got := refreshedStepUpIdleExpiry(now, 10*time.Minute, absolute); !got.Equal(absolute) {
+		t.Fatalf("refresh = %s, want %s", got, absolute)
+	}
+	if got := refreshedStepUpIdleExpiry(now, time.Minute, absolute); !got.Equal(now.Add(time.Minute)) {
+		t.Fatalf("refresh = %s, want %s", got, now.Add(time.Minute))
+	}
+}
+
+func TestStepUpPurposeAndBearerTokenValidation(t *testing.T) {
+	if got := normalizeStepUpPurpose(" RUNTIME_EXEC "); got != stepUpPurposeRuntimeExec {
+		t.Fatalf("purpose = %q", got)
+	}
+	if got := normalizeStepUpPurpose("arbitrary_admin_action"); got != "" {
+		t.Fatalf("unknown purpose should be rejected, got %q", got)
+	}
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/mfa/verify", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer pat_example")
+	if !requestUsesBearerToken(ctx) {
+		t.Fatal("expected PAT request to be detected")
+	}
+}
+
+func TestMFASessionEndpointsRejectPersonalAccessTokensBeforeDatabaseAccess(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/mfa/verify", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer pat_example")
+
+	_, _, ok := (&Handlers{}).currentMFAUserSession(ctx)
+	if ok {
+		t.Fatal("PAT must not be able to establish an MFA browser session")
+	}
+	var body map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusForbidden || body["code"] != "mfa.session_required" {
+		t.Fatalf("unexpected response: status=%d body=%#v", recorder.Code, body)
+	}
+}
+
+func TestStepUpPolicyConfigValidation(t *testing.T) {
+	if !containsStepUpConfig(map[string]any{"security.stepUpMfa.enabled": true}) {
+		t.Fatal("expected step-up config update to be detected")
+	}
+	if containsStepUpConfig(map[string]any{"site.title": "Luna DevOps"}) {
+		t.Fatal("unrelated config must not trigger MFA policy validation")
+	}
+	if _, err := configMinuteValue("0", 10, 1, 120); err == nil {
+		t.Fatal("expected zero idle timeout to be rejected")
+	}
+	if _, err := configMinuteValue("121", 10, 1, 120); err == nil {
+		t.Fatal("expected excessive idle timeout to be rejected")
+	}
+	if !isBooleanConfigValue("enabled") || isBooleanConfigValue("sometimes") {
+		t.Fatal("unexpected boolean config validation")
+	}
+}

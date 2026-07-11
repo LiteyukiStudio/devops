@@ -27,8 +27,8 @@ docs/
 
 ## Assets
 
-- Logo: `docs/docs/public/liteyuki-logo.svg`
-- Mascot: `docs/docs/public/brand/mascot-liteyuki-catgirl-alpha.webp`
+- Logo: `docs/docs/public/luna-devops-logo.svg`
+- Mascot: `docs/docs/public/brand/mascot-luna-catgirl-alpha.webp`
 
 Assets come from the main frontend brand resources and are published as static docs assets.
 

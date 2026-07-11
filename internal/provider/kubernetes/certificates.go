@@ -152,9 +152,9 @@ func certificateObject(spec CertificateSpec) *unstructured.Unstructured {
 			"name":      spec.Name,
 			"namespace": spec.Namespace,
 			"labels": map[string]any{
-				"app.kubernetes.io/managed-by": "liteyuki-devops",
-				"liteyuki.devops/project-id":   spec.ProjectID,
-				"liteyuki.devops/route-id":     spec.RouteID,
+				"app.kubernetes.io/managed-by": "luna-devops",
+				"luna.devops/project-id":       spec.ProjectID,
+				"luna.devops/route-id":         spec.RouteID,
 			},
 		},
 		"spec": map[string]any{

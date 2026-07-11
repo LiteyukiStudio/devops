@@ -15,6 +15,12 @@ func TestProjectRoleAllowsAction(t *testing.T) {
 	if ProjectRoleAllows(ProjectRoleDeveloper, ActionSecretViewValue) {
 		t.Fatal("expected developer to be blocked from secret values")
 	}
+	if !ProjectRoleAllows(ProjectRoleAdmin, ActionDeploymentDataExport) {
+		t.Fatal("expected project admin to export deployment data")
+	}
+	if ProjectRoleAllows(ProjectRoleDeveloper, ActionDeploymentDataExport) {
+		t.Fatal("expected project developer to be blocked from deployment data export")
+	}
 }
 
 func TestProjectActionForLegacyRoles(t *testing.T) {
@@ -65,8 +71,14 @@ func TestAccessTokenScopeCatalogMarksAdminOnlyScopes(t *testing.T) {
 	if !catalogScopeRequiresAdmin(userCatalog, string(ActionDeploymentExec)) {
 		t.Fatal("expected deployment exec to require admin for regular users")
 	}
+	if !catalogScopeRequiresAdmin(userCatalog, string(ActionDeploymentDataExport)) {
+		t.Fatal("expected deployment data export scope to require admin for regular users")
+	}
 	if catalogScopeRequiresAdmin(adminCatalog, string(ActionDeploymentExec)) {
 		t.Fatal("expected deployment exec to be available for platform admins")
+	}
+	if catalogScopeRequiresAdmin(adminCatalog, string(ActionDeploymentDataExport)) {
+		t.Fatal("expected deployment data export scope to be available for platform admins")
 	}
 	if catalogScopeRequiresAdmin(userCatalog, string(ActionBuildTrigger)) {
 		t.Fatal("expected build trigger to be creatable by regular users")
@@ -86,6 +98,7 @@ func TestRequiredAccessTokenScopeUsesFineGrainedProjectRoutes(t *testing.T) {
 		{"/api/v1/projects/:projectId/members", "POST", string(ActionProjectManage)},
 		{"/api/v1/projects/:projectId/applications", "POST", string(ActionApplicationCreate)},
 		{"/api/v1/projects/:projectId/applications/:applicationId/deployment-targets/:targetId/restart", "POST", string(ActionDeploymentRestart)},
+		{"/api/v1/projects/:projectId/applications/:applicationId/deployment-targets/:targetId/data-export", "GET", string(ActionDeploymentDataExport)},
 		{"/api/v1/projects/:projectId/build-runs/trigger", "POST", string(ActionBuildTrigger)},
 		{"/api/v1/projects/:projectId/build-runs/:runId/cancel", "POST", string(ActionBuildCancel)},
 		{"/api/v1/projects/:projectId/releases", "POST", string(ActionDeploymentRelease)},

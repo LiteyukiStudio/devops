@@ -6,10 +6,10 @@ export default defineConfig({
   title: 'Luna DevOps',
   description: 'Deploy and operate applications in a few clear steps, built for small teams and businesses.',
   lang: 'zh',
-  icon: '/liteyuki-logo.svg',
+  icon: '/luna-devops-logo.svg',
   logo: {
-    light: '/liteyuki-logo.svg',
-    dark: '/liteyuki-logo.svg',
+    light: '/luna-devops-logo.svg',
+    dark: '/luna-devops-logo.svg',
   },
   locales: [
     {

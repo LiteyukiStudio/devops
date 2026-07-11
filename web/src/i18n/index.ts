@@ -12,7 +12,7 @@ const resources = {
 type SupportedLanguage = 'zh-CN' | 'en-US'
 
 function detectBrowserLanguage() {
-  const storedLanguage = normalizeLanguage(localStorage.getItem('liteyuki-language'))
+  const storedLanguage = normalizeLanguage(localStorage.getItem('luna-devops-language'))
   if (storedLanguage)
     return storedLanguage
 

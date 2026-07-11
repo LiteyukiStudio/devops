@@ -30,13 +30,14 @@ const (
 	ActionApplicationUpdate Action = "application:update"
 	ActionApplicationDelete Action = "application:delete"
 
-	ActionDeploymentRead     Action = "deployment:read"
-	ActionDeploymentUpdate   Action = "deployment:update"
-	ActionDeploymentRelease  Action = "deployment:release"
-	ActionDeploymentRestart  Action = "deployment:restart"
-	ActionDeploymentRollback Action = "deployment:rollback"
-	ActionDeploymentDelete   Action = "deployment:delete"
-	ActionDeploymentExec     Action = "deployment:exec"
+	ActionDeploymentRead       Action = "deployment:read"
+	ActionDeploymentUpdate     Action = "deployment:update"
+	ActionDeploymentRelease    Action = "deployment:release"
+	ActionDeploymentRestart    Action = "deployment:restart"
+	ActionDeploymentRollback   Action = "deployment:rollback"
+	ActionDeploymentDelete     Action = "deployment:delete"
+	ActionDeploymentExec       Action = "deployment:exec"
+	ActionDeploymentDataExport Action = "deployment:data_export"
 
 	ActionBuildRead    Action = "build:read"
 	ActionBuildTrigger Action = "build:trigger"
@@ -91,13 +92,14 @@ var projectActionRoles = map[Action][]string{
 	ActionApplicationUpdate: {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
 	ActionApplicationDelete: {ProjectRoleOwner, ProjectRoleAdmin},
 
-	ActionDeploymentRead:     {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper, ProjectRoleViewer},
-	ActionDeploymentUpdate:   {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
-	ActionDeploymentRelease:  {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
-	ActionDeploymentRestart:  {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
-	ActionDeploymentRollback: {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
-	ActionDeploymentDelete:   {ProjectRoleOwner, ProjectRoleAdmin},
-	ActionDeploymentExec:     {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
+	ActionDeploymentRead:       {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper, ProjectRoleViewer},
+	ActionDeploymentUpdate:     {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
+	ActionDeploymentRelease:    {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
+	ActionDeploymentRestart:    {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
+	ActionDeploymentRollback:   {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
+	ActionDeploymentDelete:     {ProjectRoleOwner, ProjectRoleAdmin},
+	ActionDeploymentExec:       {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
+	ActionDeploymentDataExport: {ProjectRoleOwner, ProjectRoleAdmin},
 
 	ActionBuildRead:    {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper, ProjectRoleViewer},
 	ActionBuildTrigger: {ProjectRoleOwner, ProjectRoleAdmin, ProjectRoleDeveloper},
@@ -271,7 +273,9 @@ func deploymentTargetScope(path, method string) string {
 	switch {
 	case strings.HasSuffix(path, "/restart"):
 		return string(ActionDeploymentRestart)
-	case strings.Contains(path, "/metrics/stream") || strings.Contains(path, "/data-export"):
+	case strings.HasSuffix(path, "/data-export"):
+		return string(ActionDeploymentDataExport)
+	case strings.Contains(path, "/metrics/stream"):
 		return string(ActionDeploymentRead)
 	case method == http.MethodGet:
 		return string(ActionDeploymentRead)

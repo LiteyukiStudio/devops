@@ -2,17 +2,31 @@ package api
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/LiteyukiStudio/devops/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"net/http"
-	"strings"
-	"time"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const developmentRateLimit = 10000
+
+const (
+	sessionDuration  = 24 * time.Hour
+	rememberDuration = 30 * 24 * time.Hour
+)
+
+var (
+	errRememberTokenInvalid = errors.New("remember token is invalid or expired")
+	errRememberUserDisabled = errors.New("remember token user is unavailable")
+)
 
 func (h *Handlers) currentUser(ctx *gin.Context) (model.User, bool) {
 	if strings.HasPrefix(strings.ToLower(ctx.GetHeader("Authorization")), "bearer ") {
@@ -95,9 +109,16 @@ func accessTokenAllows(scopeText, required string) bool {
 }
 
 func (h *Handlers) hasPlatformAdmin() bool {
+	exists, err := platformAdminExists(h.db)
+	return err == nil && exists
+}
+
+func platformAdminExists(db *gorm.DB) (bool, error) {
 	var count int64
-	_ = h.db.Model(&model.User{}).Where("role = ? and disabled = ?", "platform_admin", false).Count(&count).Error
-	return count > 0
+	if err := db.Model(&model.User{}).Where("role = ? and disabled = ?", "platform_admin", false).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (h *Handlers) requirePlatformAdmin(ctx *gin.Context) bool {
@@ -117,14 +138,7 @@ func (h *Handlers) createSession(ctx *gin.Context, userID string) bool {
 }
 
 func (h *Handlers) createSessionWithImpersonation(ctx *gin.Context, userID string, impersonatorID string) bool {
-	plainToken := "sess_" + randomHex(32)
-	session := model.UserSession{
-		ID:             id.New("ses"),
-		UserID:         userID,
-		ImpersonatorID: impersonatorID,
-		TokenHash:      hashToken(plainToken),
-		ExpiresAt:      time.Now().Add(24 * time.Hour),
-	}
+	session, plainToken := newUserSession(userID, impersonatorID, time.Now())
 	if err := h.db.Create(&session).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return false
@@ -134,16 +148,36 @@ func (h *Handlers) createSessionWithImpersonation(ctx *gin.Context, userID strin
 	return true
 }
 
-func (h *Handlers) createRememberToken(ctx *gin.Context, userID string) bool {
-	_ = h.db.Where("expires_at <= ?", time.Now()).Delete(&model.UserRememberToken{}).Error
+func newUserSession(userID, impersonatorID string, now time.Time) (model.UserSession, string) {
+	plainToken := "sess_" + randomHex(32)
+	return model.UserSession{
+		ID:             id.New("ses"),
+		UserID:         userID,
+		ImpersonatorID: impersonatorID,
+		TokenHash:      hashToken(plainToken),
+		ExpiresAt:      now.Add(sessionDuration),
+	}, plainToken
+}
 
+func newUserRememberToken(userID string, now time.Time) (model.UserRememberToken, string) {
 	plainToken := "rem_" + randomHex(32)
-	token := model.UserRememberToken{
+	return model.UserRememberToken{
 		ID:        id.New("rem"),
 		UserID:    userID,
 		TokenHash: hashToken(plainToken),
-		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+		ExpiresAt: now.Add(rememberDuration),
+	}, plainToken
+}
+
+// Calls that omit requested default to no persistent login. This keeps older
+// authentication flows secure until they expose an explicit remember choice.
+func (h *Handlers) createRememberToken(ctx *gin.Context, userID string, requested ...bool) bool {
+	if len(requested) == 0 || !requested[0] {
+		return true
 	}
+	_ = h.db.Where("expires_at <= ?", time.Now()).Delete(&model.UserRememberToken{}).Error
+
+	token, plainToken := newUserRememberToken(userID, time.Now())
 	if err := h.db.Create(&token).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return false
@@ -151,6 +185,82 @@ func (h *Handlers) createRememberToken(ctx *gin.Context, userID string) bool {
 
 	setRememberCookie(ctx, userID, plainToken, h.mode == "production")
 	return true
+}
+
+func (h *Handlers) rotateRememberLogin(userID, plainToken string) (model.User, string, string, error) {
+	now := time.Now()
+	newSession, newSessionToken := newUserSession(userID, "", now)
+	newRemember, newRememberToken := newUserRememberToken(userID, now)
+	var user model.User
+
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		var current model.UserRememberToken
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(
+			&current,
+			"token_hash = ? and user_id = ? and expires_at > ?",
+			hashToken(plainToken),
+			userID,
+			now,
+		).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errRememberTokenInvalid
+			}
+			return err
+		}
+		if err := tx.First(&user, "id = ? and disabled = ?", current.UserID, false).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errRememberUserDisabled
+			}
+			return err
+		}
+		result := tx.Where("id = ? and token_hash = ?", current.ID, current.TokenHash).Delete(&model.UserRememberToken{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errRememberTokenInvalid
+		}
+		if err := tx.Create(&newRemember).Error; err != nil {
+			return err
+		}
+		return tx.Create(&newSession).Error
+	})
+	if err != nil {
+		return model.User{}, "", "", err
+	}
+	return user, newSessionToken, newRememberToken, nil
+}
+
+func revokeUserAuthentication(tx *gorm.DB, userID string) error {
+	if err := tx.Where("user_id = ?", userID).Delete(&model.StepUpAssertion{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&model.UserRememberToken{}).Error; err != nil {
+		return err
+	}
+	return tx.Where("user_id = ?", userID).Delete(&model.UserSession{}).Error
+}
+
+func (h *Handlers) revokeCurrentSessionAndRememberTokens(plainToken string) (string, error) {
+	userID := ""
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		var session model.UserSession
+		if err := tx.First(&session, "token_hash = ?", hashToken(plainToken)).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		userID = session.UserID
+		if err := tx.Where("session_id = ?", session.ID).Delete(&model.StepUpAssertion{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", session.UserID).Delete(&model.UserRememberToken{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ?", session.ID).Delete(&model.UserSession{}).Error
+	})
+	return userID, err
 }
 
 func setSessionCookie(ctx *gin.Context, token string, secure bool) {
@@ -166,6 +276,14 @@ func setRememberCookie(ctx *gin.Context, userID string, token string, secure boo
 func clearSessionCookie(ctx *gin.Context) {
 	ctx.SetSameSite(http.SameSiteLaxMode)
 	ctx.SetCookie(sessionCookieName, "", -1, "/", "", false, true)
+}
+
+func clearRememberCookie(ctx *gin.Context, userID string) {
+	if strings.TrimSpace(userID) == "" {
+		return
+	}
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(rememberCookieNameForUser(userID), "", -1, "/", "", false, true)
 }
 
 func rememberCookieNameForUser(userID string) string {

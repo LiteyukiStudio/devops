@@ -19,8 +19,8 @@ You need:
 Run this from the repository root:
 
 ```bash
-go build -o bin/liteyuki-api ./cmd/api
-go build -o bin/liteyuki-worker ./cmd/worker
+go build -o bin/luna-devops-api ./cmd/api
+go build -o bin/luna-devops-worker ./cmd/worker
 ```
 
 The API serves the embedded web console. You do not need to start Vite in production.
@@ -42,7 +42,7 @@ export SECRET_ENCRYPTION_KEY='replace-with-a-stable-random-value'
 ## Start API
 
 ```bash
-./bin/liteyuki-api
+./bin/luna-devops-api
 ```
 
 The default listening port follows the project configuration. Check health:
@@ -58,7 +58,7 @@ For public access, put Caddy, Nginx, or another reverse proxy in front of API, t
 Start worker as a separate process:
 
 ```bash
-./bin/liteyuki-worker
+./bin/luna-devops-worker
 ```
 
 The worker handles builds, deployments, status sync, certificate issuance, and cleanup tasks. API alone can open the console, but the full delivery path requires worker.
@@ -73,13 +73,13 @@ Description=Luna DevOps API
 After=network.target postgresql.service redis.service
 
 [Service]
-WorkingDirectory=/opt/liteyuki-devops
+WorkingDirectory=/opt/luna-devops
 Environment=APP_ENV=production
 Environment=DATABASE_URL=postgres://devops:password@127.0.0.1:5432/devops?sslmode=disable
 Environment=REDIS_ADDR=127.0.0.1:6379
 Environment=PUBLIC_BASE_URL=https://devops.example.com
 Environment=SECRET_ENCRYPTION_KEY=replace-with-a-stable-random-value
-ExecStart=/opt/liteyuki-devops/bin/liteyuki-api
+ExecStart=/opt/luna-devops/bin/luna-devops-api
 Restart=always
 
 [Install]
@@ -89,7 +89,7 @@ WantedBy=multi-user.target
 For worker, reuse the same environment variables and change `ExecStart`:
 
 ```ini
-ExecStart=/opt/liteyuki-devops/bin/liteyuki-worker
+ExecStart=/opt/luna-devops/bin/luna-devops-worker
 ```
 
 ## Upgrade

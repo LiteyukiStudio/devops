@@ -18,17 +18,16 @@ METRICS_ENABLED=true
 
 The API then listens on `:9090/metrics`, while the Worker uses `:9091/metrics`. Set `METRICS_ADDR` or `METRICS_PATH` only when you need different ports or paths.
 
-Helm can also create metrics Services, a ServiceMonitor, and the Grafana dashboard ConfigMap:
+Helm can also create metrics Services and a ServiceMonitor:
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
   --set metrics.enabled=true \
   --set metrics.service.enabled=true \
-  --set metrics.serviceMonitor.enabled=true \
-  --set metrics.grafanaDashboard.enabled=true
+  --set metrics.serviceMonitor.enabled=true
 ```
 
-The dashboard source is `charts/liteyuki-devops/dashboards/liteyuki-devops-overview.json`, and it can also be imported directly into Grafana.
+The dashboard source is `grafana/dashboards/luna-devops-overview.json`, and it can be imported directly into Grafana.
 
 To show a Grafana dashboard inside the DevOps console, a platform administrator can set the Operations Dashboard URL in Site Settings. Use a Grafana dashboard or panel iframe URL, and enable iframe embedding in Grafana.
 

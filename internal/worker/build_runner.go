@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	buildJobAppName            = "liteyuki-build-job"
-	buildJobServiceAccountName = "liteyuki-build-job"
+	buildJobAppName            = "luna-build-job"
+	buildJobServiceAccountName = "luna-build-job"
 	buildJobScope              = "build"
 	defaultBuildCPURequest     = "2"
 	defaultBuildMemoryRequest  = "4Gi"

@@ -6,8 +6,8 @@ export const defaultPublicConfigs: Record<string, string> = {
   'billing.creditsPerFiatUnit': '1000',
   'billing.fiatCurrencyUnit': 'CNY',
   'site.title': 'Luna DevOps',
-  'site.logoUrl': '/liteyuki-logo.svg',
-  'site.faviconUrl': '/liteyuki-logo.svg',
+  'site.logoUrl': '/luna-devops-logo.svg',
+  'site.faviconUrl': '/luna-devops-logo.svg',
   'site.loginSubtitle': i18next.t('loginPage.subtitle'),
 }
 

@@ -3,7 +3,7 @@ package builder
 import "time"
 
 const (
-	ResultMarkerPrefix = "::liteyuki-build-result::"
+	ResultMarkerPrefix = "::luna-devops-build-result::"
 
 	hookPhasePrePull   = "prePull"
 	hookPhasePostPull  = "postPull"

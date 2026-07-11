@@ -472,17 +472,17 @@ func TestHTTPRouteSpecTargetsApplicationService(t *testing.T) {
 		model.Project{ID: "prj_demo"},
 		model.Application{Slug: "api"},
 		model.Environment{Slug: "dev"},
-		model.RuntimeCluster{GatewayName: "liteyuki-gateway", GatewayNamespace: "kube-system", GatewayClassName: "traefik"},
+		model.RuntimeCluster{GatewayName: "luna-gateway", GatewayNamespace: "kube-system", GatewayClassName: "traefik"},
 		"project-demo",
 		"dplt-backend",
 	)
 	if err != nil {
 		t.Fatalf("httpRouteSpec returned error: %v", err)
 	}
-	if spec.Name != "liteyuki-gateway-gwr-abc-123" || spec.ServiceName != "dplt-backend" || spec.Path != "api" {
+	if spec.Name != "luna-gateway-gwr-abc-123" || spec.ServiceName != "dplt-backend" || spec.Path != "api" {
 		t.Fatalf("spec = %#v", spec)
 	}
-	if spec.ParentGatewayName != "liteyuki-gateway" || spec.ParentGatewayNamespace != "kube-system" {
+	if spec.ParentGatewayName != "luna-gateway" || spec.ParentGatewayNamespace != "kube-system" {
 		t.Fatalf("parent gateway = %s/%s", spec.ParentGatewayNamespace, spec.ParentGatewayName)
 	}
 	if spec.SectionName != "web" {
@@ -577,7 +577,7 @@ func TestHTTPRouteSpecMergesGatewayAdvancedConfig(t *testing.T) {
 			GatewayExternalTLSMode:        "upstream",
 			GatewayForwardedHeadersMode:   "overwrite",
 			GatewayDefaultRequestHeaders:  "X-Cluster=default",
-			GatewayDefaultResponseHeaders: "X-Platform=liteyuki",
+			GatewayDefaultResponseHeaders: "X-Platform=luna",
 		},
 		"project-demo",
 		"",
@@ -588,7 +588,7 @@ func TestHTTPRouteSpecMergesGatewayAdvancedConfig(t *testing.T) {
 	if spec.RequestHeaders["X-Cluster"] != "default" || spec.RequestHeaders["X-App"] != "route" || spec.RequestHeaders["X-Forwarded-Proto"] != "https" || spec.RequestHeaders["X-Forwarded-Port"] != "443" {
 		t.Fatalf("request headers = %#v", spec.RequestHeaders)
 	}
-	if spec.ResponseHeaders["X-Platform"] != "liteyuki" || spec.ResponseHeaders["X-Frame-Options"] != "DENY" {
+	if spec.ResponseHeaders["X-Platform"] != "luna" || spec.ResponseHeaders["X-Frame-Options"] != "DENY" {
 		t.Fatalf("response headers = %#v", spec.ResponseHeaders)
 	}
 	if spec.URLRewrite == "" || spec.BackendWeight != 25 || spec.ParentGatewayName != "route-gateway" || spec.ParentGatewayNamespace != "edge-system" {
@@ -604,7 +604,7 @@ func TestGatewayCertificateSpecUsesRouteTLSSecret(t *testing.T) {
 		"ClusterIssuer",
 		"letsencrypt-staging",
 	)
-	if spec.Name != "liteyuki-gateway-gwr-1" || spec.SecretName != "tls-api-example-com" || spec.ClusterIssuer != "letsencrypt-staging" {
+	if spec.Name != "luna-gateway-gwr-1" || spec.SecretName != "tls-api-example-com" || spec.ClusterIssuer != "letsencrypt-staging" {
 		t.Fatalf("spec = %#v", spec)
 	}
 }
@@ -828,7 +828,7 @@ func TestEnsureProjectNamespaceAppliesBuildEgressPolicy(t *testing.T) {
 		t.Fatalf("policies = %#v", manager.policies)
 	}
 	policy := manager.policies[0]
-	if policy.Name != "liteyuki-build-egress" || policy.Namespace != "ns-demo" || policy.PodLabels[kubeprovider.ScopeLabel] != buildJobScope {
+	if policy.Name != "luna-build-egress" || policy.Namespace != "ns-demo" || policy.PodLabels[kubeprovider.ScopeLabel] != buildJobScope {
 		t.Fatalf("policy = %#v", policy)
 	}
 	if len(policy.Egress) != 1 || len(policy.Egress[0].To) != 0 || len(policy.Egress[0].Ports) != 0 {
@@ -855,7 +855,7 @@ func TestEnsureProjectNamespaceAppliesRestrictedBuildEgressPolicy(t *testing.T) 
 		t.Fatalf("policies = %#v", manager.policies)
 	}
 	policy := manager.policies[0]
-	if policy.Name != "liteyuki-build-egress" || policy.Namespace != "ns-demo" || policy.PodLabels[kubeprovider.ScopeLabel] != buildJobScope {
+	if policy.Name != "luna-build-egress" || policy.Namespace != "ns-demo" || policy.PodLabels[kubeprovider.ScopeLabel] != buildJobScope {
 		t.Fatalf("policy = %#v", policy)
 	}
 	if len(policy.Egress) < 4 {

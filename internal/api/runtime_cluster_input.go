@@ -68,7 +68,7 @@ func (h *Handlers) runtimeClusterFromInput(ctx *gin.Context, user model.User, in
 		GatewayPublicPort:             normalizeGatewayPublicPort(input.GatewayPublicPort, input.GatewayPublicScheme),
 		GatewayControllerType:         normalizeGatewayControllerType(input.GatewayControllerType),
 		GatewayClassName:              fallback(strings.TrimSpace(input.GatewayClassName), "traefik"),
-		GatewayName:                   fallback(dnsLabelName(input.GatewayName), "liteyuki-gateway"),
+		GatewayName:                   fallback(dnsLabelName(input.GatewayName), "luna-gateway"),
 		GatewayNamespace:              fallback(dnsLabelName(input.GatewayNamespace), "kube-system"),
 		GatewayHTTPListenerName:       fallback(dnsLabelName(input.GatewayHTTPListenerName), "web"),
 		GatewayHTTPListenerPort:       normalizePort(input.GatewayHTTPListenerPort, 8080),

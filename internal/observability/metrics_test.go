@@ -71,7 +71,7 @@ func TestHTTPMetricsMiddlewareExportsRequest(t *testing.T) {
 	metricsRecorder := httptest.NewRecorder()
 	NewMetricsHandler(registry).ServeHTTP(metricsRecorder, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	body := metricsRecorder.Body.String()
-	if !strings.Contains(body, `liteyuki_http_requests_total{method="GET",route="/healthz",service="api",status_code="200"} 1`) {
+	if !strings.Contains(body, `luna_devops_http_requests_total{method="GET",route="/healthz",service="api",status_code="200"} 1`) {
 		t.Fatalf("metrics body did not contain request counter:\n%s", body)
 	}
 }
@@ -90,7 +90,7 @@ func TestWorkerMetricsMiddlewareExportsTask(t *testing.T) {
 	metricsRecorder := httptest.NewRecorder()
 	NewMetricsHandler(registry).ServeHTTP(metricsRecorder, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	body := metricsRecorder.Body.String()
-	if !strings.Contains(body, `liteyuki_worker_task_completed_total{queue="build",result="succeeded",service="worker",task_type="build:run"} 1`) {
+	if !strings.Contains(body, `luna_devops_worker_task_completed_total{queue="build",result="succeeded",service="worker",task_type="build:run"} 1`) {
 		t.Fatalf("metrics body did not contain worker counter:\n%s", body)
 	}
 }
@@ -135,11 +135,11 @@ func TestWorkerMetricsExportsBusinessMetrics(t *testing.T) {
 	NewMetricsHandler(registry).ServeHTTP(metricsRecorder, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	body := metricsRecorder.Body.String()
 	for _, expected := range []string{
-		`liteyuki_build_runs_total{service="worker",status="succeeded",trigger_type="manual"} 1`,
-		`liteyuki_releases_total{service="worker",status="failed",type="deploy"} 1`,
-		`liteyuki_gateway_sync_total{operation="apply",result="succeeded",service="worker"} 1`,
-		`liteyuki_gateway_routes_total{certificate_status="disabled",dns_status="verified",service="worker",status="active",tls_mode="http_only"} 1`,
-		`liteyuki_deployment_unavailable_replicas{deployment_target_id="dplt_1",environment_id="env_1",service="worker"} 1`,
+		`luna_devops_build_runs_total{service="worker",status="succeeded",trigger_type="manual"} 1`,
+		`luna_devops_releases_total{service="worker",status="failed",type="deploy"} 1`,
+		`luna_devops_gateway_sync_total{operation="apply",result="succeeded",service="worker"} 1`,
+		`luna_devops_gateway_routes_total{certificate_status="disabled",dns_status="verified",service="worker",status="active",tls_mode="http_only"} 1`,
+		`luna_devops_deployment_unavailable_replicas{deployment_target_id="dplt_1",environment_id="env_1",service="worker"} 1`,
 	} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("metrics body did not contain %q:\n%s", expected, body)
@@ -164,11 +164,11 @@ func TestAsynqQueueCollectorExportsQueueInfo(t *testing.T) {
 	NewMetricsHandler(registry).ServeHTTP(metricsRecorder, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	body := metricsRecorder.Body.String()
 	for _, expected := range []string{
-		`liteyuki_asynq_queue_depth{queue="build",service="worker",state="pending"} 2`,
-		`liteyuki_asynq_queue_depth{queue="build",service="worker",state="retry"} 1`,
-		`liteyuki_asynq_queue_latency_seconds{queue="build",service="worker"} 3`,
-		`liteyuki_asynq_queue_processed_total{queue="build",service="worker"} 10`,
-		`liteyuki_asynq_queue_failed_total{queue="build",service="worker"} 4`,
+		`luna_devops_asynq_queue_depth{queue="build",service="worker",state="pending"} 2`,
+		`luna_devops_asynq_queue_depth{queue="build",service="worker",state="retry"} 1`,
+		`luna_devops_asynq_queue_latency_seconds{queue="build",service="worker"} 3`,
+		`luna_devops_asynq_queue_processed_total{queue="build",service="worker"} 10`,
+		`luna_devops_asynq_queue_failed_total{queue="build",service="worker"} 4`,
 	} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("metrics body did not contain %q:\n%s", expected, body)
@@ -194,8 +194,8 @@ func TestStartMetricsServerServesMetrics(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d body=%s", response.StatusCode, body)
 	}
-	if !strings.Contains(string(body), "liteyuki_up") {
-		t.Fatalf("metrics body did not contain liteyuki_up:\n%s", body)
+	if !strings.Contains(string(body), "luna_devops_up") {
+		t.Fatalf("metrics body did not contain luna_devops_up:\n%s", body)
 	}
 }
 

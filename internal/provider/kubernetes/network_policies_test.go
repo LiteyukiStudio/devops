@@ -14,10 +14,10 @@ import (
 func TestEnsureBuildNetworkPolicyCreatesDefaultDenyPolicy(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset())
 	spec := BuildNetworkPolicySpec{
-		Name:      "liteyuki-build-egress",
-		Namespace: "liteyuki-build",
+		Name:      "luna-build-egress",
+		Namespace: "luna-build",
 		Labels: map[string]string{
-			"liteyuki.devops/scope": "build",
+			"luna.devops/scope": "build",
 		},
 	}
 
@@ -25,11 +25,11 @@ func TestEnsureBuildNetworkPolicyCreatesDefaultDenyPolicy(t *testing.T) {
 		t.Fatalf("EnsureBuildNetworkPolicy returned error: %v", err)
 	}
 
-	policy, err := client.client.NetworkingV1().NetworkPolicies("liteyuki-build").Get(context.Background(), spec.Name, metav1.GetOptions{})
+	policy, err := client.client.NetworkingV1().NetworkPolicies("luna-build").Get(context.Background(), spec.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get policy: %v", err)
 	}
-	if policy.Spec.PodSelector.MatchLabels["liteyuki.devops/scope"] != "build" {
+	if policy.Spec.PodSelector.MatchLabels["luna.devops/scope"] != "build" {
 		t.Fatalf("pod selector = %#v", policy.Spec.PodSelector.MatchLabels)
 	}
 	if len(policy.Spec.Egress) != 0 {
@@ -43,9 +43,9 @@ func TestEnsureBuildNetworkPolicyCreatesDefaultDenyPolicy(t *testing.T) {
 func TestEnsureBuildNetworkPolicyUpdatesPolicy(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset())
 	spec := BuildNetworkPolicySpec{
-		Name:      "liteyuki-build-egress",
-		Namespace: "liteyuki-build",
-		Labels:    map[string]string{"liteyuki.devops/scope": "build"},
+		Name:      "luna-build-egress",
+		Namespace: "luna-build",
+		Labels:    map[string]string{"luna.devops/scope": "build"},
 	}
 	if err := client.EnsureBuildNetworkPolicy(context.Background(), spec); err != nil {
 		t.Fatalf("create policy: %v", err)
@@ -54,7 +54,7 @@ func TestEnsureBuildNetworkPolicyUpdatesPolicy(t *testing.T) {
 	if err := client.EnsureBuildNetworkPolicy(context.Background(), spec); err != nil {
 		t.Fatalf("update policy: %v", err)
 	}
-	policy, err := client.client.NetworkingV1().NetworkPolicies("liteyuki-build").Get(context.Background(), spec.Name, metav1.GetOptions{})
+	policy, err := client.client.NetworkingV1().NetworkPolicies("luna-build").Get(context.Background(), spec.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get policy: %v", err)
 	}
@@ -65,11 +65,11 @@ func TestEnsureBuildNetworkPolicyUpdatesPolicy(t *testing.T) {
 
 func TestEnsureBuildPolicyTranslatesPublicSourceIPBlocks(t *testing.T) {
 	client := NewClientForInterface(fake.NewSimpleClientset())
-	if err := client.EnsureBuildPolicy(context.Background(), networkpolicy.BuildPolicyWithPublicSources("liteyuki-build")); err != nil {
+	if err := client.EnsureBuildPolicy(context.Background(), networkpolicy.BuildPolicyWithPublicSources("luna-build")); err != nil {
 		t.Fatalf("EnsureBuildPolicy returned error: %v", err)
 	}
 
-	policy, err := client.client.NetworkingV1().NetworkPolicies("liteyuki-build").Get(context.Background(), "liteyuki-build-egress", metav1.GetOptions{})
+	policy, err := client.client.NetworkingV1().NetworkPolicies("luna-build").Get(context.Background(), "luna-build-egress", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get policy: %v", err)
 	}

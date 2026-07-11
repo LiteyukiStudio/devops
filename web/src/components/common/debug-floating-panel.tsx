@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 
-const positionStorageKey = 'liteyuki-devops.debug.floatingPosition'
+const positionStorageKey = 'luna-devops.debug.floatingPosition'
 const triggerSize = 56
 const panelWidth = 320
 const viewportPadding = 12

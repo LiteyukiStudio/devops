@@ -66,7 +66,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("start api metrics server: %v", err)
 		}
-		defer observability.ShutdownMetricsServer(shutdownContext(), metricsServer)
+		defer func() {
+			ctx, cancel := shutdownContext()
+			defer cancel()
+			observability.ShutdownMetricsServer(ctx, metricsServer)
+		}()
 		httpMetrics = observability.NewHTTPMetrics(metricsRegistry, "api")
 	}
 
@@ -78,7 +82,6 @@ func main() {
 	}
 }
 
-func shutdownContext() context.Context {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	return ctx
+func shutdownContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
 }

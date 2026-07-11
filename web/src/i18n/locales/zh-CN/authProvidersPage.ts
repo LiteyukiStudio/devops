@@ -44,7 +44,7 @@ const authProvidersPage = {
   requireVerifiedOidcEmailHint: '开启后，OIDC ID Token 必须包含非空邮箱且 email_verified 为 true。仅在可信内部身份源无法返回标准验证状态时关闭。',
   allowedEmailDomains: '允许邮箱域',
   allowedEmailDomainsHint: '允许这些邮箱域的 OIDC 用户注册/登录，可用逗号或换行分隔。不填表示不按邮箱域限制；如果组和邀请邮箱也都不填，则通过 OIDC 邮箱验证的用户都可以进入。',
-  allowedEmailDomainsPlaceholder: 'example.com, liteyuki.dev',
+  allowedEmailDomainsPlaceholder: 'example.com, luna.dev',
   allowedOidcGroups: '允许 OIDC 组',
   allowedOidcGroupsHint: '允许这些 OIDC 用户组进入，可用逗号或换行分隔。填了组以后，用户必须命中至少一个组；不填表示不按组限制。',
   allowedOidcGroupsPlaceholder: 'devops-admins, platform-users',

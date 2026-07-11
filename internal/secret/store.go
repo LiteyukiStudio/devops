@@ -144,7 +144,7 @@ func secretRefKey() ([]byte, error) {
 		if config.RuntimeMode() == "production" {
 			return nil, ErrMissingEncryptionKey
 		}
-		keyMaterial = "liteyuki-devops-local-secret"
+		keyMaterial = "luna-devops-local-secret"
 	}
 	sum := sha256.Sum256([]byte(keyMaterial))
 	return sum[:], nil

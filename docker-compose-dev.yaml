@@ -1,4 +1,4 @@
-name: liteyuki-devops-dev
+name: luna-devops-dev
 
 services:
   postgres:

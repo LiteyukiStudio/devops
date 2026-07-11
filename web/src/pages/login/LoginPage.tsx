@@ -12,6 +12,7 @@ import { api, oidcStartUrl } from '@/api'
 import { useDocumentTitle } from '@/app/document-title'
 import { usePublicConfig } from '@/app/public-config-context'
 import { useSession } from '@/app/session-context'
+import { CheckboxField } from '@/components/common/checkbox-field'
 import { FormField as Field } from '@/components/common/form-field'
 import { PageMotion } from '@/components/common/motion'
 import { UserAvatar } from '@/components/common/user-avatar'
@@ -24,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 const schema = z.object({
   email: z.string().email(i18next.t('common.validEmailRequired')),
   password: z.string().min(1, i18next.t('loginPage.passwordRequired')),
+  rememberMe: z.boolean(),
 })
 
 type LoginForm = z.infer<typeof schema>
@@ -45,6 +47,7 @@ export function LoginPage() {
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     },
   })
   useDocumentTitle(t('login'))
@@ -100,7 +103,7 @@ export function LoginPage() {
               <img
                 alt=""
                 className="pointer-events-none absolute bottom-0 left-[51.5%] z-10 h-[112%] w-auto max-w-none -translate-x-1/2 select-none object-contain object-bottom drop-shadow-[0_28px_42px_rgba(47,123,244,0.22)]"
-                src="https://devops-docs.liteyuki.org/brand/mascot-liteyuki-catgirl-alpha.webp"
+                src="https://devops-docs.liteyuki.org/brand/mascot-luna-catgirl-alpha.webp"
               />
               <div className="absolute inset-0 z-20 rounded-l-[inherit] bg-gradient-to-r from-background/10 via-transparent to-background/30" />
             </div>
@@ -110,7 +113,7 @@ export function LoginPage() {
                   <img
                     alt=""
                     className="size-11 shrink-0 rounded-xl object-contain"
-                    src={configs['site.logoUrl'] || '/liteyuki-logo.svg'}
+                    src={configs['site.logoUrl'] || '/luna-devops-logo.svg'}
                   />
                   <div className="min-w-0">
                     <h1 className="truncate text-lg font-semibold">{configs['site.title'] || t('appName')}</h1>
@@ -158,6 +161,9 @@ export function LoginPage() {
                   <Field error={form.formState.errors.password?.message} hint={t('loginPage.passwordHint')} label={t('loginPage.password')} required>
                     <Input {...form.register('password')} aria-invalid={Boolean(form.formState.errors.password)} autoComplete="current-password" type="password" />
                   </Field>
+                  <CheckboxField description={t('loginPage.rememberMeHint')} {...form.register('rememberMe')}>
+                    {t('loginPage.rememberMe')}
+                  </CheckboxField>
                   <Button disabled={session.isLoggingIn || !form.formState.isValid} type="submit">
                     <LogIn size={16} />
                     {t('login')}

@@ -2,7 +2,7 @@
 
 Use the app marketplace when you need a database, cache, or monitoring tool without configuring it from scratch. Built-in templates cover databases, caches, messaging, object storage, search, observability, registries, database administration, web servers, and common self-hosted apps, such as PostgreSQL, Redis, NATS, ClickHouse, Qdrant, Typesense, Garage, Prometheus, Grafana, Gitea, Vaultwarden, NocoDB, Wiki.js, and WordPress.
 
-The marketplace also includes a small set of platform components. Only platform administrators can install them. They live in the platform-owned `platform-system` project space and create normal applications, deployment targets, and Releases. This project space is visible only to platform administrators, cannot be deleted, and is excluded from user project billing. The built-in `Liteyuki Gateway Traffic Probe` enables gateway traffic billing when needed.
+The marketplace also includes a small set of platform components. Only platform administrators can install them. They live in the platform-owned `platform-system` project space and create normal applications, deployment targets, and Releases. This project space is visible only to platform administrators, cannot be deleted, and is excluded from user project billing. The built-in `Luna Gateway Traffic Probe` enables gateway traffic billing when needed.
 
 Installing a template creates:
 

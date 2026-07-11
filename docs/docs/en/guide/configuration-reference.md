@@ -26,7 +26,7 @@ For a first deployment, configure the Basic values only. Once the platform is ru
 | Advanced | `METRICS_ADDR` | `:9090` | Metrics listen address; change only when overriding the API metrics port or bind address. |
 | Advanced | `METRICS_PATH` | `/metrics` | Prometheus scrape path; registered only on the dedicated metrics listener. |
 
-When metrics are enabled, the API exports HTTP request, latency, error response, PostgreSQL connection pool, and PostgreSQL/Redis health metrics. Helm deployments can render the Grafana dashboard ConfigMap with `metrics.grafanaDashboard.enabled=true`.
+When metrics are enabled, the API exports HTTP request, latency, error response, PostgreSQL connection pool, and PostgreSQL/Redis health metrics. Grafana dashboard JSON lives under `grafana/dashboards/` and can be imported into Grafana when needed.
 
 OIDC identity provider Redirect URI is generated from `PUBLIC_BASE_URL`, and the admin identity provider form shows a copyable value. Admission policy requires OIDC to return a non-empty email and `email_verified=true` by default. For trusted internal identity providers that cannot return the standard `email_verified` claim, disable “Require verified OIDC email” in the admission policy; the platform still requires a non-empty email.
 
@@ -71,4 +71,4 @@ Available access-route domain suffixes, external access schemes, external access
 | Advanced | `BUILD_PRIVATE_EGRESS_PORTS` | `443` | Private allowlist ports in `restricted` mode; use ports like `5000` or `8081` for non-standard registries. |
 | Advanced | `BUILD_BLOCKED_EGRESS_CIDRS` | Empty | Extra blocked CIDRs in `restricted` mode. |
 
-When metrics are enabled, the worker exports task, retry, queue depth, queue latency, build/release result and duration, runtime replica, gateway sync, and dependency health metrics. Helm deployments can render the Grafana dashboard ConfigMap with `metrics.grafanaDashboard.enabled=true`.
+When metrics are enabled, the worker exports task, retry, queue depth, queue latency, build/release result and duration, runtime replica, gateway sync, and dependency health metrics. Grafana dashboard JSON lives under `grafana/dashboards/` and can be imported into Grafana when needed.

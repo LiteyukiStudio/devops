@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import i18next from '@/i18n'
 
 export function SiteSettingsPage() {
   const { t } = useTranslation()
@@ -109,20 +110,26 @@ interface ConfigSectionProps {
 }
 
 function ConfigSection({ definitions, form }: ConfigSectionProps) {
+  const { t } = useTranslation()
+
   if (definitions.length === 0)
     return null
 
   return (
     <div className="grid gap-4">
-      {definitions.map(definition => (
-        <Field key={definition.key} hint={definition.description} label={definition.label}>
-          {definition.type === 'textarea'
-            ? <Textarea className="min-h-28 resize-y font-mono text-sm" {...form.register(definition.key)} />
-            : definition.type === 'select'
-              ? <ConfigSelect definition={definition} form={form} />
-              : <Input {...form.register(definition.key)} />}
-        </Field>
-      ))}
+      {definitions.map((definition) => {
+        const label = configDefinitionText(definition, 'label', t)
+        const description = configDefinitionText(definition, 'description', t)
+        return (
+          <Field key={definition.key} hint={description} label={label}>
+            {definition.type === 'textarea'
+              ? <Textarea className="min-h-28 resize-y font-mono text-sm" {...form.register(definition.key)} />
+              : definition.type === 'select' || definition.type === 'boolean'
+                ? <ConfigSelect definition={definition} form={form} options={definition.type === 'boolean' ? ['true', 'false'] : definition.options} />
+                : <Input {...form.register(definition.key)} />}
+          </Field>
+        )
+      })}
     </div>
   )
 }
@@ -245,7 +252,8 @@ function billingRateRulePayloadFromRule(rule: BillingRateRule): BillingRateRuleP
   }
 }
 
-function ConfigSelect({ definition, form }: { definition: ConfigSectionProps['definitions'][number], form: ConfigSectionProps['form'] }) {
+function ConfigSelect({ definition, form, options }: { definition: ConfigSectionProps['definitions'][number], form: ConfigSectionProps['form'], options?: string[] }) {
+  const { t } = useTranslation()
   const value = form.watch(definition.key) as string | undefined
 
   return (
@@ -254,12 +262,26 @@ function ConfigSelect({ definition, form }: { definition: ConfigSectionProps['de
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {(definition.options ?? []).map(option => (
-          <SelectItem key={option} value={option}>{option}</SelectItem>
+        {(options ?? []).map(option => (
+          <SelectItem key={option} value={option}>
+            {option === 'true' ? t('common.enabled') : option === 'false' ? t('common.disabled') : option}
+          </SelectItem>
         ))}
       </SelectContent>
     </Select>
   )
+}
+
+function configDefinitionText(
+  definition: ConfigDefinition,
+  kind: 'label' | 'description',
+  t: ReturnType<typeof useTranslation>['t'],
+) {
+  const requestedKey = kind === 'label' ? definition.labelKey : definition.descriptionKey
+  const conventionalKey = `settings.configDefinitions.${definition.key}.${kind}`
+  const fallback = (kind === 'label' ? definition.label : definition.description) || (kind === 'label' ? definition.key : '')
+  const key = requestedKey && i18next.exists(requestedKey) ? requestedKey : conventionalKey
+  return t(key, { defaultValue: fallback })
 }
 
 function unflattenConfigValues(values: Record<string, string>) {

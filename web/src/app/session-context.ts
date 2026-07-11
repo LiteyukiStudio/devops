@@ -4,6 +4,7 @@ import { createContext, use } from 'react'
 export interface LoginInput {
   email: string
   password: string
+  rememberMe: boolean
 }
 
 export interface RecentLoginUser {
@@ -15,10 +16,12 @@ export interface RecentLoginUser {
 }
 
 export interface InitializeAdminInput {
+  bootstrapToken: string
   email: string
   name: string
   password: string
   language: CurrentUser['language']
+  rememberMe: boolean
 }
 
 interface DebugRoleOverride {

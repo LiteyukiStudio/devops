@@ -123,7 +123,7 @@ func TestListManagedServicesIncludesHTTPRoutesAndGateways(t *testing.T) {
 			"apiVersion": "gateway.networking.k8s.io/v1",
 			"kind":       "HTTPRoute",
 			"metadata": map[string]any{
-				"name":      "liteyuki-gateway-gwr-demo",
+				"name":      "luna-gateway-gwr-demo",
 				"namespace": "ns-demo",
 				"labels": map[string]any{
 					ManagedByLabel:      ManagedByValue,
@@ -142,7 +142,7 @@ func TestListManagedServicesIncludesHTTPRoutesAndGateways(t *testing.T) {
 		}},
 	))
 	if err := client.EnsureGateway(context.Background(), GatewaySpec{
-		Name:             "liteyuki-gateway",
+		Name:             "luna-gateway",
 		Namespace:        "kube-system",
 		GatewayClassName: "traefik",
 		ProjectID:        "prj_demo",

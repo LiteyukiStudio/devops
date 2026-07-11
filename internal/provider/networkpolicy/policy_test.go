@@ -4,21 +4,21 @@ import "testing"
 
 func TestBuildPolicyCarriesPodSelector(t *testing.T) {
 	policy := BuildPolicy{
-		Name:      "liteyuki-build-egress",
-		Namespace: "liteyuki-build",
+		Name:      "luna-build-egress",
+		Namespace: "luna-build",
 		PodLabels: map[string]string{
-			"liteyuki.devops/scope": "build",
+			"luna.devops/scope": "build",
 		},
 	}
 
-	if policy.PodLabels["liteyuki.devops/scope"] != "build" {
+	if policy.PodLabels["luna.devops/scope"] != "build" {
 		t.Fatalf("pod labels = %#v", policy.PodLabels)
 	}
 }
 
 func TestRestrictedBuildPolicyAllowsOnlyDNSByDefault(t *testing.T) {
-	policy := RestrictedBuildPolicy("liteyuki-build")
-	if policy.Name != "liteyuki-build-egress" || policy.Namespace != "liteyuki-build" {
+	policy := RestrictedBuildPolicy("luna-build")
+	if policy.Name != "luna-build-egress" || policy.Namespace != "luna-build" {
 		t.Fatalf("policy = %#v", policy)
 	}
 	if len(policy.Egress) != 1 || len(policy.Egress[0].Ports) != 2 {
@@ -33,8 +33,8 @@ func TestRestrictedBuildPolicyAllowsOnlyDNSByDefault(t *testing.T) {
 }
 
 func TestPermissiveBuildPolicyAllowsAllEgress(t *testing.T) {
-	policy := PermissiveBuildPolicy("liteyuki-build")
-	if policy.Name != "liteyuki-build-egress" || policy.Namespace != "liteyuki-build" {
+	policy := PermissiveBuildPolicy("luna-build")
+	if policy.Name != "luna-build-egress" || policy.Namespace != "luna-build" {
 		t.Fatalf("policy = %#v", policy)
 	}
 	if len(policy.Egress) != 1 {
@@ -46,7 +46,7 @@ func TestPermissiveBuildPolicyAllowsAllEgress(t *testing.T) {
 }
 
 func TestBuildPolicyWithPublicSourcesAllowsPublicHTTPAndHTTPS(t *testing.T) {
-	policy := BuildPolicyWithPublicSources("liteyuki-build")
+	policy := BuildPolicyWithPublicSources("luna-build")
 	if len(policy.Egress) != 3 {
 		t.Fatalf("egress = %#v", policy.Egress)
 	}
@@ -93,7 +93,7 @@ func TestPrivateRegistryEgressRulesAllowConfiguredTCPPorts(t *testing.T) {
 }
 
 func TestBuildPolicyWithPrivateEgressDoesNotAllowPrivateNon443(t *testing.T) {
-	policy := BuildPolicyWithPrivateEgress("liteyuki-build", []string{"10.20.0.0/16"})
+	policy := BuildPolicyWithPrivateEgress("luna-build", []string{"10.20.0.0/16"})
 	for _, rule := range policy.Egress {
 		for _, peer := range rule.To {
 			if peer.CIDR != "10.20.0.0/16" {
@@ -109,7 +109,7 @@ func TestBuildPolicyWithPrivateEgressDoesNotAllowPrivateNon443(t *testing.T) {
 }
 
 func TestBuildPolicyWithEgressControlsBlocksMetadataAndServiceCIDR(t *testing.T) {
-	policy := BuildPolicyWithEgressControls("liteyuki-build", []string{"10.0.0.0/8"}, []string{"169.254.169.254/32", "10.96.0.0/12"})
+	policy := BuildPolicyWithEgressControls("luna-build", []string{"10.0.0.0/8"}, []string{"169.254.169.254/32", "10.96.0.0/12"})
 	publicIPv4 := policy.Egress[1]
 	if !contains(publicIPv4.To[0].Except, "169.254.169.254/32") {
 		t.Fatalf("public IPv4 exceptions = %#v", publicIPv4.To[0].Except)

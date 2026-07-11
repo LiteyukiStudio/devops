@@ -67,9 +67,6 @@ func (h *Handlers) CreateDeploymentTarget(ctx *gin.Context) {
 	if !h.ensureProjectCanMutate(ctx, project) {
 		return
 	}
-	if !h.requireStepUp(ctx, user, stepUpPurposeDataExport) {
-		return
-	}
 	app, ok := h.findApplication(ctx)
 	if !ok {
 		return
@@ -155,11 +152,17 @@ func (h *Handlers) UpdateDeploymentTarget(ctx *gin.Context) {
 }
 
 func (h *Handlers) ExportDeploymentTargetData(ctx *gin.Context) {
+	if !requireInteractiveSession(ctx) {
+		return
+	}
 	user, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin")
 	if !ok {
 		return
 	}
 	if !h.ensureProjectCanMutate(ctx, project) {
+		return
+	}
+	if !h.requireStepUp(ctx, user, stepUpPurposeDataExport) {
 		return
 	}
 	app, ok := h.findApplication(ctx)
@@ -202,6 +205,18 @@ func (h *Handlers) ExportDeploymentTargetData(ctx *gin.Context) {
 		return
 	}
 	h.audit(user.ID, "deployment_target.data_export", target.ID, true, filename)
+}
+
+func requireInteractiveSession(ctx *gin.Context) bool {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(ctx.GetHeader("Authorization"))), "bearer ") {
+		writeErrorCode(ctx, http.StatusForbidden, "auth.interactive_session_required", "该操作需要使用交互式登录会话")
+		return false
+	}
+	if _, err := ctx.Cookie(sessionCookieName); err != nil {
+		writeErrorKey(ctx, http.StatusUnauthorized, requestLanguage(ctx), "auth.session.missing")
+		return false
+	}
+	return true
 }
 
 func (h *Handlers) RestartDeploymentTarget(ctx *gin.Context) {

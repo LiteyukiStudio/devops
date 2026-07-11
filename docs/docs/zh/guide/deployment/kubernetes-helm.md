@@ -16,8 +16,8 @@
 在仓库根目录执行：
 
 ```bash
-helm install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace
 ```
 
@@ -35,7 +35,7 @@ redis:8-alpine
 先把 API Service 转发到本机：
 
 ```bash
-kubectl -n liteyuki-devops port-forward svc/liteyuki-devops-api 8088:80
+kubectl -n luna-devops port-forward svc/luna-devops-api 8088:80
 ```
 
 然后访问：
@@ -47,8 +47,8 @@ http://localhost:8088
 ## 使用固定版本
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace \
   --set api.image.tag=v0.1.0-rc.1 \
   --set worker.image.tag=v0.1.0-rc.1
@@ -59,8 +59,8 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 如果通过 Ingress 暴露控制台，把 `app.publicBaseUrl` 改成用户真实访问的地址：
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace \
   --set app.publicBaseUrl=https://devops.example.com \
   --set ingress.enabled=true \
@@ -89,8 +89,8 @@ externalRedis:
 然后安装：
 
 ```bash
-helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
-  --namespace liteyuki-devops \
+helm upgrade --install luna-devops ./charts/luna-devops \
+  --namespace luna-devops \
   --create-namespace \
   -f values-prod.yaml
 ```
@@ -109,11 +109,11 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 ## 卸载
 
 ```bash
-helm uninstall liteyuki-devops -n liteyuki-devops
+helm uninstall luna-devops -n luna-devops
 ```
 
 PVC 默认会保留，避免误删数据。确认不再需要这些数据后，再手动清理：
 
 ```bash
-kubectl -n liteyuki-devops delete pvc -l app.kubernetes.io/instance=liteyuki-devops
+kubectl -n luna-devops delete pvc -l app.kubernetes.io/instance=luna-devops
 ```
