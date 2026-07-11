@@ -15,6 +15,7 @@ export function statusToneFor(value: string): StatusTone {
     case 'verified':
       return 'success'
     case 'failed':
+    case 'error':
     case 'crash-loop-back-off':
     case 'create-container-config-error':
     case 'create-container-error':
@@ -28,6 +29,7 @@ export function statusToneFor(value: string): StatusTone {
     case 'unhealthy':
       return 'danger'
     case 'expired':
+    case 'warning':
     case 'checking':
     case 'container-creating':
     case 'pending':
@@ -35,12 +37,15 @@ export function statusToneFor(value: string): StatusTone {
     case 'queued':
     case 'deleting':
     case 'running':
+    case 'in_progress':
     case 'scanning':
     case 'not-ready':
     case 'unregistered':
       return 'warning'
     case 'createdstatus':
       return 'success'
+    case 'info':
+      return 'info'
     case 'disabled':
     case 'canceled':
     case 'not-configured':

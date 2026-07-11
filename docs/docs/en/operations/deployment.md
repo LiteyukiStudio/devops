@@ -1,6 +1,6 @@
-# Feature Map
+# How the Platform Fits Together
 
-Liteyuki DevOps connects code, images, clusters, and routes into one delivery path. You do not need to understand every underlying component before using it.
+Liteyuki DevOps connects code, images, clusters, and access routes into one delivery path. You do not need to understand every underlying component on day one; this page explains what each part is responsible for.
 
 For a click-through walkthrough, see [Deploy a Web Project](/en/operations/deploy-web-project). It uses `snowykami/neo-blog` as the example and covers project space, applications, deployment targets, builds, releases, and the public route.
 
@@ -26,7 +26,7 @@ The application overview summarizes runtime specs by deployment target, includin
 
 ## Deployment targets
 
-A deployment target answers how an application should ship:
+A deployment target decides how an application is built and run:
 
 - Build from a repository or use an existing image.
 - Publish to which environment.
@@ -36,7 +36,7 @@ A deployment target answers how an application should ship:
 - Build spec and timeout. The default build timeout is 30 minutes, and it can be adjusted on the deployment target or temporarily overridden for a manual build.
 - Auto release after a successful build or not.
 
-Advanced Kubernetes config is collapsed by default and should be used only when an image needs specific runtime conditions. Current support includes:
+Advanced Kubernetes settings stay collapsed by default. Most applications can keep the defaults; expand this section only when an image has specific runtime requirements:
 
 - Container startup: override `command` / `args`, set `imagePullPolicy`, and configure readiness, liveness, and startup probes.
 - Workload: Deployment is the default. StatefulSet can be selected in advanced settings when the app needs stable Pod names, ordered rollout, or stateful workload semantics. The platform handles rendering, HPA target refs, runtime checks, restart, and cleanup according to the selected workload.
@@ -80,7 +80,7 @@ If the remote image content changed but the tag did not, choose “Pull latest i
 
 When the platform creates a Kubernetes Deployment, the selector only identifies the workload for the current deploy config and remains stable across later releases. Project, application, environment, and Release ownership metadata is written to resource labels or Pod Template annotations instead of changing the selector. This avoids update failures caused by Kubernetes `spec.selector` immutability.
 
-For a first run, deploy an existing image before wiring Git providers and automated builds.
+For the first deployment, create a Release from an existing image. After the workload and access route are healthy, connect a Git provider and enable automated builds. This keeps early troubleshooting straightforward.
 
 The application deployment list refreshes runtime metrics every second through SSE. Metrics come from the Kubernetes standard `metrics.k8s.io` Pod Metrics API, so the runtime cluster needs metrics-server installed. CPU percentage and memory usage are calculated from current usage divided by “environment size × replicas”. If the cluster does not expose metrics, the page shows metrics unavailable.
 

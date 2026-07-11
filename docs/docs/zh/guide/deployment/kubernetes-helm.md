@@ -1,8 +1,8 @@
 # Kubernetes (Helm) 部署
 
-如果平台本身也要跑在 Kubernetes 或 K3s 里，推荐使用 Helm。Chart 会一起创建 API、worker、PostgreSQL 和 Redis。
+如果准备把 Liteyuki DevOps 长期运行在 Kubernetes 或 K3s 中，推荐使用 Helm。Chart 会一起部署 API、Worker、PostgreSQL 和 Redis，也可以改为连接已有的外部数据库与 Redis。
 
-## 准备
+## 开始前准备
 
 你需要：
 
@@ -54,7 +54,7 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
   --set worker.image.tag=v0.1.0-rc.1
 ```
 
-## 配置公网域名
+## 通过公网域名访问
 
 如果通过 Ingress 暴露控制台，把 `app.publicBaseUrl` 改成用户真实访问的地址：
 
@@ -72,7 +72,7 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 
 ## 使用外部 PostgreSQL 或 Redis
 
-内置数据库适合先跑起来。生产环境如果已有托管数据库，可以关闭内置组件：
+内置数据库适合快速启动。生产环境已经有托管 PostgreSQL 或 Redis 时，可以关闭对应内置组件：
 
 ```yaml
 postgresql:
@@ -112,7 +112,7 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 helm uninstall liteyuki-devops -n liteyuki-devops
 ```
 
-PVC 默认不会自动删除。如果要清理数据：
+PVC 默认会保留，避免误删数据。确认不再需要这些数据后，再手动清理：
 
 ```bash
 kubectl -n liteyuki-devops delete pvc -l app.kubernetes.io/instance=liteyuki-devops

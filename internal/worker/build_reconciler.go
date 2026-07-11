@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/platformevent"
 	kubeprovider "github.com/LiteyukiStudio/devops/internal/provider/kubernetes"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -92,6 +93,9 @@ func (r *Runner) handleSyncStatus(ctx context.Context, task *asynq.Task) error {
 	if err := r.syncGatewayCertificateStatus(ctx); err != nil {
 		return err
 	}
+	if _, err := (platformevent.Service{DB: r.db}).CleanupBefore(ctx, platformevent.DefaultRetentionCutoff(time.Now()), platformevent.DefaultCleanupBatch); err != nil {
+		return err
+	}
 	r.refreshGatewayRouteMetrics()
 	r.retryPendingResourceCleanups(ctx)
 	return nil
@@ -138,7 +142,35 @@ func (r *Runner) syncGatewayCertificateSnapshot(ctx context.Context, route model
 	if err != nil {
 		return err
 	}
-	return r.db.Model(&model.GatewayRoute{}).Where("id = ?", route.ID).Updates(gatewayCertificateRuntimeUpdates(snapshot, cluster, r.certManagerClusterIssuer)).Error
+	if err := r.db.Model(&model.GatewayRoute{}).Where("id = ?", route.ID).Updates(gatewayCertificateRuntimeUpdates(snapshot, cluster, r.certManagerClusterIssuer)).Error; err != nil {
+		return err
+	}
+	r.emitCertificateSnapshotEvent(ctx, route, snapshot, cluster)
+	return nil
+}
+
+func (r *Runner) emitCertificateSnapshotEvent(ctx context.Context, route model.GatewayRoute, snapshot kubeprovider.CertificateSnapshot, cluster model.RuntimeCluster) {
+	status := snapshot.Phase
+	renewed := status == kubeprovider.CertificateIssued && route.CertificateStatus == kubeprovider.CertificateIssued && !sameEventTime(route.CertificateNotAfter, snapshot.NotAfter)
+	if route.CertificateStatus == status && !renewed {
+		return
+	}
+	if renewed {
+		status = "renewed"
+	}
+	route.CertificateStatus = snapshot.Phase
+	route.CertificateMessage = snapshot.Message
+	route.CertificateNotAfter = snapshot.NotAfter
+	route.CertificateIssuerKind = gatewayCertificateIssuerKind(cluster)
+	route.CertificateIssuerName = gatewayCertificateIssuerName(cluster, r.certManagerClusterIssuer)
+	r.emitCertificateEvent(ctx, route, status, snapshot.Message)
+}
+
+func sameEventTime(left *time.Time, right *time.Time) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.Equal(*right)
 }
 
 func (r *Runner) syncReleaseRuntimeStatus(ctx context.Context) error {

@@ -24,6 +24,7 @@ const accessTokens = {
     registry: '镜像站',
     image: '镜像',
     billing: '账单',
+    event: '事件',
     user: '用户',
     system: '系统管理',
   },
@@ -84,6 +85,9 @@ const accessTokens = {
     billing: {
       read: '读取账单',
       write: '调整账单',
+    },
+    event: {
+      read: '读取事件',
     },
     user: {
       read: '读取用户信息',
@@ -158,6 +162,9 @@ const accessTokens = {
     billing: {
       read: '读取余额、账单流水和用量记录。',
       write: '创建充值、补偿或外部账单写入。',
+    },
+    event: {
+      read: '读取当前用户有权访问的项目空间事件。',
     },
     user: {
       read: '读取当前用户基础信息。',

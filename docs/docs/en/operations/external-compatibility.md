@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-01.
 
-This page documents the external APIs and platform components that the current Liteyuki DevOps codebase integrates with. "Supported range" means the range that should be prioritized for validation with the current implementation. "Recommended version" is the preferred choice for new deployments or troubleshooting. SaaS platforms are documented by their current public API because there is no installable server version.
+This page is based on the external APIs the platform actually calls. Use it before installation, upgrades, or troubleshooting to choose a practical version range. “Supported range” is what the current implementation prioritizes for validation, while “Recommended version” is the safer choice for a new deployment. For SaaS products such as GitHub.com and Docker Hub, the current public API is the compatibility boundary because there is no installable server version.
 
 ## Compatibility overview
 
@@ -58,7 +58,7 @@ Compose and Helm defaults use `postgres:17-alpine` and `redis:8-alpine`. When us
 
 ## Upgrade smoke tests
 
-When upgrading external components, run at least these smoke tests:
+After upgrading an external component, run at least these smoke tests. A successful connection check alone is not enough:
 
 1. GitHub/Gitea: OAuth login, repository list, branch list, Dockerfile read, webhook create or reconfigure.
 2. Registry: connection test, repository search, tag listing, build push, runtime image pull.

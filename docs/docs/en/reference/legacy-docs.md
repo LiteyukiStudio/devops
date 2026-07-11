@@ -1,8 +1,8 @@
 # Legacy Docs
 
-Previous product plans, code health SOPs, and scenario test records moved to `notes/`.
+Early product plans, code-health SOPs, and scenario test records are still available, but they are no longer presented as end-user instructions. Use the repository's `notes/` directory when you need the design background, historical decisions, or original test process.
 
-## Current files
+## What Historical Material Is Available
 
 | File | Purpose |
 | --- | --- |
@@ -11,4 +11,4 @@ Previous product plans, code health SOPs, and scenario test records moved to `no
 | `notes/场景模拟.md` | Core user scenarios and acceptance paths. |
 | `notes/场景测试问题记录.md` | Issues, fixes, and retest records from scenario tests. |
 
-These files remain part of the project knowledge base. Stable content will gradually move into user-facing docs pages.
+These files remain part of the project knowledge base. Stable information that belongs in public guidance will continue moving into the docs site, while process notes and historical discussions stay under `notes/`.

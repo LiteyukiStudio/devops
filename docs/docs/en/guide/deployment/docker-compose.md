@@ -1,10 +1,10 @@
 # Docker Compose Deployment
 
-Docker Compose is the quickest way to start Liteyuki DevOps. Use it for personal servers, test environments, and small-team trials.
+Docker Compose is the quickest way to try Liteyuki DevOps on a personal server, in a test environment, or with a small team. It starts every required service together, so PostgreSQL and Redis do not need to be installed separately.
 
 If you want the platform itself to run in Kubernetes, start with [Kubernetes (Helm)](/en/guide/deployment/kubernetes-helm).
 
-## Prepare
+## Before You Start
 
 You need:
 
@@ -36,7 +36,7 @@ Run this from the repository root:
 docker compose up -d
 ```
 
-This starts PostgreSQL, Redis, API, and worker. The API image already embeds the web console, so you do not need to start Vite separately.
+This starts PostgreSQL, Redis, API, and Worker. The API image already embeds the web console, so you do not need to start Vite separately.
 
 To build images from the current source tree:
 
@@ -62,7 +62,7 @@ docker compose logs -f api
 docker compose logs -f worker
 ```
 
-When API is healthy, the console opens in the browser. When worker is healthy, builds, deployments, and status sync can run.
+When API is healthy, the console opens in the browser. Worker must also be healthy for builds, deployments, and status sync to run. If the page opens but tasks never start, check the Worker logs first.
 
 ## Next
 

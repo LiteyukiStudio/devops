@@ -92,6 +92,8 @@ func TestRequiredAccessTokenScopeUsesFineGrainedProjectRoutes(t *testing.T) {
 		{"/api/v1/projects/:projectId/releases/:releaseId/rollback", "POST", string(ActionDeploymentRollback)},
 		{"/api/v1/projects/:projectId/gateway-routes", "POST", string(ActionGatewayManage)},
 		{"/api/v1/projects/:projectId/repository-bindings", "POST", string(ActionGitWrite)},
+		{"/api/v1/events", "GET", string(ActionEventRead)},
+		{"/api/v1/events/:eventId", "GET", string(ActionEventRead)},
 	}
 
 	for _, test := range tests {

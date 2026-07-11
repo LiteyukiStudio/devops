@@ -8,12 +8,13 @@ import (
 
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/platformevent"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
 
-var defaultFailureEventTypes = []string{"build.failed", "release.failed", "hook.failed", "gateway.apply_failed"}
+var defaultFailureEventTypes = []string{"build.failed", "release.failed", "hook.failed", "gateway.apply_failed", "certificate.failed", "certificate.expired"}
 
 type DeliveryEnqueuer interface {
 	EnqueueNotificationDeliver(ctx context.Context, payload tasks.NotificationDeliverPayload) (*asynq.TaskInfo, error)
@@ -36,6 +37,29 @@ func (s Service) Emit(ctx context.Context, event Event) ([]model.NotificationDel
 		return nil, nil
 	}
 	event = normalizeEvent(event)
+	resourceType, resourceID := platformevent.ResourceForType(event.Type, event.Build.ID, event.Release.ID, event.Hook.ID, event.Gateway.ID, event.Certificate.RouteID)
+	storedEvent, _, err := (platformevent.Service{DB: s.DB}).Record(ctx, platformevent.RecordInput{
+		ID:                 event.ID,
+		Type:               event.Type,
+		Severity:           event.Severity,
+		ProjectID:          event.Project.ID,
+		ApplicationID:      event.Application.ID,
+		DeploymentTargetID: event.DeploymentTarget.ID,
+		ResourceType:       resourceType,
+		ResourceID:         resourceID,
+		ActorID:            event.Actor.ID,
+		Message:            event.Message,
+		Detail:             event,
+		Links:              event.Links,
+		CorrelationID:      event.CorrelationID,
+		TraceID:            event.TraceID,
+		DedupKey:           event.DedupKey,
+		OccurredAt:         event.OccurredAt,
+	})
+	if err != nil {
+		return nil, err
+	}
+	event.ID = storedEvent.ID
 	eventData, err := json.Marshal(event)
 	if err != nil {
 		return nil, err
@@ -66,6 +90,15 @@ func (s Service) Emit(ctx context.Context, event Event) ([]model.NotificationDel
 			return nil, err
 		}
 		for _, channel := range channels {
+			var existingCount int64
+			if err := s.DB.Model(&model.NotificationDelivery{}).
+				Where("event_id = ? and rule_id = ? and channel_id = ?", event.ID, rule.ID, channel.ID).
+				Count(&existingCount).Error; err != nil {
+				return deliveries, err
+			}
+			if existingCount > 0 {
+				continue
+			}
 			template := model.NotificationTemplate{}
 			templateID := strings.TrimSpace(rule.TemplateID)
 			if templateID != "" {

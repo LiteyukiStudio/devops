@@ -1,10 +1,16 @@
 # Status and Troubleshooting
 
-Liteyuki DevOps keeps build, release, route, and runtime state close together. When something fails, first locate the stage.
+Do not start by retrying everything. First decide whether the failure is in build, release, application runtime, or the access route, then inspect the matching record. Liteyuki DevOps keeps those stages close together so you can follow the same delivery context.
+
+## Start with the event center
+
+When the first question is "what just happened?", open **Events** from the sidebar. It presents build, release, deployment hook, access-route, and certificate state changes in time order.
+
+Filter by project space, application, deployment target, category, severity, result, and time range. Event details show the failure summary, related resources, actor, and direct links to the relevant build, release, or access page. Regular users only see events from project spaces they can access. Platform administrators can switch between **Related to me** and **All events**.
 
 ## Build did not succeed
 
-Check the build record:
+Open the failed build record and check:
 
 - Dockerfile path.
 - Build context.
@@ -17,7 +23,7 @@ If Git and registry connections are not ready yet, deploy an existing image firs
 
 ## Release did not succeed
 
-Check Release status and deployment logs:
+Open the Release status and deployment logs, then check:
 
 - Image exists.
 - Runtime cluster is reachable.
@@ -27,7 +33,7 @@ Check Release status and deployment logs:
 
 ## Route is not reachable
 
-Check:
+Check in this order:
 
 - Domain resolves to the right entrypoint.
 - Gateway API CRDs are installed, and GatewayClass/Gateway exist.

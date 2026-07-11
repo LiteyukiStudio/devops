@@ -5,7 +5,7 @@ pageType: home
 hero:
   name: Liteyuki DevOps
   text: Code once, deploy anywhere.
-  tagline: Start the platform first, then ship your project. Builds, releases, routes, and status stay in one clear path.
+  tagline: Deploy your projects in a few clear steps with a DevOps platform built for small teams and businesses.
   actions:
     - theme: brand
       text: Get Started
@@ -18,18 +18,18 @@ hero:
     alt: Liteyuki DevOps mascot
 features:
   - title: Kubernetes (Helm)
-    details: Use Helm to start API, worker, PostgreSQL, and Redis in Kubernetes or K3s.
+    details: Already running Kubernetes or K3s? Install API, Worker, PostgreSQL, and Redis together with Helm.
     link: /guide/deployment/kubernetes-helm
   - title: Docker Compose
-    details: Run docker compose up -d to start PostgreSQL, Redis, API, and worker on one machine.
+    details: Want to try it on one machine first? Start the complete platform with one docker compose up -d.
     link: /guide/deployment/docker-compose
   - title: Deploy a web project
-    details: Follow project space, application, deployment target, build, Release, and route to publish the example project.
+    details: Follow one complete example from project space and image build to release and public domain.
     link: /operations/deploy-web-project
   - title: Connect external systems
-    details: Configure runtime clusters, registries, Git providers, and secrets separately. Start small, then enable automation.
+    details: Connect a runtime cluster and registry first, verify deployment, and add Git automation when you are ready.
     link: /guide/workspace
   - title: Troubleshoot failed states
-    details: Use build logs, Release logs, cluster events, and route checks to find where the delivery path failed.
+    details: Work through build, release, cluster, and route checks to find where a failure started.
     link: /operations/diagnostics
 ---

@@ -1,8 +1,8 @@
 # Kubernetes (Helm) Deployment
 
-If the platform itself should run in Kubernetes or K3s, use Helm. The chart creates API, worker, PostgreSQL, and Redis.
+For a long-running Liteyuki DevOps installation on Kubernetes or K3s, use Helm. The chart deploys API, Worker, PostgreSQL, and Redis together, and it can also connect to existing external database services.
 
-## Prepare
+## Before You Start
 
 You need:
 
@@ -54,7 +54,7 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
   --set worker.image.tag=v0.1.0-rc.1
 ```
 
-## Configure A Public Domain
+## Access the Console Through a Public Domain
 
 When exposing the console with Ingress, set `app.publicBaseUrl` to the real browser-facing URL:
 
@@ -72,7 +72,7 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 
 ## Use External PostgreSQL Or Redis
 
-The built-in database is good for getting started. For production, you can use managed services:
+The built-in services are convenient for getting started. If production already has managed PostgreSQL or Redis, disable the matching built-in component:
 
 ```yaml
 postgresql:
@@ -112,7 +112,7 @@ helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
 helm uninstall liteyuki-devops -n liteyuki-devops
 ```
 
-PVCs are retained by default. To remove data:
+PVCs are retained by default to prevent accidental data loss. Remove them manually only after confirming the data is no longer needed:
 
 ```bash
 kubectl -n liteyuki-devops delete pvc -l app.kubernetes.io/instance=liteyuki-devops

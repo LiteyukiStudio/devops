@@ -1,6 +1,6 @@
-# Development Rules
+# Read This Before Contributing
 
-## Basics
+## Before changing code
 
 - Read existing code and docs before editing.
 - Do not commit, push, or switch branches unless explicitly requested.
@@ -26,13 +26,13 @@
 - External platform capabilities are adapted through backend providers, services, and APIs. The frontend must not orchestrate third-party APIs.
 - Long-running work goes to workers, not synchronous HTTP requests.
 
-## Verification
+## How to verify a change
 
-Use targeted checks for small changes. Run full verification, preferably with browser acceptance, when a change spans multiple domains, authentication, permissions, secrets, database migrations, or deployment runtime behavior.
+Run only the directly relevant checks for a small change. When work crosses business domains or touches authentication, authorization, secrets, migrations, or deployment runtime, run the complete verification set and, whenever possible, walk through the real interaction in a browser.
 
 ## Documentation experience
 
-Docs should reduce user effort. When writing docs, answer:
+Documentation should save users from unnecessary work. Start by answering:
 
 - What is the user trying to finish now?
 - What is the shortest path?

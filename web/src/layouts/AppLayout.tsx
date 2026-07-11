@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ActivitySquare, Bell, Container, CreditCard, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, PackageOpen, Server, Settings, ShieldCheck, Users } from 'lucide-react'
+import { ActivitySquare, Bell, CalendarClock, Container, CreditCard, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, PackageOpen, Server, Settings, ShieldCheck, Users } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -38,6 +38,7 @@ const navSections = [
   {
     titleKey: 'DevOps',
     items: [
+      { to: '/events', labelKey: 'events', icon: CalendarClock },
       { to: '/code-repositories', labelKey: 'codeRepositories', icon: GitBranch },
       { to: '/app-templates', labelKey: 'appTemplates', icon: PackageOpen },
       { to: '/registries', labelKey: 'registries', icon: Container },
@@ -70,6 +71,7 @@ const pageMetaRules = [
   { match: (pathname: string) => /^\/projects\/[^/]+\/apps$/.test(pathname), titleKey: 'apps.title', descriptionKey: 'apps.description' },
   { match: (pathname: string) => /^\/projects\/[^/]+$/.test(pathname), titleKey: 'projectSpaces.workspaceTitle', descriptionKey: 'projectSpaces.workspaceDescription' },
   { match: (pathname: string) => pathname === '/projects', titleKey: 'projectSpaces.title', descriptionKey: 'projectSpaces.description' },
+  { match: (pathname: string) => pathname === '/events', titleKey: 'eventsPage.title', descriptionKey: 'eventsPage.description' },
   { match: (pathname: string) => pathname === '/app-templates', titleKey: 'appTemplates', descriptionKey: 'appTemplatesPage.description' },
   { match: (pathname: string) => pathname === '/code-repositories', titleKey: 'codeRepositories', descriptionKey: 'codeRepositoriesPage.description' },
   { match: (pathname: string) => pathname === '/registries', titleKey: 'registries', descriptionKey: 'registriesPage.description' },

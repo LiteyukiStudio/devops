@@ -1,9 +1,35 @@
-# Deploy The Platform
+# Deploy the Platform
 
-Deployment docs are now split into three entries:
+Choose the deployment path that matches your environment:
 
 - [Kubernetes (Helm)](/en/guide/deployment/kubernetes-helm)
 - [Docker Compose](/en/guide/deployment/docker-compose)
 - [Binary](/en/guide/deployment/binary)
 
-Prefer Kubernetes (Helm) or Docker Compose for normal usage. Binary deployment is only for debugging, offline troubleshooting, or special environment validation.
+Use Kubernetes (Helm) or Docker Compose for normal installations. Run the binaries directly only for debugging, offline troubleshooting, or unusual environments.
+
+## Optional: enable metrics
+
+Metrics listeners are disabled by default. Enable them only when Prometheus needs to scrape API and Worker metrics:
+
+```bash
+METRICS_ENABLED=true
+```
+
+The API then listens on `:9090/metrics`, while the Worker uses `:9091/metrics`. Set `METRICS_ADDR` or `METRICS_PATH` only when you need different ports or paths.
+
+Helm can also create metrics Services, a ServiceMonitor, and the Grafana dashboard ConfigMap:
+
+```bash
+helm upgrade --install liteyuki-devops ./charts/liteyuki-devops \
+  --set metrics.enabled=true \
+  --set metrics.service.enabled=true \
+  --set metrics.serviceMonitor.enabled=true \
+  --set metrics.grafanaDashboard.enabled=true
+```
+
+The dashboard source is `charts/liteyuki-devops/dashboards/liteyuki-devops-overview.json`, and it can also be imported directly into Grafana.
+
+To show a Grafana dashboard inside the DevOps console, a platform administrator can set the Operations Dashboard URL in Site Settings. Use a Grafana dashboard or panel iframe URL, and enable iframe embedding in Grafana.
+
+Grafana, Prometheus queries, OpenTelemetry, Loki, and Alertmanager all connect to real external services, so the platform cannot guess useful defaults. Configure an endpoint or base URL before enabling each integration.

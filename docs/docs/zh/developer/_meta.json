@@ -11,6 +11,11 @@
   },
   {
     "type": "file",
+    "name": "event-center-design",
+    "label": "事件中心设计"
+  },
+  {
+    "type": "file",
     "name": "docs-site",
     "label": "文档站维护"
   }

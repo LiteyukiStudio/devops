@@ -1,0 +1,31 @@
+package platformevent
+
+type CatalogEntry struct {
+	Type              string `json:"type"`
+	Category          string `json:"category"`
+	DefaultSeverity   string `json:"defaultSeverity"`
+	RecommendedNotify bool   `json:"recommendedNotify"`
+}
+
+var catalog = []CatalogEntry{
+	{Type: "build.started", Category: "build", DefaultSeverity: "info"},
+	{Type: "build.succeeded", Category: "build", DefaultSeverity: "info"},
+	{Type: "build.failed", Category: "build", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "release.started", Category: "release", DefaultSeverity: "info"},
+	{Type: "release.succeeded", Category: "release", DefaultSeverity: "info"},
+	{Type: "release.failed", Category: "release", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "hook.started", Category: "hook", DefaultSeverity: "info"},
+	{Type: "hook.succeeded", Category: "hook", DefaultSeverity: "info"},
+	{Type: "hook.failed", Category: "hook", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "gateway.applied", Category: "gateway", DefaultSeverity: "info"},
+	{Type: "gateway.apply_failed", Category: "gateway", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "certificate.pending", Category: "certificate", DefaultSeverity: "warning"},
+	{Type: "certificate.issued", Category: "certificate", DefaultSeverity: "info"},
+	{Type: "certificate.renewed", Category: "certificate", DefaultSeverity: "info"},
+	{Type: "certificate.failed", Category: "certificate", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "certificate.expired", Category: "certificate", DefaultSeverity: "error", RecommendedNotify: true},
+}
+
+func Catalog() []CatalogEntry {
+	return append([]CatalogEntry(nil), catalog...)
+}

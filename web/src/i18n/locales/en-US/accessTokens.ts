@@ -30,6 +30,7 @@ const accessTokens = {
     registry: 'Registries',
     image: 'Images',
     billing: 'Billing',
+    event: 'Events',
     user: 'Users',
     system: 'System',
   },
@@ -90,6 +91,9 @@ const accessTokens = {
     billing: {
       read: 'Read billing',
       write: 'Adjust billing',
+    },
+    event: {
+      read: 'Read events',
     },
     user: {
       read: 'Read users',
@@ -164,6 +168,9 @@ const accessTokens = {
     billing: {
       read: 'Read balances, ledger entries, and usage records.',
       write: 'Create top-ups, compensation, or external billing events.',
+    },
+    event: {
+      read: 'Read events from project spaces available to the current user.',
     },
     user: {
       read: 'Read current user metadata.',

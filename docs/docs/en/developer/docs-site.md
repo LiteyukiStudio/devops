@@ -1,4 +1,4 @@
-# Docs Site
+# Maintaining the Docs Site
 
 The docs site uses Rspress 2 and lives in `docs/`.
 
@@ -23,7 +23,7 @@ docs/
     en/
 ```
 
-`zh/` and `en/` should stay structurally aligned so bilingual maintenance remains simple.
+`zh/` and `en/` use the same directory structure. Add, remove, or move pages in both languages together.
 
 ## Assets
 
@@ -34,8 +34,8 @@ Assets come from the main frontend brand resources and are published as static d
 
 ## Writing style
 
-- For users, explain what to do before explaining why it is designed that way.
+- On user-facing pages, explain what to do now before explaining why the design works that way.
 - Commands should be directly copyable.
 - Start pages should help users deploy first; Use pages explain product capabilities; Develop pages cover code and contribution workflows.
 - Dangerous operations must state their impact.
-- Friendly is welcome, but accuracy comes first.
+- Keep sentences short and avoid internal project-report language. A friendly tone is welcome, but accuracy still comes first.

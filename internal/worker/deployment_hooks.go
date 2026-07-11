@@ -67,6 +67,7 @@ func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release m
 		if err := r.db.Create(&hookRun).Error; err != nil {
 			return err
 		}
+		r.emitHookEvent(ctx, hookRun, "started", "Hook started")
 		r.appendReleaseLog(release, fmt.Sprintf("执行 %s Hook: %s", phase, config.Name))
 		result, err := manager.RunHookJob(ctx, kubeprovider.HookJobSpec{
 			Name:               hookJobName(hookRun),
@@ -110,12 +111,10 @@ func (r *Runner) runDeploymentHooks(ctx context.Context, phase string, release m
 		}).Error; updateErr != nil {
 			return updateErr
 		}
-		if !result.Succeeded {
-			hookRun.Status = "failed"
-			hookRun.Message = result.Message
-			hookRun.FinishedAt = &finishedAt
-			r.emitHookFailed(ctx, hookRun, result.Message)
-		}
+		hookRun.Status = status
+		hookRun.Message = result.Message
+		hookRun.FinishedAt = &finishedAt
+		r.emitHookEvent(ctx, hookRun, status, result.Message)
 		if result.Logs != "" {
 			r.appendReleaseLog(release, result.Logs)
 		}

@@ -11,6 +11,11 @@
   },
   {
     "type": "file",
+    "name": "event-center-design",
+    "label": "Event Center Design"
+  },
+  {
+    "type": "file",
     "name": "docs-site",
     "label": "Docs Site"
   }

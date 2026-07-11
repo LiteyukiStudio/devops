@@ -1,8 +1,8 @@
-# Startup Troubleshooting
+# Platform Startup Problems
 
-This page covers the most common Docker Compose startup issues. Deeper build and cluster issues are covered in the Use section.
+This page covers the Docker Compose problems most likely to block the platform from starting. For application builds or Kubernetes runtime failures, continue with the troubleshooting guide under Use.
 
-## Verify a specific image tag
+## Run a specific image tag
 
 The default `docker-compose.yaml` uses the `nightly` images. To verify an RC or stable release, set `DEVOPS_IMAGE_TAG` before starting:
 
@@ -33,7 +33,7 @@ ports:
 
 Then visit `http://localhost:8089`.
 
-## Page opens but API calls fail
+## The page opens, but API calls fail
 
 Check API logs:
 
@@ -55,4 +55,4 @@ Check worker logs:
 docker compose logs -f worker
 ```
 
-The worker handles builds, deployments, and status sync. You can browse the console with only the API running, but release workflows need the worker.
+The Worker handles builds, deployments, and status synchronization. The API alone is enough to browse the console, but the Worker must stay healthy before you can build or release an application.

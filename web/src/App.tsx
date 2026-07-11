@@ -13,6 +13,7 @@ const BootstrapPage = lazyNamed(() => import('./pages/bootstrap/BootstrapPage'),
 const ClustersPage = lazyNamed(() => import('./pages/clusters/ClustersPage'), 'ClustersPage')
 const CodeRepositoriesPage = lazyNamed(() => import('./pages/code-repositories/CodeRepositoriesPage'), 'CodeRepositoriesPage')
 const DashboardPage = lazyNamed(() => import('./pages/dashboard/DashboardPage'), 'DashboardPage')
+const EventsPage = lazyNamed(() => import('./pages/events/EventsPage'), 'EventsPage')
 const LoginPage = lazyNamed(() => import('./pages/login/LoginPage'), 'LoginPage')
 const NotificationsPage = lazyNamed(() => import('./pages/settings/NotificationsPage'), 'NotificationsPage')
 const OperationsDashboardPage = lazyNamed(() => import('./pages/settings/OperationsDashboardPage'), 'OperationsDashboardPage')
@@ -33,6 +34,7 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/events" element={<EventsPage />} />
             <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
             <Route path="/projects/:projectId/members" element={<ProjectRootRedirect />} />
             <Route path="/projects/:projectId/apps" element={<ProjectRootRedirect />} />

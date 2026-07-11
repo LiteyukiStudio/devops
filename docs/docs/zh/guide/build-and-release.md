@@ -1,8 +1,8 @@
-# 常见启动问题
+# 平台启动问题
 
-这里先放 Docker Compose 部署最常见的问题。复杂的构建和集群问题放在“使用”里慢慢查。
+这里处理 Docker Compose 启动时最常见的几类问题。应用构建或 Kubernetes 运行异常，请继续看“使用”部分的排障文档。
 
-## 想验证指定镜像版本
+## 使用指定版本的镜像
 
 默认 `docker-compose.yaml` 使用 `nightly` 镜像。验证 RC 或稳定版本时，在启动命令前设置 `DEVOPS_IMAGE_TAG`：
 
@@ -33,7 +33,7 @@ ports:
 
 然后访问 `http://localhost:8089`。
 
-## 页面打开但接口失败
+## 页面能打开，但接口请求失败
 
 先查看 API 日志：
 
@@ -55,4 +55,4 @@ docker compose ps
 docker compose logs -f worker
 ```
 
-worker 负责构建、部署和状态同步。只浏览控制台时 API 可以先跑起来；要测试发布链路时，worker 必须正常运行。
+Worker 负责构建、部署和状态同步。只有 API 运行时可以浏览控制台，但要真正构建和发布应用，Worker 也必须保持正常。

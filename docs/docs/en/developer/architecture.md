@@ -1,10 +1,10 @@
-# Local Development
+# Local Development Guide
 
-Development mode is for changing code, debugging APIs, and validating UI interactions. If you only want to deploy the platform, start with the Docker Compose quick deploy page.
+Use this setup when changing code, debugging APIs, or checking frontend interactions. If you only want to try the platform, follow the Docker Compose guide under Start instead.
 
 ## Recommended topology
 
-For daily development:
+For day-to-day work, split the processes like this:
 
 - PostgreSQL, Redis, and worker run through `docker-compose-dev.yaml`.
 - API runs on the host for Go debugging.
@@ -27,7 +27,7 @@ pnpm --dir web dev
 - `internal/provider`: adapters for Git, registries, Kubernetes, DNS, and other external platforms.
 - `internal/worker`: async task runners.
 
-Handlers parse parameters and shape responses. Business logic belongs in services, data access in repositories, and external systems in providers. New authorization checks should reuse the actions and role matrix in `internal/authz` instead of adding more hard-coded role lists in handlers.
+Handlers receive input, enter authorization, and write responses. Put business rules in services, database access in repositories, and Git, Registry, or Kubernetes calls in providers. New authorization checks should reuse the actions and role matrix in `internal/authz` instead of repeating role checks across handlers.
 
 ## Frontend entry points
 

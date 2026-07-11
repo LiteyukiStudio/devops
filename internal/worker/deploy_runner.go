@@ -51,6 +51,9 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 		if err := r.db.Model(&release).Updates(map[string]any{"status": "running", "started_at": &now}).Error; err != nil {
 			return err
 		}
+		release.Status = "running"
+		release.StartedAt = &now
+		r.emitReleaseEvent(ctx, release, "started", "Release started")
 	}
 	r.appendReleaseLog(release, fmt.Sprintf("开始部署 release=%s application=%s target=%s image=%s", release.ID, application.Slug, deploymentTarget.Name, release.ImageRef))
 
@@ -373,9 +376,7 @@ func (r *Runner) finishDeployRelease(release model.Release, status string, messa
 		release.Message = firstNonEmpty(message, "Deployment "+status)
 		release.FinishedAt = &finishedAt
 		r.recordReleaseMetrics(release)
-		if status == "failed" {
-			r.emitReleaseFailed(context.Background(), release, message)
-		}
+		r.emitReleaseEvent(context.Background(), release, status, message)
 	}
 	return err
 }

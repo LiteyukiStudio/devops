@@ -1,6 +1,6 @@
-# Initialize Console
+# First Time in the Console
 
-After the platform starts, complete the smallest useful setup. The goal is not to configure every integration at once. The goal is to sign in, create a project space, and continue to runtime setup.
+After the platform starts, complete the few settings you actually need. There is no need to connect every external system at once. If you can sign in and create a project space, you are ready to prepare a runtime.
 
 ## Sign in or bootstrap
 
@@ -12,11 +12,11 @@ If you switch to production mode, visit this page the first time:
 http://localhost:8088/bootstrap
 ```
 
-Use it to create the first administrator account.
+Create the first administrator account on this page.
 
 ## Create the first project space
 
-A project space is a workspace for teams, applications, deployment targets, and runtime resources.
+A project space keeps the applications, members, and runtime settings for one product or team together. Think of it as that product's workspace inside the platform.
 
 Suggested first values:
 
@@ -30,13 +30,13 @@ The project space list defaults to spaces related to the current user. Platform 
 
 ## Create the first application
 
-An application represents a deployable service. For the first run, create an empty application:
+An application represents one independently deployable service. For the first run, create a basic application:
 
 - Fill in name.
 - Fill in a short lowercase slug.
 - Leave runtime details for later.
 
-Service port, image, Dockerfile, environment variables, and data volumes are maintained in deployment targets, not in the application metadata form.
+Service ports, image settings, Dockerfile paths, environment variables, and data volumes belong to deployment targets. The application profile only keeps the name, slug, and icon.
 
 ## Next
 

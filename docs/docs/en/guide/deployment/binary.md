@@ -1,10 +1,10 @@
 # Binary Deployment
 
-Binary deployment is useful for debugging, offline troubleshooting, or special environment validation. It is not the recommended deployment method. For normal usage, prefer [Kubernetes (Helm)](/en/guide/deployment/kubernetes-helm) or [Docker Compose](/en/guide/deployment/docker-compose).
+Run the binaries directly only for debugging, offline troubleshooting, or unusual environment validation. For regular use, prefer [Kubernetes (Helm)](/en/guide/deployment/kubernetes-helm) or [Docker Compose](/en/guide/deployment/docker-compose).
 
-The reason is practical: with binaries, you maintain PostgreSQL, Redis, process supervision, logs, upgrades, and static web assets yourself. Containerized deployment removes much of that work.
+With binaries, PostgreSQL, Redis, process supervision, logs, and upgrades are all your responsibility. Containerized deployment already handles much of that repeated work.
 
-## Prepare
+## Before You Start
 
 You need:
 
@@ -65,7 +65,7 @@ The worker handles builds, deployments, status sync, certificate issuance, and c
 
 ## Example systemd Shape
 
-This is only a template. Adjust paths and environment variables for your server:
+Use this as a starting point rather than a universal production file. Adjust paths and environment variables for your server:
 
 ```ini
 [Unit]

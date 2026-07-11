@@ -176,6 +176,7 @@ func Migrate(db *gorm.DB) error {
 		&model.NotificationTemplate{},
 		&model.NotificationRule{},
 		&model.NotificationDelivery{},
+		&model.PlatformEvent{},
 		&model.AppConfig{},
 	); err != nil {
 		return err

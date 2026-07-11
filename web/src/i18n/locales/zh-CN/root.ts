@@ -2,6 +2,7 @@ const root = {
   appName: 'Liteyuki DevOps',
   dashboard: '看板',
   projects: '项目空间',
+  events: '事件',
   applications: '应用',
   codeRepositories: '代码库',
   appTemplates: '应用市场',

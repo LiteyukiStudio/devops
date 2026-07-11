@@ -15,6 +15,7 @@ import dashboardPage from './en-US/dashboardPage'
 import debugPanel from './en-US/debugPanel'
 import deploymentsPage from './en-US/deploymentsPage'
 import errors from './en-US/errors'
+import eventsPage from './en-US/eventsPage'
 import gatewayRoutesPage from './en-US/gatewayRoutesPage'
 import languages from './en-US/languages'
 import loginPage from './en-US/loginPage'
@@ -42,6 +43,7 @@ const enUS = {
   common,
   time,
   errors,
+  eventsPage,
   pagination,
   operationsDashboardPage,
   debugPanel,

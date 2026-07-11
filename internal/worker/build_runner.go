@@ -112,6 +112,10 @@ func (r *Runner) handleBuildRun(ctx context.Context, task *asynq.Task) error {
 	}).Error; err != nil {
 		return err
 	}
+	run.Status = "running"
+	run.ImageRef = taskPayload.Registry.ImageRef
+	run.StartedAt = &now
+	r.emitBuildEvent(ctx, run, "started", "Build started")
 
 	result, err := r.followBuildJob(ctx, client, namespace, jobName, job, run, taskPayload.Build.Hooks, resolved.SensitiveValues)
 	if err != nil {
@@ -132,6 +136,7 @@ func (r *Runner) handleBuildRun(ctx context.Context, task *asynq.Task) error {
 	}
 	r.settleBuildUsage(job.ID, run.ID, run.ProjectID, environment)
 	if completedRun.ID != "" {
+		r.emitBuildEvent(ctx, completedRun, "succeeded", "Build succeeded")
 		r.enqueueAutoDeploymentsForBuildRun(ctx, completedRun)
 	}
 	return nil

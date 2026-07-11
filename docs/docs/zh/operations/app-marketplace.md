@@ -1,8 +1,8 @@
 # 应用市场
 
-应用市场用于把常见基础设施按模板安装到项目空间。第一版内置 Redis、Valkey、Memcached、PostgreSQL、MySQL、MariaDB、MongoDB、RabbitMQ、Garage、Prometheus、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry、pgAdmin4、Meilisearch 和 Bytebase，适合快速准备缓存、数据库、消息队列、对象存储、监控和小团队工具。
+不想从空白部署数据库、缓存或监控工具时，可以直接从应用市场选择模板安装到项目空间。内置模板包括 Redis、Valkey、Memcached、PostgreSQL、MySQL、MariaDB、MongoDB、RabbitMQ、Garage、Prometheus、Grafana、Uptime Kuma、Memos、IT-Tools、Excalidraw、Verdaccio、Docker Registry、pgAdmin4、Meilisearch 和 Bytebase，覆盖缓存、数据库、消息队列、对象存储、监控和常用小团队工具。
 
-应用市场也可以承载少量平台组件模板。平台组件只允许平台管理员安装，会进入平台自有项目空间 `platform-system`，并像普通应用一样创建应用、部署配置和 Release；平台自有项目空间仅平台管理员可见，不允许删除，也不会参与用户项目账单。当前内置的 `Liteyuki Gateway Traffic Probe` 用于可选开启访问流量计费采集。
+应用市场也提供少量平台组件模板。它们只允许平台管理员安装，会进入平台自有项目空间 `platform-system`，并像普通应用一样创建应用、部署配置和 Release。这个空间只有平台管理员能看到，不能删除，也不会计入用户项目账单。内置的 `Liteyuki Gateway Traffic Probe` 用于按需开启访问流量计费采集。
 
 模板安装会创建：
 
@@ -42,8 +42,8 @@ Gateway Traffic Probe 作为独立镜像 `liteyukistudio/devops-gateway-traffic-
 
 模板列表支持按分类筛选、按模板名称、镜像、官网或仓库搜索，也可以按热度权重或名称排序。当前内置模板暂不收录 PHP 应用，例如 Adminer 和 phpMyAdmin。
 
-## 当前限制
+## 使用边界
 
-MVP 模板只支持镜像默认启动即可运行的应用。Prometheus 当前提供抓取自身 `/metrics` 的最小配置，Grafana 和 Prometheus 仍是独立单应用模板，不会自动创建 Grafana 数据源或发现业务工作负载。Garage 当前作为单节点轻量对象存储模板提供，平台会生成基础配置文件；多节点 layout 初始化、bucket/key 输出和更完整的连接信息会在后续模板 outputs 能力中补齐。
+目前的模板适合使用镜像默认命令即可启动的应用。Prometheus 当前提供抓取自身 `/metrics` 的最小配置，Grafana 和 Prometheus 仍是独立单应用模板，不会自动创建 Grafana 数据源或发现业务工作负载。Garage 当前作为单节点轻量对象存储模板提供，平台会生成基础配置文件；多节点 layout 初始化、bucket/key 输出和更完整的连接信息会在后续模板 outputs 能力中补齐。
 
 应用市场模板来自后端内置 JSON。后续第三方模板市场可以继续复用同一份 schema，由后端负责拉取、校验和缓存。

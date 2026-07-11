@@ -1,10 +1,10 @@
 # Settings and Connections
 
-Settings fall into two groups: public console settings and backend connections to external systems.
+This page explains how the platform connects to Git, registries, and runtime clusters, and which settings affect security or the console. Settings broadly fall into two groups: public site information and backend-only connections to external systems.
 
 ## Public settings
 
-Public settings affect what users see:
+Public settings control what users see:
 
 - Site title.
 - Logo and favicon.
@@ -27,11 +27,11 @@ Git providers connect GitHub or Gitea. After setup, users can bind repositories,
 
 Deleting a Git provider also deletes all Git credentials that belong to it. Confirm that repository bindings and build flows no longer depend on those credentials before deleting.
 
-If you only want to test deployment first, skip Git providers and use an existing image.
+If you only want to verify the deployment path, skip Git providers and start with an existing image. Connect the repository after the application runs successfully so early failures are easier to isolate.
 
 ## Registries
 
-Registries store or provide images. Common choices include Harbor, Gitea Registry, DockerHub, and generic OCI / Docker Registry.
+Registries store build output and provide the images pulled by runtime clusters. Common choices include Harbor, Gitea Registry, DockerHub, and generic OCI / Docker Registry.
 
 Generic OCI registries use the standard Docker Registry HTTP API V2: the platform tests `/v2/`, searches repositories with `_catalog`, and reads tags with `tags/list`. Some registries disable catalog listing; in that case search may be unavailable, but users can still enter the repository path and tag manually.
 

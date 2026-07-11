@@ -19,53 +19,71 @@ func (r *Runner) emitNotificationEvent(ctx context.Context, event notification.E
 }
 
 func (r *Runner) emitBuildFailed(ctx context.Context, run model.BuildRun, message string) {
+	r.emitBuildEvent(ctx, run, "failed", message)
+}
+
+func (r *Runner) emitBuildEvent(ctx context.Context, run model.BuildRun, status string, message string) {
 	project, application, target := r.notificationContext(run.ProjectID, run.ApplicationID, run.DeploymentTargetID)
 	r.emitNotificationEvent(ctx, notification.Event{
-		Type:             "build.failed",
-		Severity:         notification.SeverityError,
+		Type:             "build." + status,
+		Severity:         notificationSeverity(status),
 		Project:          entityRef(project.ID, project.Name, project.Slug),
 		Application:      entityRef(application.ID, application.Name, application.Slug),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Build: notification.BuildContext{
 			ID:      run.ID,
-			Status:  "failed",
+			Status:  status,
 			Message: strings.TrimSpace(message),
 			Image:   run.ImageRef,
 			GitRef:  firstNonEmpty(run.SourceBranch, run.SourceTag, run.SourceCommit),
 			GitSHA:  run.SourceCommit,
 		},
-		OccurredAt: time.Now(),
-		Links:      r.notificationLinks(run.ProjectID, run.ApplicationID, "builds", "build"),
-		Message:    firstNonEmpty(message, "Build failed"),
+		Actor:         r.notificationActor(run.CreatedBy, run.TriggeredByName, run.TriggeredByEmail),
+		CorrelationID: run.ID,
+		DedupKey:      "build:" + run.ID + ":" + status,
+		OccurredAt:    time.Now(),
+		Links:         r.notificationLinks(run.ProjectID, run.ApplicationID, "builds", "build"),
+		Message:       firstNonEmpty(message, "Build "+status),
 	})
 }
 
 func (r *Runner) emitReleaseFailed(ctx context.Context, release model.Release, message string) {
+	r.emitReleaseEvent(ctx, release, "failed", message)
+}
+
+func (r *Runner) emitReleaseEvent(ctx context.Context, release model.Release, status string, message string) {
 	project, application, target := r.notificationContext(release.ProjectID, release.ApplicationID, release.DeploymentTargetID)
 	r.emitNotificationEvent(ctx, notification.Event{
-		Type:             "release.failed",
-		Severity:         notification.SeverityError,
+		Type:             "release." + status,
+		Severity:         notificationSeverity(status),
 		Project:          entityRef(project.ID, project.Name, project.Slug),
 		Application:      entityRef(application.ID, application.Name, application.Slug),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Release: notification.ReleaseContext{
 			ID:       release.ID,
-			Status:   "failed",
+			Status:   status,
 			Revision: release.Revision,
 			ImageRef: release.ImageRef,
 			Message:  strings.TrimSpace(message),
 		},
-		OccurredAt: time.Now(),
-		Links:      r.notificationLinks(release.ProjectID, release.ApplicationID, "deployments", "release"),
-		Message:    firstNonEmpty(message, "Release failed"),
+		Actor:         r.notificationActor(release.CreatedBy, "", ""),
+		CorrelationID: release.ID,
+		DedupKey:      "release:" + release.ID + ":" + status,
+		OccurredAt:    time.Now(),
+		Links:         r.notificationLinks(release.ProjectID, release.ApplicationID, "deployments", "release"),
+		Message:       firstNonEmpty(message, "Release "+status),
 	})
 }
 
 func (r *Runner) emitHookFailed(ctx context.Context, run model.HookRun, message string) {
+	r.emitHookEvent(ctx, run, "failed", message)
+}
+
+func (r *Runner) emitHookEvent(ctx context.Context, run model.HookRun, status string, message string) {
 	project, application, target := r.notificationContext(run.ProjectID, run.ApplicationID, run.DeploymentTargetID)
 	r.emitNotificationEvent(ctx, notification.Event{
-		Type:             "hook.failed",
-		Severity:         notification.SeverityError,
+		Type:             "hook." + status,
+		Severity:         notificationSeverity(status),
 		Project:          entityRef(project.ID, project.Name, project.Slug),
 		Application:      entityRef(application.ID, application.Name, application.Slug),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
@@ -73,20 +91,26 @@ func (r *Runner) emitHookFailed(ctx context.Context, run model.HookRun, message 
 			ID:      run.ID,
 			Name:    run.Name,
 			Phase:   run.Phase,
-			Status:  "failed",
+			Status:  status,
 			Message: strings.TrimSpace(message),
 		},
-		OccurredAt: time.Now(),
-		Links:      r.notificationLinks(run.ProjectID, run.ApplicationID, "deployments", "hook"),
-		Message:    firstNonEmpty(message, "Hook failed"),
+		CorrelationID: firstNonEmpty(run.ReleaseID, run.BuildRunID, run.ID),
+		DedupKey:      "hook:" + run.ID + ":" + status,
+		OccurredAt:    time.Now(),
+		Links:         r.notificationLinks(run.ProjectID, run.ApplicationID, "deployments", "hook"),
+		Message:       firstNonEmpty(message, "Hook "+status),
 	})
 }
 
 func (r *Runner) emitGatewayApplyFailed(ctx context.Context, route model.GatewayRoute, message string) {
+	r.emitGatewayEvent(ctx, route, "apply_failed", message)
+}
+
+func (r *Runner) emitGatewayEvent(ctx context.Context, route model.GatewayRoute, status string, message string) {
 	project, application, target := r.notificationContext(route.ProjectID, route.ApplicationID, route.DeploymentTargetID)
 	r.emitNotificationEvent(ctx, notification.Event{
-		Type:             "gateway.apply_failed",
-		Severity:         notification.SeverityError,
+		Type:             "gateway." + status,
+		Severity:         notificationSeverity(status),
 		Project:          entityRef(project.ID, project.Name, project.Slug),
 		Application:      entityRef(application.ID, application.Name, application.Slug),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
@@ -94,13 +118,79 @@ func (r *Runner) emitGatewayApplyFailed(ctx context.Context, route model.Gateway
 			ID:      route.ID,
 			Domain:  route.Host,
 			Path:    route.Path,
-			Status:  "failed",
+			Status:  status,
 			Message: strings.TrimSpace(message),
 		},
-		OccurredAt: time.Now(),
-		Links:      r.notificationLinks(route.ProjectID, route.ApplicationID, "gateway", "gateway"),
-		Message:    firstNonEmpty(message, "Gateway route apply failed"),
+		Actor:         r.notificationActor(route.CreatedBy, "", ""),
+		CorrelationID: route.ID,
+		DedupKey:      "gateway:" + route.ID + ":" + status,
+		OccurredAt:    time.Now(),
+		Links:         r.notificationLinks(route.ProjectID, route.ApplicationID, "gateway", "gateway"),
+		Message:       firstNonEmpty(message, "Gateway route "+status),
 	})
+}
+
+func (r *Runner) emitCertificateEvent(ctx context.Context, route model.GatewayRoute, status string, message string) {
+	project, application, target := r.notificationContext(route.ProjectID, route.ApplicationID, route.DeploymentTargetID)
+	r.emitNotificationEvent(ctx, notification.Event{
+		Type:             "certificate." + status,
+		Severity:         notificationSeverity(status),
+		Project:          entityRef(project.ID, project.Name, project.Slug),
+		Application:      entityRef(application.ID, application.Name, application.Slug),
+		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
+		Gateway: notification.GatewayContext{
+			ID:     route.ID,
+			Domain: route.Host,
+			Path:   route.Path,
+			Status: route.Status,
+		},
+		Certificate: notification.CertificateContext{
+			RouteID:    route.ID,
+			Host:       route.Host,
+			Status:     status,
+			Message:    strings.TrimSpace(message),
+			NotAfter:   route.CertificateNotAfter,
+			IssuerKind: route.CertificateIssuerKind,
+			IssuerName: route.CertificateIssuerName,
+		},
+		Actor:         r.notificationActor(route.CreatedBy, "", ""),
+		CorrelationID: route.ID,
+		DedupKey:      "certificate:" + route.ID + ":" + status + ":" + certificateVersion(route.CertificateNotAfter),
+		OccurredAt:    time.Now(),
+		Links:         r.notificationLinks(route.ProjectID, route.ApplicationID, "gateway", "certificate"),
+		Message:       firstNonEmpty(message, "Certificate "+status),
+	})
+}
+
+func (r *Runner) notificationActor(userID string, name string, email string) notification.ActorContext {
+	actor := notification.ActorContext{ID: strings.TrimSpace(userID), Name: strings.TrimSpace(name), Email: strings.TrimSpace(email)}
+	if actor.ID == "" || (actor.Name != "" && actor.Email != "") {
+		return actor
+	}
+	var user model.User
+	if err := r.db.First(&user, "id = ?", actor.ID).Error; err == nil {
+		actor.Name = firstNonEmpty(actor.Name, user.Name)
+		actor.Email = firstNonEmpty(actor.Email, user.Email)
+	}
+	return actor
+}
+
+func notificationSeverity(status string) string {
+	switch status {
+	case "failed", "apply_failed", "expired":
+		return notification.SeverityError
+	case "pending":
+		return notification.SeverityWarning
+	default:
+		return notification.SeverityInfo
+	}
+}
+
+func certificateVersion(notAfter *time.Time) string {
+	if notAfter == nil {
+		return "none"
+	}
+	return notAfter.UTC().Format(time.RFC3339)
 }
 
 func (r *Runner) notificationContext(projectID string, applicationID string, targetID string) (model.Project, model.Application, model.DeploymentTarget) {

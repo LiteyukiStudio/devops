@@ -132,6 +132,9 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 		v1.PUT("/notifications/rules/:ruleId", handlers.UpdateNotificationRule)
 		v1.DELETE("/notifications/rules/:ruleId", handlers.DeleteNotificationRule)
 		v1.GET("/notifications/deliveries", handlers.ListNotificationDeliveries)
+		v1.GET("/events", handlers.ListPlatformEvents)
+		v1.GET("/events/catalog", handlers.ListPlatformEventCatalog)
+		v1.GET("/events/:eventId", handlers.GetPlatformEvent)
 
 		v1.GET("/app-templates", handlers.ListAppTemplates)
 

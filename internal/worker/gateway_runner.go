@@ -61,7 +61,12 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) (err 
 			_ = r.db.Model(&route).Updates(map[string]any{"status": "failed"}).Error
 			return err
 		}
-		return r.db.Model(&route).Updates(map[string]any{"status": "disabled"}).Error
+		if err := r.db.Model(&route).Updates(map[string]any{"status": "disabled"}).Error; err != nil {
+			return err
+		}
+		route.Status = "disabled"
+		r.emitGatewayEvent(ctx, route, "applied", "Gateway route disabled")
+		return nil
 	}
 
 	namespace := deploymentNamespace(project, environment)
@@ -78,14 +83,20 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) (err 
 		failureUpdates := gatewayCertificateFailureUpdates(err)
 		failureUpdates["status"] = "failed"
 		_ = r.db.Model(&route).Updates(failureUpdates).Error
+		failedRoute := route
+		failedRoute.CertificateStatus = kubeprovider.CertificateFailed
+		failedRoute.CertificateMessage = err.Error()
+		r.emitCertificateEvent(ctx, failedRoute, kubeprovider.CertificateFailed, err.Error())
 		return err
 	}
 	updates := map[string]any{"status": "active", "dns_status": r.gatewayDNSStatus(ctx, route)}
+	var certificateCluster *model.RuntimeCluster
 	if certificateConfigured {
 		cluster, clusterErr := r.runtimeClusterForEnvironment(environment)
 		if clusterErr != nil {
 			return clusterErr
 		}
+		certificateCluster = &cluster
 		for key, value := range gatewayCertificateRuntimeUpdates(certificateSnapshot, cluster, r.certManagerClusterIssuer) {
 			updates[key] = value
 		}
@@ -96,7 +107,15 @@ func (r *Runner) handleGatewayApply(ctx context.Context, task *asynq.Task) (err 
 		updates["certificate_issuer_kind"] = ""
 		updates["certificate_issuer_name"] = ""
 	}
-	return r.db.Model(&route).Updates(updates).Error
+	if err := r.db.Model(&route).Updates(updates).Error; err != nil {
+		return err
+	}
+	if certificateCluster != nil {
+		r.emitCertificateSnapshotEvent(ctx, route, certificateSnapshot, *certificateCluster)
+	}
+	route.Status = "active"
+	r.emitGatewayEvent(ctx, route, "applied", "Gateway route applied")
+	return nil
 }
 
 func gatewayCertificateFailureUpdates(err error) map[string]any {

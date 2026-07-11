@@ -16,66 +16,80 @@ const (
 )
 
 type Event struct {
-	ID               string
-	Type             string
-	Severity         string
-	Locale           string
-	Project          EntityRef
-	Application      EntityRef
-	DeploymentTarget EntityRef
-	Build            BuildContext
-	Release          ReleaseContext
-	Hook             HookContext
-	Gateway          GatewayContext
-	Actor            ActorContext
-	Links            map[string]string
-	OccurredAt       time.Time
-	Message          string
+	ID               string             `json:"id"`
+	Type             string             `json:"type"`
+	Severity         string             `json:"severity"`
+	Locale           string             `json:"locale"`
+	Project          EntityRef          `json:"project"`
+	Application      EntityRef          `json:"application"`
+	DeploymentTarget EntityRef          `json:"deploymentTarget"`
+	Build            BuildContext       `json:"build"`
+	Release          ReleaseContext     `json:"release"`
+	Hook             HookContext        `json:"hook"`
+	Gateway          GatewayContext     `json:"gateway"`
+	Certificate      CertificateContext `json:"certificate"`
+	Actor            ActorContext       `json:"actor"`
+	Links            map[string]string  `json:"links"`
+	CorrelationID    string             `json:"correlationId"`
+	TraceID          string             `json:"traceId"`
+	DedupKey         string             `json:"-"`
+	OccurredAt       time.Time          `json:"occurredAt"`
+	Message          string             `json:"message"`
 }
 
 type EntityRef struct {
-	ID   string
-	Name string
-	Slug string
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 type BuildContext struct {
-	ID      string
-	Status  string
-	Message string
-	Image   string
-	GitRef  string
-	GitSHA  string
+	ID      string `json:"id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Image   string `json:"image"`
+	GitRef  string `json:"gitRef"`
+	GitSHA  string `json:"gitSha"`
 }
 
 type ReleaseContext struct {
-	ID       string
-	Status   string
-	Revision int
-	ImageRef string
-	Message  string
+	ID       string `json:"id"`
+	Status   string `json:"status"`
+	Revision int    `json:"revision"`
+	ImageRef string `json:"imageRef"`
+	Message  string `json:"message"`
 }
 
 type HookContext struct {
-	ID      string
-	Name    string
-	Phase   string
-	Status  string
-	Message string
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Phase   string `json:"phase"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 type GatewayContext struct {
-	ID      string
-	Domain  string
-	Path    string
-	Status  string
-	Message string
+	ID      string `json:"id"`
+	Domain  string `json:"domain"`
+	Path    string `json:"path"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type CertificateContext struct {
+	RouteID    string     `json:"routeId"`
+	Host       string     `json:"host"`
+	Status     string     `json:"status"`
+	Message    string     `json:"message"`
+	NotAfter   *time.Time `json:"notAfter"`
+	IssuerKind string     `json:"issuerKind"`
+	IssuerName string     `json:"issuerName"`
 }
 
 type ActorContext struct {
-	ID    string
-	Name  string
-	Email string
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 type Template struct {

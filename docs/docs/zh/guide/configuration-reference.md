@@ -1,8 +1,8 @@
-# 配置项详解
+# 环境变量参考
 
-容器化部署时，直接用环境变量注入配置即可。
+API 和 Worker 都通过环境变量读取运行配置。使用 Docker Compose、Helm 或其他容器平台时，把这些值注入对应容器即可。
 
-先看“基本”，能跑起来后再看“进阶”。
+第一次部署只需要处理“基本”项。平台正常运行后，再按实际需求调整“进阶”项，不必一开始逐个配置。
 
 ## API 配置项
 
@@ -26,7 +26,7 @@
 | 进阶 | `METRICS_ADDR` | `:9090` | metrics 监听地址；只在需要调整 API metrics 端口或绑定地址时修改。 |
 | 进阶 | `METRICS_PATH` | `/metrics` | Prometheus 抓取路径；只注册在独立 metrics listener 上。 |
 
-启用 metrics 后会暴露 HTTP 请求量、延迟、错误响应、PostgreSQL 连接池和 PostgreSQL/Redis 健康检查指标。Helm 部署可通过 `metrics.grafanaDashboard.enabled=true` 生成 Grafana dashboard ConfigMap。
+启用 metrics 后，API 会暴露 HTTP 请求量、延迟、错误响应、PostgreSQL 连接池和 PostgreSQL/Redis 健康检查指标。Helm 部署可通过 `metrics.grafanaDashboard.enabled=true` 生成 Grafana dashboard ConfigMap。
 
 OIDC 身份源的 Redirect URI 由 `PUBLIC_BASE_URL` 生成，后台“身份源”表单会直接展示可复制地址。准入策略默认要求 OIDC 返回非空邮箱且 `email_verified=true`；如果接入的是可信内部身份源，但无法返回标准 `email_verified`，可以在准入策略里关闭“要求 OIDC 邮箱已验证”，平台仍会要求邮箱非空。
 

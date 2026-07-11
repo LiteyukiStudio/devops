@@ -1,8 +1,8 @@
 # App Marketplace
 
-The app marketplace installs common infrastructure apps into project spaces from templates. The MVP includes Redis, Valkey, Memcached, PostgreSQL, MySQL, MariaDB, MongoDB, RabbitMQ, Garage, Prometheus, Grafana, Uptime Kuma, Memos, IT-Tools, Excalidraw, Verdaccio, Docker Registry, pgAdmin4, Meilisearch, and Bytebase for quick cache, database, queue, object storage, observability, and small-team tooling setup.
+Use the app marketplace when you need a database, cache, or monitoring tool without configuring it from scratch. Built-in templates include Redis, Valkey, Memcached, PostgreSQL, MySQL, MariaDB, MongoDB, RabbitMQ, Garage, Prometheus, Grafana, Uptime Kuma, Memos, IT-Tools, Excalidraw, Verdaccio, Docker Registry, pgAdmin4, Meilisearch, and Bytebase, covering common infrastructure and small-team tools.
 
-The marketplace can also host a small set of platform component templates. Platform components can only be installed by platform administrators. They are installed into the platform-owned `platform-system` project space and create normal applications, deployment targets, and Releases. The platform-owned project space is visible only to platform administrators, cannot be deleted, and is excluded from user project billing. The built-in `Liteyuki Gateway Traffic Probe` is the optional component for gateway traffic billing collection.
+The marketplace also includes a small set of platform components. Only platform administrators can install them. They live in the platform-owned `platform-system` project space and create normal applications, deployment targets, and Releases. This project space is visible only to platform administrators, cannot be deleted, and is excluded from user project billing. The built-in `Liteyuki Gateway Traffic Probe` enables gateway traffic billing when needed.
 
 Installing a template creates:
 
@@ -42,8 +42,8 @@ Gateway Traffic Probe is published as the standalone `liteyukistudio/devops-gate
 
 The template list supports category filtering, search by template name, image, website, or repository, and sorting by popularity weight or name. Built-in templates intentionally skip PHP applications such as Adminer and phpMyAdmin for now.
 
-## Current Limits
+## Usage Boundaries
 
-The MVP only enables templates whose images can run with their default command. Prometheus currently ships with a minimal config that scrapes its own `/metrics`; Grafana and Prometheus remain independent single-app templates, so the platform does not auto-create Grafana data sources or discover application workloads. Garage is provided as a single-node lightweight object storage template; the platform generates its base config file. Multi-node layout initialization, bucket/key outputs, and richer connection details will be added with the later template outputs work.
+Current templates are intended for images that can run with their default command. Prometheus currently ships with a minimal config that scrapes its own `/metrics`; Grafana and Prometheus remain independent single-app templates, so the platform does not auto-create Grafana data sources or discover application workloads. Garage is provided as a single-node lightweight object storage template; the platform generates its base config file. Multi-node layout initialization, bucket/key outputs, and richer connection details will be added with the later template outputs work.
 
 Marketplace templates are loaded from backend-embedded JSON. Future third-party marketplaces can reuse the same schema, with backend-side fetching, validation, and caching.

@@ -1,6 +1,7 @@
 import { applicationsApi } from './domains/applications'
 import { authApi } from './domains/auth'
 import { buildsApi } from './domains/builds'
+import { eventsApi } from './domains/events'
 import { gatewayApi } from './domains/gateway'
 import { gitApi } from './domains/git'
 import { notificationsApi } from './domains/notifications'
@@ -28,6 +29,7 @@ export const api = {
   ...applicationsApi,
   ...registriesApi,
   ...buildsApi,
+  ...eventsApi,
   ...runtimeApi,
   ...gatewayApi,
   ...notificationsApi,

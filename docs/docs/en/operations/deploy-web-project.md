@@ -1,6 +1,6 @@
 # Deploy a Web Project
 
-This walkthrough uses [`snowykami/neo-blog`](https://github.com/snowykami/neo-blog) as the example. The goal is to build from GitHub, release to a runtime cluster, and expose the frontend route.
+This is a complete walkthrough you can follow from start to finish. It uses [`snowykami/neo-blog`](https://github.com/snowykami/neo-blog) to build source code into images, release them to a runtime cluster, and create a public route for the frontend.
 
 `neo-blog` has a Go backend at the repository root and a Next.js frontend under `web/`.
 
@@ -10,7 +10,7 @@ This walkthrough uses [`snowykami/neo-blog`](https://github.com/snowykami/neo-bl
 | Backend | repository root | `Dockerfile` | `8888` | Internal API service. |
 | Data | backend data path | backend volume | - | Start with the backend data volume; move to PostgreSQL later if needed. |
 
-Before you start, make sure the API and worker are running, a runtime cluster is configured, and a registry is available for build output.
+Before you start, make sure the API and worker are running, a runtime cluster is configured, and a registry is available for build output. Missing any of these will block a later step.
 
 ## 1. Create a Project Space
 
@@ -128,6 +128,6 @@ Only expose the frontend.
 
 Open the route after it becomes healthy. If the page loads but API calls fail, check frontend `BACKEND_URL` and backend `BASE_URL`.
 
-## 8. Enable Automation Later
+## 8. Enable Automation After the First Successful Run
 
-Start manually. After the first successful deployment, enable webhook builds, auto release, branch filters, and tag filters step by step.
+Start manually. After the first successful deployment, enable webhook builds, auto release, branch filters, and tag filters one at a time. This makes failures easier to isolate and rollbacks easier to understand.

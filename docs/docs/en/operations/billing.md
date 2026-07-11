@@ -1,8 +1,8 @@
 # Billing and Spend Analysis
 
-The billing page shows user balance, spend summaries, spend analysis, and ledger entries.
+The billing page answers two questions: how much credit remains, and which projects, applications, or deployment configs are driving the spend. It brings balances, summaries, detailed analysis, and ledger entries into one place.
 
-Project spaces are the source of spend. Charges are deducted from the current billing owner's user wallet. If ownership is transferred later, new charges go to the new owner; old ledger entries stay with the original billed user.
+Project spaces generate spend, while charges are deducted from the wallet of the current billing owner. After ownership changes, new charges go to the new owner; previous ledger entries stay with the user who originally paid them.
 
 The project-space overview shows the billing owner account with avatar, name, and email so users can confirm which user account future charges are linked to.
 
@@ -10,7 +10,9 @@ For legacy releases without a deployment target reference, the platform backfill
 
 Legacy deployment targets without a delete status are normalized as active when they are not deleted.
 
-The top balance card is a user-account summary. Period spend, today spend, and pending spend follow the current project-space scope. The top page toolbar lets users choose a billing period, user-account scope, and project-space scope. Period presets include this week, last 7 days, this month, last 30 days, this year, and last year, and users can also pick a custom date range. Spend analysis, ledger entries, usage records, and period categories are filtered by the selected period. Regular users can only view their own billing data. Platform administrators default to their own billing view first, and can switch to all users or a specific user with the user selector; the project-space filter follows the current user scope.
+The top balance card summarizes the current user account. Period spend, today's spend, and pending spend follow the selected project-space scope. The toolbar controls billing period, user account, and project space. Presets include this week, the last 7 days, this month, the last 30 days, this year, and last year, with a custom date range available when needed. Spend analysis, ledger entries, usage records, and category totals all use the same time range.
+
+Regular users can only view their own billing data. Platform administrators also start on their own account, then use the user selector when they need all users or one specific user. The project-space filter updates with the selected user scope.
 
 Platform administrators can also configure a real-world currency unit and conversion ratio in site settings. The top summary cards show the converted amount after credits, for example `1,012.24 Credits (1.01 CNY)`. This is display-only conversion; the ledger still settles in credits.
 

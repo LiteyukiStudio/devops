@@ -1,6 +1,6 @@
 # Connect Cluster and Registry
 
-After the platform is running, you do not need every external integration immediately. Follow this order to avoid loops.
+Once the console opens, resist the urge to connect everything at once. Prepare the following pieces in order so that a failure is easy to locate.
 
 ```text
 Runtime cluster -> Registry -> Deployment target -> Route
@@ -8,7 +8,7 @@ Runtime cluster -> Registry -> Deployment target -> Route
 
 ## 1. Configure a runtime cluster
 
-The runtime cluster is where applications are deployed. It can be Kubernetes or a lightweight K3s cluster.
+A runtime cluster is where applications actually run. It can be Kubernetes or the lighter K3s distribution.
 
 For the first integration, prepare a test cluster and make sure its kubeconfig can be reached from the API and worker containers.
 
@@ -22,7 +22,7 @@ If you only want to explore deployment, start with an existing image. Add push c
 
 ## 3. Create a deployment target
 
-A deployment target answers how this application should ship:
+A deployment target describes how this application is built and run:
 
 - Existing image or repository build.
 - Runtime cluster.
@@ -36,11 +36,11 @@ If you only want to verify the platform first, use an existing image. After the 
 
 ## 4. Create a route
 
-A route connects domain, path, TLS, and backend service. After creating one, check its status in the console, then verify it with a browser or `curl`.
+A route points a domain, path, and TLS policy at an already deployed service. Check its status first, then send a real request with a browser or `curl`.
 
 ## 5. Enable automation later
 
-After the first path works, enable these gradually:
+After the first manual deployment works, enable automation one step at a time:
 
 - Git providers and Git account authorization.
 - Repository binding and webhooks.

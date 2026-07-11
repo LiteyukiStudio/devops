@@ -1,17 +1,17 @@
 # Notifications
 
-Notifications send platform events to external collaboration tools or email. This version starts with failure events so administrators are not flooded by every successful build, release, and route sync.
+Notifications send important platform events to collaboration tools or email. Failure events are enabled first so administrators are not interrupted by every successful build, release, and route sync.
 
 ## How it works
 
-The notification flow has four layers:
+A notification goes through four steps from event creation to delivery:
 
 1. The platform emits a structured event when a build, release, hook, or access route fails.
 2. Notification rules filter events by event type, severity, project space, application, and deployment target.
 3. A matching rule creates delivery records, then worker sends them asynchronously.
 4. A notification adapter renders the event into the request or email required by the target platform.
 
-Business modules only emit events. They do not know about Feishu, WeCom, SMTP, or custom Webhook details.
+Build, release, and other business modules only describe what happened. They do not need to know the protocol details of Feishu, WeCom, SMTP, or custom Webhooks.
 
 ## Channels
 

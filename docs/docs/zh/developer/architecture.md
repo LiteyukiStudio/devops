@@ -1,10 +1,10 @@
-# 本地开发
+# 本地开发指南
 
-开发模式适合改代码、调接口和验证交互。如果只是部署体验，请优先看“开始”里的 Docker Compose 快速部署。
+这套本地环境适合修改代码、调试接口和验证前端交互。如果只是想试用平台，请直接使用“开始”里的 Docker Compose 部署。
 
 ## 推荐拓扑
 
-日常开发推荐：
+日常开发可以按下面的方式分工：
 
 - PostgreSQL、Redis 和 worker 用 `docker-compose-dev.yaml`。
 - API 在宿主机运行，方便调试 Go 代码。
@@ -27,7 +27,7 @@ pnpm --dir web dev
 - `internal/provider`：Git、Registry、Kubernetes、DNS 等外部平台适配。
 - `internal/worker`：异步任务运行器。
 
-Handler 只做参数解析、权限入口和响应；业务逻辑放 service；数据访问放 repository；外部系统调用放 provider。新的权限判断应优先复用 `internal/authz` 中的 action 和角色矩阵，避免在 handler 中继续散落硬编码角色判断。
+Handler 负责接收参数、进入权限检查并返回响应。业务规则放到 service，数据库访问放到 repository，Git、Registry 和 Kubernetes 等外部调用放到 provider。新增权限时先复用 `internal/authz` 的 action 和角色矩阵，不要在各个 Handler 里重复判断角色。
 
 ## 前端入口
 

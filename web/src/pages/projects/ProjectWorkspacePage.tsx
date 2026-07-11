@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react'
-import type { Application, BuildRun, GatewayRoute, Project, ProjectMember, Release } from '@/api'
+import type { Application, BuildRun, GatewayRoute, PlatformEvent, Project, ProjectMember, Release } from '@/api'
 import type { ApplicationsPageHandle } from '@/pages/applications/ApplicationsPage'
 import type { ProjectBuildVariableSetsPageHandle } from '@/pages/projects/ProjectBuildVariableSetsPage'
 import type { ProjectHooksPageHandle } from '@/pages/projects/ProjectHooksPage'
 import type { ProjectMembersPageHandle } from '@/pages/projects/ProjectMembersPage'
 import type { ProjectRuntimeConfigSetsPageHandle } from '@/pages/projects/ProjectRuntimeConfigSetsPage'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, FileCode2, Globe2, KeyRound, Package, Plus, Rocket, ScrollText, UserPlus } from 'lucide-react'
+import { Activity, ArrowRight, CalendarClock, FileCode2, Globe2, KeyRound, Package, Plus, Rocket, ScrollText, UserPlus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { api } from '@/api'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { ErrorState } from '@/components/common/error-state'
@@ -41,6 +41,7 @@ export function ProjectWorkspacePage() {
   const runtimeConfigSets = useQuery({ queryKey: ['runtime-config-sets', projectId], queryFn: () => api.listProjectRuntimeConfigSets(projectId), enabled: Boolean(projectId) })
   const members = useQuery({ queryKey: ['project-members', projectId], queryFn: () => api.listProjectMembers(projectId), enabled: Boolean(projectId) })
   const recentBuilds = useQuery({ queryKey: ['project-overview-build-runs', projectId], queryFn: () => api.listBuildRunsPage(projectId, { page: 1, pageSize: 5, sortBy: 'createdAt', sortOrder: 'desc' }), enabled: Boolean(projectId) })
+  const recentEvents = useQuery({ queryKey: ['project-overview-events', projectId], queryFn: () => api.listPlatformEvents({ page: 1, pageSize: 5, projectId, sortBy: 'occurredAt', sortOrder: 'desc' }), enabled: Boolean(projectId) })
   const releases = useQuery({ queryKey: ['project-overview-releases', projectId], queryFn: () => api.listReleases(projectId), enabled: Boolean(projectId) })
   const routes = useQuery({ queryKey: ['project-overview-gateway-routes', projectId], queryFn: () => api.listGatewayRoutes(projectId), enabled: Boolean(projectId) })
 
@@ -65,6 +66,7 @@ export function ProjectWorkspacePage() {
           <ProjectOverviewDashboard
             applications={applications.data ?? []}
             builds={recentBuilds.data?.items ?? []}
+            events={recentEvents.data?.items ?? []}
             members={members.data ?? []}
             project={currentProject}
             releases={releases.data ?? []}
@@ -155,9 +157,10 @@ export function ProjectWorkspacePage() {
   )
 }
 
-function ProjectOverviewDashboard({ applications, builds, members, project, releases, routes, runtimeConfigSetCount, variableSetCount }: {
+function ProjectOverviewDashboard({ applications, builds, events, members, project, releases, routes, runtimeConfigSetCount, variableSetCount }: {
   applications: Application[]
   builds: BuildRun[]
+  events: PlatformEvent[]
   members: ProjectMember[]
   project?: Project
   releases: Release[]
@@ -234,6 +237,38 @@ function ProjectOverviewDashboard({ applications, builds, members, project, rele
           </div>
         </Card>
       </div>
+
+      <Card className="min-w-0 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">{t('projectSpaces.recentEvents')}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t('projectSpaces.recentEventsDescription')}</p>
+          </div>
+          <Link className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3 text-sm text-primary transition hover:bg-muted" to={`/events?projectId=${encodeURIComponent(project?.id ?? '')}`}>
+            {t('projectSpaces.viewAllEvents')}
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+        <div className="grid gap-2">
+          {events.length > 0
+            ? events.map(event => (
+                <div key={event.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{t(`eventsPage.types.${event.type.replaceAll('.', '_')}`, { defaultValue: event.type })}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{event.message || t('eventsPage.noMessage')}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={event.status} />
+                    <span className="hidden text-xs text-muted-foreground sm:inline">{formatSmartDateTime(event.occurredAt, t)}</span>
+                  </div>
+                </div>
+              ))
+            : <p className="rounded-md border border-dashed border-border px-3 py-6 text-sm text-muted-foreground">{t('projectSpaces.noRecentEvents')}</p>}
+        </div>
+      </Card>
     </div>
   )
 }

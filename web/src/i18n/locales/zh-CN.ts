@@ -15,6 +15,7 @@ import dashboardPage from './zh-CN/dashboardPage'
 import debugPanel from './zh-CN/debugPanel'
 import deploymentsPage from './zh-CN/deploymentsPage'
 import errors from './zh-CN/errors'
+import eventsPage from './zh-CN/eventsPage'
 import gatewayRoutesPage from './zh-CN/gatewayRoutesPage'
 import languages from './zh-CN/languages'
 import loginPage from './zh-CN/loginPage'
@@ -41,6 +42,7 @@ const zhCN = {
   common,
   time,
   errors,
+  eventsPage,
   auth,
   pagination,
   operationsDashboardPage,

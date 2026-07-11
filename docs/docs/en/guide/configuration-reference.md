@@ -1,8 +1,8 @@
-# Configuration Reference
+# Environment Variable Reference
 
-For containerized deployment, inject settings through environment variables.
+The API and Worker both read runtime configuration from environment variables. With Docker Compose, Helm, or another container platform, inject these values into the matching container.
 
-Read Basic first. Use Advanced only when you need it.
+For a first deployment, configure the Basic values only. Once the platform is running, adjust Advanced values when a real requirement appears instead of setting every option up front.
 
 ## API Settings
 

@@ -276,6 +276,72 @@ export interface NotificationPreset {
   secretFields: string[]
 }
 
+export interface PlatformEventEntityRef {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface PlatformEventSnapshot {
+  id: string
+  type: string
+  severity: string
+  message: string
+  occurredAt: string
+  project?: PlatformEventEntityRef
+  application?: PlatformEventEntityRef
+  deploymentTarget?: PlatformEventEntityRef
+  actor?: { id: string, name: string, email: string }
+  build?: Record<string, unknown>
+  release?: Record<string, unknown>
+  hook?: Record<string, unknown>
+  gateway?: Record<string, unknown>
+  certificate?: Record<string, unknown>
+}
+
+export interface PlatformEvent {
+  id: string
+  type: string
+  category: string
+  severity: 'info' | 'warning' | 'error' | string
+  status: 'in_progress' | 'succeeded' | 'failed' | 'canceled' | string
+  projectId: string
+  applicationId: string
+  deploymentTargetId: string
+  resourceType: string
+  resourceId: string
+  actorId: string
+  summaryKey: string
+  message: string
+  correlationId: string
+  traceId: string
+  occurredAt: string
+  createdAt: string
+  detail: PlatformEventSnapshot
+  links: Record<string, string>
+  deliveryCount: number
+}
+
+export interface PlatformEventCatalogEntry {
+  type: string
+  category: string
+  defaultSeverity: string
+  recommendedNotify: boolean
+}
+
+export interface PlatformEventListParams extends PaginationParams {
+  scope?: 'mine' | 'all'
+  projectId?: string
+  applicationId?: string
+  deploymentTargetId?: string
+  category?: string
+  type?: string
+  severity?: string
+  status?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
 export interface NotificationChannelPayload {
   name: string
   adapterKind: string
