@@ -60,10 +60,10 @@ type NotificationRule struct {
 type NotificationDelivery struct {
 	ID              string     `gorm:"primaryKey" json:"id"`
 	ProjectID       string     `gorm:"index;not null;default:''" json:"projectId"`
-	EventID         string     `gorm:"index;not null" json:"eventId"`
+	EventID         string     `gorm:"index;not null;uniqueIndex:idx_notification_deliveries_event_channel" json:"eventId"`
 	EventType       string     `gorm:"index;not null" json:"eventType"`
 	Severity        string     `gorm:"index;not null;default:''" json:"severity"`
-	ChannelID       string     `gorm:"index;not null" json:"channelId"`
+	ChannelID       string     `gorm:"index;not null;uniqueIndex:idx_notification_deliveries_event_channel" json:"channelId"`
 	AdapterKind     string     `gorm:"index;not null" json:"adapterKind"`
 	RuleID          string     `gorm:"index;not null;default:''" json:"ruleId"`
 	TemplateID      string     `gorm:"index;not null;default:''" json:"templateId"`

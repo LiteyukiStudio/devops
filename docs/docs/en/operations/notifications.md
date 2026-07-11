@@ -86,6 +86,15 @@ Available functions:
 
 To include direct platform links, configure the same `PUBLIC_BASE_URL` for both API and Worker. Events are still delivered without it, but no platform detail link is added.
 
+After updating a Docker Compose deployment, recreate the Worker container so it receives `PUBLIC_BASE_URL`:
+
+```bash
+docker compose up -d --force-recreate worker
+docker compose exec worker printenv PUBLIC_BASE_URL
+```
+
+When one business event matches both a global rule and a project rule, each notification channel still receives only one delivery. Create separate channels when the same event must be sent to multiple destinations.
+
 ## Rules
 
 Rules must select at least one channel. Supported failure events:

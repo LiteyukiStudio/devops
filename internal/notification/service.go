@@ -12,6 +12,7 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var defaultFailureEventTypes = []string{"build.failed", "release.failed", "hook.failed", "gateway.apply_failed", "certificate.failed", "certificate.expired"}
@@ -77,6 +78,7 @@ func (s Service) Emit(ctx context.Context, event Event) ([]model.NotificationDel
 	}
 
 	deliveries := make([]model.NotificationDelivery, 0)
+	seenChannels := map[string]bool{}
 	for _, rule := range rules {
 		if !ruleMatchesEvent(rule, event) {
 			continue
@@ -90,15 +92,10 @@ func (s Service) Emit(ctx context.Context, event Event) ([]model.NotificationDel
 			return nil, err
 		}
 		for _, channel := range channels {
-			var existingCount int64
-			if err := s.DB.Model(&model.NotificationDelivery{}).
-				Where("event_id = ? and rule_id = ? and channel_id = ?", event.ID, rule.ID, channel.ID).
-				Count(&existingCount).Error; err != nil {
-				return deliveries, err
-			}
-			if existingCount > 0 {
+			if seenChannels[channel.ID] {
 				continue
 			}
+			seenChannels[channel.ID] = true
 			template := model.NotificationTemplate{}
 			templateID := strings.TrimSpace(rule.TemplateID)
 			if templateID != "" {
@@ -124,8 +121,15 @@ func (s Service) Emit(ctx context.Context, event Event) ([]model.NotificationDel
 				CreatedAt:   time.Now(),
 				UpdatedAt:   time.Now(),
 			}
-			if err := s.DB.Create(&delivery).Error; err != nil {
-				return deliveries, err
+			result := s.DB.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "event_id"}, {Name: "channel_id"}},
+				DoNothing: true,
+			}).Create(&delivery)
+			if result.Error != nil {
+				return deliveries, result.Error
+			}
+			if result.RowsAffected == 0 {
+				continue
 			}
 			deliveries = append(deliveries, delivery)
 			if s.Enqueuer != nil {

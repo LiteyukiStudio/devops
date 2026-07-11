@@ -60,6 +60,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:-}
       DATABASE_URL: ${DATABASE_URL:-postgres://devops:devops@postgres:5432/devops?sslmode=disable}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8088}
       REDIS_ADDR: redis:6379
       DEPLOY_ROLLOUT_TIMEOUT_SECONDS: ${DEPLOY_ROLLOUT_TIMEOUT_SECONDS:-600}
       CERT_MANAGER_CLUSTER_ISSUER: ${CERT_MANAGER_CLUSTER_ISSUER:-letsencrypt-http01}
