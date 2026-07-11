@@ -113,8 +113,8 @@ export function DashboardPage() {
           : <p className="py-4 text-sm text-muted-foreground">{projects.isLoading || projectPins.isLoading ? t('common.loading') : t('projectSpaces.emptyTitle')}</p>}
       </Card>
 
-      <Card className="overflow-hidden">
-        <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <Card className="overflow-hidden p-5">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge tone={issueCount ? 'warning' : 'success'}>{issueCount ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}</StatusBadge>

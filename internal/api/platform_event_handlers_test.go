@@ -58,3 +58,18 @@ func TestParsePlatformEventTimeUsesInclusiveEndOfDay(t *testing.T) {
 		t.Fatal("expected invalid date to be rejected")
 	}
 }
+
+func TestPlatformEventResponseNormalizesNullJSONObjects(t *testing.T) {
+	response := platformEventResponseFor(model.PlatformEvent{
+		DetailJSON: "null",
+		LinksJSON:  "null",
+	}, 0)
+
+	detail, ok := response.Detail.(map[string]any)
+	if !ok || detail == nil || len(detail) != 0 {
+		t.Fatalf("detail = %#v, want non-nil empty object", response.Detail)
+	}
+	if response.Links == nil || len(response.Links) != 0 {
+		t.Fatalf("links = %#v, want non-nil empty object", response.Links)
+	}
+}

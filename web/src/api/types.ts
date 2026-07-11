@@ -283,11 +283,11 @@ export interface PlatformEventEntityRef {
 }
 
 export interface PlatformEventSnapshot {
-  id: string
-  type: string
-  severity: string
-  message: string
-  occurredAt: string
+  id?: string
+  type?: string
+  severity?: string
+  message?: string
+  occurredAt?: string
   project?: PlatformEventEntityRef
   application?: PlatformEventEntityRef
   deploymentTarget?: PlatformEventEntityRef

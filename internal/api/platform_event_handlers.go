@@ -191,10 +191,14 @@ func parsePlatformEventTime(raw string, endOfDay bool) (time.Time, bool) {
 }
 
 func platformEventResponseFor(event model.PlatformEvent, deliveryCount int64) platformEventResponse {
-	var detail any = map[string]any{}
-	_ = json.Unmarshal([]byte(event.DetailJSON), &detail)
+	detail := map[string]any{}
+	if err := json.Unmarshal([]byte(event.DetailJSON), &detail); err != nil || detail == nil {
+		detail = map[string]any{}
+	}
 	links := map[string]string{}
-	_ = json.Unmarshal([]byte(event.LinksJSON), &links)
+	if err := json.Unmarshal([]byte(event.LinksJSON), &links); err != nil || links == nil {
+		links = map[string]string{}
+	}
 	return platformEventResponse{
 		PlatformEvent: event,
 		Detail:        detail,

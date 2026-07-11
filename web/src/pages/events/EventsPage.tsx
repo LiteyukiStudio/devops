@@ -416,7 +416,7 @@ function EventFilterMultiSelect({ disabled, label, loading, options, placeholder
 
 function EventResource({ event }: { event: PlatformEvent }) {
   const { t } = useTranslation()
-  const detail = event.detail
+  const detail = event.detail ?? {}
   const primary = detail.application?.name || detail.project?.name || event.resourceId
   const secondary = detail.deploymentTarget?.name || detail.project?.name || event.resourceType
   return (
@@ -429,6 +429,8 @@ function EventResource({ event }: { event: PlatformEvent }) {
 
 function EventDetailSheet({ event, loading, onOpenChange, open }: { event?: PlatformEvent, loading: boolean, onOpenChange: (open: boolean) => void, open: boolean }) {
   const { t } = useTranslation()
+  const detail = event?.detail ?? {}
+  const links = event?.links ?? {}
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
@@ -444,10 +446,10 @@ function EventDetailSheet({ event, loading, onOpenChange, open }: { event?: Plat
             </div>
             <DetailSection title={t('eventsPage.details.context')}>
               <DetailRow label={t('eventsPage.details.time')} value={formatAbsoluteDateTime(event.occurredAt)} />
-              <DetailRow label={t('eventsPage.details.project')} value={event.detail.project?.name} />
-              <DetailRow label={t('eventsPage.details.application')} value={event.detail.application?.name} />
-              <DetailRow label={t('eventsPage.details.deploymentTarget')} value={event.detail.deploymentTarget?.name} />
-              <DetailRow label={t('eventsPage.details.actor')} value={event.detail.actor?.name || event.detail.actor?.email} />
+              <DetailRow label={t('eventsPage.details.project')} value={detail.project?.name} />
+              <DetailRow label={t('eventsPage.details.application')} value={detail.application?.name} />
+              <DetailRow label={t('eventsPage.details.deploymentTarget')} value={detail.deploymentTarget?.name} />
+              <DetailRow label={t('eventsPage.details.actor')} value={detail.actor?.name || detail.actor?.email} />
             </DetailSection>
             <DetailSection title={t('eventsPage.details.identifiers')}>
               <DetailRow label={t('eventsPage.details.eventId')} value={event.id} mono />
@@ -455,11 +457,11 @@ function EventDetailSheet({ event, loading, onOpenChange, open }: { event?: Plat
               <DetailRow label={t('eventsPage.details.correlationId')} value={event.correlationId} mono />
               <DetailRow label={t('eventsPage.details.notificationDeliveries')} value={String(event.deliveryCount)} />
             </DetailSection>
-            <EventSpecificDetails detail={event.detail} />
-            {Object.keys(event.links).length > 0 && (
+            <EventSpecificDetails detail={detail} />
+            {Object.keys(links).length > 0 && (
               <DetailSection title={t('eventsPage.details.links')}>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(event.links).map(([key, href]) => (
+                  {Object.entries(links).map(([key, href]) => (
                     <a key={key} className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-sm transition hover:bg-muted" href={href}>
                       {t(`eventsPage.linkNames.${key}`, { defaultValue: key })}
                       <ExternalLink className="size-3.5" />

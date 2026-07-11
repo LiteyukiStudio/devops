@@ -165,6 +165,8 @@ The migration does not reconstruct old build or release history. After the updat
 
 If an old event is deleted while a delivery still references it, the delivery keeps its own event snapshot, so historical delivery details remain readable.
 
+Old test data or an interrupted write may contain JSON `null` in `detail_json` or `links_json`. The event API normalizes these values and malformed objects to `{}`, and the frontend repeats that normalization at its API boundary. Missing details or links therefore hide only those sections instead of crashing the event list or details page.
+
 ## Delivery order
 
 1. Add the `PlatformEvent` model, migration, catalog, and write service.
