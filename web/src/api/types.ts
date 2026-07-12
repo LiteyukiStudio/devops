@@ -63,6 +63,11 @@ export interface Application {
   createdAt: string
 }
 
+export interface DataExportAuthorization {
+  ticket: string
+  expiresAt: string
+}
+
 export interface AppTemplateValueDefinition {
   key: string
   label: string

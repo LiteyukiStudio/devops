@@ -150,19 +150,32 @@ func (h *Handlers) createSessionWithImpersonation(ctx *gin.Context, userID strin
 }
 
 func newUserSession(userID, impersonatorID string, now time.Time) (model.UserSession, string) {
-	return newUserSessionInFamily(userID, impersonatorID, "", now)
+	return newUserSessionInFamilyWithPrimaryAuthentication(userID, impersonatorID, "", now, &now, now.Add(sessionDuration))
 }
 
 func newUserSessionInFamily(userID, impersonatorID, familyID string, now time.Time) (model.UserSession, string) {
+	return newUserSessionInFamilyWithPrimaryAuthentication(userID, impersonatorID, familyID, now, &now, now.Add(sessionDuration))
+}
+
+func newUserSessionInFamilyWithPrimaryAuthentication(userID, impersonatorID, familyID string, now time.Time, primaryAuthenticatedAt *time.Time, expiresAt time.Time) (model.UserSession, string) {
 	plainToken := "sess_" + randomHex(32)
 	return model.UserSession{
-		ID:               id.New("ses"),
-		UserID:           userID,
-		ImpersonatorID:   impersonatorID,
-		RememberFamilyID: familyID,
-		TokenHash:        hashToken(plainToken),
-		ExpiresAt:        now.Add(sessionDuration),
+		ID:                     id.New("ses"),
+		UserID:                 userID,
+		ImpersonatorID:         impersonatorID,
+		RememberFamilyID:       familyID,
+		PrimaryAuthenticatedAt: cloneTime(primaryAuthenticatedAt),
+		TokenHash:              hashToken(plainToken),
+		ExpiresAt:              expiresAt,
 	}, plainToken
+}
+
+func cloneTime(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func newUserRememberToken(userID string, now time.Time) (model.UserRememberToken, string) {
@@ -238,6 +251,9 @@ func (h *Handlers) createRememberToken(ctx *gin.Context, userID string, requeste
 
 func (h *Handlers) rotateRememberLogin(userID, plainToken string) (model.User, string, string, error) {
 	now := time.Now()
+	if err := h.cleanupExpiredRememberTokenFamilies(userID, now); err != nil {
+		return model.User{}, "", "", err
+	}
 	var newSessionToken string
 	var newRememberToken string
 	var user model.User
@@ -277,6 +293,14 @@ func (h *Handlers) rotateRememberLogin(userID, plainToken string) (model.User, s
 			return errRememberUserDisabled
 		}
 		user = lockedUser
+		var familySessions []model.UserSession
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("user_id = ? and remember_family_id = ?", current.UserID, current.FamilyID).
+			Order("created_at asc, id asc").
+			Find(&familySessions).Error; err != nil {
+			return err
+		}
+		primaryAuthenticatedAt := earliestPrimaryAuthentication(familySessions)
 		result := tx.Model(&model.UserRememberToken{}).
 			Where("id = ? and consumed_at is null and revoked_at is null", current.ID).
 			Update("consumed_at", now)
@@ -287,11 +311,18 @@ func (h *Handlers) rotateRememberLogin(userID, plainToken string) (model.User, s
 			return errRememberTokenInvalid
 		}
 		newRemember, plainRemember := newUserRememberTokenInFamily(current.UserID, current.FamilyID, current.ExpiresAt)
-		newSession, plainSession := newUserSessionInFamily(current.UserID, "", current.FamilyID, now)
+		sessionExpiresAt := now.Add(sessionDuration)
+		if current.ExpiresAt.Before(sessionExpiresAt) {
+			sessionExpiresAt = current.ExpiresAt
+		}
+		newSession, plainSession := newUserSessionInFamilyWithPrimaryAuthentication(current.UserID, "", current.FamilyID, now, primaryAuthenticatedAt, sessionExpiresAt)
 		if err := tx.Create(&newRemember).Error; err != nil {
 			return err
 		}
 		if err := tx.Create(&newSession).Error; err != nil {
+			return err
+		}
+		if err := deleteRememberFamilySessionsExcept(tx, current.UserID, current.FamilyID, newSession.ID); err != nil {
 			return err
 		}
 		newRememberToken = plainRemember
@@ -305,6 +336,62 @@ func (h *Handlers) rotateRememberLogin(userID, plainToken string) (model.User, s
 		return model.User{}, "", "", errRememberTokenReused
 	}
 	return user, newSessionToken, newRememberToken, nil
+}
+
+func earliestPrimaryAuthentication(sessions []model.UserSession) *time.Time {
+	var earliest *time.Time
+	for _, session := range sessions {
+		if session.PrimaryAuthenticatedAt == nil || session.PrimaryAuthenticatedAt.IsZero() {
+			continue
+		}
+		if earliest == nil || session.PrimaryAuthenticatedAt.Before(*earliest) {
+			earliest = cloneTime(session.PrimaryAuthenticatedAt)
+		}
+	}
+	return earliest
+}
+
+func deleteRememberFamilySessionsExcept(tx *gorm.DB, userID, familyID, keepSessionID string) error {
+	query := tx.Model(&model.UserSession{}).Where("user_id = ? and remember_family_id = ?", userID, familyID)
+	if strings.TrimSpace(keepSessionID) != "" {
+		query = query.Where("id <> ?", keepSessionID)
+	}
+	var sessionIDs []string
+	if err := query.Pluck("id", &sessionIDs).Error; err != nil {
+		return err
+	}
+	if len(sessionIDs) == 0 {
+		return nil
+	}
+	if err := tx.Where("session_id in ?", sessionIDs).Delete(&model.StepUpAssertion{}).Error; err != nil {
+		return err
+	}
+	return tx.Where("id in ?", sessionIDs).Delete(&model.UserSession{}).Error
+}
+
+func (h *Handlers) cleanupExpiredRememberTokenFamilies(userID string, now time.Time) error {
+	return h.db.Transaction(func(tx *gorm.DB) error {
+		var families []struct {
+			FamilyID string
+		}
+		if err := tx.Model(&model.UserRememberToken{}).
+			Select("family_id").
+			Where("user_id = ? and family_id <> ''", userID).
+			Group("family_id").
+			Having("max(expires_at) <= ?", now).
+			Scan(&families).Error; err != nil {
+			return err
+		}
+		for _, family := range families {
+			if err := deleteRememberFamilySessionsExcept(tx, userID, family.FamilyID, ""); err != nil {
+				return err
+			}
+			if err := tx.Where("user_id = ? and family_id = ?", userID, family.FamilyID).Delete(&model.UserRememberToken{}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func revokeRememberFamily(tx *gorm.DB, userID, familyID string, revokedAt time.Time) error {
@@ -353,12 +440,10 @@ func (h *Handlers) revokeCurrentSessionAndRememberTokens(plainToken string) (str
 			return err
 		}
 		userID = session.UserID
-		if err := tx.Where("session_id = ?", session.ID).Delete(&model.StepUpAssertion{}).Error; err != nil {
-			return err
+		if strings.TrimSpace(session.RememberFamilyID) != "" {
+			return revokeRememberFamily(tx, session.UserID, session.RememberFamilyID, time.Now())
 		}
-		if err := tx.Model(&model.UserRememberToken{}).
-			Where("user_id = ? and revoked_at is null", session.UserID).
-			Update("revoked_at", time.Now()).Error; err != nil {
+		if err := tx.Where("session_id = ?", session.ID).Delete(&model.StepUpAssertion{}).Error; err != nil {
 			return err
 		}
 		return tx.Where("id = ?", session.ID).Delete(&model.UserSession{}).Error

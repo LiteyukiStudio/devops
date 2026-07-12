@@ -26,6 +26,9 @@ func TestSecurityHeadersIncludeCSPAndProductionHSTS(t *testing.T) {
 	if !strings.Contains(csp, "default-src 'self'") || !strings.Contains(csp, "frame-ancestors 'self'") {
 		t.Fatalf("unexpected CSP header: %q", csp)
 	}
+	if !strings.Contains(csp, "object-src 'none'") || !strings.Contains(csp, "manifest-src 'self'") {
+		t.Fatalf("CSP must block plugins and constrain manifests: %q", csp)
+	}
 	if got := recorder.Header().Get("Strict-Transport-Security"); !strings.Contains(got, "max-age=31536000") {
 		t.Fatalf("unexpected HSTS header: %q", got)
 	}

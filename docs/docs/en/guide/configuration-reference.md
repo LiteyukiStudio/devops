@@ -15,6 +15,7 @@ For a first deployment, configure the Basic values only. Once the platform is ru
 | Basic | `PUBLIC_BASE_URL` | `http://localhost:8088` | Public platform URL; change for public domain, HTTPS, or reverse proxy. OIDC Redirect URI is generated as `{PUBLIC_BASE_URL}/api/v1/auth/oidc/callback`. |
 | Advanced | `API_ADDR` | `:8080` | API listen address; change for custom container ports. |
 | Advanced | `APP_CORS_ORIGINS` | `http://localhost:8088` | Allowed frontend origins; change when frontend and API use different origins. |
+| Advanced | `TRUSTED_PROXY_CIDRS` | Empty | Reverse-proxy CIDRs allowed to provide the real client address, comma-separated. No proxy is trusted by default. Configure only controlled proxies so a forged `X-Forwarded-For` cannot bypass per-IP rate limits. |
 | Advanced | `LOG_LEVEL` | `debug` | Log level; production usually uses `info`. |
 | Advanced | `DB_MAX_OPEN_CONNS` | `20` | Maximum PostgreSQL connections opened by this API process; size it across all API and worker replicas to avoid exhausting the database. |
 | Advanced | `DB_MAX_IDLE_CONNS` | `5` | Idle PostgreSQL connections kept by this API process; lower it when database connections are tight. |

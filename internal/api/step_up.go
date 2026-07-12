@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -38,6 +41,8 @@ var allowedStepUpPurposes = map[string]struct{}{
 	stepUpPurposeMFAManage:                {},
 	stepUpPurposeSecuritySettingsUpdate:   {},
 }
+
+var errStepUpAuthorizationChanged = errors.New("step-up authorization changed")
 
 func (h *Handlers) requireStepUp(ctx *gin.Context, user model.User, purpose string) bool {
 	if !h.stepUpMFAEnabled() {
@@ -103,6 +108,60 @@ func (h *Handlers) cleanupExpiredStepUpAssertions(now time.Time) {
 
 func (h *Handlers) stepUpMFAEnabled() bool {
 	return configBool(h.configValue("security.stepUpMfa.enabled"))
+}
+
+func stepUpMFAEnabledInTransaction(tx *gorm.DB) (bool, error) {
+	var row model.AppConfig
+	err := tx.First(&row, "key = ?", "security.stepUpMfa.enabled").Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return configBool(row.Value), nil
+}
+
+func lockActiveUserRole(tx *gorm.DB, userID, requiredRole string) (model.User, error) {
+	var user model.User
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ? and disabled = ?", userID, false).Error; err != nil {
+		return model.User{}, errStepUpAuthorizationChanged
+	}
+	if requiredRole != "" && user.Role != requiredRole {
+		return model.User{}, errStepUpAuthorizationChanged
+	}
+	return user, nil
+}
+
+func lockStepUpActor(tx *gorm.DB, userID, sessionID, purpose, requiredRole string) (model.User, error) {
+	user, err := lockActiveUserRole(tx, userID, requiredRole)
+	if err != nil {
+		return model.User{}, err
+	}
+	now := time.Now()
+	var session model.UserSession
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(
+		&session,
+		"id = ? and user_id = ? and expires_at > ?",
+		sessionID,
+		userID,
+		now,
+	).Error; err != nil {
+		return model.User{}, errStepUpAuthorizationChanged
+	}
+	var assertion model.StepUpAssertion
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(
+		&assertion,
+		"user_id = ? and session_id = ? and purpose = ? and idle_expires_at > ? and absolute_expires_at > ?",
+		userID,
+		sessionID,
+		normalizeStepUpPurpose(purpose),
+		now,
+		now,
+	).Error; err != nil || !stepUpAssertionActive(assertion, now) {
+		return model.User{}, errStepUpAuthorizationChanged
+	}
+	return user, nil
 }
 
 func (h *Handlers) stepUpTimeouts() (time.Duration, time.Duration) {

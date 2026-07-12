@@ -70,13 +70,13 @@ PVC 的 `storageClassName` 和 `accessMode` 只会在首次创建数据卷时写
 
 ## Web Console 与数据导出
 
-Web Console 的项目空间默认策略在创建项目空间时为开启。项目 Owner/Admin 可以在项目空间设置中整体开启或关闭；每个部署配置还可以选择“继承项目空间”“单独开启”或“单独关闭”，部署配置的显式选择优先于项目空间默认值。开关只决定该部署配置是否允许进入终端，不会放宽角色权限或 MFA：应用发布页仍只允许项目 Owner、Admin、Developer 使用，集群资源页的 Pod 终端仍只允许平台管理员。
+Web Console 的项目空间总开关在创建项目空间时默认开启。项目 Owner/Admin 可以整体关闭；关闭后任何部署配置都不能重新开启。部署配置只提供“继承项目空间”和“单独关闭”，因此最终策略是“项目空间已开启，并且部署配置没有关闭”。开关只决定该部署配置是否允许进入终端，不会放宽角色权限或 MFA：应用发布页仍只允许项目 Owner、Admin、Developer 使用，集群资源页的 Pod 终端仍只允许平台管理员。
 
 运行命令审计只保存命令摘要、长度、容器和退出码，不记录原始命令正文；交互终端审计保存连接目标和结果，不记录终端输入输出。开启敏感操作二次验证后，运行命令使用 `runtime_exec` purpose，交互终端使用 `runtime_terminal` purpose。
 
-应用发布页打开交互终端前会先调用普通 HTTP terminal authorize 预检。预检会检查项目角色、项目/部署配置状态、有效 Web Console 开关和 MFA assertion，使 `mfa_required` 能由统一 Dialog 处理并在验证后自动重试。预检返回 204 后前端才建立 WebSocket；WebSocket 端点仍会再次执行同一组会话、权限、资源状态、开关和 MFA 检查，预检结果不是可复用的授权票据。
+应用发布页打开交互终端前会先调用普通 HTTP terminal authorize 预检。预检会检查项目角色、项目/部署配置状态、有效 Web Console 开关和 MFA assertion，使 `mfa_required` 能由统一 Dialog 处理并在验证后自动重试。预检返回 204 后前端才建立 WebSocket；WebSocket 会在升级前再次检查，并在连接期间每 3 秒复核会话、项目成员和角色、资源状态、开关与 MFA assertion。只有真实终端输入会节流刷新空闲期限，resize、ping 和轮询不会续期，绝对期限也不会延长。退出登录、权限或策略变化、资源被删除、断言过期都会结束 shell，预检结果不是可复用的授权票据。
 
-部署配置的数据导出只支持交互式 cookie 登录会话和项目 Owner/Admin。即使个人令牌带有数据导出权限，也会返回 `auth.interactive_session_required`，不能直接下载运行数据。全局 MFA 策略开启时还必须完成 `data_export` purpose 验证；控制台收到 `mfa_required` 后完成验证并重试下载。导出只包含平台托管 PVC 或已有 PVC，`emptyDir` 不参与导出。
+部署配置的数据导出只支持交互式 cookie 登录会话和项目 Owner/Admin。即使个人令牌带有数据导出权限，也会返回 `auth.interactive_session_required`，不能直接下载运行数据。下载前控制台先调用普通 HTTP authorize 接口，让全局 MFA Dialog 能处理 `data_export` purpose；通过后接口签发绑定当前用户、session、项目空间、应用和部署配置的 60 秒一次性票据，下载接口会原子消费票据并重复权限、资源和 MFA 检查。生产多副本通过共享 Redis 保存票据哈希，Redis 不可用时拒绝导出。每次导出使用独立的临时 Pod，只清理自己的 Pod，避免并发导出互相中断。导出只包含平台托管 PVC 或已有 PVC，`emptyDir` 不参与导出。
 
 访问域名创建时默认启用；如果只是想暂时停止公网入口，可以关闭访问，平台会保留域名配置并撤销对应 HTTPRoute，之后重新启用即可恢复下发。
 

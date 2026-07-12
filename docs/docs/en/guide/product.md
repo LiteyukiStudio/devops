@@ -6,7 +6,7 @@ After the platform starts, complete the few settings you actually need. There is
 
 Compose starts the API in development mode by default. Open the sign-in page and follow the account hint shown there.
 
-Local-account sign-in and first-administrator bootstrap both create a 24-hour browser session. "Keep me signed in" is off by default. Enabling it on a trusted device adds a per-user, 30-day HttpOnly remember cookie. After the session expires, choosing that recent account rotates the remember token and creates a new session. The browser keeps display metadata for at most three recent accounts, but never stores passwords, tokens, or session cookies. Signing out, disabling the account, changing its password, or changing its role revokes the related sessions and remember tokens.
+Local-account sign-in and first-administrator bootstrap both create a server-side session that lasts at most 24 hours. "Keep me signed in" is off by default, so the session cookie has no persistent lifetime and disappears when the browser closes. Enabling it on a trusted device adds a per-user HttpOnly remember cookie with an absolute 30-day lifetime. After the session expires, choosing that recent account rotates the token inside the same token family and creates a new session, but rotation never extends the family's original 30-day deadline or treats remember recovery as a new password/OIDC primary authentication. Each family keeps only its latest session. Reuse of an old token is treated as replay and revokes the entire family's remember tokens, sessions, and Step-up assertions; signing out from a remembered session revokes that family as well. The browser keeps display metadata for at most three recent accounts, but never stores passwords, tokens, or session cookies. Disabling the account, changing its password, or changing its role revokes the account's related authentication state.
 
 If you switch to production mode, visit this page the first time:
 
@@ -31,6 +31,8 @@ Suggested first values:
 | Members | Start with yourself, invite others later |
 
 The project space list defaults to spaces related to the current user. Platform administrators can switch the scope to all project spaces when they need global maintenance.
+
+On mobile, management lists prioritize primary information such as the resource name. The action column only occupies the width required by its current controls, while the remaining table can still scroll horizontally when needed.
 
 ## Create the first application
 

@@ -215,7 +215,7 @@ export function ProjectsPage() {
           {
             key: 'actions',
             header: t('common.actions'),
-            className: 'w-64 min-w-64 whitespace-nowrap px-4 py-3 align-middle text-right',
+            className: 'whitespace-nowrap text-right',
             sticky: 'right',
             render: (project) => {
               const deleting = project.deleteStatus === 'deleting'

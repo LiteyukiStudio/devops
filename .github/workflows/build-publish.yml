@@ -27,6 +27,22 @@ jobs:
   quality:
     name: Release Quality Gate
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.2-alpine
+        env:
+          POSTGRES_USER: devops
+          POSTGRES_PASSWORD: devops
+          POSTGRES_DB: devops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U devops -d devops"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      AUTH_TEST_DATABASE_URL: postgres://devops:devops@127.0.0.1:5432/devops?sslmode=disable
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,6 +70,9 @@ jobs:
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
+
+      - name: Run PostgreSQL integration and migration tests
+        run: go test -count=1 ./internal/api ./internal/database
 
       - name: Run release quality checks
         run: scripts/release-check.sh

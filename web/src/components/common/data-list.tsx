@@ -67,7 +67,7 @@ function stickyColumnClass(sticky: DataListColumn<unknown>['sticky'], surface: '
 }
 
 const columnWidthProfiles: Record<DataListColumnWidth, { max?: number, min: number }> = {
-  actions: { min: 96 },
+  actions: { min: 0 },
   compact: { min: 96, max: 144 },
   normal: { min: 144, max: 288 },
   number: { min: 80, max: 128 },
@@ -121,6 +121,14 @@ function columnContentClassName(column: DataListColumn<unknown>, surface: 'heade
   }
 
   return cn('min-w-0 overflow-hidden', surface === 'header' && 'truncate')
+}
+
+function columnCellClassName(column: DataListColumn<unknown>) {
+  if (inferredColumnWidth(column) !== 'actions')
+    return undefined
+
+  // 操作列由实际按钮内容撑开；公共层覆盖页面遗留固定宽度，避免小屏主信息被挤压。
+  return 'w-px min-w-0 px-2 whitespace-nowrap sm:px-4'
 }
 
 /**
@@ -224,6 +232,7 @@ export function DataList<T>({
                           column.className,
                           stickyColumnClass(column.sticky, 'header'),
                           column.headerClassName,
+                          columnCellClassName(column as DataListColumn<unknown>),
                         )}
                       >
                         <div className={columnContentClassName(column as DataListColumn<unknown>, 'header')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
@@ -259,6 +268,7 @@ export function DataList<T>({
                               column.className,
                               stickyColumnClass(column.sticky, 'cell'),
                               column.cellClassName,
+                              columnCellClassName(column as DataListColumn<unknown>),
                             )}
                           >
                             <div className={columnContentClassName(column as DataListColumn<unknown>, 'cell')} style={columnWidthStyle(column as DataListColumn<unknown>)}>

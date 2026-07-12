@@ -175,7 +175,60 @@ func TestRememberTokenReplayRevokesCompromisedFamilyOnly(t *testing.T) {
 	assertRecordCount(t, db, &model.UserRememberToken{}, "id = ? and revoked_at is null", []any{unrelatedToken.ID}, 1)
 }
 
-func TestLogoutRevokesCurrentSessionAndAllRememberTokens(t *testing.T) {
+func TestRememberRotationPreservesPrimaryAuthenticationAndSingleSession(t *testing.T) {
+	db := authIntegrationDB(t)
+	user := model.User{ID: "usr_rotate_family", Email: "rotate-family@example.com", Name: "Rotate Family", AuthType: "oidc", Role: "user", Language: "en-US"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	now := time.Now()
+	primaryAuthenticatedAt := now.Add(-2 * time.Hour)
+	familyExpiresAt := now.Add(12 * time.Hour)
+	remember, rememberPlainToken := newUserRememberTokenInFamily(user.ID, "remf_rotate_family", familyExpiresAt)
+	oldSession, _ := newUserSessionInFamilyWithPrimaryAuthentication(user.ID, "", remember.FamilyID, now.Add(-time.Hour), &primaryAuthenticatedAt, now.Add(time.Hour))
+	if err := db.Create(&remember).Error; err != nil {
+		t.Fatalf("create remember token: %v", err)
+	}
+	if err := db.Create(&oldSession).Error; err != nil {
+		t.Fatalf("create old session: %v", err)
+	}
+	assertion := newTestStepUpAssertion("sua_rotate_family", user.ID, oldSession.ID)
+	if err := db.Create(&assertion).Error; err != nil {
+		t.Fatalf("create old assertion: %v", err)
+	}
+
+	h := &Handlers{db: db, mode: "production"}
+	_, _, rotatedRememberToken, err := h.rotateRememberLogin(user.ID, rememberPlainToken)
+	if err != nil {
+		t.Fatalf("first rotation: %v", err)
+	}
+	assertRecordCount(t, db, &model.UserSession{}, "user_id = ? and remember_family_id = ?", []any{user.ID, remember.FamilyID}, 1)
+	assertRecordCount(t, db, &model.StepUpAssertion{}, "id = ?", []any{assertion.ID}, 0)
+	var firstRotated model.UserSession
+	if err := db.First(&firstRotated, "user_id = ? and remember_family_id = ?", user.ID, remember.FamilyID).Error; err != nil {
+		t.Fatalf("read first rotated session: %v", err)
+	}
+	if firstRotated.PrimaryAuthenticatedAt == nil || !firstRotated.PrimaryAuthenticatedAt.Equal(primaryAuthenticatedAt) {
+		t.Fatalf("primary authentication changed: got=%v want=%v", firstRotated.PrimaryAuthenticatedAt, primaryAuthenticatedAt)
+	}
+	if firstRotated.ExpiresAt.After(familyExpiresAt) {
+		t.Fatalf("session expiry %v exceeds family expiry %v", firstRotated.ExpiresAt, familyExpiresAt)
+	}
+
+	if _, _, _, err := h.rotateRememberLogin(user.ID, rotatedRememberToken); err != nil {
+		t.Fatalf("second rotation: %v", err)
+	}
+	assertRecordCount(t, db, &model.UserSession{}, "user_id = ? and remember_family_id = ?", []any{user.ID, remember.FamilyID}, 1)
+	var secondRotated model.UserSession
+	if err := db.First(&secondRotated, "user_id = ? and remember_family_id = ?", user.ID, remember.FamilyID).Error; err != nil {
+		t.Fatalf("read second rotated session: %v", err)
+	}
+	if secondRotated.PrimaryAuthenticatedAt == nil || !secondRotated.PrimaryAuthenticatedAt.Equal(primaryAuthenticatedAt) {
+		t.Fatalf("primary authentication refreshed after second rotation: got=%v want=%v", secondRotated.PrimaryAuthenticatedAt, primaryAuthenticatedAt)
+	}
+}
+
+func TestLogoutNonRememberedSessionLeavesRememberFamiliesAlone(t *testing.T) {
 	db := authIntegrationDB(t)
 	user := model.User{ID: "usr_logout", Email: "logout@example.com", Name: "Logout", AuthType: "local", Role: "user", Language: "en-US", Password: "hash"}
 	if err := db.Create(&user).Error; err != nil {
@@ -210,9 +263,83 @@ func TestLogoutRevokesCurrentSessionAndAllRememberTokens(t *testing.T) {
 
 	assertRecordCount(t, db, &model.UserSession{}, "user_id = ?", []any{user.ID}, 1)
 	assertRecordCount(t, db, &model.UserRememberToken{}, "user_id = ?", []any{user.ID}, 2)
-	assertRecordCount(t, db, &model.UserRememberToken{}, "user_id = ? and revoked_at is not null", []any{user.ID}, 2)
+	assertRecordCount(t, db, &model.UserRememberToken{}, "user_id = ? and revoked_at is null", []any{user.ID}, 2)
 	assertRecordCount(t, db, &model.StepUpAssertion{}, "session_id = ?", []any{currentSession.ID}, 0)
 	assertRecordCount(t, db, &model.StepUpAssertion{}, "session_id = ?", []any{otherSession.ID}, 1)
+}
+
+func TestLogoutRememberedSessionRevokesOnlyCurrentFamily(t *testing.T) {
+	db := authIntegrationDB(t)
+	user := model.User{ID: "usr_family_logout", Email: "family-logout@example.com", Name: "Family Logout", AuthType: "local", Role: "user", Language: "en-US", Password: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	now := time.Now()
+	currentRemember, _ := newUserRememberTokenInFamily(user.ID, "remf_logout_current", now.Add(time.Hour))
+	unrelatedRemember, _ := newUserRememberTokenInFamily(user.ID, "remf_logout_other", now.Add(time.Hour))
+	currentSession, currentPlainToken := newUserSessionInFamily(user.ID, "", currentRemember.FamilyID, now)
+	staleFamilySession, _ := newUserSessionInFamily(user.ID, "", currentRemember.FamilyID, now.Add(-time.Minute))
+	unrelatedSession, _ := newUserSessionInFamily(user.ID, "", unrelatedRemember.FamilyID, now)
+	if err := db.Create(&[]model.UserRememberToken{currentRemember, unrelatedRemember}).Error; err != nil {
+		t.Fatalf("create remember tokens: %v", err)
+	}
+	if err := db.Create(&[]model.UserSession{currentSession, staleFamilySession, unrelatedSession}).Error; err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	assertions := []model.StepUpAssertion{
+		newTestStepUpAssertion("sua_family_current", user.ID, currentSession.ID),
+		newTestStepUpAssertion("sua_family_stale", user.ID, staleFamilySession.ID),
+		newTestStepUpAssertion("sua_family_other", user.ID, unrelatedSession.ID),
+	}
+	if err := db.Create(&assertions).Error; err != nil {
+		t.Fatalf("create assertions: %v", err)
+	}
+
+	h := &Handlers{db: db}
+	if _, err := h.revokeCurrentSessionAndRememberTokens(currentPlainToken); err != nil {
+		t.Fatalf("logout remembered session: %v", err)
+	}
+	assertRecordCount(t, db, &model.UserSession{}, "user_id = ? and remember_family_id = ?", []any{user.ID, currentRemember.FamilyID}, 0)
+	assertRecordCount(t, db, &model.StepUpAssertion{}, "id in ?", []any{[]string{"sua_family_current", "sua_family_stale"}}, 0)
+	assertRecordCount(t, db, &model.UserRememberToken{}, "id = ? and revoked_at is not null", []any{currentRemember.ID}, 1)
+	assertRecordCount(t, db, &model.UserSession{}, "id = ?", []any{unrelatedSession.ID}, 1)
+	assertRecordCount(t, db, &model.StepUpAssertion{}, "id = ?", []any{"sua_family_other"}, 1)
+	assertRecordCount(t, db, &model.UserRememberToken{}, "id = ? and revoked_at is null", []any{unrelatedRemember.ID}, 1)
+}
+
+func TestExpiredRememberTombstonesAreDeletedOnlyAfterWholeFamilyExpires(t *testing.T) {
+	db := authIntegrationDB(t)
+	user := model.User{ID: "usr_tombstone", Email: "tombstone@example.com", Name: "Tombstone", AuthType: "local", Role: "user", Language: "en-US", Password: "hash"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	now := time.Now()
+	expiredOne, _ := newUserRememberTokenInFamily(user.ID, "remf_expired", now.Add(-2*time.Hour))
+	expiredTwo, _ := newUserRememberTokenInFamily(user.ID, "remf_expired", now.Add(-time.Hour))
+	mixedExpired, _ := newUserRememberTokenInFamily(user.ID, "remf_mixed", now.Add(-time.Hour))
+	mixedActive, _ := newUserRememberTokenInFamily(user.ID, "remf_mixed", now.Add(time.Hour))
+	if err := db.Create(&[]model.UserRememberToken{expiredOne, expiredTwo, mixedExpired, mixedActive}).Error; err != nil {
+		t.Fatalf("create remember tombstones: %v", err)
+	}
+	expiredSession, _ := newUserSessionInFamily(user.ID, "", expiredOne.FamilyID, now.Add(-time.Hour))
+	mixedSession, _ := newUserSessionInFamily(user.ID, "", mixedActive.FamilyID, now)
+	if err := db.Create(&[]model.UserSession{expiredSession, mixedSession}).Error; err != nil {
+		t.Fatalf("create family sessions: %v", err)
+	}
+	expiredAssertion := newTestStepUpAssertion("sua_expired_family", user.ID, expiredSession.ID)
+	if err := db.Create(&expiredAssertion).Error; err != nil {
+		t.Fatalf("create expired-family assertion: %v", err)
+	}
+
+	h := &Handlers{db: db}
+	if err := h.cleanupExpiredRememberTokenFamilies(user.ID, now); err != nil {
+		t.Fatalf("cleanup expired families: %v", err)
+	}
+	assertRecordCount(t, db, &model.UserRememberToken{}, "family_id = ?", []any{expiredOne.FamilyID}, 0)
+	assertRecordCount(t, db, &model.UserSession{}, "remember_family_id = ?", []any{expiredOne.FamilyID}, 0)
+	assertRecordCount(t, db, &model.StepUpAssertion{}, "id = ?", []any{expiredAssertion.ID}, 0)
+	assertRecordCount(t, db, &model.UserRememberToken{}, "family_id = ?", []any{mixedActive.FamilyID}, 2)
+	assertRecordCount(t, db, &model.UserSession{}, "id = ?", []any{mixedSession.ID}, 1)
 }
 
 func TestRevokeUserAuthenticationClearsEverySession(t *testing.T) {

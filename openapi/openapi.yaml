@@ -177,9 +177,14 @@ paths:
     post:
       tags: [Auth]
       summary: Start TOTP enrollment
-      description: Replaces any pending enrollment, stores the TOTP secret in the encrypted secret store, and returns the secret only for the current enrollment flow.
+      description: Replaces any pending enrollment, stores the TOTP secret in the encrypted secret store, and returns the secret only for the current enrollment flow. Local accounts must re-enter their current password. OIDC accounts require non-impersonated primary authentication within the last five minutes; remember-token recovery does not refresh that timestamp.
       security:
         - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MFAEnrollmentInput" }
       responses:
         "201":
           description: Pending TOTP enrollment created.
@@ -187,7 +192,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MFAEnrollment" }
         "401":
-          description: Browser session is missing or invalid.
+          description: Browser session is missing or invalid, or primary reauthentication is required (`mfa.reauth_required`).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -562,6 +567,39 @@ paths:
         "200":
           description: Updated user.
 
+  /api/v1/users/{userId}/mfa:
+    delete:
+      tags: [Users]
+      summary: Reset another user's MFA enrollment
+      description: Requires an interactive platform-administrator session and an active `user_admin_update` Step-up assertion. Deletes the target user's authenticator secret, recovery codes, and active Step-up assertions. Administrators cannot reset their own MFA through this endpoint and cannot remove the last enabled administrator MFA while the global policy is active.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "204":
+          description: Target MFA state reset.
+        "401":
+          description: Interactive browser session is missing or invalid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Platform-administrator role or `user_admin_update` Step-up verification is required.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Target user or MFA enrollment was not found (`mfa.reset_target_not_found`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: Self-reset is forbidden (`mfa.admin_reset_self_forbidden`) or the target is the last MFA-enabled platform administrator (`mfa.last_admin_required`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/v1/configs/definitions:
     get:
       tags: [Configs]
@@ -593,7 +631,7 @@ paths:
     post:
       tags: [Runtime]
       summary: Authorize a runtime-cluster Pod terminal connection
-      description: Normal HTTP preflight used before opening the Pod terminal WebSocket. It verifies the interactive session, platform-administrator role, target cluster, and `runtime_terminal` Step-up assertion. A missing assertion returns `mfa_required`, allowing the frontend to show the MFA dialog and retry. A 204 authorizes only the preflight; the subsequent WebSocket endpoint rechecks authentication, role, MFA assertion, Pod identity, and platform ownership before upgrading.
+      description: Normal HTTP preflight used before opening the Pod terminal WebSocket. It verifies the interactive session, platform-administrator role, target cluster, and `runtime_terminal` Step-up assertion. A missing assertion returns `mfa_required`, allowing the frontend to show the MFA dialog and retry. A 204 authorizes only the preflight; the WebSocket repeats all checks before upgrading and revalidates session, role, assertion, Pod identity, and platform ownership every three seconds while connected. Revocation or expiry closes the shell.
       security:
         - SessionCookie: []
       parameters:
@@ -1262,13 +1300,18 @@ paths:
     get:
       tags: [Deployments]
       summary: Export persistent runtime data
-      description: Requires an interactive cookie-authenticated browser session and project Owner or Admin role. Personal access tokens are rejected even if they carry a data-export scope. When Step-up MFA is enabled, the current session must also hold an active `data_export` assertion; the API returns `mfa_required` with purpose `data_export` so the console can verify and retry.
+      description: Consumes a short-lived, one-time export ticket issued by the authorize endpoint, then repeats the interactive session, project Owner/Admin, resource-state, and `data_export` Step-up checks. Personal access tokens are rejected. Each export uses an isolated temporary Pod and streams a gzip archive without persisting the ticket or archive in business tables.
       security:
         - SessionCookie: []
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/ApplicationId"
         - $ref: "#/components/parameters/TargetId"
+        - name: ticket
+          in: query
+          required: true
+          description: One-time export ticket returned by the authorize endpoint. It expires after 60 seconds and is consumed even when its resource binding does not match.
+          schema: { type: string }
       responses:
         "200":
           description: Gzip-compressed tar archive streamed as an attachment.
@@ -1280,7 +1323,7 @@ paths:
             application/gzip:
               schema: { type: string, format: binary }
         "400":
-          description: Runtime data retention is disabled or the runtime cluster cannot export the target data.
+          description: Runtime data retention is disabled, the runtime cluster cannot export the target data, or the ticket is missing (`data_export.ticket_required`).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1290,7 +1333,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "403":
-          description: A personal access token was used (`auth.interactive_session_required`), the role is insufficient, or MFA is required (`mfa_required` / `mfa.session_required`).
+          description: A personal access token was used (`auth.interactive_session_required`), the role is insufficient, MFA is required, or the ticket is invalid/expired/consumed/bound to another request (`data_export.ticket_invalid`).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1304,12 +1347,70 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "502":
+          description: The temporary export Pod or archive stream could not be started (`data_export.stream_failed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: The shared production ticket store is unavailable (`data_export.ticket_unavailable`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/data-export/authorize:
+    post:
+      tags: [Deployments]
+      summary: Authorize a persistent runtime data export
+      description: Requires an interactive project Owner/Admin session, a mutable project/application/deployment target, exportable runtime data, and an active `data_export` Step-up assertion when the global policy is enabled. Returns a random 60-second one-time ticket bound to the current user, session, project, application, and deployment target. Production uses the shared Redis ticket store and fails closed when Redis is unavailable.
+      security:
+        - SessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/TargetId"
+      responses:
+        "200":
+          description: Data-export ticket issued. The download endpoint still repeats authorization and atomically consumes the ticket.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DataExportAuthorization" }
+        "400":
+          description: Runtime data retention is disabled or the runtime cluster cannot export the target data.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Interactive browser session is missing or invalid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Project role is insufficient, a personal access token was used, or `data_export` Step-up verification is required.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: Project, application, deployment target, or runtime dependency was not found.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: Project, application, or deployment target is being deleted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: The shared production ticket store is unavailable (`data_export.ticket_unavailable`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/v1/projects/{projectId}/releases/{releaseId}/terminal/authorize:
     post:
       tags: [Deployments]
       summary: Authorize a release Web Console terminal connection
-      description: Normal HTTP preflight used before opening the release terminal WebSocket. It verifies project Owner/Admin/Developer access, project and deployment-target mutation state, the effective project/deployment `webConsoleEnabled` policy, and the `runtime_terminal` Step-up assertion. A missing assertion returns `mfa_required`, allowing the frontend to show the MFA dialog and retry. A 204 authorizes only the preflight; the subsequent WebSocket endpoint repeats the session, role, resource-state, effective Web Console policy, and MFA assertion checks before upgrading.
+      description: Normal HTTP preflight used before opening the release terminal WebSocket. It verifies project Owner/Admin/Developer access, project and deployment-target mutation state, the effective project/deployment `webConsoleEnabled` policy, and the `runtime_terminal` Step-up assertion. A missing assertion returns `mfa_required`, allowing the frontend to show the MFA dialog and retry. A 204 authorizes only the preflight; the WebSocket repeats all checks before upgrading and revalidates session, membership, role, resource state, Web Console policy, and assertion every three seconds while connected. Revocation or expiry closes the shell.
       security:
         - SessionCookie: []
       parameters:
@@ -1648,11 +1749,33 @@ components:
         enabled: { type: boolean }
         pending: { type: boolean }
         policyEnabled: { type: boolean }
+        enrollmentReauthMode:
+          type: string
+          enum: [password, fresh_session]
+          description: Primary reauthentication required before starting enrollment. Local accounts use `password`; OIDC accounts require fresh non-impersonated primary authentication, which remember-token recovery cannot refresh.
         confirmedAt:
           type: [string, "null"]
           format: date-time
         recoveryCodesRemaining: { type: integer, minimum: 0 }
-      required: [enabled, pending, policyEnabled, confirmedAt, recoveryCodesRemaining]
+      required: [enabled, pending, policyEnabled, enrollmentReauthMode, confirmedAt, recoveryCodesRemaining]
+    MFAEnrollmentInput:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          writeOnly: true
+          description: Required for local accounts and ignored for OIDC accounts.
+    DataExportAuthorization:
+      type: object
+      properties:
+        ticket:
+          type: string
+          description: Random one-time ticket. The backend stores only its hash in production.
+        expiresAt:
+          type: string
+          format: date-time
+      required: [ticket, expiresAt]
     MFAEnrollment:
       type: object
       properties:
@@ -1893,7 +2016,7 @@ components:
         webConsoleEnabled:
           type: boolean
           default: true
-          description: Project-space default for release Web Console and runtime exec access. Omission on create defaults to true; omission on update preserves the current value. Project roles and Step-up MFA still apply.
+          description: Project-space master switch for release Web Console and runtime exec access. Omission on create defaults to true; omission on update preserves the current value. When false, no deployment target can re-enable Web Console. Project roles and Step-up MFA still apply.
       required: [name, slug]
     Project:
       type: object
@@ -1906,7 +2029,7 @@ components:
         maxConcurrentBuilds: { type: integer }
         webConsoleEnabled:
           type: boolean
-          description: Project-space default Web Console policy used when a deployment target has no override.
+          description: Project-space master switch. A false value disables Web Console for every deployment target in the project space.
         createdAt: { type: string, format: date-time }
       required: [id, name, slug, namespaceStrategy, maxConcurrentBuilds, webConsoleEnabled, createdAt]
     DeploymentTargetInput:
@@ -1917,7 +2040,7 @@ components:
         webConsoleEnabled:
           type: [boolean, "null"]
           default: null
-          description: "`null` inherits the project-space default; `true` explicitly enables and `false` explicitly disables Web Console for this deployment target. An explicit target value takes precedence over the project value."
+          description: "`null` inherits the project-space master switch and `false` disables Web Console for this deployment target. `true` is normalized to inheritance for compatibility and cannot bypass a disabled project-space switch."
     DeploymentTarget:
       type: object
       additionalProperties: true
@@ -1927,7 +2050,7 @@ components:
         applicationId: { type: string }
         webConsoleEnabled:
           type: [boolean, "null"]
-          description: Nullable override. Effective policy is this value when non-null, otherwise the project's `webConsoleEnabled` value.
+          description: Nullable target restriction. Effective policy is `project.webConsoleEnabled && webConsoleEnabled != false`; a true value is treated as inheritance.
       required: [id, projectId, applicationId, webConsoleEnabled]
     PaginatedProjectList:
       type: object

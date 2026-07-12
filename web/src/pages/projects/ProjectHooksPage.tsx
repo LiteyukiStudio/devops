@@ -117,7 +117,7 @@ export function ProjectHooksPage({ projectId, ref }: { projectId: string, ref?: 
                 { key: 'shell', header: t('projectHooks.shell'), className: 'w-24 px-4 py-3 align-middle', render: item => t(`projectHooks.shells.${item.shell}`) },
                 { key: 'failurePolicy', header: t('projectHooks.failurePolicy'), className: 'w-32 px-4 py-3 align-middle', render: item => t(`projectHooks.failurePolicies.${item.failurePolicy}`) },
                 { key: 'timeout', header: t('projectHooks.timeoutSeconds'), className: 'w-24 px-4 py-3 align-middle', render: item => `${item.timeoutSeconds}s` },
-                { key: 'actions', header: t('common.actions'), className: 'w-40 whitespace-nowrap px-4 py-3 text-right align-middle', render: item => (
+                { key: 'actions', header: t('common.actions'), className: 'whitespace-nowrap text-right', render: item => (
                   <div className="flex justify-end gap-2">
                     <EditActionButton label={t('common.edit')} onClick={() => openDialog(item)} />
                     <Button size="sm" variant="ghost" onClick={() => setHookToDelete(item)}>

@@ -16,6 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const bootstrapAdminAdvisoryLockID int64 = 0x4c554e4141444d49
@@ -387,6 +388,10 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 	if !h.requireStepUp(ctx, currentUser, stepUpPurposeUserAdminUpdate) {
 		return
 	}
+	actorSessionID := ""
+	if actorSession, sessionOK := h.currentSessionFromCookie(ctx); sessionOK && actorSession.UserID == currentUser.ID {
+		actorSessionID = actorSession.ID
+	}
 
 	var user model.User
 	if err := h.db.First(&user, "id = ?", ctx.Param("userId")).Error; err != nil {
@@ -406,8 +411,6 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	originalRole := user.Role
-	originalDisabled := user.Disabled
 	passwordChanged := input.Password != ""
 	user.Email = email
 	user.Name = name
@@ -432,21 +435,71 @@ func (h *Handlers) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	revokeAuthentication := shouldRevokeUserAuthentication(originalRole, user.Role, originalDisabled, user.Disabled, passwordChanged)
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Save(&user).Error; err != nil {
+		if err := lockStepUpPolicyMutation(tx); err != nil {
+			return err
+		}
+		policyEnabled, err := stepUpMFAEnabledInTransaction(tx)
+		if err != nil {
+			return err
+		}
+		if policyEnabled {
+			if _, err := lockStepUpActor(tx, currentUser.ID, actorSessionID, stepUpPurposeUserAdminUpdate, "platform_admin"); err != nil {
+				return err
+			}
+		} else if _, err := lockActiveUserRole(tx, currentUser.ID, "platform_admin"); err != nil {
+			return err
+		}
+		var stored model.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&stored, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		if policyEnabled && availablePlatformAdminRemoved(stored, user) {
+			enabledAdmins, err := lockMFAEnabledPlatformAdmins(tx)
+			if err != nil {
+				return err
+			}
+			if mfaEnabledForUser(enabledAdmins, stored.ID) && !hasOtherMFAEnabledPlatformAdmin(enabledAdmins, stored.ID) {
+				return errMFALastAdminRequired
+			}
+		}
+		revokeAuthentication := shouldRevokeUserAuthentication(stored.Role, user.Role, stored.Disabled, user.Disabled, passwordChanged)
+		stored.Email = user.Email
+		stored.Name = user.Name
+		stored.Role = user.Role
+		stored.Language = user.Language
+		stored.Disabled = user.Disabled
+		if passwordChanged {
+			stored.Password = user.Password
+		}
+		if err := tx.Save(&stored).Error; err != nil {
 			return err
 		}
 		if revokeAuthentication {
-			return revokeUserAuthentication(tx, user.ID)
+			if err := revokeUserAuthentication(tx, stored.ID); err != nil {
+				return err
+			}
 		}
+		user = stored
 		return nil
 	}); err != nil {
+		if err == errStepUpAuthorizationChanged {
+			writeErrorKey(ctx, http.StatusForbidden, currentUser.Language, "config.admin.required")
+			return
+		}
+		if err == errMFALastAdminRequired {
+			writeErrorCode(ctx, http.StatusConflict, "mfa.last_admin_required", "全局二次验证开启时必须保留至少一名已绑定 MFA 的平台管理员")
+			return
+		}
 		writeError(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ctx.JSON(http.StatusOK, user)
+}
+
+func availablePlatformAdminRemoved(stored, next model.User) bool {
+	return stored.Role == "platform_admin" && !stored.Disabled && (next.Role != "platform_admin" || next.Disabled)
 }
 
 type loginInput struct {

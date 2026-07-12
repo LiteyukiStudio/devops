@@ -26,6 +26,13 @@ const errors = {
   },
   config: {
     admin: { required: '请确认当前账号具有平台管理员权限。' },
+    update_failed: '站点配置更新失败，请稍后重试。',
+  },
+  data_export: {
+    ticket_unavailable: '数据导出授权暂时不可用，请稍后重试。',
+    ticket_required: '数据导出授权已失效，请重新发起导出。',
+    ticket_invalid: '数据导出授权无效或已使用，请重新发起导出。',
+    stream_failed: '运行数据归档启动失败，请检查运行集群后重试。',
   },
   bootstrap: {
     already_initialized: '平台管理员已经初始化，请直接登录。',
@@ -38,6 +45,7 @@ const errors = {
     credential_required: '必须且只能提供动态验证码或恢复码之一。',
     invalid_code: '动态验证码或恢复码无效。',
     invalid_purpose: '不支持该二次验证用途。',
+    admin_enrollment_required: '开启全局二次验证前，至少需要一名可用的平台管理员先绑定 MFA。',
     last_admin_required: '全局二次验证开启时，必须保留至少一名已绑定 MFA 的平台管理员。',
     not_enabled: '当前账号尚未启用两步验证。',
     secret_store_failed: '无法安全保存两步验证密钥。',

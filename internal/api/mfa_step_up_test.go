@@ -80,14 +80,19 @@ func TestMFAEnrollmentRequiresPasswordOrFreshOIDCSession(t *testing.T) {
 	}
 
 	oidcUser := model.User{AuthType: "oidc"}
-	if !mfaEnrollmentReauthenticated(oidcUser, model.UserSession{CreatedAt: now.Add(-mfaEnrollmentOIDCSessionMaxAge)}, "", now) {
+	freshBoundary := now.Add(-mfaEnrollmentOIDCSessionMaxAge)
+	if !mfaEnrollmentReauthenticated(oidcUser, model.UserSession{PrimaryAuthenticatedAt: &freshBoundary}, "", now) {
 		t.Fatal("session at the documented OIDC freshness boundary should be accepted")
 	}
-	if mfaEnrollmentReauthenticated(oidcUser, model.UserSession{CreatedAt: now.Add(-mfaEnrollmentOIDCSessionMaxAge - time.Second)}, "", now) {
+	stalePrimaryAuthentication := now.Add(-mfaEnrollmentOIDCSessionMaxAge - time.Second)
+	if mfaEnrollmentReauthenticated(oidcUser, model.UserSession{PrimaryAuthenticatedAt: &stalePrimaryAuthentication}, "", now) {
 		t.Fatal("stale OIDC session must not reauthenticate enrollment")
 	}
-	if mfaEnrollmentReauthenticated(oidcUser, model.UserSession{CreatedAt: now, ImpersonatorID: "usr_admin"}, "", now) {
+	if mfaEnrollmentReauthenticated(oidcUser, model.UserSession{PrimaryAuthenticatedAt: &now, ImpersonatorID: "usr_admin"}, "", now) {
 		t.Fatal("impersonated session must not reauthenticate enrollment")
+	}
+	if mfaEnrollmentReauthenticated(oidcUser, model.UserSession{CreatedAt: now}, "", now) {
+		t.Fatal("legacy session without primary authentication time must fail closed")
 	}
 }
 

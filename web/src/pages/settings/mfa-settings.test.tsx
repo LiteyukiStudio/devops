@@ -62,7 +62,7 @@ function renderPage(page: ReactElement) {
   )
 }
 
-describe('MFA settings flows', () => {
+describe('mfa settings flows', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await i18next.changeLanguage('en-US')

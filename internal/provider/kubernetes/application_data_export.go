@@ -3,6 +3,8 @@ package kubernetes
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -31,7 +33,10 @@ func (c *Client) StreamDataArchive(ctx context.Context, spec DataExportSpec, out
 			return fmt.Errorf("data export volume name and pvc name are required")
 		}
 	}
-	podName := dnsLabel(firstNonEmpty(spec.Name, "data-export"))
+	podName, err := dataExportPodName(firstNonEmpty(spec.Name, "data-export"))
+	if err != nil {
+		return err
+	}
 	singleVolume := len(exportVolumes) == 1
 	mountPath := firstNonEmpty(spec.MountPath, "/data")
 	volumeMounts := make([]corev1.VolumeMount, 0, len(exportVolumes))
@@ -69,11 +74,14 @@ func (c *Client) StreamDataArchive(ctx context.Context, spec DataExportSpec, out
 			Volumes: volumes,
 		},
 	}
-	_ = c.client.CoreV1().Pods(spec.Namespace).Delete(ctx, podName, metav1.DeleteOptions{})
 	if _, err := c.client.CoreV1().Pods(spec.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		return err
 	}
-	defer c.client.CoreV1().Pods(spec.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{})
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = c.client.CoreV1().Pods(spec.Namespace).Delete(cleanupCtx, podName, metav1.DeleteOptions{})
+	}()
 	if err := c.waitForPodRunning(ctx, spec.Namespace, podName); err != nil {
 		return err
 	}
@@ -101,6 +109,23 @@ func (c *Client) StreamDataArchive(ctx context.Context, spec DataExportSpec, out
 		return err
 	}
 	return nil
+}
+
+func dataExportPodName(base string) (string, error) {
+	var randomBytes [8]byte
+	if _, err := rand.Read(randomBytes[:]); err != nil {
+		return "", fmt.Errorf("generate data export pod name: %w", err)
+	}
+	suffix := hex.EncodeToString(randomBytes[:])
+	normalized := dnsLabel(firstNonEmpty(base, "data-export"))
+	maxBaseLength := 63 - len(suffix) - 1
+	if len(normalized) > maxBaseLength {
+		normalized = strings.Trim(normalized[:maxBaseLength], "-")
+	}
+	if normalized == "" {
+		normalized = "data-export"
+	}
+	return normalized + "-" + suffix, nil
 }
 
 func (c *Client) waitForPodRunning(ctx context.Context, namespace string, name string) error {

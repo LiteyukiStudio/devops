@@ -26,6 +26,13 @@ const errors = {
   },
   config: {
     admin: { required: 'Confirm that the current account has platform administrator permission.' },
+    update_failed: 'The site configuration could not be updated. Try again later.',
+  },
+  data_export: {
+    ticket_unavailable: 'Data export authorization is temporarily unavailable. Try again later.',
+    ticket_required: 'The data export authorization has expired. Start the export again.',
+    ticket_invalid: 'The data export authorization is invalid or already used. Start the export again.',
+    stream_failed: 'The runtime data archive could not be started. Check the runtime cluster and try again.',
   },
   bootstrap: {
     already_initialized: 'The platform administrator is already initialized. Sign in instead.',
@@ -38,6 +45,7 @@ const errors = {
     credential_required: 'Provide exactly one authenticator code or recovery code.',
     invalid_code: 'The authenticator code or recovery code is invalid.',
     invalid_purpose: 'This step-up verification purpose is not supported.',
+    admin_enrollment_required: 'At least one available platform administrator must enroll MFA before global step-up verification can be enabled.',
     last_admin_required: 'At least one MFA-enabled platform administrator must remain while the global policy is enabled.',
     not_enabled: 'Two-step verification is not enabled for this account.',
     secret_store_failed: 'The two-step verification secret could not be stored securely.',

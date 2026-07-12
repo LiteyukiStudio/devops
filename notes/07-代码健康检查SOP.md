@@ -449,32 +449,95 @@ rg -n "TODO|FIXME|临时|兼容|fallback|special case|module|Builder|builder" in
 - 暂不处理：非表单展示列表中使用业务字段作为 key 的场景不影响输入焦点，本轮不扩大范围。
 - 文档同步：已在本 SOP 记录本次表单焦点问题、扫描范围和处理结论。
 
-## 12. 2026-07-12 认证与发布文档同步复查
+## 12. 2026-07-12 认证与发布安全复查
 
 ### 范围
 
-- 检查模块：登录会话与生产初始化、TOTP/恢复码/Step-up MFA、Web Console 项目/部署配置策略与 terminal authorize 预检、数据导出授权、发布质量门禁。
-- 检查原因：认证与发布安全实现已扩展，OpenAPI、双语文档和 TODO 存在滞后口径。
-- 当前变更：仅同步 OpenAPI、中文/英文文档、TODO 和本健康记录，不修改生产 Go/TypeScript 代码。
+- 检查模块：登录会话与生产初始化、TOTP/恢复码/Step-up MFA、管理员 MFA 重置、Web Console 项目/部署配置策略与持续授权、数据导出授权、发布质量门禁。
+- 检查原因：安全审查发现 remember token 重放、MFA 绑定主身份复核、TOTP 重放、失败审计落库、长连接授权持续性及契约同步仍有缺口。
+- 当前变更：完成后端安全加固、前端交互与测试、数据库迁移、OpenAPI、双语文档、TODO 和发布门禁同步。
 
 ### 验证结果
 
-- `go test ./...`：本轮为文档同步，未重复执行。
-- `pnpm --dir web lint` / `pnpm --dir web build`：本轮未修改前端代码，未重复执行。
-- `pnpm --dir docs build`：通过。
-- 其他针对性验证：Ruby Psych 成功解析 `openapi/openapi.yaml`，识别 OpenAPI `3.1.0`、62 个 path 和 38 个 schema；中英文标题结构与过期 MFA TODO 文案复扫通过。
+- `go test ./...`、`go vet ./...`：通过。
+- PostgreSQL 集成测试：`AUTH_TEST_DATABASE_URL=... go test -count=1 ./internal/api ./internal/database` 通过。
+- `pnpm --dir web test`：6 个测试文件、16 条测试通过。
+- `pnpm --dir web lint`：0 error，保留 13 个既有 React warning；`pnpm --dir web build`：通过。
+- `govulncheck ./...`：Go `1.26.5` 与 `quic-go 0.59.1` 下无可达漏洞。
+- `pnpm --dir web audit --prod`、`pnpm --dir docs audit --prod`：无已知漏洞。
+- `helm lint`、`helm template`：通过，仅保留可选 Chart icon 提示。
+- `pnpm --dir docs build` 与 OpenAPI YAML 解析：通过；前端 production preview 的 `/`、`/account`、`/settings/users`、`/projects` 和主 JS 资源 HTTP smoke 通过。
 
 ### 发现
 
 | 模块 | 问题 | 风险 | 分级 | 处理 |
 | --- | --- | --- | --- | --- |
-| OpenAPI / 双语文档 | remember login、生产 Bootstrap Token、完整 MFA、Web Console 继承策略、terminal authorize 预检与数据导出授权未同步 | 客户端实现和运维操作可能依赖过期契约 | 局部重构 | 已按当前实现补齐并保持中英文一致 |
-| TODO | MFA 聚合任务把已完成和未覆盖范围混在同一项 | 发布判断会把部分完成误认为全量完成 | 保持观察 | 已拆明完成项；资源删除、高风险部署和管理员重置 MFA 继续保持未完成 |
-| 发布门禁 | Go 版本和发布检查前置条件缺少文档入口 | RC 可能使用错误工具链或跳过质量检查 | 局部重构 | 已记录 Go `1.26.5` 与 `scripts/release-check.sh` 完整门禁 |
+| Remember login | token 轮换缺少 family 绝对期限、主认证时间继承和完整 session 撤销 | 被盗旧 token 或旧 session 可能在轮换/退出后继续使用，remember 恢复可能伪装为新鲜 OIDC 登录 | 立即修复 | 已增加 token family、旧 token 墓碑、`primary_authenticated_at` 和 family 级 session/assertion 撤销；每族只保留最新 session，remember 恢复继承主认证时间且迁移前 OIDC session fail closed |
+| MFA | 绑定前未复核主身份、TOTP 时间步可重复、最后管理员保护有并发竞态、管理员缺少受控重置入口 | 会话被劫持后可绑定验证器，验证码可重放，并发解绑可能让平台失去可用 MFA 管理员 | 立即修复 | 本地密码/OIDC 主认证复核、计数器防重放、事务行锁保护、带 Step-up 与最后管理员保护的审计重置入口均已实现 |
+| Step-up 安全配置 | 进程内缓存只在当前 API 副本更新，策略开启与最后管理员解绑、禁用或降级之间存在并发窗口；事务持锁后从全局连接池重读配置可能导致池饥饿 | 多副本下其他实例可能仍按旧策略免验证，或留下“策略已开启但无人可验证”的锁死状态；单连接池可能自锁 | 立即修复 | 安全判断改为从共享 PostgreSQL 读取；读取失败使用启用 MFA 和短超时的 fail-closed 值，批量配置更新先完整验证再单事务写入；策略修改与管理员 MFA 解绑/重置/账号状态变更共用 PostgreSQL 事务锁，并只使用当前事务重读策略、复核 actor/session/assertion 和管理员集合 |
+| Web Console | WebSocket 只在握手时检查，项目禁用可被部署级 true 覆盖，监视轮询会自行刷新空闲期限 | 长连接在撤权后继续存在，项目策略可绕过，空置高权限 shell 一直活到绝对期限 | 立即修复 | 项目开关改为硬上限，增加 HTTP 预检与每 3 秒持续复核；只有真实 stdin 输入节流刷新 idle，resize/ping/轮询不续期 |
+| 数据导出 | GET 可直接触发副作用，预检不是强制票据；固定导出 Pod 会让并发任务互删 | 跨站顶层导航可诱导资源消耗，并发导出相互中断 | 立即修复 | authorize 签发 60 秒一次性、全维度绑定票据，生产 Redis `GETDEL` 原子消费且故障 fail closed；每次导出使用独立临时 Pod并先读取首块数据再提交下载头 |
+| 审计日志 | GORM `default:true` 可能让失败审计落成成功，写入错误被静默忽略 | 安全审计结论失真或缺失 | 立即修复 | 审计写入改为显式字段 map，失败至少输出带上下文日志；MFA 解绑与管理员重置的成功审计和业务变更位于同一事务 |
+| OpenAPI / 双语文档 | remember login、MFA 重认证与重置、持续终端授权、数据导出预检和 Web Console 硬上限未同步 | 客户端实现和运维操作可能依赖过期契约 | 局部重构 | 已按当前实现补齐并保持中英文一致 |
+| TODO | MFA 聚合任务把已完成和未覆盖范围混在同一项 | 发布判断会把部分完成误认为全量完成 | 保持观察 | 已拆明完成项；资源删除和高风险部署 Step-up 仍作为后续范围保留 |
+| 发布门禁 | Go 版本和发布检查前置条件缺少文档入口，CI 未提供 PostgreSQL 导致认证/迁移集成测试被 skip | RC 可能使用错误工具链或绕过真实数据库测试 | 立即修复 | 已固定 Go `1.26.5`，Quality Job 启动 PostgreSQL 并显式执行非缓存集成测试；`release-check.sh` 缺少 `AUTH_TEST_DATABASE_URL` 时拒绝继续 |
 
 ### 本轮结论
 
-- 立即处理：完成 OpenAPI、双语文档、TODO 和健康记录同步。
-- 进入 TODO：保留资源删除/高风险部署 Step-up 覆盖和管理员重置 MFA 两项未完成工作。
-- 暂不处理：共享工作区中的生产代码改动及完整发布门禁执行；门禁要求干净 Git 工作区。
+- 立即处理：认证、MFA、Web Console、数据导出、审计、OpenAPI、双语文档和发布门禁缺口已完成。
+- 进入 TODO：保留资源删除与高风险部署操作的 Step-up 覆盖，不把未实现范围误标为完成。
+- 暂不处理：无；聚合发布脚本仍会按设计拒绝脏工作区，合并前需在干净工作区再执行一次。
 - 文档同步：通过。
+
+## 13. 认证与发布安全审计流程
+
+### 13.1 范围与证据
+
+1. 先固定基线提交、目标环境和改动文件，列出认证入口、会话/Token、OIDC、MFA/Step-up、权限、Secret、审计日志、长连接/导出及发布链路。
+2. 同步检查数据库迁移、OpenAPI、前端类型与 i18n、中英文档、依赖锁文件、CI/镜像构建和 Helm Chart；不在范围的模块必须显式记录，不得默认为已审计。
+3. 每条发现记录「路径/接口、攻击或失败前提、影响、分级、责任人、修复提交、测试证据、剩余风险」；结论必须可由命令输出或人工复现，不接受只看代码的「应该安全」。
+
+### 13.2 并行 Agent 边界
+
+- 主审 Agent 维护唯一发现清单和分级口径；按认证后端、PostgreSQL/迁移、前端/契约、依赖/CI/Helm 分配互斥文件边界。
+- 每个 Agent 开工前声明「可修改路径、只读依赖路径、交叉点」；发现越界问题只上报，由对应责任人修改，不覆盖、回退或重写其他 Agent 的未提交改动。
+- 交付时报告基线、实际改动文件、验证命令、未解决项和冲突点；主审 Agent 先重读最新 diff，再做跨域整合。
+
+### 13.3 P0 / P1 / P2 分级
+
+| 级别 | 判定 | 处理和退出条件 |
+| --- | --- | --- |
+| P0 | 可绕过认证/授权或 MFA，泄露 Secret，会话/Token 可重放，可跨租户读写，迁移可破坏数据，或发布链路可被接管 | 立即停止合并/发布；本轮修复并补回归测试，独立复审通过后才能解除阻断 |
+| P1 | 需特定前提才能利用，但可造成提权、撤权失效、审计失真、并发不一致或安全默认值失效 | 发布候选版前修复；若暂缓，必须有可验证的缓解、责任人和截止日期，并由安全负责人接受风险 |
+| P2 | 防御纵深、错误可观测性、文档/契约偏差或低可利用性加固项 | 记入 TODO 并给出优先级；不得将已知 P2 省略后宣称「无安全问题」 |
+
+### 13.4 修复与独立复审
+
+1. 修复者先写能稳定复现的失败测试，修复根因后补充失败路径、跨用户/跨项目、过期/撤销、重放和并发场景；权限和安全配置读取失败时默认 fail closed。
+2. 复审者必须与修复者不同，从原始发现和最新完整 diff 独立建模；不仅确认测试变绿，还要尝试绕过、检查新增攻击面和剩余竞态。
+3. 复审结论只能是「通过」、「带已接受剩余风险通过」或「重开 P0/P1」；P0/P1 不得由原修复者自己关闭。
+
+### 13.5 PostgreSQL 并发与迁移测试
+
+- 使用专用、可销毁的 PostgreSQL 库设置 `AUTH_TEST_DATABASE_URL`，执行 `go test -count=1 ./internal/api ./internal/database`；输出中出现因未配数据库而 `skip` 视为门禁失败。
+- 迁移至少覆盖「历史 schema/数据 -> up -> 业务不变式 -> down 或明确不可逆 -> 重新 up」，校验 `NOT NULL`/唯一约束/外键/索引、回填顺序、旧数据 fail closed 和重启后状态。
+- 对「最后管理员」、Token 轮换/撤销、一次性票据、安全配置更新等不变式，用独立连接和 barrier 同时提交冲突操作，循环多次并直接查库校验最终状态；同时执行 `go test -race ./internal/api ./internal/worker ./internal/provider/kubernetes ./internal/secret`。
+- 测试必须证明行锁、事务级 advisory lock 或原子 SQL 真正保护共享数据；进程内 mutex 不能作为多副本安全证据。
+
+### 13.6 基础发布门禁
+
+| 领域 | 最低门禁 |
+| --- | --- |
+| 后端 | `gofmt` 无差异；`go test ./...`；上述 PostgreSQL 非缓存测试；`go vet ./...`；关键包 `go test -race` |
+| 前端 | `pnpm --dir web install --frozen-lockfile`；`pnpm --dir web test`；`pnpm --dir web lint`；`pnpm --dir web build`；对登录、账号安全、管理员用户和项目空间路由做 production preview smoke |
+| 契约/文档 | 解析 OpenAPI，核对 code/枚举、请求响应与前端类型；`pnpm --dir docs install --frozen-lockfile`；`pnpm --dir docs build`；用户可见流程中英文同步 |
+| 依赖 | 审查 `go.mod`/`go.sum` 与 pnpm lockfile 差异；`govulncheck ./...`；`pnpm --dir web audit --audit-level=high`；`pnpm --dir docs audit --audit-level=high`；高危可达漏洞阻断发布 |
+| Helm | `helm lint charts/luna-devops`；`helm template luna-devops charts/luna-devops` 结果非空；复核 Secret/RBAC、安全上下文、探针、资源限制、非浮动镜像 tag 和生产 values 覆盖 |
+
+干净工作区的 RC 最终执行 `AUTH_TEST_DATABASE_URL=... ./scripts/release-check.sh`。聚合脚本通过不代替针对本轮发现的业务回归、并发测试和独立复审。
+
+### 13.7 完成口径
+
+- **本轮完成**：范围内的 P0 已清零，P1 已修复或完成显式风险接受，每条发现有证据和独立复审结论，针对性测试通过，契约、文档和 TODO 已同步。只能表述「本轮已审计范围完成」。
+- **项目可发版**：除满足本轮条件外，还需所有发布范围已纳入审计，无未处置 P0/未接受 P1，干净 RC 提交的完整门禁通过，迁移、回滚/不可逆策略、部署配置、制品来源和运维文档均已验收。
+- 本轮完成时仍要单列「未审计范围」、「已接受风险」和「项目整体发版阻断项」，不得用局部结论替代项目发版签字。

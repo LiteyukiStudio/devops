@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/LiteyukiStudio/devops/internal/authz"
@@ -17,6 +18,7 @@ import (
 const (
 	runtimeTerminalAuthorizationInterval = 3 * time.Second
 	runtimeTerminalResourceCheckTimeout  = 2 * time.Second
+	runtimeTerminalActivityMaxInterval   = 15 * time.Second
 )
 
 type runtimeTerminalAuthorizationBinding struct {
@@ -111,9 +113,19 @@ func (h *Handlers) monitorRuntimeTerminalAuthorization(
 	authorizationAllowed func(context.Context, model.User) bool,
 	cancel context.CancelFunc,
 ) <-chan struct{} {
+	return h.monitorRuntimeTerminalAuthorizationAtInterval(ctx, binding, authorizationAllowed, cancel, runtimeTerminalAuthorizationInterval)
+}
+
+func (h *Handlers) monitorRuntimeTerminalAuthorizationAtInterval(
+	ctx context.Context,
+	binding runtimeTerminalAuthorizationBinding,
+	authorizationAllowed func(context.Context, model.User) bool,
+	cancel context.CancelFunc,
+	interval time.Duration,
+) <-chan struct{} {
 	revoked := make(chan struct{})
 	go func() {
-		ticker := time.NewTicker(runtimeTerminalAuthorizationInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -155,16 +167,60 @@ func (h *Handlers) runtimeTerminalAuthorizationActive(
 	if !state.active(binding, now) {
 		return false
 	}
-	if !binding.AssertionRequired {
+	return true
+}
+
+type runtimeTerminalActivityTracker struct {
+	h           *Handlers
+	binding     runtimeTerminalAuthorizationBinding
+	minInterval time.Duration
+
+	mu          sync.Mutex
+	lastRefresh time.Time
+}
+
+func (h *Handlers) newRuntimeTerminalActivityTracker(binding runtimeTerminalAuthorizationBinding) *runtimeTerminalActivityTracker {
+	idleTimeout, _ := h.stepUpTimeouts()
+	minInterval := idleTimeout / 2
+	if minInterval <= 0 || minInterval > runtimeTerminalActivityMaxInterval {
+		minInterval = runtimeTerminalActivityMaxInterval
+	}
+	return &runtimeTerminalActivityTracker{h: h, binding: binding, minInterval: minInterval}
+}
+
+func (tracker *runtimeTerminalActivityTracker) Record(ctx context.Context, now time.Time) bool {
+	if tracker == nil || !tracker.binding.AssertionRequired {
+		return true
+	}
+	if !tracker.binding.Deadline.After(now) || !tracker.binding.AssertionAbsoluteDeadline.After(now) {
+		return false
+	}
+
+	tracker.mu.Lock()
+	defer tracker.mu.Unlock()
+	if !tracker.lastRefresh.IsZero() && now.Sub(tracker.lastRefresh) < tracker.minInterval {
 		return true
 	}
 
-	idleTimeout, _ := h.stepUpTimeouts()
-	idleExpiresAt := refreshedStepUpIdleExpiry(now, idleTimeout, binding.AssertionAbsoluteDeadline)
-	result := db.Model(&model.StepUpAssertion{}).
-		Where("id = ? and user_id = ? and session_id = ? and purpose = ? and idle_expires_at > ? and absolute_expires_at > ?", binding.AssertionID, binding.UserID, binding.SessionID, stepUpPurposeRuntimeTerminal, now, now).
+	idleTimeout, _ := tracker.h.stepUpTimeouts()
+	idleExpiresAt := refreshedStepUpIdleExpiry(now, idleTimeout, tracker.binding.AssertionAbsoluteDeadline)
+	result := tracker.h.db.WithContext(ctx).Model(&model.StepUpAssertion{}).
+		Where(
+			"id = ? and user_id = ? and session_id = ? and purpose = ? and idle_expires_at > ? and absolute_expires_at > ? and absolute_expires_at <= ?",
+			tracker.binding.AssertionID,
+			tracker.binding.UserID,
+			tracker.binding.SessionID,
+			stepUpPurposeRuntimeTerminal,
+			now,
+			now,
+			tracker.binding.AssertionAbsoluteDeadline,
+		).
 		Updates(map[string]any{"last_activity_at": now, "idle_expires_at": idleExpiresAt, "updated_at": now})
-	return result.Error == nil && result.RowsAffected == 1
+	if result.Error != nil || result.RowsAffected != 1 {
+		return false
+	}
+	tracker.lastRefresh = now
+	return true
 }
 
 type releaseRuntimeTerminalAuthorizationReference struct {

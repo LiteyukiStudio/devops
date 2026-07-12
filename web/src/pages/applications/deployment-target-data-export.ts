@@ -1,3 +1,4 @@
+import type { DataExportAuthorization } from '@/api'
 import { api, deploymentTargetDataExportUrl } from '@/api'
 
 interface ExportWindow {
@@ -7,7 +8,7 @@ interface ExportWindow {
 }
 
 interface DataExportDependencies {
-  authorize?: (projectId: string, applicationId: string, targetId: string) => Promise<void>
+  authorize?: (projectId: string, applicationId: string, targetId: string) => Promise<DataExportAuthorization>
   openWindow?: () => ExportWindow | null
 }
 
@@ -23,8 +24,15 @@ export async function openDeploymentTargetDataExport(
 
   exportWindow.opener = null
   try {
-    await (dependencies.authorize ?? api.authorizeDeploymentTargetDataExport)(projectId, applicationId, targetId)
-    exportWindow.location.replace(deploymentTargetDataExportUrl(projectId, applicationId, targetId))
+    const authorization = await (dependencies.authorize ?? api.authorizeDeploymentTargetDataExport)(projectId, applicationId, targetId)
+    const baseExportUrl = deploymentTargetDataExportUrl(projectId, applicationId, targetId)
+    const exportUrl = new URL(baseExportUrl, window.location.origin)
+    exportUrl.searchParams.set('ticket', authorization.ticket)
+    exportWindow.location.replace(
+      baseExportUrl.startsWith('http://') || baseExportUrl.startsWith('https://')
+        ? exportUrl.toString()
+        : `${exportUrl.pathname}${exportUrl.search}`,
+    )
   }
   catch (error) {
     exportWindow.close()

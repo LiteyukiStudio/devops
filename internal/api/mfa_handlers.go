@@ -304,25 +304,49 @@ func (h *Handlers) RegenerateMFARecoveryCodes(ctx *gin.Context) {
 }
 
 func (h *Handlers) DisableMFA(ctx *gin.Context) {
-	user, _, ok := h.currentMFAUserSession(ctx)
+	user, session, ok := h.currentMFAUserSession(ctx)
 	if !ok || !h.requireMFAAssertion(ctx, user, stepUpPurposeMFAManage) {
-		return
-	}
-	if h.stepUpMFAEnabled() && user.Role == "platform_admin" && !h.hasAnotherMFAEnabledPlatformAdmin(user.ID) {
-		h.audit(user.ID, "mfa.disable", user.ID, false, "last MFA-enabled platform admin cannot disable MFA")
-		writeErrorCode(ctx, http.StatusConflict, "mfa.last_admin_required", "全局二次验证开启时必须保留至少一名已绑定 MFA 的平台管理员")
 		return
 	}
 	resource := mfaSecretResource(user.ID)
 	err := h.db.Transaction(func(tx *gorm.DB) error {
-		return deleteUserMFAState(tx, user.ID, resource)
+		if err := lockStepUpPolicyMutation(tx); err != nil {
+			return err
+		}
+		lockedUser, err := lockStepUpActor(tx, user.ID, session.ID, stepUpPurposeMFAManage, "")
+		if err != nil {
+			return err
+		}
+		policyEnabled, err := stepUpMFAEnabledInTransaction(tx)
+		if err != nil {
+			return err
+		}
+		if policyEnabled && lockedUser.Role == "platform_admin" {
+			enabledAdmins, err := lockMFAEnabledPlatformAdmins(tx)
+			if err != nil {
+				return err
+			}
+			if !hasOtherMFAEnabledPlatformAdmin(enabledAdmins, user.ID) {
+				return errMFALastAdminRequired
+			}
+		}
+		if err := deleteUserMFAState(tx, user.ID, resource); err != nil {
+			return err
+		}
+		return createMFAAudit(tx, user.ID, "mfa.disable", user.ID, "MFA disabled and assertions revoked")
 	})
 	if err != nil {
-		h.audit(user.ID, "mfa.disable", user.ID, false, "failed to disable MFA")
-		writeError(ctx, http.StatusInternalServerError, err.Error())
+		h.audit(user.ID, "mfa.disable", user.ID, false, mfaAuditFailure(err))
+		switch err {
+		case errMFALastAdminRequired:
+			writeErrorCode(ctx, http.StatusConflict, "mfa.last_admin_required", "全局二次验证开启时必须保留至少一名已绑定 MFA 的平台管理员")
+		case errStepUpAuthorizationChanged:
+			writeMFARequired(ctx, stepUpPurposeMFAManage)
+		default:
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
-	h.audit(user.ID, "mfa.disable", user.ID, true, "MFA disabled and assertions revoked")
 	ctx.Status(http.StatusNoContent)
 }
 
@@ -331,15 +355,22 @@ func (h *Handlers) AdminResetUserMFA(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	targetID := strings.TrimSpace(ctx.Param("userId"))
 	if actor.Role != "platform_admin" {
+		h.audit(actor.ID, "mfa.admin_reset", targetID, false, "platform administrator role required")
 		writeErrorKey(ctx, http.StatusForbidden, actor.Language, "config.admin.required")
 		return
 	}
 	if !h.requireMFAAssertion(ctx, actor, stepUpPurposeUserAdminUpdate) {
+		h.audit(actor.ID, "mfa.admin_reset", targetID, false, "current administrator step-up required")
+		return
+	}
+	actorSession, ok := h.currentSessionFromCookie(ctx)
+	if !ok || actorSession.UserID != actor.ID {
+		writeMFARequired(ctx, stepUpPurposeUserAdminUpdate)
 		return
 	}
 
-	targetID := strings.TrimSpace(ctx.Param("userId"))
 	if targetID == actor.ID {
 		h.audit(actor.ID, "mfa.admin_reset", targetID, false, "administrators must manage their own MFA from account settings")
 		writeErrorCode(ctx, http.StatusConflict, "mfa.admin_reset_self_forbidden", "请从个人安全设置管理当前账号的 MFA")
@@ -347,6 +378,24 @@ func (h *Handlers) AdminResetUserMFA(ctx *gin.Context) {
 	}
 
 	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := lockStepUpPolicyMutation(tx); err != nil {
+			return err
+		}
+		if _, err := lockStepUpActor(tx, actor.ID, actorSession.ID, stepUpPurposeUserAdminUpdate, "platform_admin"); err != nil {
+			return err
+		}
+		policyEnabled, err := stepUpMFAEnabledInTransaction(tx)
+		if err != nil {
+			return err
+		}
+		var enabledAdmins []model.UserMFAConfig
+		if policyEnabled {
+			var err error
+			enabledAdmins, err = lockMFAEnabledPlatformAdmins(tx)
+			if err != nil {
+				return err
+			}
+		}
 		var target model.User
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&target, "id = ?", targetID).Error; err != nil {
 			return err
@@ -355,28 +404,15 @@ func (h *Handlers) AdminResetUserMFA(ctx *gin.Context) {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&config, "user_id = ?", target.ID).Error; err != nil {
 			return err
 		}
-		if h.stepUpMFAEnabled() && target.Role == "platform_admin" && config.Enabled {
-			var enabledAdmins []model.UserMFAConfig
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-				Table("user_mfa_configs").
-				Select("user_mfa_configs.*").
-				Joins("join users on users.id = user_mfa_configs.user_id").
-				Where("users.role = ? and users.disabled = ? and users.deleted_at is null and user_mfa_configs.enabled = ?", "platform_admin", false, true).
-				Find(&enabledAdmins).Error; err != nil {
-				return err
-			}
-			otherEnabledAdmin := false
-			for _, adminConfig := range enabledAdmins {
-				if adminConfig.UserID != target.ID {
-					otherEnabledAdmin = true
-					break
-				}
-			}
-			if !otherEnabledAdmin {
+		if policyEnabled && target.Role == "platform_admin" && config.Enabled {
+			if !hasOtherMFAEnabledPlatformAdmin(enabledAdmins, target.ID) {
 				return errMFALastAdminRequired
 			}
 		}
-		return deleteUserMFAState(tx, target.ID, mfaSecretResource(target.ID))
+		if err := deleteUserMFAState(tx, target.ID, mfaSecretResource(target.ID)); err != nil {
+			return err
+		}
+		return createMFAAudit(tx, actor.ID, "mfa.admin_reset", targetID, "target MFA credentials and assertions deleted")
 	})
 	if err != nil {
 		h.audit(actor.ID, "mfa.admin_reset", targetID, false, mfaAuditFailure(err))
@@ -385,13 +421,14 @@ func (h *Handlers) AdminResetUserMFA(ctx *gin.Context) {
 			writeErrorCode(ctx, http.StatusConflict, "mfa.last_admin_required", "全局二次验证开启时必须保留至少一名已绑定 MFA 的平台管理员")
 		case gorm.ErrRecordNotFound:
 			writeErrorCode(ctx, http.StatusNotFound, "mfa.reset_target_not_found", "用户或 MFA 配置不存在")
+		case errStepUpAuthorizationChanged:
+			writeErrorKey(ctx, http.StatusForbidden, actor.Language, "config.admin.required")
 		default:
 			writeError(ctx, http.StatusInternalServerError, err.Error())
 		}
 		return
 	}
 
-	h.audit(actor.ID, "mfa.admin_reset", targetID, true, "target MFA credentials and assertions deleted")
 	ctx.Status(http.StatusNoContent)
 }
 
@@ -417,11 +454,18 @@ func (h *Handlers) reauthenticateMFAEnrollment(ctx *gin.Context, user model.User
 }
 
 func mfaEnrollmentReauthenticated(user model.User, session model.UserSession, currentPassword string, now time.Time) bool {
-	if mfaEnrollmentReauthMode(user) == "password" {
+	switch strings.ToLower(strings.TrimSpace(user.AuthType)) {
+	case "local":
 		return strings.TrimSpace(currentPassword) != "" && bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)) == nil
+	case "oidc":
+		if session.ImpersonatorID != "" || session.PrimaryAuthenticatedAt == nil || session.PrimaryAuthenticatedAt.IsZero() {
+			return false
+		}
+		age := now.Sub(*session.PrimaryAuthenticatedAt)
+		return age >= 0 && age <= mfaEnrollmentOIDCSessionMaxAge
+	default:
+		return false
 	}
-	age := now.Sub(session.CreatedAt)
-	return session.ImpersonatorID == "" && !session.CreatedAt.IsZero() && age >= 0 && age <= mfaEnrollmentOIDCSessionMaxAge
 }
 
 func (h *Handlers) currentMFAUserSession(ctx *gin.Context) (model.User, model.UserSession, bool) {
@@ -567,20 +611,66 @@ func deleteUserMFAState(tx *gorm.DB, userID, secretResource string) error {
 	return tx.Where("resource = ?", secretResource).Delete(&model.SecretValue{}).Error
 }
 
+func lockMFAEnabledPlatformAdmins(tx *gorm.DB) ([]model.UserMFAConfig, error) {
+	var admins []model.User
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("role = ? and disabled = ? and deleted_at is null", "platform_admin", false).
+		Order("id asc").
+		Find(&admins).Error; err != nil {
+		return nil, err
+	}
+	adminIDs := make([]string, 0, len(admins))
+	for _, admin := range admins {
+		adminIDs = append(adminIDs, admin.ID)
+	}
+	if len(adminIDs) == 0 {
+		return nil, nil
+	}
+	var configs []model.UserMFAConfig
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("user_id in ? and enabled = ?", adminIDs, true).
+		Order("user_id asc").
+		Find(&configs).Error; err != nil {
+		return nil, err
+	}
+	return configs, nil
+}
+
+func hasOtherMFAEnabledPlatformAdmin(configs []model.UserMFAConfig, excludedUserID string) bool {
+	for _, config := range configs {
+		if config.UserID != excludedUserID {
+			return true
+		}
+	}
+	return false
+}
+
+func mfaEnabledForUser(configs []model.UserMFAConfig, userID string) bool {
+	for _, config := range configs {
+		if config.UserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func createMFAAudit(tx *gorm.DB, userID, action, resource, message string) error {
+	return tx.Model(&model.AuditLog{}).Create(map[string]any{
+		"id":         id.New("aud"),
+		"user_id":    strings.TrimSpace(userID),
+		"action":     action,
+		"resource":   resource,
+		"success":    true,
+		"message":    message,
+		"created_at": time.Now(),
+	}).Error
+}
+
 func (h *Handlers) hasMFAEnabledPlatformAdmin() bool {
 	var count int64
 	_ = h.db.Table("users").
 		Joins("join user_mfa_configs on user_mfa_configs.user_id = users.id and user_mfa_configs.enabled = ?", true).
 		Where("users.role = ? and users.disabled = ? and users.deleted_at is null", "platform_admin", false).
-		Count(&count).Error
-	return count > 0
-}
-
-func (h *Handlers) hasAnotherMFAEnabledPlatformAdmin(excludedUserID string) bool {
-	var count int64
-	_ = h.db.Table("users").
-		Joins("join user_mfa_configs on user_mfa_configs.user_id = users.id and user_mfa_configs.enabled = ?", true).
-		Where("users.role = ? and users.disabled = ? and users.deleted_at is null and users.id <> ?", "platform_admin", false, excludedUserID).
 		Count(&count).Error
 	return count > 0
 }
@@ -602,10 +692,11 @@ type mfaSentinelError string
 func (err mfaSentinelError) Error() string { return string(err) }
 
 const (
-	errMFAInvalidCode       = mfaSentinelError("invalid MFA code")
-	errMFAAlreadyEnabled    = mfaSentinelError("MFA already enabled")
-	errMFAEnrollmentChanged = mfaSentinelError("MFA enrollment changed")
-	errMFALastAdminRequired = mfaSentinelError("last MFA-enabled platform admin is required")
+	errMFAInvalidCode             = mfaSentinelError("invalid MFA code")
+	errMFAAlreadyEnabled          = mfaSentinelError("MFA already enabled")
+	errMFAEnrollmentChanged       = mfaSentinelError("MFA enrollment changed")
+	errMFALastAdminRequired       = mfaSentinelError("last MFA-enabled platform admin is required")
+	errMFAAdminEnrollmentRequired = mfaSentinelError("MFA-enabled platform admin is required")
 )
 
 func writeMFAError(ctx *gin.Context, err error) {

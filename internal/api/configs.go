@@ -26,6 +26,8 @@ type configDefinition struct {
 	Options     []string `json:"options,omitempty"`
 }
 
+const stepUpPolicyMutationLockID int64 = 0x4c594d4641504f4c
+
 type configDefinitionResponse struct {
 	Key            string   `json:"key"`
 	LabelKey       string   `json:"labelKey"`
@@ -221,10 +223,11 @@ var configDefinitions = []configDefinition{
 type configCache struct {
 	mu     sync.RWMutex
 	values map[string]string
+	db     *gorm.DB
 }
 
 func newConfigCache(db *gorm.DB) *configCache {
-	cache := &configCache{values: map[string]string{}}
+	cache := &configCache{values: map[string]string{}, db: db}
 	cache.reload(db)
 	return cache
 }
@@ -249,11 +252,17 @@ func (c *configCache) reload(db *gorm.DB) {
 
 func (c *configCache) get(keys []string) map[string]string {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	result := map[string]string{}
 	for _, key := range keys {
 		if value, ok := c.values[key]; ok {
+			result[key] = value
+		}
+	}
+	c.mu.RUnlock()
+
+	securityKeys := stepUpSecurityConfigKeys(keys)
+	if len(securityKeys) > 0 && c.db != nil {
+		for key, value := range readStepUpSecurityConfigs(c.db, securityKeys) {
 			result[key] = value
 		}
 	}
@@ -322,54 +331,82 @@ func (h *Handlers) UpdateConfigs(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	stepUpConfigChanged := containsStepUpConfig(input.Values)
+	values, err := validateConfigValues(input.Values)
+	if err != nil {
+		writeError(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+	stepUpConfigChanged := containsStepUpConfig(values)
+	targetStepUpEnabled := false
+	actorSessionID := ""
 	if stepUpConfigChanged {
-		targetEnabled, _, _, err := h.validateStepUpConfigUpdate(input.Values)
+		targetEnabled, _, _, err := h.validateStepUpConfigUpdate(values)
 		if err != nil {
 			writeErrorCode(ctx, http.StatusBadRequest, "mfa.invalid_policy", err.Error())
 			return
 		}
-		if targetEnabled && !h.hasMFAEnabledPlatformAdmin() {
+		targetStepUpEnabled = targetEnabled
+		if targetStepUpEnabled && !h.hasMFAEnabledPlatformAdmin() {
 			writeErrorCode(ctx, http.StatusConflict, "mfa.admin_enrollment_required", "至少一名可用平台管理员绑定 MFA 后才能开启全局二次验证")
 			return
 		}
 		if (h.stepUpMFAEnabled() || targetEnabled) && !h.requireMFAAssertion(ctx, user, stepUpPurposeSecuritySettingsUpdate) {
 			return
 		}
+		actorSession, ok := h.currentSessionFromCookie(ctx)
+		if !ok || actorSession.UserID != user.ID {
+			writeMFARequired(ctx, stepUpPurposeSecuritySettingsUpdate)
+			return
+		}
+		actorSessionID = actorSession.ID
 	}
 
-	for key, rawValue := range input.Values {
-		if !isKnownConfigKey(key) {
-			writeError(ctx, http.StatusBadRequest, fmt.Sprintf("unknown config key: %s", key))
+	err = h.db.Transaction(func(tx *gorm.DB) error {
+		if err := lockStepUpPolicyMutation(tx); err != nil {
+			return err
+		}
+		if stepUpConfigChanged {
+			if _, err := lockStepUpActor(tx, user.ID, actorSessionID, stepUpPurposeSecuritySettingsUpdate, "platform_admin"); err != nil {
+				return err
+			}
+			if targetStepUpEnabled {
+				enabledAdmins, err := lockMFAEnabledPlatformAdmins(tx)
+				if err != nil {
+					return err
+				}
+				if len(enabledAdmins) == 0 {
+					return errMFAAdminEnrollmentRequired
+				}
+			}
+		} else if _, err := lockActiveUserRole(tx, user.ID, "platform_admin"); err != nil {
+			return err
+		}
+		if err := upsertConfigValuesInTransaction(tx, values); err != nil {
+			return err
+		}
+		if stepUpConfigChanged {
+			return createMFAAudit(tx, user.ID, "mfa.policy_update", "security.stepUpMfa", "step-up MFA policy updated")
+		}
+		return nil
+	})
+	if err != nil {
+		if err == errStepUpAuthorizationChanged {
+			writeErrorKey(ctx, http.StatusForbidden, user.Language, "config.admin.required")
 			return
 		}
-		value, err := configValueToString(rawValue)
-		if err != nil {
-			writeError(ctx, http.StatusBadRequest, err.Error())
+		if err == errMFAAdminEnrollmentRequired {
+			writeErrorCode(ctx, http.StatusConflict, "mfa.admin_enrollment_required", "至少一名可用平台管理员绑定 MFA 后才能开启全局二次验证")
 			return
 		}
-		if definition := configDefinitionByKey(key); definition != nil && len(definition.Options) > 0 && !configOptionAllowed(value, definition.Options) {
-			writeError(ctx, http.StatusBadRequest, fmt.Sprintf("invalid config value for %s", key))
-			return
-		}
-		row := model.AppConfig{Key: key, Value: value, UpdatedAt: time.Now()}
-		if err := h.db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "key"}},
-			DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
-		}).Create(&row).Error; err != nil {
-			writeError(ctx, http.StatusBadRequest, err.Error())
-			return
-		}
+		writeErrorCode(ctx, http.StatusInternalServerError, "config.update_failed", "configuration update failed")
+		return
 	}
 	h.configs.reload(h.db)
-	if stepUpConfigChanged {
-		h.audit(user.ID, "mfa.policy_update", "security.stepUpMfa", true, "step-up MFA policy updated")
-	}
 
 	ctx.JSON(http.StatusOK, h.configs.get(knownConfigKeys()))
 }
 
-func containsStepUpConfig(values map[string]any) bool {
+func containsStepUpConfig[T any](values map[string]T) bool {
 	for key := range values {
 		if strings.HasPrefix(key, "security.stepUpMfa.") {
 			return true
@@ -378,19 +415,24 @@ func containsStepUpConfig(values map[string]any) bool {
 	return false
 }
 
-func (h *Handlers) validateStepUpConfigUpdate(values map[string]any) (bool, int, int, error) {
-	enabledText, err := pendingConfigValue(values, "security.stepUpMfa.enabled", h.configValue("security.stepUpMfa.enabled"))
+func (h *Handlers) validateStepUpConfigUpdate(values map[string]string) (bool, int, int, error) {
+	current := h.configs.get([]string{
+		"security.stepUpMfa.enabled",
+		"security.stepUpMfa.idleTimeoutMinutes",
+		"security.stepUpMfa.absoluteTimeoutMinutes",
+	})
+	enabledText, err := pendingConfigValue(values, "security.stepUpMfa.enabled", current["security.stepUpMfa.enabled"])
 	if err != nil {
 		return false, 0, 0, err
 	}
 	if !isBooleanConfigValue(enabledText) {
 		return false, 0, 0, fmt.Errorf("security.stepUpMfa.enabled must be a boolean")
 	}
-	idleText, err := pendingConfigValue(values, "security.stepUpMfa.idleTimeoutMinutes", h.configValue("security.stepUpMfa.idleTimeoutMinutes"))
+	idleText, err := pendingConfigValue(values, "security.stepUpMfa.idleTimeoutMinutes", current["security.stepUpMfa.idleTimeoutMinutes"])
 	if err != nil {
 		return false, 0, 0, err
 	}
-	absoluteText, err := pendingConfigValue(values, "security.stepUpMfa.absoluteTimeoutMinutes", h.configValue("security.stepUpMfa.absoluteTimeoutMinutes"))
+	absoluteText, err := pendingConfigValue(values, "security.stepUpMfa.absoluteTimeoutMinutes", current["security.stepUpMfa.absoluteTimeoutMinutes"])
 	if err != nil {
 		return false, 0, 0, err
 	}
@@ -408,12 +450,93 @@ func (h *Handlers) validateStepUpConfigUpdate(values map[string]any) (bool, int,
 	return configBool(enabledText), idleMinutes, absoluteMinutes, nil
 }
 
-func pendingConfigValue(values map[string]any, key, current string) (string, error) {
+func pendingConfigValue(values map[string]string, key, current string) (string, error) {
 	value, exists := values[key]
 	if !exists {
 		return current, nil
 	}
-	return configValueToString(value)
+	return value, nil
+}
+
+func validateConfigValues(input map[string]any) (map[string]string, error) {
+	values := make(map[string]string, len(input))
+	for key, rawValue := range input {
+		definition := configDefinitionByKey(key)
+		if definition == nil {
+			return nil, fmt.Errorf("unknown config key: %s", key)
+		}
+		value, err := configValueToString(rawValue)
+		if err != nil {
+			return nil, fmt.Errorf("invalid config value for %s: %w", key, err)
+		}
+		if len(definition.Options) > 0 && !configOptionAllowed(value, definition.Options) {
+			return nil, fmt.Errorf("invalid config value for %s", key)
+		}
+		values[key] = value
+	}
+	return values, nil
+}
+
+func upsertConfigValues(db *gorm.DB, values map[string]string) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		return upsertConfigValuesInTransaction(tx, values)
+	})
+}
+
+func upsertConfigValuesInTransaction(tx *gorm.DB, values map[string]string) error {
+	now := time.Now()
+	for key, value := range values {
+		row := model.AppConfig{Key: key, Value: value, UpdatedAt: now}
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
+		}).Create(&row).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func lockStepUpPolicyMutation(tx *gorm.DB) error {
+	return tx.Exec("SELECT pg_advisory_xact_lock(?)", stepUpPolicyMutationLockID).Error
+}
+
+func stepUpSecurityConfigKeys(keys []string) []string {
+	result := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if strings.HasPrefix(key, "security.stepUpMfa.") {
+			result = append(result, key)
+		}
+	}
+	return result
+}
+
+func readStepUpSecurityConfigs(db *gorm.DB, keys []string) map[string]string {
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if definition := configDefinitionByKey(key); definition != nil {
+			values[key] = definition.Default
+		}
+	}
+
+	var rows []model.AppConfig
+	if err := db.Where("key IN ?", keys).Find(&rows).Error; err != nil {
+		for _, key := range keys {
+			switch key {
+			case "security.stepUpMfa.enabled":
+				values[key] = "true"
+			case "security.stepUpMfa.idleTimeoutMinutes":
+				values[key] = "1"
+			case "security.stepUpMfa.absoluteTimeoutMinutes":
+				values[key] = "5"
+			}
+		}
+		return values
+	}
+	for _, row := range rows {
+		values[row.Key] = row.Value
+	}
+	return values
 }
 
 func configMinuteValue(value string, fallback, minimum, maximum int) (int, error) {

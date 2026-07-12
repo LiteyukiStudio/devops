@@ -199,7 +199,7 @@ export function AuthProvidersPage() {
     {
       key: 'actions',
       header: t('common.actions'),
-      className: 'w-32 whitespace-nowrap text-right',
+      className: 'whitespace-nowrap text-right',
       render: provider => (
         <EditActionButton
           aria-label={t('edit')}

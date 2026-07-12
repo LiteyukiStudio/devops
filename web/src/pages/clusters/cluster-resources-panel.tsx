@@ -127,7 +127,7 @@ export function ClusterResourcesPanel({ items, loading, pagination, selectedClus
         {
           key: 'actions',
           header: t('common.actions'),
-          className: 'w-72 min-w-72 whitespace-nowrap text-right',
+          className: 'whitespace-nowrap text-right',
           sticky: 'right',
           render: item => (
             <div className="flex justify-end gap-2">

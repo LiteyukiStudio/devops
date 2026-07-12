@@ -60,6 +60,7 @@
 - [x] 项目空间和应用详情页 topbar 使用资源类型前缀展示当前资源名称，应用详情页按“项目空间 / 应用”展示，并在应用列表提供进入应用详情的唯一入口。
 - [x] 项目空间、应用、部署配置详情页 topbar 名称链路可点击：项目名进项目面板，应用名进应用面板，模块名进模块面板。
 - [x] 移动端基础适配：桌面侧边栏在小屏切换为带滑入滑出动画的可折叠侧边抽屉，`DataList` 小屏保留表格并支持左右滑动，`ContentTabs` 小屏改为当前 tab 下拉选择，代码库/镜像站/身份源等配置表单小屏单列化。
+- [x] 统一列表操作列按实际按钮内容自适应宽度：移动端使用紧凑内边距，页面遗留的固定 `w/min-w` 不再挤占主信息列；桌面多按钮操作区仍按内容自然展开并可固定在右侧。
 - [x] 浏览器标签页标题统一为 `{page title} - {site title}`，其中 page title 复用内容区 topbar 标题。
 - [x] 前端首次加载支持浏览器语言自动检测；未登录按浏览器语言，登录后按用户偏好语言覆盖并缓存。
 - [x] 新增 shadcn Dialog 基础组件和可配置二次确认组件。
@@ -147,7 +148,7 @@
 - [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 继续使用 `.env.worker` 服务开发联调。
 - [x] 新增 GitHub Actions 容器发布工作流：仅构建 `linux/amd64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；分支发布 `nightly`，`v*` tag 发布版本 tag，稳定版本 tag 额外发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
 - [x] 修复内嵌 SPA 根路径和 fallback 被 Go FileServer 重定向到 `./` 的问题：`index.html` 改为直接返回，避免服务端根路径出现不必要 301。
-- [x] 新增发布质量门禁 `scripts/release-check.sh`：要求干净工作区和精确 Go `1.26.5`，统一执行 Go test/vet/race、前端测试/lint/build、文档构建、pnpm audit、govulncheck 与 Helm lint/render。
+- [x] 新增发布质量门禁 `scripts/release-check.sh`：要求干净工作区、精确 Go `1.26.5` 和 `AUTH_TEST_DATABASE_URL`，统一执行 Go test/vet/race、不可缓存的 PostgreSQL 认证/迁移集成测试、前端测试/lint/build、文档构建、pnpm audit、govulncheck 与 Helm lint/render；GitHub Quality Job 自动启动 PostgreSQL。
 
 ## 3. 认证、权限与登录
 
@@ -224,8 +225,8 @@
 - [x] MFA challenge/assertion 状态后端化：按 user/session/purpose 记录验证状态并由数据库共享；敏感操作通过后刷新 last activity，超过无操作时间或绝对有效期后重新要求 OTP。
 - [x] Step-up MFA 后端第一阶段：新增 `security.stepUpMfa.enabled` 开关、`step_up_assertions` 共享表和 `requireStepUp` 统一检查点；已接入 runtime exec/terminal、数据导出、Secret/Registry Credential 写入、kubeconfig 更新、Auth Provider 更新和管理员用户变更，未通过时返回 `mfa_required`。
 - [x] 前端统一 MFA Dialog：敏感操作遇到 `mfa_required` 后弹出 OTP/恢复码输入框，验证通过后自动继续原操作，所有文案走 i18n。
-- [x] MFA 安全控制：OTP 校验允许一个时间步漂移，验证接口按用户和 IP 限流，OTP/恢复码不写日志，密码变更、禁用账号、角色变化和 MFA 解绑/重新绑定后清理已有 assertion。
-- [ ] 补齐管理员重置用户 MFA：用户解绑、重新生成恢复码、使用恢复码、敏感操作 MFA 通过/失败已写入 AuditLog，管理员不可查看 TOTP secret 或恢复码明文；仍需增加受审计的管理员重置入口。
+- [x] MFA 安全控制：OTP 校验允许一个时间步漂移且拒绝同一/更早计数器重放，验证接口按用户和可信来源 IP 限流；本地绑定前校验当前密码，OIDC 绑定要求 5 分钟内非模拟登录的主认证时间，remember 恢复不会刷新该时间；OTP/恢复码不写日志，密码变更、禁用账号、角色变化和 MFA 解绑/重新绑定后清理已有 assertion；策略修改、管理员 MFA 解绑/重置及管理员禁用/降级通过共享 PostgreSQL 事务锁串行化，并在事务内重读策略和复核 actor/session/assertion，保证并发后仍有可用管理员且旧请求不能越权继续。
+- [x] 补齐管理员重置用户 MFA：用户解绑、重新生成恢复码、使用恢复码、敏感操作 MFA 通过/失败已写入 AuditLog；平台管理员完成 `user_admin_update` 二次验证后可重置他人 MFA，但不能重置自己或移除全局策略下最后一名 MFA 管理员，也不能查看 TOTP secret 或恢复码明文。
 
 ## 4. 项目、应用与前端主工作区
 
@@ -513,7 +514,7 @@
 - [x] 禁止私有网段非 443 端口访问。
 - [x] 禁止元数据地址、Kubernetes API Server 和 Service CIDR 访问。
 - [x] 为构建网络拒绝事件记录审计日志。
-- [x] Web Console 增加项目/部署配置级开关：项目空间默认开启，部署配置可继承或显式覆盖；真实终端仅面向授权角色，并在设置和文档中明确命令/交互终端审计范围。
+- [x] Web Console 增加项目/部署配置级开关：项目空间默认开启且作为硬上限，部署配置只能继承或进一步关闭；终端仅面向授权角色，连接期间持续复核会话、角色、资源、开关和 MFA assertion，只有真实 stdin 输入刷新空闲期限，resize/ping/轮询不续期，并在设置和文档中明确审计范围。
 - [ ] 细化 Access Token scope：将应用、部署配置、发布、构建和网关接口从粗粒度 `project:read/write` 拆到稳定业务 scope，避免自动化授权语义模糊。
 - [x] 构建日志和 Hook 日志统一脱敏验收：Git Token、Registry 密码/Token、构建密钥、常见 Authorization header 和 URL 内 token 不应落入 BuildLog/HookRunLog。
 - [x] Kubernetes 构建 Job 默认不使用 privileged，不挂载宿主机 Docker socket；rootless BuildKit executor 使用非 root UID/GID、`--oci-worker-no-process-sandbox`、允许 `newuidmap/newgidmap` 所需的 privilege escalation，并放开 seccomp/AppArmor 兼容 Kubernetes 用户命名空间限制。
@@ -651,6 +652,7 @@
 - [x] 实现 Deployment/Service/ConfigMap/Secret apply。
 - [x] P4 多工作负载主路径：部署配置增加 `workloadType`，支持 `Deployment` / `StatefulSet`；发布渲染、HPA targetRef、rollout 状态同步、重启、删除清理和集群资源聚合均按实际工作负载处理。普通用户默认仍使用 Deployment，StatefulSet 放在高级配置中按需启用。
 - [x] 简化应用侧存储体验：部署配置只暴露运行数据保留、多个容器内数据卷、容量调整和数据导出，底层 PVC 由平台托管且不向普通用户展示。
+- [x] 收紧运行数据导出：POST 授权签发 60 秒一次性票据并绑定 user/session/project/application/target，生产通过 Redis 原子消费且故障时 fail closed；每次导出使用独立临时 Pod，避免并发导出互相删除。
 - [x] 渐进式开放 Kubernetes P0/P1 高级运行时配置：部署配置基础表单继续只展示镜像、端口、副本、资源和数据卷；高级配置默认折叠，已支持 `command/args`、`imagePullPolicy`、`readinessProbe`、`livenessProbe`、`startupProbe`。
 - [x] 渐进式开放容器与 Pod 安全上下文：部署配置高级区支持 `runAsUser`、`runAsGroup`、`fsGroup`、`fsGroupChangePolicy`、`readOnlyRootFilesystem`、`allowPrivilegeEscalation`、`capabilities` 等常用字段；默认不启用，后端做基础格式校验，用于解决 OpenList 等镜像的数据目录权限问题。
 - [x] 渐进式开放调度配置：高级区支持 `nodeSelector`、`tolerations`、基础 `affinity`、`topologySpreadConstraints` 和 `priorityClassName`；普通用户优先使用平台默认调度。

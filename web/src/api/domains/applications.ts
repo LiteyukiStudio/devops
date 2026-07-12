@@ -1,4 +1,4 @@
-import type { Application, ApplicationPayload, DeploymentTarget, DeploymentTargetPayload, PaginatedResponse, PaginationParams, RepositoryBinding, RepositoryBindingPayload } from '../types'
+import type { Application, ApplicationPayload, DataExportAuthorization, DeploymentTarget, DeploymentTargetPayload, PaginatedResponse, PaginationParams, RepositoryBinding, RepositoryBindingPayload } from '../types'
 import { paginationQuery, request } from '../core'
 
 export const applicationsApi = {
@@ -25,7 +25,7 @@ export const applicationsApi = {
   restartDeploymentTarget: (projectId: string, applicationId: string, targetId: string) =>
     request<void>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}/restart`, { method: 'POST' }),
   authorizeDeploymentTargetDataExport: (projectId: string, applicationId: string, targetId: string) =>
-    request<void>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}/data-export/authorize`, { method: 'POST' }),
+    request<DataExportAuthorization>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}/data-export/authorize`, { method: 'POST' }),
   deleteDeploymentTarget: (projectId: string, applicationId: string, targetId: string) =>
     request<void>(`/projects/${projectId}/applications/${applicationId}/deployment-targets/${targetId}`, { method: 'DELETE' }),
   listRepositoryBindings: (projectId: string) =>

@@ -284,6 +284,8 @@ func securityHeaders() gin.HandlerFunc {
 		"img-src 'self' data: https:",
 		"font-src 'self' data:",
 		"connect-src 'self'",
+		"object-src 'none'",
+		"manifest-src 'self'",
 		"frame-ancestors 'self'",
 		"base-uri 'self'",
 		"form-action 'self'",

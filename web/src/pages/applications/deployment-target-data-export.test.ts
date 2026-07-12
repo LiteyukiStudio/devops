@@ -12,8 +12,8 @@ function exportWindow() {
 describe('openDeploymentTargetDataExport', () => {
   it('opens a blank tab before authorizing and navigates it after authorization', async () => {
     let resolveAuthorization!: () => void
-    const authorization = new Promise<void>((resolve) => {
-      resolveAuthorization = resolve
+    const authorization = new Promise<{ ticket: string, expiresAt: string }>((resolve) => {
+      resolveAuthorization = () => resolve({ ticket: 'ticket with spaces', expiresAt: '2026-07-12T00:01:00Z' })
     })
     const authorize = vi.fn(() => authorization)
     const targetWindow = exportWindow()
@@ -29,7 +29,7 @@ describe('openDeploymentTargetDataExport', () => {
     resolveAuthorization()
     await exporting
 
-    expect(targetWindow.location.replace).toHaveBeenCalledWith('/api/v1/projects/project%20one/applications/app%2Ftwo/deployment-targets/target%20three/data-export')
+    expect(targetWindow.location.replace).toHaveBeenCalledWith('/api/v1/projects/project%20one/applications/app%2Ftwo/deployment-targets/target%20three/data-export?ticket=ticket+with+spaces')
     expect(targetWindow.close).not.toHaveBeenCalled()
   })
 
@@ -48,7 +48,7 @@ describe('openDeploymentTargetDataExport', () => {
   })
 
   it('does not authorize when the browser blocks the blank tab', async () => {
-    const authorize = vi.fn(async () => undefined)
+    const authorize = vi.fn(async () => ({ ticket: 'unused', expiresAt: '2026-07-12T00:01:00Z' }))
 
     await expect(openDeploymentTargetDataExport('project', 'app', 'target', {
       authorize,

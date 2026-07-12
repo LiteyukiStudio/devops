@@ -2,8 +2,10 @@ package api
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
@@ -128,15 +130,18 @@ func admissionPolicyResponse(policy model.AuthAdmissionPolicy) gin.H {
 }
 
 func (h *Handlers) audit(userID, action, resource string, success bool, message string) {
-	entry := model.AuditLog{
-		ID:       id.New("aud"),
-		UserID:   strings.TrimSpace(userID),
-		Action:   action,
-		Resource: resource,
-		Success:  success,
-		Message:  message,
+	entry := map[string]any{
+		"id":         id.New("aud"),
+		"user_id":    strings.TrimSpace(userID),
+		"action":     action,
+		"resource":   resource,
+		"success":    success,
+		"message":    message,
+		"created_at": time.Now(),
 	}
-	_ = h.db.Create(&entry).Error
+	if err := h.db.Model(&model.AuditLog{}).Create(entry).Error; err != nil {
+		log.Printf("audit write failed user=%q action=%q resource=%q success=%t: %v", entry["user_id"], action, resource, success, err)
+	}
 }
 
 func splitCSV(value string) []string {

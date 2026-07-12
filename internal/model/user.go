@@ -1,8 +1,9 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type User struct {
@@ -21,14 +22,15 @@ type User struct {
 }
 
 type UserSession struct {
-	ID               string    `gorm:"primaryKey" json:"id"`
-	UserID           string    `gorm:"index;not null" json:"userId"`
-	ImpersonatorID   string    `gorm:"index" json:"impersonatorId"`
-	RememberFamilyID string    `gorm:"index;not null;default:''" json:"-"`
-	TokenHash        string    `gorm:"uniqueIndex;not null" json:"-"`
-	ExpiresAt        time.Time `gorm:"index;not null" json:"expiresAt"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	ID                     string     `gorm:"primaryKey" json:"id"`
+	UserID                 string     `gorm:"index;not null" json:"userId"`
+	ImpersonatorID         string     `gorm:"index" json:"impersonatorId"`
+	RememberFamilyID       string     `gorm:"index;not null;default:''" json:"-"`
+	PrimaryAuthenticatedAt *time.Time `gorm:"index" json:"-"`
+	TokenHash              string     `gorm:"uniqueIndex;not null" json:"-"`
+	ExpiresAt              time.Time  `gorm:"index;not null" json:"expiresAt"`
+	CreatedAt              time.Time  `json:"createdAt"`
+	UpdatedAt              time.Time  `json:"updatedAt"`
 }
 
 type UserRememberToken struct {

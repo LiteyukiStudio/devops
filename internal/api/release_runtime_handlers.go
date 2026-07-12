@@ -166,8 +166,9 @@ func (h *Handlers) StreamReleaseRuntimeTerminal(ctx *gin.Context) {
 	authorizationRevoked := h.monitorRuntimeTerminalAuthorization(sessionCtx, authorization, func(checkCtx context.Context, currentUser model.User) bool {
 		return h.releaseRuntimeTerminalAuthorizationAllowed(checkCtx, currentUser, reference)
 	}, cancel)
+	activityTracker := h.newRuntimeTerminalActivityTracker(authorization)
 
-	go h.readRuntimeTerminalMessages(sessionCtx, conn, stdinWriter, sizeQueue, cancel)
+	go h.readRuntimeTerminalMessages(sessionCtx, conn, stdinWriter, sizeQueue, activityTracker, cancel)
 	err = client.RuntimeTerminal(sessionCtx, kubeprovider.RuntimeTerminalOptions{
 		Namespace:          namespace,
 		DeploymentTargetID: target.ID,
@@ -213,7 +214,7 @@ func (h *Handlers) AuthorizeReleaseRuntimeTerminal(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-func (h *Handlers) readRuntimeTerminalMessages(ctx context.Context, conn *websocket.Conn, stdin *io.PipeWriter, sizeQueue *runtimeTerminalSizeQueue, cancel context.CancelFunc) {
+func (h *Handlers) readRuntimeTerminalMessages(ctx context.Context, conn *websocket.Conn, stdin *io.PipeWriter, sizeQueue *runtimeTerminalSizeQueue, activityTracker *runtimeTerminalActivityTracker, cancel context.CancelFunc) {
 	defer cancel()
 	defer stdin.Close()
 	for {
@@ -221,20 +222,31 @@ func (h *Handlers) readRuntimeTerminalMessages(ctx context.Context, conn *websoc
 		if err != nil {
 			return
 		}
-		if messageType != websocket.TextMessage && messageType != websocket.BinaryMessage {
+		data, isInput := runtimeTerminalInputPayload(messageType, data, sizeQueue)
+		if !isInput {
 			continue
 		}
-		if messageType == websocket.TextMessage {
-			var message runtimeTerminalClientMessage
-			if err := json.Unmarshal(data, &message); err == nil && message.Type == "resize" {
-				sizeQueue.Push(message.Cols, message.Rows)
-				continue
-			}
+		if !activityTracker.Record(ctx, time.Now()) {
+			return
 		}
 		if _, err := stdin.Write(data); err != nil {
 			return
 		}
 	}
+}
+
+func runtimeTerminalInputPayload(messageType int, data []byte, sizeQueue *runtimeTerminalSizeQueue) ([]byte, bool) {
+	if len(data) == 0 || (messageType != websocket.TextMessage && messageType != websocket.BinaryMessage) {
+		return nil, false
+	}
+	if messageType == websocket.TextMessage {
+		var message runtimeTerminalClientMessage
+		if err := json.Unmarshal(data, &message); err == nil && message.Type == "resize" {
+			sizeQueue.Push(message.Cols, message.Rows)
+			return nil, false
+		}
+	}
+	return data, true
 }
 
 func (h *Handlers) releaseRuntimeClient(ctx *gin.Context, release model.Release) (*kubeprovider.Client, string, model.DeploymentTarget, bool) {

@@ -32,6 +32,11 @@ for command_name in go pnpm helm; do
   require_command "${command_name}"
 done
 
+if [[ -z "${AUTH_TEST_DATABASE_URL:-}" ]]; then
+  printf 'AUTH_TEST_DATABASE_URL is required for PostgreSQL integration and migration tests\n' >&2
+  exit 1
+fi
+
 if [[ ! -f "${ROOT_DIR}/.go-version" ]]; then
   printf '.go-version is missing\n' >&2
   exit 1
@@ -70,6 +75,9 @@ fi
 
 section "Running Go tests"
 go test ./...
+
+section "Running PostgreSQL integration and migration tests without cache"
+go test -count=1 ./internal/api ./internal/database
 
 section "Running Go vet"
 go vet ./...
