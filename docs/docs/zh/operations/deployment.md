@@ -1,119 +1,152 @@
 # 平台功能怎么配合
 
-Luna DevOps 把代码、镜像、集群和访问入口连成一条交付路径。第一次使用时，不必先弄懂所有底层组件，按这一页认识各模块的职责就够了。
+Luna DevOps 把代码、镜像、集群和访问入口连成一条交付路径。第一次使用时，只需要先理解这条主线：
 
-想直接照着做一次，可以看 [部署上线一个 Web 项目](/operations/deploy-web-project)。那一页用 `snowykami/neo-blog` 作为示例，从项目空间、应用、部署配置、构建到访问入口完整走一遍。
+```text
+项目空间 -> 应用 -> 部署配置 -> 构建 -> 发布 -> 访问入口
+```
 
-## 项目空间
+想直接照着做一次，可以看 [部署上线一个 Web 项目](/operations/deploy-web-project)。那一页用 `snowykami/neo-blog` 作为示例，从创建项目空间一直走到公网访问。
+
+## 先看主流程
+
+### 1. 项目空间
 
 项目空间是团队和资源的边界。成员、应用、部署配置、构建记录、发布记录和访问入口都归属到某个项目空间。
 
-添加项目空间成员时，Owner/Admin 需要先按用户名或邮箱搜索平台用户，再从候选列表中选择一个或多个用户添加；平台不会把自由输入的邮箱文本直接当作成员创建。
-
-常见用法：
+常见划分方式：
 
 - 一个产品一个项目空间。
 - 一个小团队一个项目空间。
 - 一个客户或演示环境一个项目空间。
 
-## 应用
+添加成员时，Owner/Admin 需要搜索平台用户并从候选列表选择；平台不会把随手输入的邮箱直接创建成成员。
 
-应用是一个可部署服务。一个仓库可以对应多个应用，例如 monorepo 里的 API、Web、Worker。
+### 2. 应用
 
-应用主要保存服务的基本信息，真正的构建方式、镜像、环境变量和发布策略放在部署配置里。
+应用代表一个可部署服务。一个仓库可以拆成多个应用，例如 monorepo 里的 API、Web、Worker。
 
-应用概览会按部署配置汇总运行规格，展示副本数、CPU、内存和已启用的数据卷容量，便于快速判断当前应用的资源占用。
+应用本身只保存服务基本信息。构建来源、镜像、环境变量、资源规格和发布策略都放在部署配置里。
 
-## 部署配置
+### 3. 部署配置
 
-部署配置决定“这个应用要怎么构建和运行”：
+部署配置决定这个应用怎么构建、怎么运行、发布到哪里。
 
-- 从仓库构建，还是直接使用已有镜像。
-- 发布到哪个环境。
-- 部署配置所属阶段，例如开发、测试、预发或生产。
-- 使用哪个镜像站。
-- 服务监听哪些端口。部署配置可以维护多个服务端口，第一个端口作为默认端口；例如业务 HTTP 使用 `8080`，Prometheus 指标使用 `9001`。
-- 构建规格和超时时间。默认构建超时为 30 分钟，可以在部署配置或手动触发构建时临时调整。
-- 构建成功后是否自动发布。
+第一次创建时，优先填这些内容：
 
-高级 Kubernetes 配置默认收起。大多数应用保持默认值即可；镜像有特殊运行要求时，再展开配置以下能力：
+- 构建来源：从仓库构建，或直接使用已有镜像。
+- 环境阶段：开发、测试、预发或生产。
+- 镜像站：构建产物推到哪里。
+- 服务端口：可以维护多个端口，第一个端口作为默认端口。
+- 运行规格：副本、CPU、内存和数据卷。
+- 构建策略：超时时间，以及构建成功后是否自动发布。
 
-- 容器启动：覆盖 `command` / `args`，设置 `imagePullPolicy`，配置 readiness、liveness 和 startup Probe。
-- 工作负载：默认使用 Deployment；需要稳定 Pod 名称、顺序滚动或有状态语义时，可以在高级区切换为 StatefulSet。平台会同步处理发布渲染、HPA 指向、运行态检查、重启和资源清理。
-- 生命周期：通过 Kubernetes Lifecycle JSON 配置 `postStart` 和 `preStop`。
-- 初始化与辅助容器：通过受控 Container JSON 数组配置 initContainer 和 sidecar。平台会裁剪 `hostPort`、外部 `envFrom`、外部 Secret 引用和提权能力等危险字段，并统一注入当前部署配置对应的 ConfigMap/Secret。
-- 资源上限：在 CPU / 内存 request 之外按需设置 limit；留空时不设置 limit。
-- 自动伸缩：启用 HPA 后，平台会创建 `autoscaling/v2 HorizontalPodAutoscaler`，按 CPU 或内存平均利用率目标调整副本数，并可通过 HPA behavior JSON 控制扩缩容速度和稳定窗口。运行集群需要 metrics-server 或等价指标 API。
-- 安全上下文：设置 `runAsUser`、`runAsGroup`、`fsGroup`、`fsGroupChangePolicy`、只读根文件系统、`allowPrivilegeEscalation` 和 capabilities。像 OpenList 这类镜像如果需要固定 UID/GID 写入数据目录，可以在这里配置。
-- 调度：设置 `nodeSelector`、`tolerations`、基础 `affinity`、`topologySpreadConstraints` 和 `priorityClassName`。
-- Service 与存储：Service 默认仍是 ClusterIP，高级区可设置 Service 类型、annotations、`appProtocol`、会话亲和和外部流量策略；开启运行数据后可设置 PVC `storageClassName`、`accessMode` 和 `volumeMode`。数据卷来源支持平台托管 PVC、已有 PVC 和临时 `emptyDir`。
+如果服务刚接入，建议先用已有镜像创建一次 Release。确认 Pod 能运行、访问入口能打开后，再接入 Git Provider 和自动构建，排查会轻松很多。
 
-复杂结构字段使用 Kubernetes 原生 JSON，例如 Probe、Toleration、Affinity 和 TopologySpreadConstraint。简单键值字段支持 JSON 对象或 `KEY=VALUE` 多行文本。
-
-PVC 的 `storageClassName` 和 `accessMode` 只会在首次创建数据卷时写入；已有 PVC 后续只支持扩容容量，不会自动迁移或重建存储卷。
-`emptyDir` 数据随 Pod 生命周期销毁，不参与平台数据导出；已有 PVC 可以导出，但平台不会管理它的容量和生命周期。
-当前 StatefulSet 主路径复用平台托管 PVC / 已有 PVC / emptyDir 模型，不自动生成 `volumeClaimTemplates`；需要每个副本独立持久卷的场景会在后续高级编排阶段单独设计。
-
-仓库 Webhook 绑定在应用仓库上。Git 平台推送 push/tag 事件后，平台会在该应用下查找使用同一仓库绑定、已启用且未删除的部署配置，再按分支匹配和标签匹配规则创建构建记录。部署配置本身不单独创建外部 Webhook，这样同一个仓库事件只进入平台一次。
-
-选择仓库 Dockerfile 时，平台会尝试读取 Dockerfile 中的 `EXPOSE` 指令并自动填充服务端口列表；如果服务有多个 HTTP 端口，可以在部署配置中继续添加。创建访问入口时需要从该部署配置暴露的端口中选择目标端口。
-
-删除构建变量或运行配置集时，平台会从仍引用它们的部署配置中移除对应引用，避免部署配置继续指向不可维护的配置项。
-
-部署配置引用项目空间公共配置时支持两种策略：“跟随引用”会在公共配置更新后提示重新部署，下一次发布会读取最新公共配置；“使用快照”会在保存部署配置时冻结当前公共配置内容，后续公共配置更新不会影响该部署配置。两种策略下 Secret 都仍由平台密钥存储保存，部署配置只保存密钥引用或快照中的密钥引用。
-
-项目空间钩子只负责维护可复用脚本库，真正执行由部署配置里的“部署钩子”绑定决定。部署配置可以把同一个项目钩子绑定到构建前后、镜像推送前后、部署前后等阶段，并在配置内调整执行顺序。`部署前` 钩子会在运行配置 ConfigMap/Secret 写入后、应用 Deployment 滚动发布前执行，适合处理数据库 migration、seed 或必须在应用容器启动前完成的一次性命令。
-
-部署阶段 Hook 会以 Kubernetes Job 运行。平台会保存 Hook 运行记录和日志；集群里的 Hook Job/Pod 只短期保留用于排查现场：成功记录默认 5 分钟后清理，失败记录默认 24 小时后清理。
-
-删除部署配置时，平台会先删除绑定到该部署配置的访问入口，再清理对应的 Kubernetes 工作负载、Service 和可选数据卷，避免入口继续指向不存在的服务。
-
-## Web Console 与数据导出
-
-Web Console 的项目空间总开关在创建项目空间时默认开启。项目 Owner/Admin 可以整体关闭；关闭后任何部署配置都不能重新开启。部署配置只提供“继承项目空间”和“单独关闭”，因此最终策略是“项目空间已开启，并且部署配置没有关闭”。开关只决定该部署配置是否允许进入终端，不会放宽角色权限或 MFA：应用发布页仍只允许项目 Owner、Admin、Developer 使用，集群资源页的 Pod 终端仍只允许平台管理员。
-
-运行命令审计只保存命令摘要、长度、容器和退出码，不记录原始命令正文；交互终端审计保存连接目标和结果，不记录终端输入输出。开启敏感操作二次验证后，运行命令使用 `runtime_exec` purpose，交互终端使用 `runtime_terminal` purpose。
-
-应用发布页打开交互终端前会先调用普通 HTTP terminal authorize 预检。预检会检查项目角色、项目/部署配置状态、有效 Web Console 开关和 MFA assertion，使 `mfa_required` 能由统一 Dialog 处理并在验证后自动重试。预检返回 204 后前端才建立 WebSocket；WebSocket 会在升级前再次检查，并在连接期间每 3 秒复核会话、项目成员和角色、资源状态、开关与 MFA assertion。只有真实终端输入会节流刷新空闲期限，resize、ping 和轮询不会续期，绝对期限也不会延长。退出登录、权限或策略变化、资源被删除、断言过期都会结束 shell，预检结果不是可复用的授权票据。
-
-部署配置的数据导出只支持交互式 cookie 登录会话和项目 Owner/Admin。即使个人令牌带有数据导出权限，也会返回 `auth.interactive_session_required`，不能直接下载运行数据。下载前控制台先调用普通 HTTP authorize 接口，让全局 MFA Dialog 能处理 `data_export` purpose；通过后接口签发绑定当前用户、session、项目空间、应用和部署配置的 60 秒一次性票据，下载接口会原子消费票据并重复权限、资源和 MFA 检查。生产多副本通过共享 Redis 保存票据哈希，Redis 不可用时拒绝导出。每次导出使用独立的临时 Pod，只清理自己的 Pod，避免并发导出互相中断。导出只包含平台托管 PVC 或已有 PVC，`emptyDir` 不参与导出。
-
-访问域名创建时默认启用；如果只是想暂时停止公网入口，可以关闭访问，平台会保留域名配置并撤销对应 HTTPRoute，之后重新启用即可恢复下发。
-
-## 构建与发布
+### 4. 构建与发布
 
 构建会生成镜像，发布会把镜像部署到运行集群。
 
-每次创建新 Release 时，平台都会更新 Kubernetes Pod Template 的发布指纹，确保即使目标镜像 tag 没变也会触发滚动更新。默认情况下，配置变化只会重启 Pod，不会强制重新拉取镜像；当 Release 来自新的构建产物且镜像 tag 没变时，平台才会临时使用 `imagePullPolicy: Always`，避免固定 tag 复用节点缓存导致旧版本继续运行。
+每次创建 Release，平台都会更新 Kubernetes Pod Template 的发布指纹，所以即使镜像 tag 没变，也会触发滚动更新。默认情况下，配置变化只重启 Pod，不强制重新拉镜像；如果 Release 来自新的构建产物且 tag 没变，平台会临时使用 `imagePullPolicy: Always`。
 
-如果你确认远端镜像内容已经变化，但镜像 tag 没变，可以在部署配置的操作菜单中选择“拉取最新镜像部署”。这会创建一次新的 Release，并在本次 rollout 中强制重新拉取镜像。
+如果你确认远端镜像内容已经变化，但 tag 没变，可以在部署配置操作菜单里选择“拉取最新镜像部署”。
 
-平台创建 Kubernetes Deployment 时，selector 只用于识别当前部署配置对应的工作负载，并在后续发布中保持稳定；项目空间、应用、环境和 Release 等归属信息会写入资源 labels 或 Pod Template annotations，不会通过修改 selector 触发发布。这样可以避免 Kubernetes `spec.selector` 不可变导致的更新失败。
+## 部署配置里的高级项
 
-第一次部署时，建议先用已有镜像创建 Release。确认应用能运行、访问入口能打开后，再接入 Git Provider 和自动构建，排查起来会更直接。
+大多数服务保持默认值即可。只有镜像或运行环境有特殊要求时，再展开高级配置。
 
-应用部署列表会通过 SSE 每秒刷新运行指标。指标来源是 Kubernetes 标准 `metrics.k8s.io` Pod Metrics API，因此运行集群需要安装 metrics-server。CPU 百分比和内存占用按当前用量除以“环境规格 × 副本数”计算；如果集群没有暴露指标，页面会显示暂无指标。
+### Kubernetes 运行参数
+
+| 场景 | 可以调整什么 |
+| --- | --- |
+| 容器启动不走默认入口 | `command`、`args`、`imagePullPolicy` |
+| 需要健康检查 | readiness、liveness、startup Probe |
+| 需要有状态语义 | 从 Deployment 切换为 StatefulSet |
+| 需要启动前后动作 | Kubernetes Lifecycle `postStart` / `preStop` |
+| 需要辅助容器 | initContainer 和 sidecar |
+| 需要限制资源上限 | CPU / 内存 limit |
+| 需要自动伸缩 | HPA CPU/内存目标和 behavior |
+| 需要固定 UID/GID 或更强隔离 | securityContext、只读根文件系统、capabilities |
+| 需要指定节点或容忍污点 | nodeSelector、tolerations、affinity、topologySpreadConstraints |
+| 需要调整 Service 或存储 | Service 类型、annotations、PVC storageClass/accessMode/volumeMode |
+
+复杂结构字段使用 Kubernetes 原生 JSON，例如 Probe、Toleration、Affinity 和 TopologySpreadConstraint。简单键值字段支持 JSON 对象或 `KEY=VALUE` 多行文本。
+
+### 存储注意事项
+
+PVC 的 `storageClassName` 和 `accessMode` 只会在首次创建数据卷时写入。已有 PVC 后续只支持扩容容量，不会自动迁移或重建。
+
+`emptyDir` 数据会随 Pod 销毁，不参与平台数据导出。已有 PVC 可以导出，但平台不会管理它的容量和生命周期。
+
+### 配置、变量和钩子
+
+删除构建变量或运行配置集时，平台会从仍引用它们的部署配置中移除对应引用，避免继续指向不可维护的配置项。
+
+部署配置引用项目空间公共配置时有两种策略：
+
+- 跟随引用：公共配置更新后，下一次发布读取最新内容。
+- 使用快照：保存部署配置时冻结当前内容，后续公共配置变化不影响它。
+
+项目空间钩子只是可复用脚本库。真正执行时，需要在部署配置的“部署钩子”里绑定到构建前后、镜像推送前后、部署前后等阶段。部署前钩子适合做数据库 migration、seed 或一次性修复命令。
+
+Hook 会以 Kubernetes Job 运行。平台保存运行记录和日志；集群里的 Job/Pod 只短期保留用于排查，成功默认 5 分钟后清理，失败默认 24 小时后清理。
+
+## Web Console 与数据导出
+
+### Web Console
+
+Web Console 的项目空间总开关默认开启，项目 Owner/Admin 可以关闭。部署配置只能继承项目空间设置或单独关闭，不能绕过项目空间总开关。
+
+这个开关只决定是否允许进入终端，不会放宽权限或 MFA：
+
+- 应用发布页终端：项目 Owner、Admin、Developer 可用。
+- 集群资源页 Pod 终端：仅平台管理员可用。
+
+运行命令审计只保存命令摘要、长度、容器和退出码，不记录原始命令正文。交互终端审计保存连接目标和结果，不记录终端输入输出。
+
+### 数据导出
+
+部署配置的数据导出只支持浏览器 cookie 会话，并且需要项目 Owner/Admin。个人访问令牌即使有数据导出 scope，也不能直接下载运行数据。
+
+下载前平台会签发 60 秒一次性票据，并绑定当前用户、session、项目空间、应用和部署配置。生产多副本通过 Redis 保存票据哈希；Redis 不可用时拒绝导出。
+
+导出只包含平台托管 PVC 或已有 PVC，`emptyDir` 不参与导出。
 
 ## 访问入口
 
-访问入口负责把域名、路径、TLS 和后端服务连接起来。创建后，平台会展示下发状态和检查结果，方便你确认服务是否真的能访问。
+访问入口负责把域名、路径、TLS 和后端服务连接起来。创建后，平台会展示下发状态和检查结果，方便确认服务是否真的能访问。
 
-域名后缀来自部署配置所属运行集群。管理员可以在集群上维护多个可用后缀，创建访问入口时只选择其中一个；短域名前缀和留空自动生成都会使用所选后缀，完整自定义域名仍可直接填写。
+### 域名和端口
 
-运行集群里的“外层访问协议”和“外层访问端口”只影响控制台展示和打开访问入口时使用的 URL。如果外层 CDN 或反向代理已经提供 HTTPS，可以把外层访问协议设为 `https`，同时外部 TLS 模式选择“上游代理已终止 TLS”，平台会让 HTTPRoute 绑定内部 HTTP listener，不会因此额外申请集群内证书。
+域名后缀来自部署配置所属运行集群。管理员可以在集群上维护多个后缀，创建访问入口时选择其中一个；短域名前缀和自动生成域名都会使用所选后缀。
 
-如果 HTTPS 由集群 Gateway 自己终止，管理员需要把运行集群的外部 TLS 模式设为“Gateway 终止 TLS”，并配置已有 Kubernetes TLS Secret。平台会在下发访问入口时确保共享 Gateway 的 HTTPS listener 引用该 Secret，访问入口对应的 HTTPRoute 会默认绑定 HTTPS listener。
+创建或启用访问入口时，平台会先检查部署配置对应的 Kubernetes Service 和端口是否存在。如果 Service 被手动删除，需要先重新发布部署配置恢复运行态资源。
 
-访问入口的“HTTP Challenge 证书”模式依赖运行集群 cert-manager 配置。平台会创建 Certificate，并把 Certificate 生成的 Secret 引用到共享 Gateway HTTPS listener。Worker 会周期同步 cert-manager Ready 条件、失败信息和 `notAfter`：应用“访问”列表在 TLS 模式旁展示无、申请中、已启用、失败或已过期，悬停状态可查看失败原因、过期时间和实际引用的 Issuer。
+### TLS 怎么选
 
-平台只引用运行集群配置的 `Issuer` 或 `ClusterIssuer`，不会自行创建 ACME 账号。默认名称 `letsencrypt-http01` 只是 Issuer 资源名；实际 CA、ACME 邮箱、账号 Secret 和 HTTP-01 solver 均由该 Issuer 的 `spec.acme` 配置决定。
+| 场景 | 推荐模式 |
+| --- | --- |
+| CDN 或外层反向代理已经处理 HTTPS | 外层访问协议设为 `https`，外部 TLS 模式选择“上游代理已终止 TLS” |
+| 集群 Gateway 自己终止 HTTPS | 外部 TLS 模式选择“Gateway 终止 TLS”，并配置已有 Kubernetes TLS Secret |
+| 使用 cert-manager HTTP-01 | 选择 HTTP Challenge 证书模式，并提前准备好 Issuer/ClusterIssuer |
+| 使用 DNS-01 通配符证书 | 在运行集群配置通配符证书 Secret，让同一后缀复用证书 |
 
-如果运行集群启用了 DNS-01 通配符证书，平台会优先把通配符证书 Secret 一起挂到 HTTPS listener。此模式适合外层网关转发到集群内部端口、没有公网 HTTP-01 入口或希望同一域名后缀复用一张证书的场景。
+平台只引用运行集群配置的 `Issuer` 或 `ClusterIssuer`，不会自行创建 ACME 账号。默认名称 `letsencrypt-http01` 只是 Issuer 资源名，实际 CA、邮箱、账号 Secret 和 solver 都由该 Issuer 配置决定。
 
-平台访问入口底层使用 Kubernetes Gateway API：运行集群维护一个平台管理的 `Gateway`，每条访问入口在项目命名空间下生成一个 `HTTPRoute` 并转发到部署配置对应的 `Service`。集群需要先安装 Gateway API CRD；Traefik 集群需要启用 `--providers.kubernetesGateway`。
+### Gateway API
 
-创建或启用访问入口时，平台会先检查部署配置对应的 Kubernetes `Service` 和端口是否存在。若管理员手动删除了 Service，平台会提示先重新发布部署配置来恢复运行态资源，而不会在访问入口链路里自动创建 Service。这样可以避免访问入口使用过期的部署配置偷偷修复运行态漂移。
+访问入口底层使用 Kubernetes Gateway API：运行集群维护一个平台管理的 `Gateway`，每条访问入口在项目命名空间下生成一个 `HTTPRoute`，并转发到部署配置对应的 `Service`。
 
-运行集群可以维护默认 Gateway 配置，包括 Controller 类型、GatewayClass、Gateway 名称/命名空间、外部 TLS 模式、转发头策略、可信代理 CIDR 以及默认请求/响应头。创建访问入口时，基础配置默认只展示部署配置、域名、路径、服务端口和 TLS；需要细调网关行为时再展开高级配置，覆盖单条路由的 Parent Gateway、路径匹配方式、请求/响应头、URL rewrite、redirect 和后端权重。
+集群需要先安装 Gateway API CRD。Traefik 集群还需要启用 `--providers.kubernetesGateway`。
 
-如果链路是 `CDN HTTPS -> Nginx HTTP -> Traefik HTTP -> Pod`，推荐在 Traefik entryPoint 配置 `forwardedHeaders.trustedIPs` 信任上游代理，并让上游传递 `X-Forwarded-Proto=https`。对于 Logto/OIDC 这类依赖外部 URL 的应用，如果后端看到的是 `http`，可能会生成错误 issuer 或 redirect URL；可在运行集群选择 upstream TLS + overwrite 作为兜底，让平台通过 HTTPRoute RequestHeaderModifier 注入 `X-Forwarded-Proto=https` 和 `X-Forwarded-Port=443`。
+### 转发头和真实协议
+
+如果链路是：
+
+```text
+CDN HTTPS -> Nginx HTTP -> Traefik HTTP -> Pod
+```
+
+推荐在 Traefik entryPoint 配置 `forwardedHeaders.trustedIPs` 信任上游代理，并让上游传递 `X-Forwarded-Proto=https`。
+
+对于 Logto/OIDC 这类依赖外部 URL 的应用，如果后端看到的是 `http`，可能生成错误 issuer 或 redirect URL。必要时可以在运行集群选择 upstream TLS + overwrite，让平台通过 HTTPRoute RequestHeaderModifier 注入 `X-Forwarded-Proto=https` 和 `X-Forwarded-Port=443`。
