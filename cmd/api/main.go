@@ -16,6 +16,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.ValidateRedis(); err != nil {
+		log.Fatal(err)
+	}
 	if err := secret.ValidateEncryptionConfig(); err != nil {
 		log.Fatalf("%v; set SECRET_ENCRYPTION_KEY or run local development with APP_ENV=development", err)
 	}

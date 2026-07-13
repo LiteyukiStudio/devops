@@ -17,7 +17,7 @@ func TestLoadEnvFile(t *testing.T) {
 	unsetEnv(t, "REDIS_ADDR")
 
 	envFile := filepath.Join(t.TempDir(), ".env.local")
-	content := []byte("API_ADDR=:19090\nDATABASE_URL=postgres://user:pass@db:5432/app?sslmode=disable\nREDIS_ADDR=redis:6379\n")
+	content := []byte("API_ADDR=:19090\nDATABASE_URL=postgres://user:pass@db:5432/app?sslmode=disable\nREDIS_ADDR=redis://redis:6379/0\n")
 	if err := os.WriteFile(envFile, content, 0o600); err != nil {
 		t.Fatalf("write env file: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestLoadEnvFile(t *testing.T) {
 	if cfg.DatabaseURL != "postgres://user:pass@db:5432/app?sslmode=disable" {
 		t.Fatalf("DatabaseURL = %q", cfg.DatabaseURL)
 	}
-	if cfg.RedisAddr != "redis:6379" {
+	if cfg.RedisAddr != "redis://redis:6379/0" {
 		t.Fatalf("RedisAddr = %q", cfg.RedisAddr)
 	}
 }
@@ -39,17 +39,17 @@ func TestLoadEnvFile(t *testing.T) {
 func TestLoadRedisAuthentication(t *testing.T) {
 	resetEnvLoader(t)
 	unsetEnv(t, "REDIS_ADDR")
-	unsetEnv(t, "REDIS_USERNAME")
-	unsetEnv(t, "REDIS_PASSWORD")
-	unsetEnv(t, "REDIS_DB")
-	t.Setenv("REDIS_ADDR", "redis.example.com:6379")
-	t.Setenv("REDIS_USERNAME", "luna")
-	t.Setenv("REDIS_PASSWORD", "secret")
-	t.Setenv("REDIS_DB", "4")
+	t.Setenv("REDIS_ADDR", "redis://luna:secret@redis.example.com:6379/4")
 
 	options := Load().RedisOptions()
 	if options.Addr != "redis.example.com:6379" || options.Username != "luna" || options.Password != "secret" || options.DB != 4 {
 		t.Fatalf("RedisOptions() = %#v", options)
+	}
+}
+
+func TestValidateRedisRejectsLegacyAddress(t *testing.T) {
+	if err := (Config{RedisAddr: "redis.example.com:6379"}).ValidateRedis(); err == nil {
+		t.Fatal("ValidateRedis() succeeded for a legacy address")
 	}
 }
 

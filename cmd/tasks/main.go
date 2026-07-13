@@ -29,6 +29,9 @@ func run(args []string) error {
 	}
 
 	cfg := config.Load()
+	if err := cfg.ValidateRedis(); err != nil {
+		return err
+	}
 	inspector := asynq.NewInspector(cfg.RedisOptions().Asynq())
 	defer inspector.Close()
 

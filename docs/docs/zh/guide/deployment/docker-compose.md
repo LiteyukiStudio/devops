@@ -36,7 +36,7 @@ DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
 cp .env.production.example .env
 ```
 
-编辑 `.env`，替换 `SECRET_ENCRYPTION_KEY`、`BOOTSTRAP_TOKEN` 和 `REDIS_PASSWORD` 的占位值。完整 Compose 默认以生产模式启动，不会暴露固定开发管理员；Redis 也会强制校验密码。
+编辑 `.env`，替换 `SECRET_ENCRYPTION_KEY`、`BOOTSTRAP_TOKEN` 和 `REDIS_ADDR` 中的占位值。`REDIS_ADDR` 是包含凭据和数据库编号的完整 URI，例如 `redis://default:password@redis:6379/0`。完整 Compose 默认以生产模式启动，不会暴露固定开发管理员；Redis 也会强制校验 URI 中的密码。
 
 在仓库根目录执行：
 

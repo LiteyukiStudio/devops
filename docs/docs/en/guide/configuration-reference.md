@@ -11,10 +11,7 @@ For a first deployment, configure the Basic values only. Once the platform is ru
 | Basic | `APP_ENV` | `production` | Runtime mode; set `development` explicitly only for local development. |
 | Basic | `SECRET_ENCRYPTION_KEY` | Empty | Secret encryption key; required and stable in production. |
 | Basic | `DATABASE_URL` | `postgres://devops:devops@postgres:5432/devops?sslmode=disable` | PostgreSQL URL; change when using another database or credential. |
-| Basic | `REDIS_ADDR` | `redis:6379` | Redis address; change when using external Redis. |
-| Basic | `REDIS_USERNAME` | Empty | Redis ACL username; leave empty when using password-only `requirepass`. |
-| Basic | `REDIS_PASSWORD` | Empty | Redis password; required by the complete Compose stack and built-in Helm Redis. |
-| Basic | `REDIS_DB` | `0` | Redis logical database; keep it identical across API, Worker, and task tools. |
+| Basic | `REDIS_ADDR` | `redis://localhost:6379/0` | Complete Redis URI in the form `redis://username:password@host:port/database`; use `rediss://` for TLS. Username, password, and DB are no longer configured separately. |
 | Basic | `PUBLIC_BASE_URL` | `http://localhost:8088` | Public platform URL; change for public domain, HTTPS, or reverse proxy. OIDC Redirect URI is generated as `{PUBLIC_BASE_URL}/api/v1/auth/oidc/callback`. |
 | Advanced | `API_ADDR` | `:8080` | API listen address; change for custom container ports. |
 | Advanced | `APP_CORS_ORIGINS` | `http://localhost:8088` | Allowed frontend origins; change when frontend and API use different origins. |
@@ -51,10 +48,7 @@ Available access-route domain suffixes, external access schemes, external access
 | Basic | `APP_ENV` | `production` | Runtime mode; keep it aligned with API. |
 | Basic | `SECRET_ENCRYPTION_KEY` | Empty | Decrypts saved secrets; must match API. |
 | Basic | `DATABASE_URL` | `postgres://devops:devops@postgres:5432/devops?sslmode=disable` | PostgreSQL URL; point to the same database as API. |
-| Basic | `REDIS_ADDR` | `redis:6379` | Redis address; point to the same Redis as API. |
-| Basic | `REDIS_USERNAME` | Empty | Redis ACL username; must match API. |
-| Basic | `REDIS_PASSWORD` | Empty | Redis password; must match API. |
-| Basic | `REDIS_DB` | `0` | Redis logical database; must match API. |
+| Basic | `REDIS_ADDR` | `redis://localhost:6379/0` | Complete Redis URI; use the same URI as API. Use `rediss://` for TLS. |
 | Basic | `BUILD_EXECUTOR_IMAGE` | `moby/buildkit:v0.24.0-rootless` | BuildKit image; change when the build cluster cannot pull the default image. |
 | Advanced | `LOG_LEVEL` | `info` | Log level; temporarily use `debug` for local troubleshooting. |
 | Advanced | `DB_MAX_OPEN_CONNS` | `20` | Maximum PostgreSQL connections opened by this worker process; size it across all API and worker replicas to avoid exhausting the database. |

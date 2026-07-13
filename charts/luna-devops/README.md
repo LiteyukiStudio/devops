@@ -47,7 +47,7 @@ externalDatabase:
 redis:
   enabled: false
 externalRedis:
-  addr: redis.example.com:6379
+  url: redis://default:password@redis.example.com:6379/0
 ```
 
-For production, keep `app.secretEncryptionKey` stable. If you do not set it, the chart creates one on first install and reuses the existing Secret during upgrades.
+For production, keep `app.secretEncryptionKey` stable. If you do not set it, the chart creates one on first install and reuses the existing Secret during upgrades. Redis connections use one complete URI; use `rediss://` when the external service requires TLS.

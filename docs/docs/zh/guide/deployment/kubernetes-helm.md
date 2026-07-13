@@ -83,13 +83,10 @@ externalDatabase:
 redis:
   enabled: false
 externalRedis:
-  addr: redis.example.com:6379
-  username: default
-  password: replace-with-a-strong-password
-  db: 0
+  url: redis://default:replace-with-a-strong-password@redis.example.com:6379/0
 ```
 
-内置 Redis 会在首次安装时生成密码，并通过 Kubernetes Secret 同时注入 Redis、API 和 Worker；后续升级会复用已有 Secret。接入外部 Redis 时，可以直接填写上述字段，也可以使用 `externalRedis.existingSecret`，其中密码 key 必填，用户名和 DB key 可选。
+内置 Redis 会在首次安装时生成完整连接 URI，并通过 Kubernetes Secret 同时注入 Redis、API 和 Worker；后续升级会复用已有 Secret。接入外部 Redis 时，可以直接填写 `externalRedis.url`，也可以使用 `externalRedis.existingSecret`；Secret 默认只需提供一个 `redis-url` key。为内置 Redis 指定 `redis.auth.existingSecret` 时，该 Secret 同样需要提供 `redis-url`。Redis URI 格式为 `redis://用户名:密码@域名:端口/数据库`，TLS 连接使用 `rediss://`。密码包含 `@`、`:`、`/` 等保留字符时需要进行 URL 编码。
 
 然后安装：
 
@@ -109,6 +106,7 @@ helm upgrade --install luna-devops ./charts/luna-devops \
 | `api.image.tag` / `worker.image.tag` | `nightly` | API 和 worker 镜像版本。 |
 | `postgresql.enabled` | `true` | 是否安装内置 PostgreSQL。 |
 | `redis.enabled` | `true` | 是否安装内置 Redis。 |
+| `externalRedis.url` | 空 | 外部 Redis 完整连接 URI；关闭内置 Redis 时配置。 |
 | `worker.buildEgressMode` | `permissive` | 构建 Job 出站网络模式。需要强隔离时改为 `restricted`。 |
 
 ## 卸载

@@ -109,9 +109,8 @@ redis:
     tag: 8-alpine
     pullPolicy: IfNotPresent
   auth:
-    password: ""
     existingSecret: ""
-    passwordKey: redis-password
+    urlKey: redis-url
   persistence:
     enabled: true
     size: 2Gi
@@ -124,15 +123,9 @@ redis:
   affinity: {}
 
 externalRedis:
-  addr: ""
-  username: ""
-  password: ""
-  db: 0
+  url: ""
   existingSecret: ""
-  addrKey: redis-addr
-  usernameKey: redis-username
-  passwordKey: redis-password
-  dbKey: redis-db
+  urlKey: redis-url
 
 ingress:
   enabled: false

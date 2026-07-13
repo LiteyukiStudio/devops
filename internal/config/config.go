@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"net/netip"
 	"os"
@@ -26,9 +27,6 @@ type Config struct {
 	DatabaseConnectRetryAttempts int
 	DatabaseConnectRetryInterval time.Duration
 	RedisAddr                    string
-	RedisUsername                string
-	RedisPassword                string
-	RedisDB                      int
 	TrustedProxyCIDRs            []string
 	BootstrapToken               string
 	MetricsEnabled               bool
@@ -61,10 +59,7 @@ func Load() Config {
 		DatabaseConnMaxIdleTime:      envDuration("DB_CONN_MAX_IDLE_TIME", 5*time.Minute),
 		DatabaseConnectRetryAttempts: envInt("DB_CONNECT_RETRY_ATTEMPTS", 12),
 		DatabaseConnectRetryInterval: envDuration("DB_CONNECT_RETRY_INTERVAL", 5*time.Second),
-		RedisAddr:                    env("REDIS_ADDR", "localhost:6379"),
-		RedisUsername:                strings.TrimSpace(env("REDIS_USERNAME", "")),
-		RedisPassword:                env("REDIS_PASSWORD", ""),
-		RedisDB:                      envInt("REDIS_DB", 0),
+		RedisAddr:                    strings.TrimSpace(env("REDIS_ADDR", "redis://localhost:6379/0")),
 		TrustedProxyCIDRs:            trustedProxyCIDRs(env("TRUSTED_PROXY_CIDRS", "")),
 		BootstrapToken:               strings.TrimSpace(env("BOOTSTRAP_TOKEN", "")),
 		MetricsEnabled:               envBool("METRICS_ENABLED", false),
@@ -86,12 +81,14 @@ func Load() Config {
 }
 
 func (c Config) RedisOptions() redisconfig.Options {
-	return redisconfig.Options{
-		Addr:     c.RedisAddr,
-		Username: c.RedisUsername,
-		Password: c.RedisPassword,
-		DB:       c.RedisDB,
-	}.Normalized()
+	return redisconfig.MustParse(c.RedisAddr)
+}
+
+func (c Config) ValidateRedis() error {
+	if _, err := redisconfig.Parse(c.RedisAddr); err != nil {
+		return fmt.Errorf("invalid REDIS_ADDR: %w", err)
+	}
+	return nil
 }
 
 func trustedProxyCIDRs(raw string) []string {

@@ -147,7 +147,7 @@
 - [x] API/Worker 数据库连接增强：启动时对 PostgreSQL 做可配置重试，统一限制每进程连接池大小、空闲连接和连接生命周期，避免多副本部署或数据库短暂满连接时直接崩溃。
 - [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 继续使用 `.env.worker` 服务开发联调。
 - [x] 完整 Compose 固定使用生产模式，不再回退到开发管理员；启动前必须显式配置加密密钥、首次初始化 Token 和 Redis 密码，并新增 `.env.production.example`。
-- [x] Redis 连接统一支持 `REDIS_USERNAME`、`REDIS_PASSWORD` 和 `REDIS_DB`：API、Worker、任务命令及 Asynq 调度共用同一配置；完整 Compose 默认启用 `requirepass`，Helm 内置 Redis 自动生成并复用密码，也支持外部 Redis Secret。
+- [x] Redis 连接收敛为唯一的 `REDIS_ADDR` URI：用户名、密码、域名、端口、逻辑数据库和 TLS scheme 由同一连接串表达，API、Worker、任务命令及 Asynq 调度共用解析结果；完整 Compose 默认启用 `requirepass`，Helm 内置 Redis 自动生成并复用 URI，也支持外部 Redis URI Secret。
 - [x] 完整 Compose 的 Worker 等待 API `/healthz` 通过后再启动，避免全新数据库首次 migration 尚未完成时提前访问业务表。
 - [x] 新增 GitHub Actions 容器发布工作流：仅构建 `linux/amd64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；分支发布 `nightly`，`v*` tag 发布版本 tag，稳定版本 tag 额外发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
 - [x] 修复内嵌 SPA 根路径和 fallback 被 Go FileServer 重定向到 `./` 的问题：`index.html` 改为直接返回，避免服务端根路径出现不必要 301。

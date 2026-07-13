@@ -36,7 +36,7 @@ Prepare production settings first:
 cp .env.production.example .env
 ```
 
-Edit `.env` and replace the placeholders for `SECRET_ENCRYPTION_KEY`, `BOOTSTRAP_TOKEN`, and `REDIS_PASSWORD`. The complete Compose stack defaults to production mode, does not expose a fixed development administrator, and requires Redis authentication.
+Edit `.env` and replace the placeholders in `SECRET_ENCRYPTION_KEY`, `BOOTSTRAP_TOKEN`, and `REDIS_ADDR`. `REDIS_ADDR` is the complete URI containing credentials and the database number, for example `redis://default:password@redis:6379/0`. The complete Compose stack defaults to production mode, does not expose a fixed development administrator, and requires the password carried by that URI.
 
 Run this from the repository root:
 

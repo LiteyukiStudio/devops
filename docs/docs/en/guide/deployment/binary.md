@@ -32,7 +32,7 @@ At minimum, configure PostgreSQL, Redis, the public URL, and the secret encrypti
 ```bash
 export APP_ENV=production
 export DATABASE_URL='postgres://devops:password@127.0.0.1:5432/devops?sslmode=disable'
-export REDIS_ADDR='127.0.0.1:6379'
+export REDIS_ADDR='redis://default:password@127.0.0.1:6379/0'
 export PUBLIC_BASE_URL='https://devops.example.com'
 export SECRET_ENCRYPTION_KEY='replace-with-a-stable-random-value'
 ```
@@ -76,7 +76,7 @@ After=network.target postgresql.service redis.service
 WorkingDirectory=/opt/luna-devops
 Environment=APP_ENV=production
 Environment=DATABASE_URL=postgres://devops:password@127.0.0.1:5432/devops?sslmode=disable
-Environment=REDIS_ADDR=127.0.0.1:6379
+Environment=REDIS_ADDR=redis://default:password@127.0.0.1:6379/0
 Environment=PUBLIC_BASE_URL=https://devops.example.com
 Environment=SECRET_ENCRYPTION_KEY=replace-with-a-stable-random-value
 ExecStart=/opt/luna-devops/bin/luna-devops-api

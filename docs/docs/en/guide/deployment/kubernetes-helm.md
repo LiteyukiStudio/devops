@@ -83,13 +83,10 @@ externalDatabase:
 redis:
   enabled: false
 externalRedis:
-  addr: redis.example.com:6379
-  username: default
-  password: replace-with-a-strong-password
-  db: 0
+  url: redis://default:replace-with-a-strong-password@redis.example.com:6379/0
 ```
 
-The built-in Redis password is generated on first install and injected into Redis, API, and Worker through a Kubernetes Secret; upgrades reuse the existing Secret. For external Redis, set the fields above directly or use `externalRedis.existingSecret`. Its password key is required, while username and DB keys are optional.
+The built-in Redis URI is generated on first install and injected into Redis, API, and Worker through a Kubernetes Secret; upgrades reuse the existing Secret. For external Redis, set `externalRedis.url` directly or use `externalRedis.existingSecret`; by default that Secret only needs a `redis-url` key. When `redis.auth.existingSecret` supplies credentials for the built-in Redis, that Secret also needs `redis-url`. The URI format is `redis://username:password@host:port/database`; use `rediss://` for TLS. URL-encode reserved characters such as `@`, `:`, and `/` inside credentials.
 
 Then install:
 
@@ -109,6 +106,7 @@ helm upgrade --install luna-devops ./charts/luna-devops \
 | `api.image.tag` / `worker.image.tag` | `nightly` | API and worker image tag. |
 | `postgresql.enabled` | `true` | Install built-in PostgreSQL. |
 | `redis.enabled` | `true` | Install built-in Redis. |
+| `externalRedis.url` | Empty | Complete external Redis URI, used when built-in Redis is disabled. |
 | `worker.buildEgressMode` | `permissive` | Build Job egress mode. Use `restricted` when you need stronger isolation. |
 
 ## Uninstall
