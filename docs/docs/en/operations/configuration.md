@@ -100,4 +100,6 @@ Prefer least privilege. CI that only triggers builds should use `build:trigger`;
 
 Secrets, tokens, and registry credentials are not echoed back. When editing, an empty value means "keep the existing value". Enter a new value only when replacing it.
 
+The console uses a muted `****** (Set)` placeholder when a write-only field already has a value. It is not the stored secret and is never submitted as the form value; entering a replacement simply replaces the placeholder visually.
+
 Registry credentials have two independent controls: `usage` selects pull, push, or both, while `scope` selects personal, multiple project spaces, or global platform use. A credential cannot exceed its registry scope, and sharing never exposes the stored secret value.

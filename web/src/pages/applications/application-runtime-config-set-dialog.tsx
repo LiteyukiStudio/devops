@@ -65,11 +65,12 @@ export function ApplicationRuntimeConfigSetDialog({
               />
             </Field>
             <Field hint={editingSet?.secretRefsSet ? t('runtimeConfigSets.secretRefsConfiguredHint') : t('runtimeConfigSets.secretRefsHint')} label={t('runtimeConfigSets.secretRefs')}>
-              <Textarea className="min-h-24 font-mono text-sm" {...form.register('secretRefs')} placeholder={t('runtimeConfigSets.secretRefsPlaceholder')} />
+              <Textarea className="min-h-24 font-mono text-sm" {...form.register('secretRefs')} placeholder={editingSet?.secretRefsSet ? t('common.secretSetPlaceholder') : t('runtimeConfigSets.secretRefsPlaceholder')} />
             </Field>
             <Field hint={editingSet?.secretFilesSet ? t('runtimeConfigSets.secretFilesConfiguredHint') : t('runtimeConfigSets.secretFilesHint')} label={t('runtimeConfigSets.secretFiles')}>
               <RuntimeConfigFilesEditor
                 key={`${editingSet?.id ?? 'new'}-target-secret-files`}
+                configuredPlaceholder={editingSet?.secretFilesSet ? t('common.secretSetPlaceholder') : undefined}
                 initialValue={form.getValues('secretFiles') ?? ''}
                 onChange={value => form.setValue('secretFiles', value, { shouldDirty: true, shouldValidate: true })}
                 onValidationChange={setSecretFilesValid}

@@ -44,7 +44,6 @@ const buildsPage = {
   variableValuePlaceholder: '变量值',
   secretValuePlaceholder: '密钥值',
   secretKeepPlaceholder: '留空保留已有密钥，填写则覆盖',
-  secretConfiguredPlaceholder: '已设置，留空不修改',
   secretEditHint: '密钥值不会回显；编辑时留空表示保留已有值，输入新值才会覆盖。',
   selectProject: '选择项目空间',
   triggerBuild: '触发构建',

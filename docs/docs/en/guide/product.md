@@ -18,6 +18,17 @@ Production mode requires a strong random `BOOTSTRAP_TOKEN` in the API process en
 
 The first administrator can also choose "Keep me signed in"; its session and remember-login behavior is the same as a normal local sign-in.
 
+## Use the dashboard to choose the next action
+
+After sign-in, the dashboard answers “what needs attention now” instead of presenting a wall of resource totals:
+
+- The work summary shows active builds and releases, consecutive failures, and available clusters.
+- Attention items group consecutive failures by application or deployment target. A later successful event closes the corresponding item.
+- Recent activity combines build, release, hook, route, certificate, and other platform events with contextual links.
+- Platform readiness reports clusters and registries available to the current account without treating mere existence as runtime health.
+
+The dashboard reads this aggregation from a single `GET /api/v1/dashboard` endpoint. Future dashboard modules extend this stable response rather than making the browser compose multiple low-level list APIs.
+
 ## Create the first project space
 
 A project space keeps the applications, members, and runtime settings for one product or team together. Think of it as that product's workspace inside the platform.

@@ -3,6 +3,7 @@ export type StatusTone = 'danger' | 'info' | 'neutral' | 'success' | 'warning'
 export function statusToneFor(value: string): StatusTone {
   switch (value.trim().toLowerCase()) {
     case 'active':
+    case 'available':
     case 'connected':
     case 'created':
     case 'enabled':
@@ -27,9 +28,11 @@ export function statusToneFor(value: string): StatusTone {
     case 'revoked':
     case 'timeout':
     case 'unhealthy':
+    case 'unavailable':
       return 'danger'
     case 'expired':
     case 'warning':
+    case 'degraded':
     case 'checking':
     case 'container-creating':
     case 'pending':
@@ -50,6 +53,7 @@ export function statusToneFor(value: string): StatusTone {
     case 'canceled':
     case 'not-configured':
     case 'not-found':
+    case 'missing':
     case 'unknown':
       return 'neutral'
     default:

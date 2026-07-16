@@ -13,6 +13,7 @@ tags:
   - name: Git
   - name: Registries
   - name: Runtime
+  - name: Dashboard
   - name: Projects
   - name: Applications
   - name: Deployments
@@ -1098,6 +1099,29 @@ paths:
         "201":
           description: Created container image record.
 
+  /api/v1/dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Get the current user's dashboard overview
+      description: Returns the task-oriented dashboard aggregation in one response. Future dashboard read models are added to this contract instead of being composed from multiple browser requests.
+      responses:
+        "200":
+          description: Dashboard overview scoped to the current user's visible project spaces and resources.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardOverview"
+        "401":
+          description: Authentication is required.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500":
+          description: Dashboard aggregation failed (`dashboard.load_failed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /api/v1/projects:
     get:
       tags: [Projects]
@@ -1785,6 +1809,96 @@ components:
           type: string
           description: Step-up purpose returned with `mfa_required`.
       required: [code, error]
+    DashboardEntityRef:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+      required: [id, name, slug]
+    DashboardActivity:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        category: { type: string }
+        severity: { type: string }
+        status: { type: string }
+        message: { type: string }
+        project: { $ref: "#/components/schemas/DashboardEntityRef" }
+        application: { $ref: "#/components/schemas/DashboardEntityRef" }
+        deploymentTarget: { $ref: "#/components/schemas/DashboardEntityRef" }
+        resourceType: { type: string }
+        resourceId: { type: string }
+        links:
+          type: object
+          additionalProperties: { type: string }
+        occurredAt: { type: string, format: date-time }
+      required: [id, type, category, severity, status, message, resourceType, resourceId, links, occurredAt]
+    DashboardProjectShortcut:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        pinned: { type: boolean }
+        applicationCount: { type: integer, format: int64 }
+        latestActivity:
+          oneOf:
+            - $ref: "#/components/schemas/DashboardActivity"
+            - type: "null"
+      required: [id, name, slug, description, pinned, applicationCount, latestActivity]
+    DashboardAttentionItem:
+      type: object
+      properties:
+        key: { type: string }
+        category: { type: string }
+        severity: { type: string }
+        occurrences: { type: integer, minimum: 1 }
+        latest: { $ref: "#/components/schemas/DashboardActivity" }
+      required: [key, category, severity, occurrences, latest]
+    DashboardReadinessItem:
+      type: object
+      properties:
+        status: { type: string, enum: [ready, degraded, unavailable, available, missing] }
+        available: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+      required: [status, available, total]
+    DashboardOverview:
+      type: object
+      properties:
+        generatedAt: { type: string, format: date-time }
+        summary:
+          type: object
+          properties:
+            projects: { type: integer, format: int64, minimum: 0 }
+            applications: { type: integer, format: int64, minimum: 0 }
+            activeBuilds: { type: integer, format: int64, minimum: 0 }
+            activeReleases: { type: integer, format: int64, minimum: 0 }
+            attentionItems: { type: integer, minimum: 0 }
+            healthyClusters: { type: integer, minimum: 0 }
+            totalClusters: { type: integer, minimum: 0 }
+          required: [projects, applications, activeBuilds, activeReleases, attentionItems, healthyClusters, totalClusters]
+        projects:
+          type: array
+          maxItems: 16
+          items: { $ref: "#/components/schemas/DashboardProjectShortcut" }
+        attention:
+          type: array
+          maxItems: 8
+          items: { $ref: "#/components/schemas/DashboardAttentionItem" }
+        activities:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/DashboardActivity" }
+        readiness:
+          type: object
+          properties:
+            clusters: { $ref: "#/components/schemas/DashboardReadinessItem" }
+            registries: { $ref: "#/components/schemas/DashboardReadinessItem" }
+          required: [clusters, registries]
+      required: [generatedAt, summary, projects, attention, activities, readiness]
     AuthSessionResponse:
       type: object
       properties:

@@ -16,7 +16,6 @@ const authProvidersPage = {
   issuerUrlPlaceholder: 'https://sso.example.com',
   clientIdHint: '在 OIDC Provider 中为本平台创建应用后得到的客户端 ID。',
   clientSecretHint: '可以直接填写 Client Secret；后端只会保存，不会再次返回给前端。编辑已有身份源时留空表示不修改原密钥。',
-  secretSetPlaceholder: '已设置，留空则不修改',
   secretPlaceholder: '直接填写密钥',
   scopesHint: '用空格分隔，例如 openid profile email。openid 会自动兜底；如果缺少 email，可能无法完成准入校验。',
   groupClaimHint: '平台从 ID Token 的哪个字段读取用户组；Casdoor/GitHub/GitLab 的字段名可能不同。',

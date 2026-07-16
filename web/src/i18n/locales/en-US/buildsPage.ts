@@ -44,7 +44,6 @@ const buildsPage = {
   variableValuePlaceholder: 'Value',
   secretValuePlaceholder: 'Secret value',
   secretKeepPlaceholder: 'Leave empty to keep existing secret, enter a value to replace',
-  secretConfiguredPlaceholder: 'Already set. Leave empty to keep unchanged',
   secretEditHint: 'Secret values are never returned. Leave blank while editing to keep the current value; enter a new value to replace it.',
   selectProject: 'Select project space',
   triggerBuild: 'Trigger build',

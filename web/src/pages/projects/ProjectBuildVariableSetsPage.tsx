@@ -236,7 +236,7 @@ function KeyValueRowsEditor({ onChange, rows, secret = false, title, valuePlaceh
           <div key={row.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
             <Input placeholder={t('buildsPage.variableKeyPlaceholder')} value={row.key} onChange={event => updateRow(row.id, { key: event.target.value })} />
             <Input
-              placeholder={row.existing && secret ? t('buildsPage.secretConfiguredPlaceholder') : valuePlaceholder}
+              placeholder={row.existing && secret ? t('common.secretSetPlaceholder') : valuePlaceholder}
               type={secret ? 'password' : 'text'}
               value={row.value}
               onChange={event => updateRow(row.id, { value: event.target.value })}

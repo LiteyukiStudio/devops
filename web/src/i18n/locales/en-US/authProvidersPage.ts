@@ -16,7 +16,6 @@ const authProvidersPage = {
   issuerUrlPlaceholder: 'https://sso.example.com',
   clientIdHint: 'Client ID from the application created for this platform in the OIDC Provider.',
   clientSecretHint: 'You can enter Client Secret directly. Backend stores it and never returns it to the frontend. Leave empty while editing to keep the old secret.',
-  secretSetPlaceholder: 'Already set. Leave empty to keep unchanged',
   secretPlaceholder: 'Enter secret directly',
   scopesHint: 'Space separated, such as openid profile email. openid is added as a fallback. Missing email may prevent admission checks.',
   groupClaimHint: 'Claim used by the platform to read user groups. Casdoor/GitHub/GitLab may use different names.',

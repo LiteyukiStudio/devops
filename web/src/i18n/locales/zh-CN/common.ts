@@ -62,6 +62,7 @@ const common = {
   unknown: '未知',
   unhealthy: '异常',
   missingCredential: '缺少凭据',
+  secretSetPlaceholder: '****** (已设置)',
   failed: '失败',
   forbiddenTitle: '没有访问权限',
   forbiddenDescription: '你当前不是该项目空间成员，或没有执行此操作的权限。请返回项目空间列表，或联系项目空间管理员授予权限。',

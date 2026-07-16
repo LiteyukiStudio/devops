@@ -1,89 +1,59 @@
 import type { ReactNode } from 'react'
-import type { BuildRun, Project, ProjectPin } from '@/api'
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AppWindow, Boxes, CheckCircle2, Container, FolderKanban, GitBranch, Pin, Server, ShieldAlert } from 'lucide-react'
-import { useMemo } from 'react'
+import type { DashboardActivity, DashboardAttentionItem, DashboardProjectShortcut, DashboardReadinessItem } from '@/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Activity, AppWindow, Boxes, CheckCircle2, Container, FolderKanban, Globe2, Hammer, Pin, Rocket, Server, ShieldAlert, ShieldCheck, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
+import { ErrorState } from '@/components/common/error-state'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { formatCompactDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { WORKFLOW_STATUS_REFETCH_INTERVAL_MS } from '@/lib/polling'
 
-const PROJECT_AGGREGATION_LIMIT = 8
-const PROJECT_SHORTCUT_LIMIT = 16
-const RECENT_BUILD_LIMIT = 20
-
 export function DashboardPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const projects = useQuery({
-    queryKey: ['projects', 'dashboard', 'useCount'],
-    queryFn: () => api.listProjectsPage({ page: 1, pageSize: PROJECT_SHORTCUT_LIMIT, sortBy: 'useCount', sortOrder: 'desc' }),
+  const dashboard = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: api.getDashboard,
+    refetchInterval: WORKFLOW_STATUS_REFETCH_INTERVAL_MS,
   })
-  const projectPins = useQuery({ queryKey: ['project-pins'], queryFn: api.listProjectPins })
-  const registries = useQuery({ queryKey: ['registries'], queryFn: () => api.listRegistries() })
-  const clusters = useQuery({ queryKey: ['runtime-clusters'], queryFn: () => api.listRuntimeClusters() })
-  const projectItems = useMemo(() => projects.data?.items ?? [], [projects.data])
-  const visibleProjects = useMemo(() => projectItems.slice(0, PROJECT_AGGREGATION_LIMIT), [projectItems])
-  const applicationQueries = useQueries({
-    queries: visibleProjects.map(project => ({
-      queryKey: ['applications', project.id],
-      queryFn: () => api.listApplications(project.id),
-    })),
-  })
-  const buildRunQueries = useQueries({
-    queries: visibleProjects.map(project => ({
-      queryKey: ['dashboard-build-runs', project.id],
-      queryFn: () => api.listBuildRunsPage(project.id, { page: 1, pageSize: RECENT_BUILD_LIMIT, sortBy: 'createdAt', sortOrder: 'desc' }),
-      refetchInterval: WORKFLOW_STATUS_REFETCH_INTERVAL_MS,
-    })),
-  })
-
-  const summary = useMemo(() => {
-    const applicationsByProject = new Map<string, number>()
-    const applicationNames = new Map<string, string>()
-    visibleProjects.forEach((project, index) => {
-      const applications = applicationQueries[index]?.data ?? []
-      applicationsByProject.set(project.id, applications.length)
-      applications.forEach((application) => {
-        applicationNames.set(application.id, application.name)
-      })
-    })
-    const recentBuilds = buildRunQueries.flatMap((query, index) => {
-      const project = visibleProjects[index]
-      return (query.data?.items ?? []).map(run => ({ project, run }))
-    }).sort((left, right) => new Date(right.run.createdAt).getTime() - new Date(left.run.createdAt).getTime()).slice(0, RECENT_BUILD_LIMIT)
-    const activeBuilds = recentBuilds.filter(item => item.run.status === 'queued' || item.run.status === 'running').length
-    const failedBuilds = recentBuilds.filter(item => buildRunNeedsAttention(item.run.status)).length
-    return {
-      activeBuilds,
-      applicationNames,
-      applicationsByProject,
-      failedBuilds,
-      recentBuilds,
-      totalApplications: Array.from(applicationsByProject.values()).reduce((sum, count) => sum + count, 0),
-    }
-  }, [applicationQueries, buildRunQueries, visibleProjects])
-
-  const healthyClusters = clusters.data?.filter(cluster => cluster.status === 'ready' || cluster.status === 'connected').length ?? 0
-  const issueCount = summary.failedBuilds + Math.max(0, (clusters.data?.length ?? 0) - healthyClusters)
-  const projectShortcuts = useMemo(() => buildProjectShortcuts(projectPins.data ?? [], projectItems), [projectPins.data, projectItems])
-  const pinnedProjectIds = useMemo(() => new Set((projectPins.data ?? []).map(project => project.id)), [projectPins.data])
-  const projectTotal = projects.data?.total ?? projectItems.length
-  const hasMoreProjects = projectTotal > projectShortcuts.length
-  const toggleProjectPin = useMutation<ProjectPin | void, Error, { pinned: boolean, projectId: string }>({
-    mutationFn: ({ pinned, projectId }: { pinned: boolean, projectId: string }) => pinned ? api.unpinProject(projectId) : api.pinProject(projectId),
+  const toggleProjectPin = useMutation<void, Error, { pinned: boolean, projectId: string }>({
+    mutationFn: async ({ pinned, projectId }) => {
+      if (pinned)
+        await api.unpinProject(projectId)
+      else
+        await api.pinProject(projectId)
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project-pins'] })
     },
   })
+
+  if (dashboard.isError) {
+    return (
+      <ErrorState
+        description={t('dashboardPage.loadFailedDescription')}
+        title={t('dashboardPage.loadFailedTitle')}
+      />
+    )
+  }
+
+  if (!dashboard.data) {
+    return <Card className="p-4 text-sm text-muted-foreground">{t('common.loading')}</Card>
+  }
+
+  const overview = dashboard.data
+  const activeTasks = overview.summary.activeBuilds + overview.summary.activeReleases
+  const hasMoreProjects = overview.summary.projects > overview.projects.length
+
   return (
     <div className="grid min-w-0 gap-4">
-      <Card className="min-w-0 max-w-full p-5">
+      <Card className="min-w-0 max-w-full p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <SectionTitle icon={<FolderKanban size={18} />} title={t('dashboardPage.projectShortcuts')} />
           {hasMoreProjects && (
@@ -92,17 +62,14 @@ export function DashboardPage() {
             </Link>
           )}
         </div>
-        {projectShortcuts.length
+        {overview.projects.length
           ? (
-              <div className="mt-4 min-w-0 max-w-full overflow-x-auto overflow-y-hidden pb-2">
+              <div className="mt-3 min-w-0 max-w-full overflow-x-auto overflow-y-hidden pb-2">
                 <div className="inline-flex min-w-max gap-3">
-                  {projectShortcuts.map(project => (
+                  {overview.projects.map(project => (
                     <ProjectShortcutCard
                       key={project.id}
-                      appCount={summary.applicationsByProject.get(project.id) ?? 0}
                       isPinPending={toggleProjectPin.isPending}
-                      latestBuild={summary.recentBuilds.find(item => item.project.id === project.id)?.run}
-                      pinned={pinnedProjectIds.has(project.id)}
                       project={project}
                       onTogglePin={(projectId, pinned) => toggleProjectPin.mutate({ pinned, projectId })}
                     />
@@ -110,86 +77,78 @@ export function DashboardPage() {
                 </div>
               </div>
             )
-          : <p className="py-4 text-sm text-muted-foreground">{projects.isLoading || projectPins.isLoading ? t('common.loading') : t('projectSpaces.emptyTitle')}</p>}
+          : <p className="py-4 text-sm text-muted-foreground">{t('projectSpaces.emptyTitle')}</p>}
       </Card>
 
-      <Card className="overflow-hidden p-5">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <Card className="overflow-hidden p-4">
+        <h2 className="sr-only">{t('dashboardPage.workOverview')}</h2>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge tone={issueCount ? 'warning' : 'success'}>{issueCount ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}</StatusBadge>
-              <StatusBadge>{t('dashboardPage.projectSample', { count: visibleProjects.length })}</StatusBadge>
+              <StatusBadge tone={overview.summary.attentionItems ? 'warning' : 'success'}>
+                {overview.summary.attentionItems ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}
+              </StatusBadge>
+              <StatusBadge>{t('dashboardPage.resourceTotals', { applications: overview.summary.applications, projects: overview.summary.projects })}</StatusBadge>
             </div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-normal">{t('dashboardPage.heading')}</h2>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <DashboardMetric icon={<FolderKanban size={18} />} label={t('dashboardPage.projects')} to="/projects" value={projectTotal} />
-              <DashboardMetric icon={<AppWindow size={18} />} label={t('dashboardPage.applications')} to="/projects" value={summary.totalApplications} />
-              <DashboardMetric icon={<Activity size={18} />} label={t('dashboardPage.activeBuilds')} to={activeBuildTarget(summary.recentBuilds)} value={summary.activeBuilds} />
-              <DashboardMetric icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} to="/clusters" value={`${healthyClusters}/${clusters.data?.length ?? 0}`} />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <DashboardMetric icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} to="/events?categories=build&statuses=in_progress" value={overview.summary.activeBuilds} />
+              <DashboardMetric icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} to="/events?categories=release&statuses=in_progress" value={overview.summary.activeReleases} />
+              <DashboardMetric icon={<ShieldAlert size={18} />} label={t('dashboardPage.attentionItems')} tone={overview.summary.attentionItems ? 'danger' : 'neutral'} to="/events?severities=error&severities=warning" value={overview.summary.attentionItems} />
+              <DashboardMetric icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} tone={overview.summary.healthyClusters < overview.summary.totalClusters ? 'warning' : 'neutral'} to="/clusters" value={`${overview.summary.healthyClusters}/${overview.summary.totalClusters}`} />
             </div>
+            {activeTasks > 0 && (
+              <p className="mt-3 text-xs text-muted-foreground">{t('dashboardPage.activeTasksTotal', { count: activeTasks })}</p>
+            )}
           </div>
-          <div className="rounded-md border border-border bg-muted/30 p-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <ShieldAlert size={16} />
-              {t('dashboardPage.attention')}
-            </div>
-            <div className="mt-3 grid gap-2">
-              {summary.failedBuilds > 0 && <LinkedStatusBadge to={failedBuildTarget(summary.recentBuilds)} tone="danger">{t('dashboardPage.failedBuilds', { count: summary.failedBuilds })}</LinkedStatusBadge>}
-              {(clusters.data?.length ?? 0) > healthyClusters && <LinkedStatusBadge to="/clusters" tone="warning">{t('dashboardPage.unhealthyClusters', { count: (clusters.data?.length ?? 0) - healthyClusters })}</LinkedStatusBadge>}
-              {issueCount === 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 size={16} className="text-emerald-600" />
-                  {t('dashboardPage.noIssues')}
-                </div>
-              )}
-            </div>
-          </div>
+          <AttentionPanel items={overview.attention} />
         </div>
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="p-5">
-          <SectionTitle icon={<GitBranch size={18} />} title={t('dashboardPage.recentBuilds')} description={t('dashboardPage.recentBuildsDescription')} />
-          <div className="mt-4 h-[17.5rem] overflow-y-auto pr-1">
-            {summary.recentBuilds.length
+        <Card className="min-w-0 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <SectionTitle icon={<Activity size={18} />} title={t('dashboardPage.recentActivity')} />
+            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary" to="/events">
+              {t('dashboardPage.viewAllEvents')}
+            </Link>
+          </div>
+          <div className="mt-3 h-[18rem] overflow-y-auto pr-1">
+            {overview.activities.length
               ? (
                   <div className="divide-y divide-border">
-                    {summary.recentBuilds.map(item => (
-                      <RecentBuildRow key={item.run.id} applicationName={summary.applicationNames.get(item.run.applicationId)} project={item.project} run={item.run} />
-                    ))}
+                    {overview.activities.map(activity => <ActivityRow key={activity.id} activity={activity} />)}
                   </div>
                 )
-              : <p className="py-4 text-sm text-muted-foreground">{projects.isLoading ? t('common.loading') : t('dashboardPage.noBuilds')}</p>}
+              : <p className="py-4 text-sm text-muted-foreground">{t('dashboardPage.noActivity')}</p>}
           </div>
         </Card>
 
-        <Card className="p-5">
-          <SectionTitle icon={<Boxes size={18} />} title={t('dashboardPage.platformReadiness')} description={t('dashboardPage.platformReadinessDescription')} />
-          <div className="mt-4 grid gap-3">
-            <ReadinessRow icon={<Container size={16} />} label={t('registries')} value={registries.data?.length ?? 0} detail={t('dashboardPage.availableGlobalAndScoped')} to="/registries" tone={(registries.data?.length ?? 0) ? 'success' : 'warning'} />
-            <ReadinessRow icon={<Server size={16} />} label={t('clusters')} value={clusters.data?.length ?? 0} detail={t('dashboardPage.availableGlobalAndScoped')} to="/clusters" tone={(clusters.data?.length ?? 0) ? 'success' : 'warning'} />
+        <Card className="p-4">
+          <SectionTitle icon={<Boxes size={18} />} title={t('dashboardPage.platformReadiness')} />
+          <div className="mt-3 grid gap-3">
+            <ReadinessRow icon={<Container size={16} />} item={overview.readiness.registries} kind="registries" label={t('registries')} to="/registries" />
+            <ReadinessRow icon={<Server size={16} />} item={overview.readiness.clusters} kind="clusters" label={t('clusters')} to="/clusters" />
           </div>
         </Card>
       </div>
-
     </div>
   )
 }
 
-function ProjectShortcutCard({ appCount, isPinPending, latestBuild, onTogglePin, pinned, project }: { appCount: number, isPinPending: boolean, latestBuild?: BuildRun, onTogglePin: (projectId: string, pinned: boolean) => void, pinned: boolean, project: Project }) {
+function ProjectShortcutCard({ isPinPending, onTogglePin, project }: { isPinPending: boolean, onTogglePin: (projectId: string, pinned: boolean) => void, project: DashboardProjectShortcut }) {
   const { t } = useTranslation()
   return (
     <Link
-      className="group relative grid min-h-32 w-64 flex-none gap-3 rounded-md border border-border bg-background p-3 transition-all duration-150 hover:border-primary/50 hover:bg-muted/35 hover:text-primary"
+      className="group relative grid min-h-28 w-64 flex-none gap-3 rounded-md border border-border bg-background p-3 transition-all duration-150 hover:border-primary/50 hover:bg-muted/35"
       to={`/projects/${project.id}`}
     >
       <div className="min-w-0">
         <span className="block truncate pr-9 font-medium">{project.name}</span>
-        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground transition-colors group-hover:text-primary/80">{project.description || t('common.noDescription')}</p>
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{project.description || t('common.noDescription')}</p>
       </div>
       <Button
-        aria-label={pinned ? t('common.unpinProject') : t('common.pinProject')}
-        className={`absolute right-2 top-2 size-8 transition-opacity ${pinned ? 'text-primary opacity-100 hover:text-primary' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+        aria-label={project.pinned ? t('common.unpinProject') : t('common.pinProject')}
+        className={`absolute right-2 top-2 size-8 transition-opacity ${project.pinned ? 'text-primary opacity-100 hover:text-primary' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
         disabled={isPinPending}
         size="icon"
         type="button"
@@ -197,136 +156,149 @@ function ProjectShortcutCard({ appCount, isPinPending, latestBuild, onTogglePin,
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
-          onTogglePin(project.id, pinned)
+          onTogglePin(project.id, project.pinned)
         }}
       >
-        <Pin className={`size-4 ${pinned ? 'fill-current' : ''}`} />
+        <Pin className={`size-4 ${project.pinned ? 'fill-current' : ''}`} />
       </Button>
-      <div className="flex flex-wrap items-center gap-2 self-end">
-        <StatusBadge>{t('dashboardPage.appsCount', { count: appCount })}</StatusBadge>
-        {latestBuild ? <StatusValueBadge value={latestBuild.status} /> : <StatusBadge tone="neutral">{t('dashboardPage.noBuild')}</StatusBadge>}
-        <span className="text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{latestBuild ? formatCompactDateTime(latestBuild.createdAt) : t('common.none')}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 self-end">
+        <StatusBadge>{t('dashboardPage.appsCount', { count: project.applicationCount })}</StatusBadge>
+        {project.latestActivity
+          ? <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={project.latestActivity.status} />
+          : <StatusBadge tone="neutral">{t('dashboardPage.noActivityShort')}</StatusBadge>}
+        {project.latestActivity && <span className="text-xs text-muted-foreground">{formatCompactDateTime(project.latestActivity.occurredAt)}</span>}
       </div>
     </Link>
   )
 }
 
-function DashboardMetric({ icon, label, to, value }: { icon: ReactNode, label: string, to?: string, value: number | string }) {
-  const content = (
-    <>
+function DashboardMetric({ icon, label, to, tone = 'neutral', value }: { icon: ReactNode, label: string, to: string, tone?: 'danger' | 'neutral' | 'warning', value: number | string }) {
+  const toneClass = tone === 'danger' ? 'text-red-600 dark:text-red-400' : tone === 'warning' ? 'text-amber-700 dark:text-amber-400' : ''
+  return (
+    <Link className={`group rounded-md border border-border bg-background p-3 transition hover:border-primary/50 ${toneClass}`} to={to}>
       <div className="flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-primary">
         {icon}
         <span>{label}</span>
       </div>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
-    </>
+    </Link>
   )
-  const className = 'group rounded-md border border-border bg-background p-3 transition hover:border-primary/50 hover:text-primary'
-  return to
-    ? <Link className={className} to={to}>{content}</Link>
-    : <div className={className}>{content}</div>
 }
 
-function SectionTitle({ description, icon, title }: { description?: string, icon: ReactNode, title: string }) {
+function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
+  const { t } = useTranslation()
   return (
-    <div className="flex items-start gap-2">
-      <div className="mt-0.5 text-muted-foreground">{icon}</div>
-      <div className="min-w-0">
-        <h3 className="text-base font-semibold">{title}</h3>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+    <div className="rounded-md border border-border bg-muted/25 p-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <ShieldAlert size={16} />
+        {t('dashboardPage.attention')}
       </div>
+      {items.length
+        ? (
+            <div className="mt-2 grid gap-1">
+              {items.slice(0, 4).map(item => (
+                <Link key={item.key} className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-2 transition hover:bg-background" to={activityTarget(item.latest)}>
+                  <span className="shrink-0 text-muted-foreground">{categoryIcon(item.category)}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{eventTypeLabel(t, item.latest.type)}</span>
+                  {item.occurrences > 1 && <StatusBadge tone={item.severity === 'error' ? 'danger' : 'warning'}>{t('dashboardPage.occurrences', { count: item.occurrences })}</StatusBadge>}
+                </Link>
+              ))}
+              {items.length > 4 && <Link className="px-2 pt-1 text-sm font-medium text-primary" to="/events?severities=error&severities=warning">{t('dashboardPage.moreAttention', { count: items.length - 4 })}</Link>}
+            </div>
+          )
+        : (
+            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="text-emerald-600" size={16} />
+              {t('dashboardPage.noIssues')}
+            </div>
+          )}
     </div>
   )
 }
 
-function ReadinessRow({ detail, icon, label, to, tone, value }: { detail: string, icon: ReactNode, label: string, to?: string, tone: 'success' | 'warning', value: number | string }) {
-  const content = (
-    <>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          {icon}
-          <span className="truncate">{label}</span>
-        </div>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{detail}</p>
-      </div>
-      <StatusBadge tone={tone}>{value}</StatusBadge>
-    </>
-  )
-  const className = 'group flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2.5 transition hover:border-primary/50 hover:text-primary'
-  return to
-    ? <Link className={className} to={to}>{content}</Link>
-    : <div className={className}>{content}</div>
-}
-
-function RecentBuildRow({ applicationName, project, run }: { applicationName?: string, project: Project, run: BuildRun }) {
+function ActivityRow({ activity }: { activity: DashboardActivity }) {
   const { t } = useTranslation()
-  const displayName = applicationName || run.applicationId
   return (
-    <Link className="group grid gap-2 py-3 transition-colors first:pt-0 hover:text-primary sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" to={buildRunTarget(project.id, run.applicationId)}>
-      <div className="min-w-0">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="truncate font-medium">{project.name}</span>
-          <span className="text-muted-foreground">·</span>
-          <span className="truncate font-medium">{displayName}</span>
-          <StatusValueBadge value={run.status} />
+    <Link className="group grid gap-2 py-3 transition-colors first:pt-0 hover:text-primary sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" to={activityTarget(activity)}>
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          {categoryIcon(activity.category)}
         </div>
-        <p className="mt-1 truncate text-sm text-muted-foreground transition-colors group-hover:text-primary/80">
-          {t('dashboardPage.buildMeta', { branch: run.sourceBranch || run.sourceTag || t('common.unknown'), id: shortId(run.id), image: run.imageRef || run.targetImageRef || t('common.none') })}
-        </p>
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="truncate font-medium">{eventTypeLabel(t, activity.type)}</span>
+            <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={activity.status} />
+          </div>
+          <p className="mt-1 truncate text-sm text-muted-foreground">
+            {activityContext(activity) || activity.message || t('eventsPage.noMessage')}
+          </p>
+        </div>
       </div>
-      <span className="text-xs text-muted-foreground transition-colors group-hover:text-primary/80">{formatCompactDateTime(run.createdAt)}</span>
+      <span className="pl-11 text-xs text-muted-foreground sm:pl-0">{formatCompactDateTime(activity.occurredAt)}</span>
     </Link>
   )
 }
 
-function LinkedStatusBadge({ children, to, tone }: { children: ReactNode, to: string, tone: 'danger' | 'warning' }) {
+function ReadinessRow({ icon, item, kind, label, to }: { icon: ReactNode, item: DashboardReadinessItem, kind: 'clusters' | 'registries', label: string, to: string }) {
+  const { t } = useTranslation()
+  const value = kind === 'clusters' ? `${item.available}/${item.total}` : item.total
   return (
-    <Link className="w-fit rounded-md transition hover:text-primary" to={to}>
-      <StatusBadge className="transition hover:border-primary/50 hover:text-primary" tone={tone}>{children}</StatusBadge>
+    <Link className="group flex items-center justify-between gap-3 rounded-md border border-border px-3 py-3 transition hover:border-primary/50" to={to}>
+      <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="truncate">{label}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <StatusValueBadge labelKeyPrefix="dashboardPage.readinessStatuses" value={item.status} />
+        <span className="text-sm tabular-nums text-muted-foreground" title={t('dashboardPage.availableCount')}>{value}</span>
+      </div>
     </Link>
   )
 }
 
-function activeBuildTarget(items: Array<{ project: Project, run: BuildRun }>) {
-  const active = items.find(item => item.run.status === 'queued' || item.run.status === 'running')
-  return active ? buildRunTarget(active.project.id, active.run.applicationId) : '/projects'
+function SectionTitle({ icon, title }: { icon: ReactNode, title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">{icon}</span>
+      <h3 className="text-base font-semibold">{title}</h3>
+    </div>
+  )
 }
 
-function failedBuildTarget(items: Array<{ project: Project, run: BuildRun }>) {
-  const failed = items.find(item => buildRunNeedsAttention(item.run.status))
-  return failed ? buildRunTarget(failed.project.id, failed.run.applicationId) : '/projects'
+function eventTypeLabel(t: ReturnType<typeof useTranslation>['t'], type: string) {
+  return t(`eventsPage.types.${type.replaceAll('.', '_')}`, { defaultValue: type })
 }
 
-function buildRunNeedsAttention(status: BuildRun['status']) {
-  return status === 'failed' || status === 'lost' || status === 'timeout'
+function activityContext(activity: DashboardActivity) {
+  return [activity.project?.name, activity.application?.name, activity.deploymentTarget?.name].filter(Boolean).join(' · ')
 }
 
-function buildRunTarget(projectId: string, applicationId: string) {
-  if (!applicationId)
-    return `/projects/${projectId}`
-  return `/projects/${projectId}/apps/${applicationId}#tab=builds`
-}
-
-function shortId(id: string) {
-  return id.replace(/^bldr?_?/, '').slice(0, 8)
-}
-
-function buildProjectShortcuts(pinnedProjects: ProjectPin[], projects: Project[]) {
-  const result: Project[] = []
-  const seen = new Set<string>()
-  const add = (project: Project | undefined) => {
-    if (!project || seen.has(project.id) || result.length >= PROJECT_SHORTCUT_LIMIT)
-      return
-    seen.add(project.id)
-    result.push(project)
+function activityTarget(activity: DashboardActivity) {
+  const primary = activity.links.primary
+  if (primary?.startsWith('/'))
+    return primary
+  if (activity.project && activity.application) {
+    const tab = activity.category === 'build' ? 'builds' : activity.category === 'gateway' || activity.category === 'certificate' ? 'gateway' : 'deployments'
+    return `/projects/${activity.project.id}/apps/${activity.application.id}#tab=${tab}`
   }
-  const compareUsage = (left: Project, right: Project) => {
-    const useCountDiff = (right.useCount ?? 0) - (left.useCount ?? 0)
-    if (useCountDiff !== 0)
-      return useCountDiff
-    return new Date(right.lastUsedAt ?? right.createdAt).getTime() - new Date(left.lastUsedAt ?? left.createdAt).getTime()
-  }
-  ;[...pinnedProjects].sort(compareUsage).forEach(project => add(project))
-  ;[...projects].sort(compareUsage).forEach(project => add(project))
-  return result
+  if (activity.project)
+    return `/projects/${activity.project.id}`
+  return '/events'
+}
+
+function categoryIcon(category: string) {
+  const className = 'size-4'
+  if (category === 'build')
+    return <Hammer className={className} />
+  if (category === 'release')
+    return <Rocket className={className} />
+  if (category === 'hook')
+    return <Workflow className={className} />
+  if (category === 'gateway')
+    return <Globe2 className={className} />
+  if (category === 'certificate')
+    return <ShieldCheck className={className} />
+  if (category === 'application')
+    return <AppWindow className={className} />
+  return <Activity className={className} />
 }

@@ -270,7 +270,7 @@ export function NotificationsPage() {
   )
 }
 
-interface ChannelFormState { adapterKind: string, configText: string, enabled: boolean, id?: string, name: string, secretText: string }
+interface ChannelFormState { adapterKind: string, configText: string, enabled: boolean, id?: string, name: string, secretKeys: string[], secretText: string }
 interface PresetFormState { enabled: boolean, name: string, presetId: string, secretText: string }
 interface TemplateFormState { adapterKind: string, bodyTemplate: string, enabled: boolean, eventType: string, id?: string, jsonBodyTemplate: string, locale: string, name: string, subjectTemplate: string }
 interface RuleFormState { channelIds: string[], enabled: boolean, eventTypes: string[], filterText: string, id?: string, locale: string, name: string, templateId: string }
@@ -279,6 +279,9 @@ function ChannelDialog({ onClose, onSave, onUpdate, openState, saving }: { onClo
   const { t } = useTranslation()
   if (!openState)
     return null
+  const secretPlaceholder = openState.secretKeys.length > 0
+    ? openState.secretKeys.map(key => `${key}=${t('common.secretSetPlaceholder')}`).join('\n')
+    : t('notificationsPage.secretPlaceholder')
   return (
     <Dialog open onOpenChange={open => !open && onClose()}>
       <DialogContent className="max-w-3xl">
@@ -295,7 +298,7 @@ function ChannelDialog({ onClose, onSave, onUpdate, openState, saving }: { onClo
             </Select>
           </Field>
           <Field wide label={t('notificationsPage.configJson')}><Textarea className="min-h-40 font-mono" value={openState.configText} onChange={event => onUpdate({ ...openState, configText: event.target.value })} /></Field>
-          <Field wide label={t('notificationsPage.secretLines')}><Textarea className="min-h-24 font-mono" placeholder={t('notificationsPage.secretPlaceholder')} value={openState.secretText} onChange={event => onUpdate({ ...openState, secretText: event.target.value })} /></Field>
+          <Field wide label={t('notificationsPage.secretLines')}><Textarea className="min-h-24 font-mono" placeholder={secretPlaceholder} value={openState.secretText} onChange={event => onUpdate({ ...openState, secretText: event.target.value })} /></Field>
         </FormGrid>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
@@ -469,7 +472,7 @@ function FormGrid({ children }: { children: ReactNode }) {
 }
 
 function emptyChannelState(): ChannelFormState {
-  return { adapterKind: 'webhook', configText: '{\n  "method": "POST",\n  "url": "https://example.com/webhook",\n  "headers": {\n    "Content-Type": "application/json"\n  }\n}', enabled: true, name: '', secretText: '' }
+  return { adapterKind: 'webhook', configText: '{\n  "method": "POST",\n  "url": "https://example.com/webhook",\n  "headers": {\n    "Content-Type": "application/json"\n  }\n}', enabled: true, name: '', secretKeys: [], secretText: '' }
 }
 
 function emptyPresetState(presetId: string): PresetFormState {
@@ -485,7 +488,8 @@ function emptyRuleState(): RuleFormState {
 }
 
 function channelStateFromItem(item: NotificationChannel): ChannelFormState {
-  return { adapterKind: item.adapterKind, configText: JSON.stringify(item.config ?? parseJSON(item.configJson, {}), null, 2), enabled: item.enabled, id: item.id, name: item.name, secretText: '' }
+  const secretKeys = Object.keys(item.secretSet ?? {}).filter(key => item.secretSet?.[key])
+  return { adapterKind: item.adapterKind, configText: JSON.stringify(item.config ?? parseJSON(item.configJson, {}), null, 2), enabled: item.enabled, id: item.id, name: item.name, secretKeys, secretText: '' }
 }
 
 function templateStateFromItem(item: NotificationTemplate): TemplateFormState {

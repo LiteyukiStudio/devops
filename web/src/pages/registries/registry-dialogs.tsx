@@ -166,10 +166,20 @@ export function CredentialDialog({ editingCredential, open, form, registries, pr
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field error={form.formState.errors.password?.message} hint={editingCredential ? t('registriesPage.passwordEditHint') : t('registriesPage.passwordHint')} label={t('registriesPage.password')}>
-              <Input {...form.register('password')} aria-invalid={Boolean(form.formState.errors.password)} type="password" />
+              <Input
+                {...form.register('password')}
+                aria-invalid={Boolean(form.formState.errors.password)}
+                placeholder={editingCredential?.passwordSet ? t('common.secretSetPlaceholder') : undefined}
+                type="password"
+              />
             </Field>
             <Field error={form.formState.errors.token?.message} hint={editingCredential ? t('registriesPage.tokenEditHint') : t('registriesPage.tokenHint')} label={t('registriesPage.token')}>
-              <Input {...form.register('token')} aria-invalid={Boolean(form.formState.errors.token)} type="password" />
+              <Input
+                {...form.register('token')}
+                aria-invalid={Boolean(form.formState.errors.token)}
+                placeholder={editingCredential?.tokenSet ? t('common.secretSetPlaceholder') : undefined}
+                type="password"
+              />
             </Field>
           </div>
           <ProgressiveSection

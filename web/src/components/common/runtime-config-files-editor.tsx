@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { emptyRuntimeConfigFileRow, parseRuntimeConfigFiles, serializeRuntimeConfigFiles } from '@/lib/runtime-config-files'
 
-export function RuntimeConfigFilesEditor({ initialValue, onChange, onValidationChange }: {
+export function RuntimeConfigFilesEditor({ configuredPlaceholder, initialValue, onChange, onValidationChange }: {
+  configuredPlaceholder?: string
   initialValue: string
   onChange: (value: string) => void
   onValidationChange?: (valid: boolean) => void
@@ -40,7 +41,7 @@ export function RuntimeConfigFilesEditor({ initialValue, onChange, onValidationC
       {rows.length === 0
         ? (
             <div className="grid justify-items-start gap-3 rounded-md border border-dashed border-border px-3 py-4">
-              <p className="text-sm text-muted-foreground">{t('runtimeConfigFilesEditor.empty')}</p>
+              <p className="text-sm text-muted-foreground">{configuredPlaceholder || t('runtimeConfigFilesEditor.empty')}</p>
               <Button size="sm" type="button" variant="secondary" onClick={addFile}>
                 <FilePlus2 className="size-4" />
                 {t('runtimeConfigFilesEditor.addFile')}

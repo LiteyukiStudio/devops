@@ -335,6 +335,72 @@ export interface PlatformEventCatalogEntry {
   recommendedNotify: boolean
 }
 
+export interface DashboardEntityRef {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface DashboardActivity {
+  id: string
+  type: string
+  category: string
+  severity: string
+  status: string
+  message: string
+  project?: DashboardEntityRef
+  application?: DashboardEntityRef
+  deploymentTarget?: DashboardEntityRef
+  resourceType: string
+  resourceId: string
+  links: Record<string, string>
+  occurredAt: string
+}
+
+export interface DashboardProjectShortcut {
+  id: string
+  name: string
+  slug: string
+  description: string
+  pinned: boolean
+  applicationCount: number
+  latestActivity?: DashboardActivity | null
+}
+
+export interface DashboardAttentionItem {
+  key: string
+  category: string
+  severity: string
+  occurrences: number
+  latest: DashboardActivity
+}
+
+export interface DashboardReadinessItem {
+  status: string
+  available: number
+  total: number
+}
+
+export interface DashboardOverview {
+  generatedAt: string
+  summary: {
+    projects: number
+    applications: number
+    activeBuilds: number
+    activeReleases: number
+    attentionItems: number
+    healthyClusters: number
+    totalClusters: number
+  }
+  projects: DashboardProjectShortcut[]
+  attention: DashboardAttentionItem[]
+  activities: DashboardActivity[]
+  readiness: {
+    clusters: DashboardReadinessItem
+    registries: DashboardReadinessItem
+  }
+}
+
 export interface PlatformEventListParams extends PaginationParams {
   scope?: 'mine' | 'all'
   projectId?: string

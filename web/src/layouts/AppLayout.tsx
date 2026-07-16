@@ -34,22 +34,35 @@ interface TopbarCrumb {
   to: string
 }
 
-const navSections = [
+interface NavItem {
+  to: string
+  labelKey: string
+  icon: typeof LayoutDashboard
+  permission?: string
+  activeMatch?: (pathname: string) => boolean
+}
+
+interface NavSection {
+  titleKey: string
+  items: NavItem[]
+}
+
+const navSections: NavSection[] = [
   {
-    titleKey: 'DevOps',
+    titleKey: 'nav.workbench',
     items: [
+      { to: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
+      { to: '/projects', labelKey: 'projects', icon: FolderKanban, activeMatch: pathname => pathname === '/projects' || pathname.startsWith('/projects/') },
       { to: '/events', labelKey: 'events', icon: CalendarClock },
-      { to: '/code-repositories', labelKey: 'codeRepositories', icon: GitBranch },
-      { to: '/app-templates', labelKey: 'appTemplates', icon: PackageOpen },
-      { to: '/registries', labelKey: 'registries', icon: Container },
-      { to: '/clusters', labelKey: 'clusters', icon: Server },
-      { to: '/billing', labelKey: 'billing', icon: CreditCard },
     ],
   },
   {
-    titleKey: 'nav.personalWorkspace',
+    titleKey: 'nav.resources',
     items: [
-      { to: '/settings/account', labelKey: 'account', icon: Link2 },
+      { to: '/code-repositories', labelKey: 'codeRepositories', icon: GitBranch },
+      { to: '/registries', labelKey: 'registries', icon: Container },
+      { to: '/clusters', labelKey: 'clusters', icon: Server },
+      { to: '/app-templates', labelKey: 'appTemplates', icon: PackageOpen },
     ],
   },
   {
@@ -59,7 +72,14 @@ const navSections = [
       { to: '/settings/users', labelKey: 'users', icon: Users, permission: 'user.manage' },
       { to: '/settings/notifications', labelKey: 'notifications', icon: Bell, permission: 'user.manage' },
       { to: '/settings/operations', labelKey: 'operationsDashboard', icon: ActivitySquare, permission: 'user.manage' },
-      { to: '/settings/site', labelKey: 'siteSettings', icon: Settings },
+      { to: '/settings/site', labelKey: 'siteSettings', icon: Settings, permission: 'user.manage' },
+    ],
+  },
+  {
+    titleKey: 'nav.personal',
+    items: [
+      { to: '/settings/account', labelKey: 'account', icon: Link2 },
+      { to: '/billing', labelKey: 'billing', icon: CreditCard },
     ],
   },
 ]
@@ -173,38 +193,12 @@ export function AppLayout() {
             return (
               <SidebarGroup key={section.titleKey} className={index > 0 ? 'mt-4' : undefined}>
                 {index > 0 && <Separator className="mb-4" />}
-                <SidebarGroupLabel>{section.titleKey === 'DevOps' ? section.titleKey : t(section.titleKey)}</SidebarGroupLabel>
+                <SidebarGroupLabel>{t(section.titleKey)}</SidebarGroupLabel>
                 <SidebarMenu>
-                  {section.titleKey === 'DevOps' && (
-                    <SidebarMenuItem>
-                      <NavLink
-                        className={({ isActive }) => sidebarMenuButtonClassName(isActive)}
-                        title={t('dashboard')}
-                        to="/dashboard"
-                        onClick={onNavigate}
-                      >
-                        <LayoutDashboard className="size-[17px] shrink-0" />
-                        <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t('dashboard')}</span>
-                      </NavLink>
-                    </SidebarMenuItem>
-                  )}
-                  {section.titleKey === 'DevOps' && (
-                    <SidebarMenuItem>
-                      <NavLink
-                        className={({ isActive }) => sidebarMenuButtonClassName(isActive || location.pathname.startsWith('/projects/'))}
-                        title={t('projects')}
-                        to="/projects"
-                        onClick={onNavigate}
-                      >
-                        <FolderKanban className="size-[17px] shrink-0" />
-                        <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t('projects')}</span>
-                      </NavLink>
-                    </SidebarMenuItem>
-                  )}
                   {items.map(item => (
                     <SidebarMenuItem key={item.to}>
                       <NavLink
-                        className={({ isActive }) => sidebarMenuButtonClassName(isActive)}
+                        className={({ isActive }) => sidebarMenuButtonClassName(isActive || item.activeMatch?.(location.pathname))}
                         title={t(item.labelKey)}
                         to={item.to}
                         onClick={onNavigate}

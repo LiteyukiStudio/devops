@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { EmptyState } from './empty-state'
 import { PaginationController } from './pagination'
@@ -201,11 +202,11 @@ export function DataList<T>({
           </div>
         </div>
       )}
-      <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-auto">
+      <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1" scrollbars="both" type="auto">
         {items.length === 0
           ? <EmptyState description={emptyDescription} title={emptyTitle} variant="plain" />
           : (
-              <table className="min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
+              <table className="w-max min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur [&_tr]:border-b">
                   <tr className="border-b border-border transition-colors hover:bg-muted/40">
                     {selectable && (
@@ -282,7 +283,7 @@ export function DataList<T>({
                 </tbody>
               </table>
             )}
-      </div>
+      </ScrollArea>
 
       {pagination && (
         <div className="shrink-0 border-t border-border px-4 py-3 text-sm text-muted-foreground">

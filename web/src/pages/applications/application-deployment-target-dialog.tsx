@@ -333,11 +333,12 @@ export function ApplicationDeploymentTargetDialog({
                   />
                 </Field>
                 <Field hint={editingTarget?.secretRefsSet ? t('deploymentsPage.runtimeSecretRefsConfigured') : t('deploymentsPage.runtimeSecretRefsHint')} label={t('deploymentsPage.runtimeSecretRefs')}>
-                  <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...form.register('secretRefs')} placeholder={t('deploymentsPage.runtimeSecretRefsPlaceholder')} />
+                  <textarea className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none transition placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/20" {...form.register('secretRefs')} placeholder={editingTarget?.secretRefsSet ? t('common.secretSetPlaceholder') : t('deploymentsPage.runtimeSecretRefsPlaceholder')} />
                 </Field>
                 <Field hint={editingTarget?.secretFilesSet ? t('deploymentsPage.runtimeSecretFilesConfigured') : t('deploymentsPage.runtimeSecretFilesHint')} label={t('deploymentsPage.runtimeSecretFiles')}>
                   <RuntimeConfigFilesEditor
                     key={`${editingTarget?.id ?? 'new'}-secret-files`}
+                    configuredPlaceholder={editingTarget?.secretFilesSet ? t('common.secretSetPlaceholder') : undefined}
                     initialValue={form.getValues('secretFiles') ?? ''}
                     onChange={value => form.setValue('secretFiles', value, { shouldDirty: true, shouldValidate: true })}
                     onValidationChange={onSetSecretFilesValid}

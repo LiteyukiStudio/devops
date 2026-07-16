@@ -1,6 +1,8 @@
 const nav = {
-  personalWorkspace: 'Personal workspace',
+  workbench: 'Workbench',
+  resources: 'Resources',
   systemManagement: 'System management',
+  personal: 'Personal',
   openSidebar: 'Open sidebar',
 }
 

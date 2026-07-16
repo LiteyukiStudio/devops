@@ -263,7 +263,7 @@ export function ClusterFormDialog({ editingCluster, open, projects, user, onOpen
                     rules={{ required: !editingCluster }}
                     render={({ field }) => (
                       <div className="min-w-0 max-w-full overflow-x-hidden">
-                        <CodeEditor ariaInvalid={Boolean(form.formState.errors.kubeconfig) || kubeconfigInspection.error} className="w-full" height="22rem" language="yaml" placeholder={t('clustersPage.kubeconfigPlaceholder')} readOnly={!canEditKubeconfig} value={field.value ?? ''} onChange={field.onChange} />
+                        <CodeEditor ariaInvalid={Boolean(form.formState.errors.kubeconfig) || kubeconfigInspection.error} className="w-full" height="22rem" language="yaml" placeholder={editingCluster?.kubeconfigSet ? t('common.secretSetPlaceholder') : t('clustersPage.kubeconfigPlaceholder')} readOnly={!canEditKubeconfig} value={field.value ?? ''} onChange={field.onChange} />
                         {canEditKubeconfig && kubeconfigInspection.error && <p className="mt-2 text-sm text-danger">{t('clustersPage.kubeconfigParseFailed')}</p>}
                         {canEditKubeconfig && kubeconfigInspection.contexts.length === 1 && <p className="mt-2 text-sm text-muted-foreground">{t('clustersPage.kubeconfigSingleContext', { context: kubeconfigInspection.contexts[0].name })}</p>}
                         {kubeconfigContextSelectionRequired && (

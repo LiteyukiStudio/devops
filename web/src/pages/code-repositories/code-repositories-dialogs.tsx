@@ -127,7 +127,7 @@ export function ProviderDialog({
               <Input
                 {...form.register('clientSecret')}
                 aria-invalid={Boolean(form.formState.errors.clientSecret)}
-                placeholder={editingProvider?.clientSecretSet ? t('codeRepositoriesView.secretSetPlaceholder') : t('codeRepositoriesView.clientSecretPlaceholder')}
+                placeholder={editingProvider?.clientSecretSet ? t('common.secretSetPlaceholder') : t('codeRepositoriesView.clientSecretPlaceholder')}
                 type="password"
               />
             </Field>
@@ -215,7 +215,12 @@ export function CredentialDialog({ open, editingCredential, form, projects, prov
           )}
           <Field error={form.formState.errors.username?.message} hint={t('codeRepositoriesView.usernameHint')} label={t('codeRepositoriesView.username')} required><Input {...form.register('username')} aria-invalid={Boolean(form.formState.errors.username)} placeholder={t('codeRepositoriesView.usernamePlaceholder')} /></Field>
           <Field error={form.formState.errors.accessToken?.message} hint={t(editingCredential ? 'codeRepositoriesView.accessTokenEditHint' : 'codeRepositoriesView.accessTokenHint')} label={t('codeRepositoriesView.accessToken')}>
-            <Input {...form.register('accessToken')} aria-invalid={Boolean(form.formState.errors.accessToken)} type="password" />
+            <Input
+              {...form.register('accessToken')}
+              aria-invalid={Boolean(form.formState.errors.accessToken)}
+              placeholder={editingCredential?.accessTokenSet ? t('common.secretSetPlaceholder') : undefined}
+              type="password"
+            />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field error={form.formState.errors.scopesText?.message} hint={t('codeRepositoriesView.scopesHint')} label={t('codeRepositoriesView.scopes')}>

@@ -55,6 +55,7 @@ const common = {
   unknown: 'Unknown',
   unhealthy: 'Unhealthy',
   missingCredential: 'Missing credential',
+  secretSetPlaceholder: '****** (Set)',
   verified: 'Verified',
   unverified: 'Unverified',
   confirm: 'Confirm',

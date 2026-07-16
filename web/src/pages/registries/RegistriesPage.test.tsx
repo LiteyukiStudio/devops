@@ -73,6 +73,8 @@ describe('registry credentials', () => {
     await user.click(screen.getAllByRole('button', { name: i18next.t('edit') })[0])
     await screen.findByRole('heading', { name: i18next.t('registriesPage.editCredentialTitle') })
 
+    const configuredSecret = screen.getByPlaceholderText(i18next.t('common.secretSetPlaceholder'))
+    expect(configuredSecret).toHaveValue('')
     expect(screen.getByText('Credential One')).toBeInTheDocument()
     expect(screen.getByText('Credential Two')).toBeInTheDocument()
     expect(mocks.listRegistryCredentialsPage).not.toHaveBeenCalled()

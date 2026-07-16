@@ -57,7 +57,6 @@ const codeRepositoriesView = {
   clientSecret: 'Client Secret',
   clientSecretHint: '直接填写 Client Secret，后端加密保存，编辑或列表不会回显。',
   clientSecretPlaceholder: '直接填写密钥',
-  secretSetPlaceholder: '已设置，留空不修改',
   secretSet: 'Client Secret 已设置',
   secretNotSet: 'Client Secret 未设置',
   oauthAppGuideTitle: 'OAuth App 创建指引',

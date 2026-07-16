@@ -1,12 +1,13 @@
 import type { ComponentProps } from 'react'
 
 import { cn } from '@/lib/utils'
+import { ScrollArea } from './scroll-area'
 
 function Table({ className, ...props }: ComponentProps<'table'>) {
   return (
-    <div className="relative w-full overflow-x-auto" data-slot="table-container">
-      <table className={cn('w-full caption-bottom text-sm', className)} data-slot="table" {...props} />
-    </div>
+    <ScrollArea className="w-full" data-slot="table-container" scrollbars="horizontal" type="auto">
+      <table className={cn('w-max min-w-full caption-bottom text-sm', className)} data-slot="table" {...props} />
+    </ScrollArea>
   )
 }
 

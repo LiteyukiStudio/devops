@@ -57,7 +57,6 @@ const codeRepositoriesView = {
   clientSecret: 'Client Secret',
   clientSecretHint: 'Enter directly; backend stores it encrypted and never returns it.',
   clientSecretPlaceholder: 'Enter secret',
-  secretSetPlaceholder: 'Already set. Leave empty to keep unchanged',
   secretSet: 'Client Secret set',
   secretNotSet: 'Client Secret not set',
   oauthAppGuideTitle: 'OAuth App setup guide',
