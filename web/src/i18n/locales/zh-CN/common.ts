@@ -10,6 +10,7 @@ const common = {
   close: '关闭',
   loading: '加载中...',
   refresh: '刷新',
+  retry: '重试',
   helpSuffix: '说明',
   copy: '复制',
   copied: '已复制',

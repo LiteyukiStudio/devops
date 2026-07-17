@@ -11,6 +11,7 @@ const common = {
   copied: 'Copied',
   loading: 'Loading...',
   refresh: 'Refresh',
+  retry: 'Retry',
   noDescription: 'No description',
   id: 'ID',
   type: 'Type',

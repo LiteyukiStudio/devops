@@ -33,10 +33,10 @@ DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
 先准备生产配置：
 
 ```bash
-cp .env.production.example .env
+cp .env.example .env
 ```
 
-编辑 `.env`，替换 `SECRET_ENCRYPTION_KEY`、`BOOTSTRAP_TOKEN` 和 `REDIS_PASSWORD` 中的占位值。Redis 密码请使用字母和数字等 URL-safe 字符；Compose 会直接用它启动内置 Redis，并自动为 API 和 Worker 组装完整连接 URI。完整 Compose 默认以生产模式启动，不会暴露固定开发管理员。
+编辑 `.env`，为 `SECRET_ENCRYPTION_KEY` 填写稳定随机密钥，并替换 `BOOTSTRAP_TOKEN` 和 `REDIS_PASSWORD` 中的占位值。Redis 密码请使用字母和数字等 URL-safe 字符；Compose 会直接用它启动内置 Redis，并自动为 API 和 Worker 组装完整连接 URI。完整 Compose 默认以生产模式启动，不会暴露固定开发管理员。
 
 在仓库根目录执行：
 

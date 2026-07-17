@@ -38,6 +38,9 @@ const ApplicationDeploymentsPanel = lazy(() =>
 const ApplicationGatewayPanel = lazy(() =>
   import('./application-gateway-panel').then(module => ({ default: module.ApplicationGatewayPanel })),
 )
+const ApplicationTopologyPanel = lazy(() =>
+  import('./application-topology-panel').then(module => ({ default: module.ApplicationTopologyPanel })),
+)
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('apps.nameRequired')),
@@ -167,6 +170,7 @@ export function ApplicationConfigPage() {
           { label: t('builds'), value: 'builds' },
           { label: t('deployments'), value: 'deployments' },
           { label: t('gatewayRoutes'), value: 'gateway' },
+          { label: t('apps.topology.title'), value: 'topology' },
           { label: t('apps.configTab'), value: 'settings' },
         ]}
         tools={(
@@ -309,6 +313,11 @@ export function ApplicationConfigPage() {
               projectSlug={project.data?.slug ?? ''}
               routes={appRoutes}
             />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="topology">
+          <Suspense fallback={<TabFallback />}>
+            <ApplicationTopologyPanel applicationId={applicationId} projectId={projectId} />
           </Suspense>
         </TabsContent>
       </ContentTabs>

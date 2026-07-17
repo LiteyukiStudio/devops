@@ -358,11 +358,9 @@ func TestLoadEnvFileLogsPathInDevelopment(t *testing.T) {
 	}
 }
 
-func TestLoadDefaultsToEnvDevelopmentInDevelopment(t *testing.T) {
+func TestLoadDefaultsToEnv(t *testing.T) {
 	resetEnvLoader(t)
 	unsetEnv(t, "API_ADDR")
-	unsetEnv(t, "DATABASE_URL")
-	unsetEnv(t, "REDIS_ADDR")
 	unsetEnv(t, "ENV_FILE")
 
 	workDir := t.TempDir()
@@ -377,11 +375,9 @@ func TestLoadDefaultsToEnvDevelopmentInDevelopment(t *testing.T) {
 		_ = os.Chdir(oldDir)
 	})
 
-	if err := os.WriteFile(filepath.Join(workDir, ".env.development"), []byte("API_ADDR=:19091\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(workDir, ".env"), []byte("API_ADDR=:19091\n"), 0o600); err != nil {
 		t.Fatalf("write env file: %v", err)
 	}
-
-	t.Setenv("APP_ENV", "development")
 
 	cfg := Load()
 	if cfg.APIAddr != ":19091" {
@@ -389,11 +385,9 @@ func TestLoadDefaultsToEnvDevelopmentInDevelopment(t *testing.T) {
 	}
 }
 
-func TestLoadReadsEnvBeforeModeSpecificEnv(t *testing.T) {
+func TestExplicitEnvFileDoesNotLoadDefaultEnv(t *testing.T) {
 	resetEnvLoader(t)
-	unsetEnv(t, "APP_ENV")
 	unsetEnv(t, "API_ADDR")
-	unsetEnv(t, "ENV_FILE")
 
 	workDir := t.TempDir()
 	oldDir, err := os.Getwd()
@@ -407,20 +401,22 @@ func TestLoadReadsEnvBeforeModeSpecificEnv(t *testing.T) {
 		_ = os.Chdir(oldDir)
 	})
 
-	if err := os.WriteFile(filepath.Join(workDir, ".env"), []byte("APP_ENV=development\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(workDir, ".env"), []byte("API_ADDR=:19092\n"), 0o600); err != nil {
 		t.Fatalf("write .env: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workDir, ".env.development"), []byte("API_ADDR=:19092\n"), 0o600); err != nil {
-		t.Fatalf("write .env.development: %v", err)
+	envFile := filepath.Join(workDir, ".env.local")
+	if err := os.WriteFile(envFile, []byte("APP_ENV=development\n"), 0o600); err != nil {
+		t.Fatalf("write explicit env file: %v", err)
 	}
+	t.Setenv("ENV_FILE", envFile)
 
 	cfg := Load()
-	if cfg.APIAddr != ":19092" {
+	if cfg.APIAddr != ":8080" {
 		t.Fatalf("APIAddr = %q", cfg.APIAddr)
 	}
 }
 
-func TestLoadMissingDefaultEnvDevelopmentLogsFallback(t *testing.T) {
+func TestLoadMissingDefaultEnvLogsFallback(t *testing.T) {
 	resetEnvLoader(t)
 	unsetEnv(t, "API_ADDR")
 	unsetEnv(t, "ENV_FILE")
@@ -452,7 +448,7 @@ func TestLoadMissingDefaultEnvDevelopmentLogsFallback(t *testing.T) {
 	}
 
 	got := output.String()
-	if !strings.Contains(got, ".env.development") || !strings.Contains(got, "using process environment") {
-		t.Fatalf("log output %q does not include .env.development fallback message", got)
+	if !strings.Contains(got, ".env") || !strings.Contains(got, "using process environment") {
+		t.Fatalf("log output %q does not include .env fallback message", got)
 	}
 }

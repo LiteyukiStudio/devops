@@ -1340,6 +1340,21 @@ paths:
         "204":
           description: Deleted application.
 
+  /api/v1/projects/{projectId}/applications/{applicationId}/topology:
+    get:
+      tags: [Applications]
+      summary: Compute the current Kubernetes resource topology for an application
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Live application topology. Unavailable deployment targets are returned as warnings while readable targets remain available.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationTopology"
+
   /api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets:
     get:
       tags: [Deployments]
@@ -2050,6 +2065,67 @@ components:
           description: "Comma-separated scopes. Wildcard and unknown scopes are rejected. Normal users can create read scopes only."
         expiresInDays: { type: integer, enum: [0, 7, 15, 30, 90], description: "0 means never expires." }
       required: [name, scope]
+    ApplicationTopology:
+      type: object
+      properties:
+        generatedAt: { type: string, format: date-time }
+        targets:
+          type: array
+          items: { $ref: "#/components/schemas/ApplicationTopologyTarget" }
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/ApplicationTopologyNode" }
+        edges:
+          type: array
+          items: { $ref: "#/components/schemas/ApplicationTopologyEdge" }
+        warnings:
+          type: array
+          items: { $ref: "#/components/schemas/ApplicationTopologyWarning" }
+      required: [generatedAt, targets, nodes, edges, warnings]
+    ApplicationTopologyTarget:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        stage: { type: string }
+        clusterId: { type: string }
+        clusterName: { type: string }
+        namespace: { type: string }
+      required: [id, name, stage, clusterId, clusterName, namespace]
+    ApplicationTopologyNode:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        name: { type: string }
+        namespace: { type: string }
+        status: { type: string }
+        summary: { type: string }
+        clusterId: { type: string }
+        clusterName: { type: string }
+        deploymentTargetId: { type: string }
+      required: [id, kind, name, namespace, status, summary, clusterId, clusterName, deploymentTargetId]
+    ApplicationTopologyEdge:
+      type: object
+      properties:
+        id: { type: string }
+        source: { type: string }
+        target: { type: string }
+        type:
+          type: string
+          enum: [owns, selects, scales, configures, mounts, accepts, routes]
+      required: [id, source, target, type]
+    ApplicationTopologyWarning:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [cluster_kubeconfig_missing, cluster_kubeconfig_unavailable, cluster_client_failed, topology_read_failed]
+        deploymentTargetId: { type: string }
+        deploymentTargetName: { type: string }
+        clusterId: { type: string }
+        clusterName: { type: string }
+      required: [code, deploymentTargetId, deploymentTargetName, clusterId, clusterName]
     ApplicationInput:
       type: object
       properties:

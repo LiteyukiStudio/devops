@@ -33,8 +33,25 @@ services:
       dockerfile: Dockerfile
       args:
         TARGET: worker
-    env_file:
-      - .env.worker
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:-}
+      DATABASE_URL: postgres://devops:devops@postgres:5432/devops?sslmode=disable
+      REDIS_ADDR: redis://redis:6379/0
+      METRICS_ENABLED: ${METRICS_ENABLED:-false}
+      METRICS_PATH: ${METRICS_PATH:-/metrics}
+      DEPLOY_ROLLOUT_TIMEOUT_SECONDS: ${DEPLOY_ROLLOUT_TIMEOUT_SECONDS:-600}
+      CERT_MANAGER_CLUSTER_ISSUER: ${CERT_MANAGER_CLUSTER_ISSUER:-letsencrypt-http01}
+      BUILD_EXECUTOR_IMAGE: ${BUILD_EXECUTOR_IMAGE:-moby/buildkit:v0.24.0-rootless}
+      BUILD_JOB_TIMEOUT_SECONDS: ${BUILD_JOB_TIMEOUT_SECONDS:-1800}
+      BUILD_JOB_TTL_SECONDS: ${BUILD_JOB_TTL_SECONDS:-3600}
+      BUILD_CACHE_ENABLED: ${BUILD_CACHE_ENABLED:-false}
+      BUILD_CACHE_TAG: ${BUILD_CACHE_TAG:-buildcache}
+      BUILD_NPM_REGISTRY: ${BUILD_NPM_REGISTRY:-}
+      BUILD_PRIVATE_EGRESS_CIDRS: ${BUILD_PRIVATE_EGRESS_CIDRS:-}
+      BUILD_PRIVATE_EGRESS_PORTS: ${BUILD_PRIVATE_EGRESS_PORTS:-443}
+      BUILD_BLOCKED_EGRESS_CIDRS: ${BUILD_BLOCKED_EGRESS_CIDRS:-}
     extra_hosts:
       - "dev.minikube.local:host-gateway"
     expose:

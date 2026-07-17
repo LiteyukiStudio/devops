@@ -63,6 +63,50 @@ export interface Application {
   createdAt: string
 }
 
+export interface ApplicationTopologyTarget {
+  id: string
+  name: string
+  stage: string
+  clusterId: string
+  clusterName: string
+  namespace: string
+}
+
+export interface ApplicationTopologyNode {
+  id: string
+  kind: string
+  name: string
+  namespace: string
+  status: string
+  summary: string
+  clusterId: string
+  clusterName: string
+  deploymentTargetId: string
+}
+
+export interface ApplicationTopologyEdge {
+  id: string
+  source: string
+  target: string
+  type: string
+}
+
+export interface ApplicationTopologyWarning {
+  code: string
+  deploymentTargetId: string
+  deploymentTargetName: string
+  clusterId: string
+  clusterName: string
+}
+
+export interface ApplicationTopology {
+  generatedAt: string
+  targets: ApplicationTopologyTarget[]
+  nodes: ApplicationTopologyNode[]
+  edges: ApplicationTopologyEdge[]
+  warnings: ApplicationTopologyWarning[]
+}
+
 export interface DataExportAuthorization {
   ticket: string
   expiresAt: string

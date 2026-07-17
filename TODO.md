@@ -145,10 +145,10 @@
 - [x] 明确本地开发拓扑：前端、API、worker 优先在宿主机运行，PG/Redis 由 dev compose 提供；构建联调使用部署配置所选运行集群的 Kubernetes Job。
 - [x] 将 compose 场景收敛为三份：`docker-compose-dev.yaml` 启动 PG/Redis/worker 用于开发联调，`docker-compose.yaml` 使用 DockerHub 镜像启动完整部署栈，`docker-compose-build.yaml` 从当前源码构建完整部署栈。
 - [x] 新增 Helm Chart：支持一键在 Kubernetes / K3s 中部署 API、worker、PostgreSQL 和 Redis，并支持切换外部数据库、外部 Redis、Ingress 和固定镜像版本。
-- [x] 环境文件按运行边界拆分：`.env` 只保留基础模式开关，`.env.development` 面向宿主机进程，`.env.worker` 面向 worker 容器，并提供对应 `.example` 模板。
+- [x] 本地环境文件收敛为单一 `.env`，只维护 `.env.example` 模板；开发 Compose 从同一文件插值，并在容器内显式覆盖数据库和 Redis 服务地址。
 - [x] API/Worker 数据库连接增强：启动时对 PostgreSQL 做可配置重试，统一限制每进程连接池大小、空闲连接和连接生命周期，避免多副本部署或数据库短暂满连接时直接崩溃。
-- [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 继续使用 `.env.worker` 服务开发联调。
-- [x] 完整 Compose 固定使用生产模式，不再回退到开发管理员；启动前必须显式配置加密密钥、首次初始化 Token 和 Redis 密码，并新增 `.env.production.example`。
+- [x] `docker-compose.yaml` 和 `docker-compose-build.yaml` 内联 API / worker 运行环境变量，生产密钥、域名和镜像 tag 通过宿主机环境变量覆盖；`docker-compose-dev.yaml` 从统一 `.env` 插值并显式注入容器地址。
+- [x] 完整 Compose 固定使用生产模式，不再回退到开发管理员；启动前必须在统一 `.env` 中显式配置加密密钥、首次初始化 Token 和 Redis 密码。
 - [x] Redis 客户端连接收敛为唯一的 `REDIS_ADDR` URI：API、Worker、任务命令及 Asynq 调度共用解析结果；部署层不再从 URI 反向拆密码，完整 Compose 用 `REDIS_PASSWORD` 直接启动内置 Redis，并组装内部 URI；Helm 分别保存内置密码与客户端 URI，外部 Redis 继续使用完整 URI Secret。
 - [x] 完整 Compose 的 Worker 等待 API `/healthz` 通过后再启动，避免全新数据库首次 migration 尚未完成时提前访问业务表。
 - [x] 新增 GitHub Actions 容器发布工作流：仅构建 `linux/amd64` 容器镜像，发布 DockerHub `liteyukistudio/devops-api`、`liteyukistudio/devops-worker`；分支发布 `nightly`，`v*` tag 发布版本 tag，稳定版本 tag 额外发布 `latest`；`devops-api` 使用 `embed_web` 内嵌前端静态文件，不额外构建或上传 GitHub Release 二进制产物。
@@ -185,8 +185,8 @@
 - [x] 支持 OIDC Client Secret 前端填写、后端加密保存、API 不回显。
 - [x] 移除 OIDC Client Secret 引用输入，降低身份源配置复杂度。
 - [x] 移除 Casdoor/OIDC 环境变量 bootstrap，身份源统一通过平台后台配置。
-- [x] 开发模式打印 `ENV_FILE` 加载状态和文件路径，便于确认本地 `.env.*` 是否生效。
-- [x] 开发模式未显式设置 `ENV_FILE` 时默认尝试读取 `.env.dev`。
+- [x] 开发模式打印环境文件加载状态和文件路径，便于确认本地 `.env` 或显式 `ENV_FILE` 是否生效。
+- [x] 未显式设置 `ENV_FILE` 时只读取 `.env`；设置后使用指定文件替代 `.env`，避免多文件优先级歧义。
 - [x] 准入失败记录 AuditLog。
 - [x] 实现统一 AuthErrorPage。
 - [x] 实现统一 ForbiddenPage。
@@ -440,6 +440,7 @@
 - [x] 部署配置表单维护代码仓库、Dockerfile、构建上下文、目标镜像站、镜像引用模板和构建策略；应用配置只保留名称、标识、图标和服务默认端口，不再维护单一仓库或镜像来源。
 - [x] 创建/编辑应用弹窗只保留名称、标识和图标，仓库、镜像、端口、Webhook 等来源与交付入口统一由部署配置维护，避免应用被误解为只能绑定一个仓库。
 - [x] 应用详情概览改为看板式运行摘要，展示部署配置、构建、部署和访问入口关键状态；应用基础模型移除来源类型、仓库、镜像和构建字段，交付配置统一归属部署配置和访问配置。
+- [x] 应用详情新增实时 Kubernetes 拓扑：后端按应用和部署配置即时解析 Gateway/HTTPRoute/Service/Workload/Pod、HPA、ConfigMap、Secret、PVC 关系，不持久化拓扑；前端用懒加载 ECharts 展示主链路、依赖资源和节点详情。
 - [x] 项目应用列表移除来源类型和服务端口列，只展示应用基础摘要和操作入口。
 - [x] 部署配置表单选择应用下已绑定的 RepositoryBinding，支持就地绑定新仓库并自动选中；Dockerfile、构建上下文和构建路径按选中仓库自动探测，构建提供者不再作为用户表单项展示。
 - [x] 修复部署配置表单仓库结构探测断链：选择仓库绑定后重新调用后端 build-options，恢复 Dockerfile、构建上下文和构建目录候选及 Dockerfile 目录联动。
@@ -823,7 +824,7 @@
 - [x] Metrics MVP 配置闭环：新增 `METRICS_ENABLED`、`METRICS_ADDR`、`METRICS_PATH` 配置读取，默认关闭；API/Worker 显式开启后会用进程默认地址启动独立 metrics listener，配置项可覆盖监听地址和路径。
 - [x] Metrics MVP 部署闭环：`.env*` 示例、Docker Compose 和 Helm Chart 均补齐 API `:9090` / Worker `:9091` 独立 metrics 端口；Compose 仅 `expose` 容器内端口，Helm metrics Service/ServiceMonitor 默认关闭且不配置 Ingress。
 - [ ] 定义可观测配置模型和环境变量读取：`METRICS_ENABLED`、`METRICS_ADDR`、`METRICS_PATH`、`PROMETHEUS_QUERY_ENABLED`、`PROMETHEUS_BASE_URL`、`GRAFANA_LINKS_ENABLED`、`GRAFANA_BASE_URL`、`OTEL_TRACING_ENABLED`、`OTEL_EXPORTER_OTLP_ENDPOINT`、`OTEL_TRACES_SAMPLER`、`STRUCTURED_LOG_ENABLED`、`LOG_EXPORT_ENABLED`、`LOG_EXPORT_OTLP_ENDPOINT`、`LOKI_LINKS_ENABLED`、`LOKI_BASE_URL`、`ALERT_LINKS_ENABLED`、`ALERTMANAGER_BASE_URL`；每项必须有显式开关，metrics 可使用进程默认地址和路径，外部依赖 URL/endpoint 缺失时强制禁用并输出一次启动日志。
-- [ ] 在 `.env.example`、`.env.development.example`、`.env.worker.example`、Docker Compose、Helm values 和配置参考文档中补齐可观测环境变量；默认值全部关闭，示例配置必须标明“配置后才启用”。
+- [ ] 在 `.env.example`、Docker Compose、Helm values 和配置参考文档中补齐可观测环境变量；默认值全部关闭，示例配置必须标明“配置后才启用”。
 - [ ] 收紧可观测安全边界：API/Worker metrics 仅在 `METRICS_ENABLED=true` 时使用独立 listener，不挂在业务 API 端口；默认 API `:9090/metrics`、Worker `:9091/metrics`，生产环境 metrics Service 默认只在集群内暴露，不配置 Ingress；Prometheus/Loki/Tempo/Grafana 查询和外链由后端生成或聚合，前端不得直接拼底层平台 API；日志、trace attribute 和 metric label 禁止记录 Secret、Token、Cookie、Authorization header 和用户输入原文。
 - [ ] 增加配置自检与系统设置展示：管理员可以看到每个可观测模块的启用状态、缺失配置键、采集端点和最后一次导出/查询错误；普通用户只看到可用的业务状态和受控跳转。
 

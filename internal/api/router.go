@@ -182,6 +182,7 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 		v1.GET("/projects/:projectId/applications", handlers.ListApplications)
 		v1.POST("/projects/:projectId/applications", handlers.CreateApplication)
 		v1.GET("/projects/:projectId/applications/:applicationId", handlers.GetApplication)
+		v1.GET("/projects/:projectId/applications/:applicationId/topology", handlers.GetApplicationTopology)
 		v1.PUT("/projects/:projectId/applications/:applicationId", handlers.UpdateApplication)
 		v1.DELETE("/projects/:projectId/applications/:applicationId", handlers.DeleteApplication)
 		v1.GET("/projects/:projectId/applications/:applicationId/deployment-targets", handlers.ListDeploymentTargets)

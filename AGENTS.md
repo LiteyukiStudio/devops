@@ -59,7 +59,7 @@ Python：
 - 前端在 `web/`。
 - 本地开发依赖放 `docker-compose-dev.yaml`，只包含开发需要的 PostgreSQL、Redis 等组件。
 - `.env.*` 不提交；`.env.example` 可提交。
-- 后端配置默认读环境变量，也支持 `ENV_FILE=.env.local go run ./cmd/api` 加载本地 `.env.*`。
+- 后端配置默认读取进程环境和仓库根目录 `.env`；需要临时使用另一份本地文件时可通过 `ENV_FILE=.env.local go run ./cmd/api` 显式替代 `.env`。
 
 推荐模块：
 

@@ -89,7 +89,16 @@ export function ClusterResourcesPanel({ items, loading, pagination, selectedClus
   return (
     <DataList
       columns={[
-        { key: 'kind', header: t('clustersPage.resourceKind'), className: 'w-32 whitespace-nowrap', render: item => item.kind },
+        {
+          key: 'kind',
+          header: t('clustersPage.resourceKind'),
+          className: 'w-32 whitespace-nowrap',
+          render: item => (
+            <span className={item.parentId ? 'block pl-5 text-muted-foreground' : undefined}>
+              {item.kind}
+            </span>
+          ),
+        },
         {
           key: 'name',
           header: t('common.name'),

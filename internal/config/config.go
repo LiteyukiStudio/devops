@@ -138,19 +138,11 @@ func loadEnvFile() {
 }
 
 func loadEnvFileOnce() {
-	loadEnvFiles(".env")
-
-	mode := RuntimeMode()
-	switch mode {
-	case "development":
-		loadEnvFiles(".env.development")
-	case "production":
-		loadEnvFiles(".env.production")
+	envFile := strings.TrimSpace(os.Getenv("ENV_FILE"))
+	if envFile == "" {
+		envFile = ".env"
 	}
-
-	if envFile := strings.TrimSpace(os.Getenv("ENV_FILE")); envFile != "" {
-		loadEnvFiles(envFile)
-	}
+	loadEnvFiles(envFile)
 }
 
 func resetEnvLoaderForTest() {

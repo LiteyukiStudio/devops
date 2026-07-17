@@ -1,4 +1,4 @@
-import type { Application, ApplicationPayload, DataExportAuthorization, DeploymentTarget, DeploymentTargetPayload, PaginatedResponse, PaginationParams, RepositoryBinding, RepositoryBindingPayload } from '../types'
+import type { Application, ApplicationPayload, ApplicationTopology, DataExportAuthorization, DeploymentTarget, DeploymentTargetPayload, PaginatedResponse, PaginationParams, RepositoryBinding, RepositoryBindingPayload } from '../types'
 import { paginationQuery, request } from '../core'
 
 export const applicationsApi = {
@@ -8,6 +8,8 @@ export const applicationsApi = {
     request<PaginatedResponse<Application>>(`/projects/${projectId}/applications?${paginationQuery(params)}`),
   getApplication: (projectId: string, applicationId: string) =>
     request<Application>(`/projects/${projectId}/applications/${applicationId}`),
+  getApplicationTopology: (projectId: string, applicationId: string) =>
+    request<ApplicationTopology>(`/projects/${projectId}/applications/${applicationId}/topology`),
   createApplication: (projectId: string, payload: ApplicationPayload) =>
     request<Application>(`/projects/${projectId}/applications`, { method: 'POST', body: JSON.stringify(payload) }),
   updateApplication: (projectId: string, applicationId: string, payload: ApplicationPayload) =>

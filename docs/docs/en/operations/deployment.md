@@ -28,6 +28,8 @@ An application represents one deployable service. A single repository can map to
 
 The application stores basic service information only. Build source, image, environment variables, resource size, and release policy live in deployment targets.
 
+The application detail page includes a live topology view. It shows the `Gateway -> HTTPRoute -> Service -> Deployment/StatefulSet -> Pod` delivery path by default; enable dependencies to include HPA, ConfigMap, Secret, and PVC resources. The topology is not stored in the database. Every open or refresh recomputes it from the runtime cluster, so manual out-of-band resource deletion is reflected as well. Secret nodes expose only resource names and status, never Secret contents.
+
 ### 3. Deployment target
 
 A deployment target decides how an application is built, how it runs, and where it is released.

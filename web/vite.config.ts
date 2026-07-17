@@ -14,6 +14,18 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{
+            name: 'react-vendor',
+            test: /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:react|react-dom)\//,
+          }],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

@@ -18,7 +18,6 @@ logs/
 .env
 .env.*
 !.env.example
-!.env.*.example
 
 # Go build outputs
 bin/

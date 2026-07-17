@@ -33,10 +33,10 @@ DEVOPS_IMAGE_TAG=v0.1.0-rc.1 docker compose up -d
 Prepare production settings first:
 
 ```bash
-cp .env.production.example .env
+cp .env.example .env
 ```
 
-Edit `.env` and replace the placeholders in `SECRET_ENCRYPTION_KEY`, `BOOTSTRAP_TOKEN`, and `REDIS_PASSWORD`. Use URL-safe letters and digits for the Redis password. Compose passes it directly to the built-in Redis server and assembles the complete URI for API and Worker. The complete stack defaults to production mode and does not expose a fixed development administrator.
+Edit `.env`, set `SECRET_ENCRYPTION_KEY` to a stable random key, and replace the placeholders in `BOOTSTRAP_TOKEN` and `REDIS_PASSWORD`. Use URL-safe letters and digits for the Redis password. Compose passes it directly to the built-in Redis server and assembles the complete URI for API and Worker. The complete stack defaults to production mode and does not expose a fixed development administrator.
 
 Run this from the repository root:
 
