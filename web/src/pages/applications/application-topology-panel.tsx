@@ -47,13 +47,9 @@ interface ApplicationTopologyPanelProps {
 
 export function ApplicationTopologyPanel({ applicationId, projectId }: ApplicationTopologyPanelProps) {
   const { t } = useTranslation()
-  const chartElementRef = useRef<HTMLDivElement>(null)
-  const chartRef = useRef<EChartsType | null>(null)
   const [selectedTargetId, setSelectedTargetId] = useState('')
   const [showDependencies, setShowDependencies] = useState(false)
-  const [selectedNode, setSelectedNode] = useState<ApplicationTopologyNode | null>(null)
   const [fitVersion, setFitVersion] = useState(0)
-  const [themeVersion, setThemeVersion] = useState(0)
   const topology = useQuery({
     queryKey: ['application-topology', projectId, applicationId],
     queryFn: () => api.getApplicationTopology(projectId, applicationId),
@@ -74,53 +70,6 @@ export function ApplicationTopologyPanel({ applicationId, projectId }: Applicati
     () => (topology.data?.edges ?? []).filter(edge => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)),
     [topology.data?.edges, visibleNodeIds],
   )
-  const nodesById = useMemo(() => new Map(visibleNodes.map(node => [node.id, node])), [visibleNodes])
-  const chartOption = useMemo(
-    () => buildChartOption(visibleNodes, visibleEdges, t, themeVersion),
-    [themeVersion, t, visibleEdges, visibleNodes],
-  )
-
-  useEffect(() => {
-    if (!chartElementRef.current)
-      return
-    const chart = init(chartElementRef.current)
-    const resizeObserver = new ResizeObserver(() => chart.resize())
-    resizeObserver.observe(chartElementRef.current)
-    chartRef.current = chart
-    return () => {
-      resizeObserver.disconnect()
-      chart.dispose()
-      chartRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    chartRef.current?.setOption(chartOption, true)
-  }, [chartOption, fitVersion])
-
-  useEffect(() => {
-    const chart = chartRef.current
-    if (!chart)
-      return
-    const handleClick = (event: ECElementEvent) => {
-      if (event.dataType !== 'node')
-        return
-      const data = event.data as { id?: string } | undefined
-      const node = data?.id ? nodesById.get(data.id) : undefined
-      if (node)
-        setSelectedNode(node)
-    }
-    chart.on('click', handleClick)
-    return () => {
-      chart.off('click', handleClick)
-    }
-  }, [nodesById])
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => setThemeVersion(version => version + 1))
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] })
-    return () => observer.disconnect()
-  }, [])
 
   if (topology.isError) {
     return (
@@ -194,9 +143,85 @@ export function ApplicationTopologyPanel({ applicationId, projectId }: Applicati
           </div>
         </div>
         {visibleNodes.length > 0
-          ? <div ref={chartElementRef} className="h-[min(64vh,620px)] min-h-[420px] w-full" />
+          ? <TopologyChart edges={visibleEdges} fitVersion={fitVersion} nodes={visibleNodes} />
           : <EmptyState variant="plain" title={t('apps.topology.noResources')} description={t('apps.topology.noResourcesDescription')} />}
       </Card>
+    </div>
+  )
+}
+
+function TopologyChart({ edges, fitVersion, nodes }: {
+  edges: ApplicationTopologyEdge[]
+  fitVersion: number
+  nodes: ApplicationTopologyNode[]
+}) {
+  const { t } = useTranslation()
+  const chartElementRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<EChartsType | null>(null)
+  const [selectedNode, setSelectedNode] = useState<ApplicationTopologyNode | null>(null)
+  const [chartWidth, setChartWidth] = useState(0)
+  const [themeVersion, setThemeVersion] = useState(0)
+  const nodesById = useMemo(() => new Map(nodes.map(node => [node.id, node])), [nodes])
+  const chartOption = useMemo(
+    () => buildChartOption(nodes, edges, t, themeVersion, chartWidth > 0 && chartWidth < 640),
+    [chartWidth, edges, nodes, t, themeVersion],
+  )
+
+  useEffect(() => {
+    const chartElement = chartElementRef.current
+    if (!chartElement)
+      return
+    const chart = init(chartElement)
+    setChartWidth(chartElement.clientWidth)
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!chart.isDisposed())
+        chart.resize()
+      const width = Math.round(entries[0]?.contentRect.width ?? chartElement.clientWidth)
+      setChartWidth(currentWidth => currentWidth === width ? currentWidth : width)
+    })
+    resizeObserver.observe(chartElement)
+    chartRef.current = chart
+    return () => {
+      resizeObserver.disconnect()
+      chart.dispose()
+      chartRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    if (chart && !chart.isDisposed())
+      chart.setOption(chartOption, true)
+  }, [chartOption, fitVersion])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart)
+      return
+    const handleClick = (event: ECElementEvent) => {
+      if (event.dataType !== 'node')
+        return
+      const data = event.data as { id?: string } | undefined
+      const node = data?.id ? nodesById.get(data.id) : undefined
+      if (node)
+        setSelectedNode(node)
+    }
+    chart.on('click', handleClick)
+    return () => {
+      if (!chart.isDisposed())
+        chart.off('click', handleClick)
+    }
+  }, [nodesById])
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => setThemeVersion(version => version + 1))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] })
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <>
+      <div ref={chartElementRef} className="h-[min(64vh,620px)] min-h-[420px] w-full" />
       <Sheet open={Boolean(selectedNode)} onOpenChange={open => !open && setSelectedNode(null)}>
         <SheetContent>
           {selectedNode && (
@@ -217,7 +242,7 @@ export function ApplicationTopologyPanel({ applicationId, projectId }: Applicati
           )}
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   )
 }
 
@@ -235,6 +260,7 @@ function buildChartOption(
   edges: ApplicationTopologyEdge[],
   t: (key: string, options?: Record<string, unknown>) => string,
   _themeVersion: number,
+  compact: boolean,
 ): TopologyChartOption {
   const styles = getComputedStyle(document.documentElement)
   const foreground = styles.getPropertyValue('--foreground').trim() || '#18181b'
@@ -254,13 +280,16 @@ function buildChartOption(
     const peers = grouped.get(rank) ?? []
     const row = peers.findIndex(peer => peer.id === node.id)
     const centeredRow = row + (maxRows - peers.length) / 2
+    const labelMaxLength = compact ? 13 : 20
     return {
       id: node.id,
-      name: truncate(node.name, 22),
-      x: 100 + rank * 230,
-      y: 80 + centeredRow * 105,
+      name: truncate(node.name, compact ? 15 : 22),
+      x: (compact ? 70 : 100) + rank * (compact ? 120 : 230),
+      y: (compact ? 52 : 80) + centeredRow * (compact ? 78 : 105),
       symbol: symbolForKind(node.kind),
-      symbolSize: node.kind === 'Pod' ? [146, 48] : [168, 56],
+      symbolSize: compact
+        ? (node.kind === 'Pod' ? [78, 40] : [92, 46])
+        : (node.kind === 'Pod' ? [146, 48] : [168, 56]),
       itemStyle: {
         color: colorForKind(node.kind),
         borderColor: colorForStatus(node.status),
@@ -271,11 +300,11 @@ function buildChartOption(
       label: {
         show: true,
         color: '#ffffff',
-        fontSize: 12,
-        formatter: `{kind|${escapeEChartsRichText(t(`apps.topology.kinds.${node.kind}`, { defaultValue: node.kind }))}}\n{name|${escapeEChartsRichText(truncate(node.name, 20))}}`,
+        fontSize: compact ? 10 : 12,
+        formatter: `{kind|${escapeEChartsRichText(t(`apps.topology.kinds.${node.kind}`, { defaultValue: node.kind }))}}\n{name|${escapeEChartsRichText(truncate(node.name, labelMaxLength))}}`,
         rich: {
-          kind: { fontSize: 10, opacity: 0.82, lineHeight: 17 },
-          name: { fontSize: 12, fontWeight: 600, lineHeight: 18 },
+          kind: { fontSize: compact ? 8 : 10, opacity: 0.82, lineHeight: compact ? 13 : 17 },
+          name: { fontSize: compact ? 9 : 12, fontWeight: 600, lineHeight: compact ? 14 : 18 },
         },
       },
     }
@@ -306,6 +335,9 @@ function buildChartOption(
     series: [{
       type: 'graph',
       layout: 'none',
+      preserveAspect: 'contain',
+      preserveAspectAlign: 'center',
+      preserveAspectVerticalAlign: 'middle',
       roam: true,
       draggable: false,
       animationDurationUpdate: 280,
@@ -325,10 +357,10 @@ function buildChartOption(
       edgeSymbolSize: 8,
       emphasis: { focus: 'adjacency', lineStyle: { opacity: 1, width: 2.5 } },
       scaleLimit: { min: 0.45, max: 2.5 },
-      left: 28,
-      right: 28,
-      top: 28,
-      bottom: 28,
+      left: compact ? 44 : 104,
+      right: compact ? 44 : 104,
+      top: compact ? 32 : 44,
+      bottom: compact ? 32 : 44,
     }],
   }
 }
