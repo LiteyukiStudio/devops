@@ -163,8 +163,8 @@ function IdentityBindingsPanel() {
   })
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-      <Card>
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
         <h2 className="mb-4 text-base font-semibold">{t('settings.boundIdentities')}</h2>
         {identities.isError && <ErrorState title={t('settings.identityLoadFailedTitle')} description={t('settings.identityLoadFailedDescription')} />}
         {identities.data?.length === 0 && <EmptyState description={t('settings.noIdentitiesDescription')} title={t('settings.noIdentitiesTitle')} variant="plain" />}

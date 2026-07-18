@@ -47,7 +47,7 @@ function CodeEditorFallback({
       style={{ minHeight: height ? undefined : minHeight }}
     >
       <div className="flex h-8 items-center justify-between border-b border-border bg-muted/70 px-3">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-normal text-muted-foreground">{language}</span>
+        <span className="font-mono text-xs font-medium uppercase tracking-normal text-muted-foreground">{language}</span>
       </div>
       <textarea
         className="block w-full resize-none bg-transparent p-3 font-mono text-sm outline-none placeholder:text-muted-foreground"

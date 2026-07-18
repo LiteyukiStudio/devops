@@ -143,7 +143,7 @@ export function PaginationController({
           <NativeSelect
             aria-label={t('pagination.pageSizeAria')}
             className="h-9 bg-surface px-3 text-sm"
-            containerClassName="w-[84px]"
+            containerClassName="w-24"
             disabled={disabled}
             value={effectivePageSize}
             onChange={(event) => {

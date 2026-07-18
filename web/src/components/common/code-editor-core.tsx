@@ -33,13 +33,13 @@ export function CodeEditorCore({
     <div
       className={cn(
         'luna-devops-code-editor min-w-0 max-w-full overflow-hidden rounded-md border border-input bg-surface shadow-xs transition-[border-color,box-shadow]',
-        'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
+        'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/50',
         ariaInvalid && 'border-destructive ring-destructive/20 dark:ring-destructive/40',
         className,
       )}
     >
       <div className="flex h-8 items-center justify-between border-b border-border bg-muted/70 px-3">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-normal text-muted-foreground">{language}</span>
+        <span className="font-mono text-xs font-medium uppercase tracking-normal text-muted-foreground">{language}</span>
       </div>
       <CodeMirror
         basicSetup={{

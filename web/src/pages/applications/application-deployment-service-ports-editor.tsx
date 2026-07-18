@@ -35,15 +35,17 @@ export function ServicePortsEditor({ onChange, ports }: ServicePortsEditorProps)
     <Field hint={t('deploymentsPage.servicePortsHint')} label={t('deploymentsPage.servicePorts')} required>
       <div className="grid gap-2">
         {ports.map((item, index) => (
-          <div key={rowIdsRef.current[index]} className="grid gap-2 md:grid-cols-[1fr_160px_180px_auto]">
+          <div key={rowIdsRef.current[index]} className="grid gap-2 md:grid-cols-12">
             <Input
               aria-label={t('deploymentsPage.servicePortName')}
+              className="md:col-span-5"
               placeholder={index === 0 ? 'http' : 'metrics'}
               value={item.name}
               onChange={event => onChange(ports.map((row, rowIndex) => rowIndex === index ? { ...row, name: event.target.value } : row))}
             />
             <Input
               aria-label={t('deploymentsPage.servicePortNumber')}
+              className="md:col-span-3"
               max={65535}
               min={1}
               type="number"
@@ -52,12 +54,14 @@ export function ServicePortsEditor({ onChange, ports }: ServicePortsEditorProps)
             />
             <Input
               aria-label={t('deploymentsPage.servicePortAppProtocol')}
+              className="md:col-span-3"
               placeholder={index === 0 ? 'http' : 'prometheus.io/metrics'}
               value={item.appProtocol ?? ''}
               onChange={event => onChange(ports.map((row, rowIndex) => rowIndex === index ? { ...row, appProtocol: event.target.value } : row))}
             />
             <Button
               aria-label={t('common.delete')}
+              className="md:justify-self-end"
               disabled={ports.length <= 1}
               size="icon"
               type="button"

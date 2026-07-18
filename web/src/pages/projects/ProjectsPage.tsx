@@ -2,8 +2,8 @@ import type { Project, ProjectListScope } from '@/api'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, FolderKanban, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { useDeferredValue, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -13,11 +13,9 @@ import { api } from '@/api'
 import { useSession } from '@/app/session-context'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DataList } from '@/components/common/data-list'
-import { EditActionButton } from '@/components/common/edit-action-button'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
 import { HoverText } from '@/components/common/hover-text'
-import { PageHeader } from '@/components/common/page-header'
 import { ProgressiveSection } from '@/components/common/progressive-section'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
@@ -44,10 +42,9 @@ type ProjectForm = z.infer<typeof schema>
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 const PROJECT_SCOPE_OPTIONS = ['related', 'all'] as const
 const PROJECT_SORT_OPTIONS = ['lastUsed', 'useCount', 'createdAt', 'updatedAt', 'name'] as const
-const PROJECT_SORT_ORDERS = ['desc', 'asc'] as const
 
 type ProjectSortBy = typeof PROJECT_SORT_OPTIONS[number]
-type ProjectSortOrder = typeof PROJECT_SORT_ORDERS[number]
+type ProjectSortOrder = 'asc' | 'desc'
 
 export function ProjectsPage() {
   const { t } = useTranslation()
@@ -59,14 +56,16 @@ export function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [search, setSearch] = useState('')
   const [scope, setScope] = useState<ProjectListScope>('related')
   const [sortBy, setSortBy] = useState<ProjectSortBy>('lastUsed')
   const [sortOrder, setSortOrder] = useState<ProjectSortOrder>('desc')
+  const deferredSearch = useDeferredValue(search.trim())
   const canViewAllProjects = user?.role === 'platform_admin'
   const effectiveScope: ProjectListScope = canViewAllProjects ? scope : 'related'
   const projects = useQuery({
-    queryKey: ['projects', 'page', page, pageSize, effectiveScope, sortBy, sortOrder],
-    queryFn: () => api.listProjectsPage({ page, pageSize, scope: effectiveScope, sortBy, sortOrder }),
+    queryKey: ['projects', 'page', page, pageSize, effectiveScope, sortBy, sortOrder, deferredSearch],
+    queryFn: () => api.listProjectsPage({ page, pageSize, scope: effectiveScope, search: deferredSearch || undefined, sortBy, sortOrder }),
   })
   const projectItems = Array.isArray(projects.data) ? projects.data : projects.data?.items ?? []
   const projectTotal = Array.isArray(projects.data) ? projects.data.length : projects.data?.total ?? 0
@@ -120,97 +119,112 @@ export function ProjectsPage() {
   })
 
   return (
-    <div className="grid gap-6">
-      <PageHeader
-        actions={(
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {canViewAllProjects && (
-              <Select
-                aria-label={t('projectSpaces.scope')}
-                containerClassName="w-40"
-                value={scope}
-                onChange={(event) => {
-                  setScope(event.target.value as ProjectListScope)
-                  setPage(1)
-                }}
-              >
-                {PROJECT_SCOPE_OPTIONS.map(option => (
-                  <option key={option} value={option}>{t(`projectSpaces.scopeOptions.${option}`)}</option>
-                ))}
-              </Select>
-            )}
+    <div className="grid gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative min-w-0 flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label={t('projectSpaces.searchProjects')}
+            className="h-9 pl-9"
+            placeholder={t('projectSpaces.searchProjects')}
+            type="search"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canViewAllProjects && (
             <Select
-              aria-label={t('projectSpaces.sortBy')}
-              containerClassName="w-40"
-              value={sortBy}
+              aria-label={t('projectSpaces.scope')}
+              containerClassName="min-w-32 flex-1 sm:w-40 sm:flex-none"
+              value={scope}
               onChange={(event) => {
-                setSortBy(event.target.value as ProjectSortBy)
+                setScope(event.target.value as ProjectListScope)
                 setPage(1)
               }}
             >
-              {PROJECT_SORT_OPTIONS.map(option => (
-                <option key={option} value={option}>{t(`projectSpaces.sort.${option}`)}</option>
+              {PROJECT_SCOPE_OPTIONS.map(option => (
+                <option key={option} value={option}>{t(`projectSpaces.scopeOptions.${option}`)}</option>
               ))}
             </Select>
-            <Select
-              aria-label={t('projectSpaces.sortOrder')}
-              containerClassName="w-32"
-              value={sortOrder}
-              onChange={(event) => {
-                setSortOrder(event.target.value as ProjectSortOrder)
-                setPage(1)
-              }}
-            >
-              {PROJECT_SORT_ORDERS.map(order => (
-                <option key={order} value={order}>{t(`projectSpaces.sortOrderOptions.${order}`)}</option>
-              ))}
-            </Select>
-            <Button
-              onClick={() => {
-                setEditingProject(null)
-                form.reset({ name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
-                setDialogOpen(true)
-              }}
-            >
-              <Plus size={16} />
-              {t('projectSpaces.createTitle')}
-            </Button>
-          </div>
-        )}
-        description={t('projectSpaces.description')}
-        title={t('projectSpaces.title')}
-      />
+          )}
+          <Select
+            aria-label={t('projectSpaces.sortBy')}
+            containerClassName="min-w-32 flex-1 sm:w-40 sm:flex-none"
+            value={sortBy}
+            onChange={(event) => {
+              setSortBy(event.target.value as ProjectSortBy)
+              setPage(1)
+            }}
+          >
+            {PROJECT_SORT_OPTIONS.map(option => (
+              <option key={option} value={option}>{t(`projectSpaces.sort.${option}`)}</option>
+            ))}
+          </Select>
+          <Button
+            aria-label={t('projectSpaces.sortOrder')}
+            size="icon"
+            title={t(`projectSpaces.sortOrderOptions.${sortOrder}`)}
+            variant="outline"
+            onClick={() => {
+              setSortOrder(current => current === 'desc' ? 'asc' : 'desc')
+              setPage(1)
+            }}
+          >
+            {sortOrder === 'desc' ? <ArrowDownWideNarrow size={16} /> : <ArrowUpNarrowWide size={16} />}
+            <span className="sr-only">{t(`projectSpaces.sortOrderOptions.${sortOrder}`)}</span>
+          </Button>
+          <Button
+            className="shrink-0"
+            onClick={() => {
+              setEditingProject(null)
+              form.reset({ name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
+              setDialogOpen(true)
+            }}
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">{t('projectSpaces.createTitle')}</span>
+            <span className="sm:hidden">{t('create')}</span>
+          </Button>
+        </div>
+      </div>
       {projects.isError && <ErrorState title={t('projectSpaces.loadFailedTitle')} description={t('projectSpaces.loadFailedDescription')} />}
       <DataList
         columns={[
           {
             key: 'name',
             header: t('projectSpaces.title'),
-            className: 'min-w-64 px-4 py-3 align-middle',
+            className: 'px-4 py-3 align-middle',
+            width: 'primary',
             render: project => <ProjectSummary project={project} />,
           },
           {
             key: 'slug',
             header: t('common.slug'),
-            className: 'w-[18%] px-4 py-3 align-middle text-muted-foreground',
+            className: 'px-4 py-3 align-middle text-muted-foreground',
+            width: 'secondary',
             render: project => <code className="rounded bg-background px-2 py-1 text-xs">{project.slug}</code>,
           },
           {
             key: 'namespaceStrategy',
             header: t('projectSpaces.namespaceStrategy'),
-            className: 'w-[16%] px-4 py-3 align-middle',
-            render: project => <StatusBadge>{project.namespaceStrategy}</StatusBadge>,
+            className: 'px-4 py-3 align-middle',
+            width: 'status',
+            render: project => (
+              project.namespaceStrategy === 'project'
+                ? <StatusBadge>{t('projectSpaces.namespaceProject')}</StatusBadge>
+                : <span className="text-muted-foreground">—</span>
+            ),
           },
           {
             key: 'usage',
             header: t('projectSpaces.usage'),
-            className: 'w-[20%] px-4 py-3 align-middle',
-            render: project => (
-              <div className="grid gap-1">
-                <span className="text-sm text-foreground">{project.lastUsedAt ? formatSmartDateTime(project.lastUsedAt, t) : t('projectSpaces.neverUsed')}</span>
-                <span className="text-xs text-muted-foreground">{t('projectSpaces.useCount', { count: project.useCount ?? 0 })}</span>
-              </div>
-            ),
+            className: 'px-4 py-3 align-middle',
+            width: 'secondary',
+            render: project => <ProjectUsage project={project} />,
           },
           {
             key: 'actions',
@@ -240,39 +254,24 @@ export function ProjectsPage() {
                 setDeleteConfirmation('')
               }
               return (
-                <div className="flex justify-end">
-                  <div className="hidden justify-end gap-2 sm:flex">
-                    <Link aria-disabled={deleting} className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, variant: 'ghost' })} to={`/projects/${project.id}`}>
-                      {t('projectSpaces.openWorkspace')}
-                    </Link>
-                    <EditActionButton
-                      aria-label={t('projectSpaces.editAria')}
-                      disabled={deleting || systemProject}
-                      label={t('edit')}
-                      onClick={openEditDialog}
-                    />
-                    <Button
-                      aria-label={t('projectSpaces.deleteAria')}
-                      disabled={deleting || systemProject}
-                      variant="ghost"
-                      onClick={openDeleteDialog}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
+                <div className="flex w-max items-center justify-end gap-1">
+                  <Link
+                    aria-disabled={deleting}
+                    aria-label={t('projectSpaces.openWorkspace')}
+                    className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, size: 'sm', variant: 'ghost' })}
+                    title={t('projectSpaces.openWorkspace')}
+                    to={`/projects/${project.id}`}
+                  >
+                    <FolderKanban size={16} />
+                    <span className="hidden lg:inline">{t('projectSpaces.openWorkspace')}</span>
+                  </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button aria-label={t('common.actions')} className="sm:hidden" size="icon" variant="ghost">
+                      <Button aria-label={t('common.actions')} size="icon" variant="ghost">
                         <MoreHorizontal size={16} />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild disabled={deleting}>
-                        <Link className={deleting ? 'pointer-events-none opacity-50' : undefined} to={`/projects/${project.id}`}>
-                          <FolderKanban size={16} />
-                          {t('projectSpaces.openWorkspace')}
-                        </Link>
-                      </DropdownMenuItem>
                       <DropdownMenuItem disabled={deleting || systemProject} onSelect={openEditDialog}>
                         <Pencil size={16} />
                         {t('edit')}
@@ -410,6 +409,21 @@ export function ProjectsPage() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function ProjectUsage({ project }: { project: Project }) {
+  const { t } = useTranslation()
+  const useCount = project.useCount ?? 0
+
+  if (!project.lastUsedAt && useCount === 0)
+    return <span className="text-muted-foreground">—</span>
+
+  return (
+    <div className="grid gap-1">
+      {project.lastUsedAt && <span className="text-sm text-foreground">{formatSmartDateTime(project.lastUsedAt, t)}</span>}
+      {useCount > 0 && <span className="text-xs text-muted-foreground">{t('projectSpaces.useCount', { count: useCount })}</span>}
     </div>
   )
 }

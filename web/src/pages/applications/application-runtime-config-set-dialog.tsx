@@ -45,12 +45,12 @@ export function ApplicationRuntimeConfigSetDialog({
           form.reset(runtimeConfigDefaults)
       }}
     >
-      <DialogContent className="max-h-[88vh] max-w-3xl overflow-hidden p-0">
+      <DialogContent className="flex max-h-[88vh] max-w-3xl flex-col overflow-hidden p-0">
         <DialogHeader className="border-b border-border px-6 py-5">
           <DialogTitle>{editingSet ? t('runtimeConfigSets.editTitle') : t('runtimeConfigSets.createTitle')}</DialogTitle>
           <DialogDescription>{t('runtimeConfigSets.dialogDescription')}</DialogDescription>
         </DialogHeader>
-        <form className="grid max-h-[calc(88vh-96px)] grid-rows-[minmax(0,1fr)_auto]" onSubmit={form.handleSubmit(onSubmit)}>
+        <form className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto]" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid gap-4 overflow-y-auto px-6 py-5">
             <Field label={t('common.name')} required><Input {...form.register('name', { required: true })} /></Field>
             <Field hint={t('runtimeConfigSets.envVarsHint')} label={t('runtimeConfigSets.envVars')}>

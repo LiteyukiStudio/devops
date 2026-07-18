@@ -300,7 +300,7 @@ function ProjectOverviewDashboard({ applications, builds, events, members, proje
             <h3 className="text-sm font-semibold">{t('projectSpaces.recentEvents')}</h3>
             <p className="mt-1 text-xs text-muted-foreground">{t('projectSpaces.recentEventsDescription')}</p>
           </div>
-          <Link className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3 text-sm text-primary transition hover:bg-muted" to={`/events?projectId=${encodeURIComponent(project?.id ?? '')}`}>
+          <Link className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm text-primary transition hover:bg-muted" to={`/events?projectId=${encodeURIComponent(project?.id ?? '')}`}>
             {t('projectSpaces.viewAllEvents')}
             <ArrowRight className="size-4" />
           </Link>

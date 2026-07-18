@@ -204,7 +204,7 @@ export function AppTemplatesPage() {
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="h-11 rounded-full pl-10"
+            className="h-11 rounded-md pl-10"
             placeholder={t('appTemplatesPage.searchPlaceholder')}
             value={search}
             onChange={event => setSearch(event.target.value)}
@@ -213,7 +213,7 @@ export function AppTemplatesPage() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:contents">
           <Select
             aria-label={t('appTemplatesPage.categoryFilter')}
-            className="h-11 min-w-0 rounded-full"
+            className="h-11 min-w-0 rounded-md"
             value={category}
             onChange={event => setCategory(event.target.value)}
           >
@@ -226,7 +226,7 @@ export function AppTemplatesPage() {
           </Select>
           <Select
             aria-label={t('appTemplatesPage.sortBy')}
-            className="h-11 min-w-0 rounded-full"
+            className="h-11 min-w-0 rounded-md"
             value={sortBy}
             onChange={event => setSortBy(event.target.value as typeof sortBy)}
           >
@@ -235,7 +235,7 @@ export function AppTemplatesPage() {
           </Select>
           <Select
             aria-label={t('appTemplatesPage.sortOrder')}
-            className="col-span-2 h-11 min-w-0 rounded-full sm:col-span-1"
+            className="col-span-2 h-11 min-w-0 rounded-md sm:col-span-1"
             value={sortOrder}
             onChange={event => setSortOrder(event.target.value as typeof sortOrder)}
           >
@@ -335,7 +335,7 @@ function TemplateCard({ canInstallSystemComponent, template, onInstall }: { canI
           </span>
         </div>
         <div className="shrink-0 sm:self-end">
-          <Button className="w-full rounded-full sm:w-auto" disabled={installDisabled} type="button" onClick={onInstall}>
+          <Button className="w-full sm:w-auto" disabled={installDisabled} type="button" onClick={onInstall}>
             {systemComponent ? <ShieldCheck className="size-4" /> : <Rocket className="size-4" />}
             {t('appTemplatesPage.install')}
           </Button>

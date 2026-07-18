@@ -53,7 +53,7 @@ export function DashboardPage() {
 
   return (
     <div className="grid min-w-0 gap-4">
-      <Card className="min-w-0 max-w-full p-4">
+      <section className="min-w-0 max-w-full">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <SectionTitle icon={<FolderKanban size={18} />} title={t('dashboardPage.projectShortcuts')} />
           {hasMoreProjects && (
@@ -78,41 +78,37 @@ export function DashboardPage() {
               </div>
             )
           : <p className="py-4 text-sm text-muted-foreground">{t('projectSpaces.emptyTitle')}</p>}
-      </Card>
+      </section>
 
-      <Card className="overflow-hidden p-4">
+      <section className="grid gap-3">
         <h2 className="sr-only">{t('dashboardPage.workOverview')}</h2>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge tone={overview.summary.attentionItems ? 'warning' : 'success'}>
-                {overview.summary.attentionItems ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}
-              </StatusBadge>
-              <StatusBadge>{t('dashboardPage.resourceTotals', { applications: overview.summary.applications, projects: overview.summary.projects })}</StatusBadge>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <DashboardMetric icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} to="/events?categories=build&statuses=in_progress" value={overview.summary.activeBuilds} />
-              <DashboardMetric icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} to="/events?categories=release&statuses=in_progress" value={overview.summary.activeReleases} />
-              <DashboardMetric icon={<ShieldAlert size={18} />} label={t('dashboardPage.attentionItems')} tone={overview.summary.attentionItems ? 'danger' : 'neutral'} to="/events?severities=error&severities=warning" value={overview.summary.attentionItems} />
-              <DashboardMetric icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} tone={overview.summary.healthyClusters < overview.summary.totalClusters ? 'warning' : 'neutral'} to="/clusters" value={`${overview.summary.healthyClusters}/${overview.summary.totalClusters}`} />
-            </div>
-            {activeTasks > 0 && (
-              <p className="mt-3 text-xs text-muted-foreground">{t('dashboardPage.activeTasksTotal', { count: activeTasks })}</p>
-            )}
-          </div>
-          <AttentionPanel items={overview.attention} />
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={overview.summary.attentionItems ? 'warning' : 'success'}>
+            {overview.summary.attentionItems ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}
+          </StatusBadge>
+          <StatusBadge>{t('dashboardPage.resourceTotals', { applications: overview.summary.applications, projects: overview.summary.projects })}</StatusBadge>
+          {activeTasks > 0 && (
+            <span className="text-xs text-muted-foreground">{t('dashboardPage.activeTasksTotal', { count: activeTasks })}</span>
+          )}
         </div>
-      </Card>
+        <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardMetric icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} to="/events?categories=build&statuses=in_progress" value={overview.summary.activeBuilds} />
+          <DashboardMetric icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} to="/events?categories=release&statuses=in_progress" value={overview.summary.activeReleases} />
+          <DashboardMetric icon={<ShieldAlert size={18} />} label={t('dashboardPage.attentionItems')} tone={overview.summary.attentionItems ? 'danger' : 'neutral'} to="/events?severities=error&severities=warning" value={overview.summary.attentionItems} />
+          <DashboardMetric icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} tone={overview.summary.healthyClusters < overview.summary.totalClusters ? 'warning' : 'neutral'} to="/clusters" value={`${overview.summary.healthyClusters}/${overview.summary.totalClusters}`} />
+        </div>
+        <AttentionPanel items={overview.attention} />
+      </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="min-w-0 p-4">
+      <Card className="grid min-w-0 overflow-hidden p-0 xl:grid-cols-3">
+        <section className="min-w-0 p-4 xl:col-span-2">
           <div className="flex items-center justify-between gap-3">
             <SectionTitle icon={<Activity size={18} />} title={t('dashboardPage.recentActivity')} />
             <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary" to="/events">
               {t('dashboardPage.viewAllEvents')}
             </Link>
           </div>
-          <div className="mt-3 h-[18rem] overflow-y-auto pr-1">
+          <div className="mt-3 h-72 overflow-y-auto pr-1">
             {overview.activities.length
               ? (
                   <div className="divide-y divide-border">
@@ -121,16 +117,16 @@ export function DashboardPage() {
                 )
               : <p className="py-4 text-sm text-muted-foreground">{t('dashboardPage.noActivity')}</p>}
           </div>
-        </Card>
+        </section>
 
-        <Card className="p-4">
+        <section className="border-t border-border p-4 xl:border-l xl:border-t-0">
           <SectionTitle icon={<Boxes size={18} />} title={t('dashboardPage.platformReadiness')} />
-          <div className="mt-3 grid gap-3">
+          <div className="mt-3 grid gap-2">
             <ReadinessRow icon={<Container size={16} />} item={overview.readiness.registries} kind="registries" label={t('registries')} to="/registries" />
             <ReadinessRow icon={<Server size={16} />} item={overview.readiness.clusters} kind="clusters" label={t('clusters')} to="/clusters" />
           </div>
-        </Card>
-      </div>
+        </section>
+      </Card>
     </div>
   )
 }
@@ -175,7 +171,7 @@ function ProjectShortcutCard({ isPinPending, onTogglePin, project }: { isPinPend
 function DashboardMetric({ icon, label, to, tone = 'neutral', value }: { icon: ReactNode, label: string, to: string, tone?: 'danger' | 'neutral' | 'warning', value: number | string }) {
   const toneClass = tone === 'danger' ? 'text-red-600 dark:text-red-400' : tone === 'warning' ? 'text-amber-700 dark:text-amber-400' : ''
   return (
-    <Link className={`group rounded-md border border-border bg-background p-3 transition hover:border-primary/50 ${toneClass}`} to={to}>
+    <Link className={`group bg-surface p-3 transition-colors hover:bg-muted/40 ${toneClass}`} to={to}>
       <div className="flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-primary">
         {icon}
         <span>{label}</span>
@@ -188,26 +184,26 @@ function DashboardMetric({ icon, label, to, tone = 'neutral', value }: { icon: R
 function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
   const { t } = useTranslation()
   return (
-    <div className="rounded-md border border-border bg-muted/25 p-3">
-      <div className="flex items-center gap-2 text-sm font-medium">
+    <div className="grid gap-2 border-t border-border pt-3 lg:grid-cols-4 lg:items-start lg:gap-3">
+      <div className="flex min-h-8 items-center gap-2 text-sm font-medium">
         <ShieldAlert size={16} />
         {t('dashboardPage.attention')}
       </div>
       {items.length
         ? (
-            <div className="mt-2 grid gap-1">
+            <div className="flex min-w-0 flex-wrap gap-2 lg:col-span-3">
               {items.slice(0, 4).map(item => (
-                <Link key={item.key} className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-2 transition hover:bg-background" to={activityTarget(item.latest)}>
-                  <span className="shrink-0 text-muted-foreground">{categoryIcon(item.category)}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm">{eventTypeLabel(t, item.latest.type)}</span>
+                <Link key={item.key} className="group flex min-h-8 min-w-0 max-w-full items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5 transition-colors hover:bg-muted" to={activityTarget(item.latest)}>
+                  <span className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary">{categoryIcon(item.category)}</span>
+                  <span className="truncate text-sm">{eventTypeLabel(t, item.latest.type)}</span>
                   {item.occurrences > 1 && <StatusBadge tone={item.severity === 'error' ? 'danger' : 'warning'}>{t('dashboardPage.occurrences', { count: item.occurrences })}</StatusBadge>}
                 </Link>
               ))}
-              {items.length > 4 && <Link className="px-2 pt-1 text-sm font-medium text-primary" to="/events?severities=error&severities=warning">{t('dashboardPage.moreAttention', { count: items.length - 4 })}</Link>}
+              {items.length > 4 && <Link className="flex min-h-8 items-center px-2 text-sm font-medium text-primary" to="/events?severities=error&severities=warning">{t('dashboardPage.moreAttention', { count: items.length - 4 })}</Link>}
             </div>
           )
         : (
-            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex min-h-8 items-center gap-2 text-sm text-muted-foreground lg:col-span-3">
               <CheckCircle2 className="text-emerald-600" size={16} />
               {t('dashboardPage.noIssues')}
             </div>
@@ -219,8 +215,8 @@ function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
 function ActivityRow({ activity }: { activity: DashboardActivity }) {
   const { t } = useTranslation()
   return (
-    <Link className="group grid gap-2 py-3 transition-colors first:pt-0 hover:text-primary sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" to={activityTarget(activity)}>
-      <div className="flex min-w-0 items-start gap-3">
+    <Link className="group grid gap-2 py-3 transition-colors first:pt-0 hover:text-primary sm:flex sm:items-center sm:justify-between" to={activityTarget(activity)}>
+      <div className="flex min-w-0 flex-1 items-start gap-3">
         <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           {categoryIcon(activity.category)}
         </div>
@@ -243,7 +239,7 @@ function ReadinessRow({ icon, item, kind, label, to }: { icon: ReactNode, item: 
   const { t } = useTranslation()
   const value = kind === 'clusters' ? `${item.available}/${item.total}` : item.total
   return (
-    <Link className="group flex items-center justify-between gap-3 rounded-md border border-border px-3 py-3 transition hover:border-primary/50" to={to}>
+    <Link className="group flex items-center justify-between gap-3 rounded-md bg-muted/30 px-3 py-3 transition-colors hover:bg-muted" to={to}>
       <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
         <span className="text-muted-foreground">{icon}</span>
         <span className="truncate">{label}</span>

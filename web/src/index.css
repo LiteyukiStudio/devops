@@ -75,7 +75,7 @@ body {
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: calc(var(--spacing) * 80);
   background: hsl(var(--background));
   transition: background-color 180ms ease, color 180ms ease;
 }
@@ -86,8 +86,8 @@ body {
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: calc(var(--spacing) * 2.5);
+  height: calc(var(--spacing) * 2.5);
 }
 
 *::-webkit-scrollbar-track {
@@ -95,9 +95,9 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  min-height: 36px;
-  border: 3px solid transparent;
-  border-radius: 999px;
+  min-height: calc(var(--spacing) * 9);
+  border: calc(var(--spacing) * 0.5) solid transparent;
+  border-radius: 50%;
   background-color: hsl(var(--muted-foreground) / 0.28);
   background-clip: content-box;
 }
@@ -175,6 +175,18 @@ textarea {
   transition-duration: 150ms;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
+    transition-delay: 0s !important;
+    transition-duration: 0s !important;
+  }
+}
+
 .field-hint-trigger:hover > span,
 .field-hint-trigger:focus-within > span {
   display: block;
@@ -236,11 +248,11 @@ textarea {
 
 [data-sonner-toast]::after {
   position: absolute;
-  right: 8px;
-  bottom: 6px;
-  left: 8px;
-  height: 2px;
-  border-radius: 999px;
+  right: calc(var(--spacing) * 2);
+  bottom: calc(var(--spacing) * 1.5);
+  left: calc(var(--spacing) * 2);
+  height: calc(var(--spacing) * 0.5);
+  border-radius: 50%;
   background: currentColor;
   content: "";
   opacity: 0.4;

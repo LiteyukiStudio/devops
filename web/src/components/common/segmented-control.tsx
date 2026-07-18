@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
@@ -73,7 +73,7 @@ export function SegmentedControl<Value extends string = string>({
  */
 export function SegmentedTabsList({ items, layoutId, value }: SegmentedTabsListProps) {
   return (
-    <TabsList className="inline-flex w-max max-w-none flex-nowrap gap-1 rounded-full bg-muted p-1">
+    <TabsList className="inline-flex w-max max-w-none flex-nowrap items-center justify-center gap-1 rounded-full border-0 bg-muted p-1">
       {items.map((item) => {
         const active = value === item.value
         const Icon = item.icon
@@ -90,11 +90,13 @@ export function SegmentedTabsList({ items, layoutId, value }: SegmentedTabsListP
 }
 
 function SegmentedActivePill({ layoutId }: { layoutId: string }) {
+  const reducedMotion = useReducedMotion()
+
   return (
     <motion.span
       className="absolute inset-0 -z-10 rounded-full bg-surface shadow-sm"
       layoutId={layoutId}
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
     />
   )
 }
@@ -108,9 +110,9 @@ function segmentedRootClassName(equalColumns?: boolean) {
 
 function segmentedItemClassName(active: boolean, iconOnly?: boolean) {
   return cn(
-    'relative z-10 flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring/50',
+    'relative z-10 flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-full border-0 px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring/50',
     iconOnly && 'px-0',
-    'data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none',
+    'data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none',
     active && 'text-primary',
     !active && 'hover:bg-surface/70 hover:text-foreground',
   )

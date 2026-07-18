@@ -97,12 +97,12 @@ export function LoginPage() {
     <div className="grid min-h-screen place-items-center bg-background px-4 py-8 text-foreground">
       <PageMotion className="w-full max-w-5xl">
         <Card className="relative overflow-visible p-0">
-          <div className="grid lg:min-h-[620px] lg:grid-cols-[1.08fr_0.92fr]">
+          <div className="grid lg:min-h-160 lg:grid-cols-[1.08fr_0.92fr]">
             <div className="relative hidden overflow-visible rounded-l-[inherit] bg-gradient-to-br from-[#eef5ff] via-[#f8fbff] to-[#e8fbf7] lg:block">
               <div className="absolute inset-0 rounded-l-[inherit] bg-[linear-gradient(135deg,rgba(47,123,244,0.12)_0,transparent_36%),linear-gradient(45deg,rgba(34,199,169,0.12)_0,transparent_42%)]" />
               <img
                 alt=""
-                className="pointer-events-none absolute bottom-0 left-[51.5%] z-10 h-[112%] w-auto max-w-none -translate-x-1/2 select-none object-contain object-bottom drop-shadow-[0_28px_42px_rgba(47,123,244,0.22)]"
+                className="pointer-events-none absolute bottom-0 left-[51.5%] z-10 h-[112%] w-auto max-w-none -translate-x-1/2 select-none object-contain object-bottom drop-shadow-xl"
                 src="https://devops-docs.liteyuki.org/brand/mascot-luna-catgirl-alpha.webp"
               />
               <div className="absolute inset-0 z-20 rounded-l-[inherit] bg-gradient-to-r from-background/10 via-transparent to-background/30" />

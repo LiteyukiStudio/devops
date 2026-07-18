@@ -107,7 +107,7 @@ const pageMetaRules = [
 
 function sidebarMenuButtonClassName(active?: boolean) {
   return cn(
-    'flex h-10 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-full px-3 text-sm font-normal leading-none text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground',
+    'flex h-10 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-normal leading-none text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground',
     active && 'bg-muted text-foreground',
   )
 }
@@ -203,7 +203,7 @@ export function AppLayout() {
                         to={item.to}
                         onClick={onNavigate}
                       >
-                        <item.icon className="size-[17px] shrink-0" />
+                        <item.icon className="size-4 shrink-0" />
                         <span className="min-w-0 flex-1 truncate text-sm font-normal leading-none">{t(item.labelKey)}</span>
                       </NavLink>
                     </SidebarMenuItem>

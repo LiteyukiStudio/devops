@@ -209,7 +209,7 @@ function SelectTriggerButton({ ariaLabel, children, className, disabled, open, p
       <Button
         aria-expanded={open}
         aria-label={ariaLabel}
-        className={cn('h-9 w-full justify-between rounded-full px-4 font-normal', className)}
+        className={cn('h-9 w-full justify-between rounded-md px-3 font-normal', className)}
         disabled={disabled}
         type="button"
         variant="outline"

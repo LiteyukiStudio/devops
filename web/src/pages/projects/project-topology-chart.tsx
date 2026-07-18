@@ -76,7 +76,7 @@ export function ProjectTopologyChart({ edges, fitVersion, nodes, onSelectEdge }:
     return () => observer.disconnect()
   }, [])
 
-  return <div ref={elementRef} className="h-[min(64vh,640px)] min-h-[440px] w-full bg-muted/25" />
+  return <div ref={elementRef} className="h-[64vh] min-h-104 max-h-160 w-full bg-muted/25" />
 }
 
 function buildChartOption(

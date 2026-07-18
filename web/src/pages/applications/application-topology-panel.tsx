@@ -249,7 +249,7 @@ function TopologyChart({ edges, fitVersion, nodes }: {
 
   return (
     <>
-      <div ref={chartElementRef} className="h-[min(64vh,620px)] min-h-[420px] w-full bg-muted/40" />
+      <div ref={chartElementRef} className="h-[64vh] min-h-104 max-h-160 w-full bg-muted/40" />
       <Sheet open={Boolean(selectedNode)} onOpenChange={open => !open && setSelectedNode(null)}>
         <SheetContent>
           {selectedNode && (

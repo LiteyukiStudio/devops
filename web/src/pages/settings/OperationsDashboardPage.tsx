@@ -69,7 +69,7 @@ export function OperationsDashboardPage() {
   return (
     <Card className="overflow-hidden p-0">
       <iframe
-        className="h-[min(72dvh,760px)] min-h-[520px] w-full border-0 bg-background"
+        className="h-[72dvh] min-h-128 max-h-192 w-full border-0 bg-background"
         referrerPolicy="strict-origin-when-cross-origin"
         src={iframeUrl}
         title={t('operationsDashboard')}
@@ -81,7 +81,7 @@ export function OperationsDashboardPage() {
 function OperationsDashboardSkeleton() {
   return (
     <Card className="overflow-hidden p-0">
-      <div className="h-[min(72dvh,760px)] min-h-[520px] w-full animate-pulse bg-muted" />
+      <div className="h-[72dvh] min-h-128 max-h-192 w-full animate-pulse bg-muted" />
     </Card>
   )
 }

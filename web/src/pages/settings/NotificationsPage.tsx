@@ -203,24 +203,24 @@ export function NotificationsPage() {
           <>
             {activeTab === 'channels' && (
               <>
-                <Button id="notification-channel-templates" className="rounded-full" variant="outline" onClick={openPresetDialog}>
+                <Button id="notification-channel-templates" variant="outline" onClick={openPresetDialog}>
                   <Bell className="size-4" />
                   {t('notificationsPage.fromPreset')}
                 </Button>
-                <Button className="rounded-full" onClick={() => setChannelDialog(emptyChannelState())}>
+                <Button onClick={() => setChannelDialog(emptyChannelState())}>
                   <Plus className="size-4" />
                   {t('notificationsPage.createChannel')}
                 </Button>
               </>
             )}
             {activeTab === 'templates' && (
-              <Button className="rounded-full" onClick={() => setTemplateDialog(emptyTemplateState())}>
+              <Button onClick={() => setTemplateDialog(emptyTemplateState())}>
                 <Plus className="size-4" />
                 {t('notificationsPage.createTemplate')}
               </Button>
             )}
             {activeTab === 'rules' && (
-              <Button className="rounded-full" onClick={() => setRuleDialog(emptyRuleState())}>
+              <Button onClick={() => setRuleDialog(emptyRuleState())}>
                 <Plus className="size-4" />
                 {t('notificationsPage.createRule')}
               </Button>

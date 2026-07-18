@@ -12,7 +12,7 @@ export function TargetImageRefInput({ placeholder, prefix, register }: TargetIma
     return <Input {...register} placeholder={placeholder} />
 
   return (
-    <div className="flex min-w-0 overflow-hidden rounded-md border border-input bg-background shadow-sm focus-within:ring-[3px] focus-within:ring-ring/50">
+    <div className="flex min-w-0 overflow-hidden rounded-md border border-input bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring/50">
       <span className="flex shrink-0 items-center border-r border-border bg-muted px-3 text-sm text-muted-foreground">
         {prefix}
       </span>

@@ -140,11 +140,18 @@ export function CredentialsPanel({
   return (
     <div className="grid gap-4">
       {oauthProviders.length > 0 && (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {oauthProviders.map(provider => (
-            <Button key={provider.id} type="button" variant="secondary" onClick={() => { window.location.href = gitOAuthStartUrl(provider.id, '/code-repositories', window.location.origin) }}>
-              <LinkIcon size={16} />
-              {t('codeRepositoriesView.oauthConnect', { provider: provider.name })}
+            <Button
+              key={provider.id}
+              className="h-auto min-w-0 justify-start px-3 py-3 text-left"
+              title={t('codeRepositoriesView.oauthConnect', { provider: provider.name })}
+              type="button"
+              variant="secondary"
+              onClick={() => { window.location.href = gitOAuthStartUrl(provider.id, '/code-repositories', window.location.origin) }}
+            >
+              <GitProviderIcon baseUrl={provider.baseUrl} className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background p-1" type={provider.type} />
+              <span className="min-w-0 truncate">{t('codeRepositoriesView.oauthConnect', { provider: provider.name })}</span>
             </Button>
           ))}
         </div>

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs } from '@/components/ui/tabs'
-import { SegmentedTabsList } from './segmented-control'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface ContentTabItem {
   hash?: string
@@ -105,7 +104,7 @@ export function ContentTabs({
       <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0 md:hidden">
           <Select value={effectiveValue} onValueChange={handleValueChange}>
-            <SelectTrigger className="h-12 w-full min-w-0 justify-between bg-muted px-4 text-base shadow-none">
+            <SelectTrigger className="h-10 w-full min-w-0 justify-between bg-muted text-base shadow-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)]" position="popper">
@@ -117,8 +116,14 @@ export function ContentTabs({
             </SelectContent>
           </Select>
         </div>
-        <div className="-mx-1 hidden min-w-0 overflow-x-auto px-1 pb-1 md:block">
-          <SegmentedTabsList items={tabs} layoutId="content-tabs-active" value={effectiveValue} />
+        <div className="-mx-1 hidden min-w-0 overflow-x-auto px-1 md:block">
+          <TabsList className="w-max max-w-none flex-nowrap">
+            {tabs.map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value}>
+                <span className="truncate">{tab.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
         </div>
         {tools && (
           <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">

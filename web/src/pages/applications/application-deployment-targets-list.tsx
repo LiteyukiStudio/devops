@@ -83,7 +83,7 @@ export function ApplicationDeploymentTargetsList({
               key: 'actions',
               header: t('common.actions'),
               cellClassName: 'bg-card',
-              className: 'text-right shadow-[-10px_0_16px_-16px_rgba(15,23,42,0.6)]',
+              className: 'border-l border-border text-right',
               headerClassName: 'z-20 bg-muted/95',
               sticky: 'right',
               width: 'actions',
@@ -485,7 +485,7 @@ function DeploymentTargetDetails({
 function LabeledValue({ children, label }: { children: ReactNode, label: string }) {
   return (
     <div className="grid min-w-0 gap-1">
-      <span className="text-[11px] font-medium uppercase text-muted-foreground">{label}</span>
+      <span className="text-xs font-medium uppercase text-muted-foreground">{label}</span>
       <div className="min-w-0 text-sm text-foreground">{children}</div>
     </div>
   )
