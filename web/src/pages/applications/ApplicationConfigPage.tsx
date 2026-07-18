@@ -10,7 +10,7 @@ import { Globe2, Package, Play, Plus, Save } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api } from '@/api'
@@ -54,8 +54,9 @@ const APPLICATION_CONFIG_FORM_ID = 'application-config-form'
 export function ApplicationConfigPage() {
   const { t } = useTranslation()
   const { projectId = '', applicationId = '' } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'overview')
   const shouldPollWorkflowStatus = activeTab === 'builds' || activeTab === 'deployments'
   const buildsPanelRef = useRef<BuildsPanelHandle>(null)
   const deploymentsPanelRef = useRef<DeploymentsPanelHandle>(null)
@@ -216,7 +217,17 @@ export function ApplicationConfigPage() {
           </div>
         )}
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={(value) => {
+          setActiveTab(value)
+          setSearchParams((current) => {
+            const next = new URLSearchParams(current)
+            if (value === 'overview')
+              next.delete('tab')
+            else
+              next.set('tab', value)
+            return next
+          }, { replace: true })
+        }}
       >
         <TabsContent value="overview">
           <ApplicationOverviewPanel

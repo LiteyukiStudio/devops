@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var defaultFailureEventTypes = []string{"build.failed", "release.failed", "hook.failed", "gateway.apply_failed", "certificate.failed", "certificate.expired"}
+var defaultFailureEventTypes = []string{"build.failed", "release.failed", "hook.failed", "gateway.apply_failed", "certificate.failed", "certificate.expired", "service_binding.invalid"}
 
 type DeliveryEnqueuer interface {
 	EnqueueNotificationDeliver(ctx context.Context, payload tasks.NotificationDeliverPayload) (*asynq.TaskInfo, error)
@@ -39,6 +39,9 @@ func (s Service) Emit(ctx context.Context, event Event) ([]model.NotificationDel
 	}
 	event = normalizeEvent(event)
 	resourceType, resourceID := platformevent.ResourceForType(event.Type, event.Build.ID, event.Release.ID, event.Hook.ID, event.Gateway.ID, event.Certificate.RouteID)
+	if platformevent.CategoryForType(event.Type) == "service_binding" {
+		resourceType, resourceID = "service_binding", event.ServiceBinding.ID
+	}
 	storedEvent, _, err := (platformevent.Service{DB: s.DB}).Record(ctx, platformevent.RecordInput{
 		ID:                 event.ID,
 		Type:               event.Type,

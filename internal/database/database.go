@@ -151,6 +151,8 @@ func Migrate(db *gorm.DB) error {
 		&model.SecretValue{},
 		&model.ScopedResourceProjectBinding{},
 		&model.Application{},
+		&model.ServiceBinding{},
+		&model.ProjectTopologyEdge{},
 		&model.AppTemplateInstallation{},
 		&model.SystemComponentInstallation{},
 		&model.GitProvider{},

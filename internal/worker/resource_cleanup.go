@@ -354,6 +354,23 @@ func (r *Runner) finishProjectDelete(project model.Project) error {
 func (r *Runner) finishDeploymentTargetDelete(target model.DeploymentTarget) error {
 	finishedAt := time.Now()
 	return r.db.Transaction(func(tx *gorm.DB) error {
+		var incomingActive int64
+		if err := tx.Model(&model.ServiceBinding{}).
+			Where("target_deployment_target_id = ? and enabled = ?", target.ID, true).
+			Count(&incomingActive).Error; err != nil {
+			return err
+		}
+		if incomingActive > 0 {
+			return fmt.Errorf("deployment target is referenced by %d active service bindings", incomingActive)
+		}
+		if err := tx.Where("source_deployment_target_id = ? or (target_deployment_target_id = ? and enabled = ?)", target.ID, target.ID, false).
+			Delete(&model.ServiceBinding{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("source_deployment_target_id = ? or target_deployment_target_id = ?", target.ID, target.ID).
+			Delete(&model.ProjectTopologyEdge{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("target_id = ?", target.ID).Delete(&model.DeploymentTargetHookBinding{}).Error; err != nil {
 			return err
 		}

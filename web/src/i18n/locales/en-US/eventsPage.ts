@@ -48,6 +48,7 @@ const eventsPage = {
     gateway: 'Access route',
     certificate: 'Certificate',
     security: 'Security',
+    service_binding: 'Service binding',
     other: 'Other',
   },
   severities: {
@@ -78,6 +79,11 @@ const eventsPage = {
     certificate_renewed: 'Certificate renewed',
     certificate_failed: 'Certificate failed',
     certificate_expired: 'Certificate expired',
+    service_binding_created: 'Service binding created',
+    service_binding_updated: 'Service binding updated',
+    service_binding_deleted: 'Service binding deleted',
+    service_binding_invalid: 'Service binding invalid',
+    service_binding_recovered: 'Service binding recovered',
   },
   details: {
     context: 'Related context',

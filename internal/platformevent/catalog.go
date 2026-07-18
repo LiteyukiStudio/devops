@@ -24,6 +24,11 @@ var catalog = []CatalogEntry{
 	{Type: "certificate.renewed", Category: "certificate", DefaultSeverity: "info"},
 	{Type: "certificate.failed", Category: "certificate", DefaultSeverity: "error", RecommendedNotify: true},
 	{Type: "certificate.expired", Category: "certificate", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "service_binding.created", Category: "service_binding", DefaultSeverity: "info"},
+	{Type: "service_binding.updated", Category: "service_binding", DefaultSeverity: "info"},
+	{Type: "service_binding.deleted", Category: "service_binding", DefaultSeverity: "info"},
+	{Type: "service_binding.invalid", Category: "service_binding", DefaultSeverity: "error", RecommendedNotify: true},
+	{Type: "service_binding.recovered", Category: "service_binding", DefaultSeverity: "info"},
 }
 
 func Catalog() []CatalogEntry {

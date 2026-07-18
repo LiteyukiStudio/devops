@@ -117,7 +117,15 @@ func CategoryForType(eventType string) string {
 }
 
 func StatusForType(eventType string) string {
-	_, result, _ := strings.Cut(strings.TrimSpace(eventType), ".")
+	category, result, _ := strings.Cut(strings.TrimSpace(eventType), ".")
+	if category == "service_binding" {
+		switch result {
+		case "invalid":
+			return StatusFailed
+		case "created", "updated", "deleted", "recovered":
+			return StatusSucceeded
+		}
+	}
 	switch result {
 	case "queued", "started", "pending", "created", "updated":
 		return StatusInProgress

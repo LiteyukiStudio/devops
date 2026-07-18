@@ -441,6 +441,10 @@
 - [x] 创建/编辑应用弹窗只保留名称、标识和图标，仓库、镜像、端口、Webhook 等来源与交付入口统一由部署配置维护，避免应用被误解为只能绑定一个仓库。
 - [x] 应用详情概览改为看板式运行摘要，展示部署配置、构建、部署和访问入口关键状态；应用基础模型移除来源类型、仓库、镜像和构建字段，交付配置统一归属部署配置和访问配置。
 - [x] 应用详情新增实时 Kubernetes 拓扑：后端按应用和部署配置即时解析 Gateway/HTTPRoute/Service/Workload/Pod、HPA、ConfigMap、Secret、PVC 关系，不持久化拓扑；前端用懒加载 ECharts 展示主链路、依赖资源和节点详情。
+- [x] 项目空间服务依赖 P1：实现手工逻辑关系模型、迁移、分页 CRUD、权限校验、项目空间拓扑聚合、按需显示的拓扑页和移动端依赖列表。
+- [x] 项目空间服务依赖 P2：实现可部署 ServiceBinding、同项目同集群与端口/环境变量校验、稳定 Service DNS 解析、Release 快照注入、Pod Template digest，以及“保存”/“保存并前往发布”流程。
+- [x] 项目空间服务依赖 P3：实现 Service/端口/EndpointSlice/NetworkPolicy 只读诊断、`pending_release`/`invalid`/`unavailable` 状态、被引用资源删除保护、AuditLog 和服务引用平台事件。
+- [ ] 项目空间服务依赖 P4（后续可选）：从网关流量、OpenTelemetry 或 Service Mesh 聚合带时间窗口的观测关系，仅作为声明关系的验证信号，不自动修改业务关系。
 - [x] 项目应用列表移除来源类型和服务端口列，只展示应用基础摘要和操作入口。
 - [x] 部署配置表单选择应用下已绑定的 RepositoryBinding，支持就地绑定新仓库并自动选中；Dockerfile、构建上下文和构建路径按选中仓库自动探测，构建提供者不再作为用户表单项展示。
 - [x] 修复部署配置表单仓库结构探测断链：选择仓库绑定后重新调用后端 build-options，恢复 Dockerfile、构建上下文和构建目录候选及 Dockerfile 目录联动。

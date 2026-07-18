@@ -117,6 +117,23 @@ func (r *Runner) finishApplicationDelete(app model.Application, payload tasks.Ap
 		dataRetentionMode = "deleted"
 	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
+		var incomingActive int64
+		if err := tx.Model(&model.ServiceBinding{}).
+			Where("target_application_id = ? and enabled = ?", app.ID, true).
+			Count(&incomingActive).Error; err != nil {
+			return err
+		}
+		if incomingActive > 0 {
+			return fmt.Errorf("application is referenced by %d active service bindings", incomingActive)
+		}
+		if err := tx.Where("source_application_id = ? or (target_application_id = ? and enabled = ?)", app.ID, app.ID, false).
+			Delete(&model.ServiceBinding{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("source_application_id = ? or target_application_id = ?", app.ID, app.ID).
+			Delete(&model.ProjectTopologyEdge{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("project_id = ? and application_id = ?", app.ProjectID, app.ID).Delete(&model.DeploymentTargetHookBinding{}).Error; err != nil {
 			return err
 		}

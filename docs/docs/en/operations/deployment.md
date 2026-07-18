@@ -30,6 +30,17 @@ The application stores basic service information only. Build source, image, envi
 
 The application detail page includes a live topology view. It shows the `Gateway -> HTTPRoute -> Service -> Deployment/StatefulSet -> Pod` delivery path by default; enable dependencies to include HPA, ConfigMap, Secret, and PVC resources. The topology is not stored in the database. Every open or refresh recomputes it from the runtime cluster, so manual out-of-band resource deletion is reflected as well. Secret nodes expose only resource names and status, never Secret contents.
 
+A project space can also describe logical relationships between applications. Regular members see the project topology only after at least one relationship exists. Owners and Admins get a small advanced entry point for creating the first relationship, so teams that do not need this feature are not asked to configure it.
+
+There are two relationship modes:
+
+- A **service binding** affects the source deployment target. The platform derives a stable in-cluster address from the target Kubernetes Service and injects environment variables on the source target's next release.
+- A **display-only relationship** records calls, reads/writes, publishing, or consumption without changing deployment configuration or creating Kubernetes resources.
+
+The first service-binding version requires both targets to be in the same project space and runtime cluster, and the source and target deployment targets must be selected explicitly. Passwords and tokens are never embedded in the generated address; keep database credentials and other sensitive values in project-space Secrets. After saving, you can stay on the topology page or open the source target's release page to select an image and complete the existing confirmation flow. Existing Pods do not change until a new release is created.
+
+Diagnostics inspect the target Service, selected port, EndpointSlices, and NetworkPolicies that may affect connectivity. They only read Kubernetes metadata, do not dial the application port, and never read Secret contents. An application or deployment target with active incoming service bindings cannot be deleted until those bindings are disabled or removed.
+
 ### 3. Deployment target
 
 A deployment target decides how an application is built, how it runs, and where it is released.

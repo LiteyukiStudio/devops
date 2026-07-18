@@ -26,6 +26,7 @@ import pagination from './en-US/pagination'
 import projectHooks from './en-US/projectHooks'
 import projectMembers from './en-US/projectMembers'
 import projectSpaces from './en-US/projectSpaces'
+import projectTopology from './en-US/projectTopology'
 import registriesPage from './en-US/registriesPage'
 import repositories from './en-US/repositories'
 import root from './en-US/root'
@@ -63,6 +64,7 @@ const enUS = {
   gatewayRoutesPage,
   projectMembers,
   projectSpaces,
+  projectTopology,
   dashboardPage,
   auth,
   nav,

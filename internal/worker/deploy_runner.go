@@ -65,7 +65,16 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 		return err
 	}
 	r.appendReleaseLog(release, "下发 ConfigMap/Secret")
-	if err := r.applyApplicationRuntimeConfig(ctx, release, project, application, environment, deploymentTarget, namespace); err != nil {
+	serviceBindings, err := r.resolveServiceBindingConfig(project, deploymentTarget)
+	if err != nil {
+		_ = r.finishDeployRelease(release, "failed", err.Error())
+		r.appendReleaseLog(release, "服务引用解析失败: "+err.Error())
+		return err
+	}
+	if serviceBindings.Count > 0 {
+		r.appendReleaseLog(release, fmt.Sprintf("已解析 %d 个服务引用", serviceBindings.Count))
+	}
+	if err := r.applyApplicationRuntimeConfig(ctx, release, project, application, environment, deploymentTarget, namespace, serviceBindings); err != nil {
 		_ = r.finishDeployRelease(release, "failed", err.Error())
 		r.appendReleaseLog(release, "运行配置下发失败: "+err.Error())
 		return err
@@ -82,7 +91,7 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 		r.markSystemComponentDeployment(release, "failed", err.Error())
 		return err
 	}
-	if err := r.applyApplicationResources(ctx, release, project, application, environment, deploymentTarget, namespace); err != nil {
+	if err := r.applyApplicationResources(ctx, release, project, application, environment, deploymentTarget, namespace, serviceBindings); err != nil {
 		_ = r.finishDeployRelease(release, "failed", err.Error())
 		r.appendReleaseLog(release, "资源下发失败: "+err.Error())
 		r.markSystemComponentDeployment(release, "failed", err.Error())
@@ -170,7 +179,7 @@ func systemComponentLastError(status string, message string) string {
 	return ""
 }
 
-func (r *Runner) applyApplicationResources(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) error {
+func (r *Runner) applyApplicationResources(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string, serviceBindings resolvedServiceBindingConfig) error {
 	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return err
@@ -183,13 +192,16 @@ func (r *Runner) applyApplicationResources(ctx context.Context, release model.Re
 	deploymentTarget.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(deploymentTarget.SecretFiles)
 	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, runtimeConfigSets, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {
+		return err
+	}
+	if err := applyServiceBindingConfig(&spec, serviceBindings); err != nil {
 		return err
 	}
 	spec.ForceImagePull = r.releaseShouldForceImagePull(release)
 	return manager.ApplyApplicationResources(ctx, spec)
 }
 
-func (r *Runner) applyApplicationRuntimeConfig(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string) error {
+func (r *Runner) applyApplicationRuntimeConfig(ctx context.Context, release model.Release, project model.Project, application model.Application, environment model.Environment, deploymentTarget model.DeploymentTarget, namespace string, serviceBindings resolvedServiceBindingConfig) error {
 	manager, err := r.kubernetesManager(environment)
 	if err != nil {
 		return err
@@ -202,6 +214,9 @@ func (r *Runner) applyApplicationRuntimeConfig(ctx context.Context, release mode
 	deploymentTarget.SecretFiles = r.resolveRuntimeSecretFileRefsRaw(deploymentTarget.SecretFiles)
 	spec, err := applicationResourcesSpec(release, project, application, environment, deploymentTarget, runtimeConfigSets, namespace, r.deployRolloutTimeoutSeconds)
 	if err != nil {
+		return err
+	}
+	if err := applyServiceBindingConfig(&spec, serviceBindings); err != nil {
 		return err
 	}
 	return manager.ApplyApplicationRuntimeConfig(ctx, spec)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/LiteyukiStudio/devops/internal/model"
 	kubeprovider "github.com/LiteyukiStudio/devops/internal/provider/kubernetes"
+	"github.com/LiteyukiStudio/devops/internal/resourcename"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -106,7 +107,7 @@ func environmentClusterLookup(clusterID string) (string, []any) {
 }
 
 func projectNamespace(project model.Project) string {
-	return idResourceName("ns", project.ID)
+	return resourcename.ProjectNamespace(project.ID)
 }
 
 func deploymentNamespace(project model.Project, _ model.Environment) string {
@@ -114,7 +115,7 @@ func deploymentNamespace(project model.Project, _ model.Environment) string {
 }
 
 func applicationResourceName(deploymentTarget model.DeploymentTarget) string {
-	return idResourceName("dplt", deploymentTarget.ID)
+	return resourcename.DeploymentTarget(deploymentTarget.ID)
 }
 
 func hookJobName(run model.HookRun) string {
@@ -141,23 +142,11 @@ func timePtr(value time.Time) *time.Time {
 }
 
 func idResourceName(prefix string, value string) string {
-	suffix := shortID(value)
-	if suffix == "" {
-		return dnsLabel(prefix)
-	}
-	return dnsLabel(prefix + "-" + suffix)
+	return resourcename.FromID(prefix, value)
 }
 
 func shortID(value string) string {
-	value = strings.TrimSpace(value)
-	if index := strings.Index(value, "_"); index >= 0 {
-		value = value[index+1:]
-	}
-	value = dnsLabelOptionalSegment(value)
-	if len(value) > 10 {
-		return value[:10]
-	}
-	return value
+	return resourcename.ShortID(value)
 }
 
 func gatewayRuntimeName(route model.GatewayRoute) string {

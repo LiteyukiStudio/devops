@@ -147,6 +147,9 @@ func (h *Handlers) DeleteApplication(ctx *gin.Context) {
 		writeErrorCode(ctx, http.StatusConflict, "application.delete_in_progress", "应用正在删除中，不能重复操作")
 		return
 	}
+	if !h.ensureNoIncomingServiceBindings(ctx, app.ProjectID, app.ID, "") {
+		return
+	}
 	startedAt := time.Now()
 	err := h.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.Application{}).

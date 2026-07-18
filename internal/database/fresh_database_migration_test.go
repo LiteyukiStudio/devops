@@ -85,6 +85,8 @@ func assertFreshMigrationState(t *testing.T, db *gorm.DB) {
 		"billing_usage_records",
 		"billing_ledger_entries",
 		"user_wallets",
+		"service_bindings",
+		"project_topology_edges",
 	} {
 		if !db.Migrator().HasTable(table) {
 			t.Fatalf("fresh database is missing table %s", table)

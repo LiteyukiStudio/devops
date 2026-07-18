@@ -48,6 +48,7 @@ const eventsPage = {
     gateway: '访问入口',
     certificate: '证书',
     security: '安全',
+    service_binding: '服务引用',
     other: '其他',
   },
   severities: {
@@ -78,6 +79,11 @@ const eventsPage = {
     certificate_renewed: '证书已续期',
     certificate_failed: '证书申请失败',
     certificate_expired: '证书已过期',
+    service_binding_created: '服务引用已创建',
+    service_binding_updated: '服务引用已更新',
+    service_binding_deleted: '服务引用已删除',
+    service_binding_invalid: '服务引用已失效',
+    service_binding_recovered: '服务引用已恢复',
   },
   details: {
     context: '关联上下文',

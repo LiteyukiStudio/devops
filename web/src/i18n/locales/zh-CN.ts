@@ -26,6 +26,7 @@ import pagination from './zh-CN/pagination'
 import projectHooks from './zh-CN/projectHooks'
 import projectMembers from './zh-CN/projectMembers'
 import projectSpaces from './zh-CN/projectSpaces'
+import projectTopology from './zh-CN/projectTopology'
 import registriesPage from './zh-CN/registriesPage'
 import repositories from './zh-CN/repositories'
 import root from './zh-CN/root'
@@ -52,6 +53,7 @@ const zhCN = {
   debugPanel,
   loginPage,
   projectSpaces,
+  projectTopology,
   dashboardPage,
   buildsPage,
   runtimeConfigSets,

@@ -9,8 +9,10 @@ import { notificationsApi } from './domains/notifications'
 import { projectsApi } from './domains/projects'
 import { registriesApi } from './domains/registries'
 import { runtimeApi } from './domains/runtime'
+import { topologyApi } from './domains/topology'
 
 export { ApiError } from './core'
+export type * from './topology-types'
 export type * from './types'
 export {
   apiBaseOrigin,
@@ -35,4 +37,5 @@ export const api = {
   ...runtimeApi,
   ...gatewayApi,
   ...notificationsApi,
+  ...topologyApi,
 }

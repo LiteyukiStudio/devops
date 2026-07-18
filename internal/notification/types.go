@@ -16,25 +16,34 @@ const (
 )
 
 type Event struct {
-	ID               string             `json:"id"`
-	Type             string             `json:"type"`
-	Severity         string             `json:"severity"`
-	Locale           string             `json:"locale"`
-	Project          EntityRef          `json:"project"`
-	Application      EntityRef          `json:"application"`
-	DeploymentTarget EntityRef          `json:"deploymentTarget"`
-	Build            BuildContext       `json:"build"`
-	Release          ReleaseContext     `json:"release"`
-	Hook             HookContext        `json:"hook"`
-	Gateway          GatewayContext     `json:"gateway"`
-	Certificate      CertificateContext `json:"certificate"`
-	Actor            ActorContext       `json:"actor"`
-	Links            map[string]string  `json:"links"`
-	CorrelationID    string             `json:"correlationId"`
-	TraceID          string             `json:"traceId"`
-	DedupKey         string             `json:"-"`
-	OccurredAt       time.Time          `json:"occurredAt"`
-	Message          string             `json:"message"`
+	ID               string                `json:"id"`
+	Type             string                `json:"type"`
+	Severity         string                `json:"severity"`
+	Locale           string                `json:"locale"`
+	Project          EntityRef             `json:"project"`
+	Application      EntityRef             `json:"application"`
+	DeploymentTarget EntityRef             `json:"deploymentTarget"`
+	Build            BuildContext          `json:"build"`
+	Release          ReleaseContext        `json:"release"`
+	Hook             HookContext           `json:"hook"`
+	Gateway          GatewayContext        `json:"gateway"`
+	Certificate      CertificateContext    `json:"certificate"`
+	ServiceBinding   ServiceBindingContext `json:"serviceBinding"`
+	Actor            ActorContext          `json:"actor"`
+	Links            map[string]string     `json:"links"`
+	CorrelationID    string                `json:"correlationId"`
+	TraceID          string                `json:"traceId"`
+	DedupKey         string                `json:"-"`
+	OccurredAt       time.Time             `json:"occurredAt"`
+	Message          string                `json:"message"`
+}
+
+type ServiceBindingContext struct {
+	ID                       string `json:"id"`
+	Status                   string `json:"status"`
+	SourceDeploymentTargetID string `json:"sourceDeploymentTargetId"`
+	TargetApplicationID      string `json:"targetApplicationId"`
+	TargetDeploymentTargetID string `json:"targetDeploymentTargetId"`
 }
 
 type EntityRef struct {

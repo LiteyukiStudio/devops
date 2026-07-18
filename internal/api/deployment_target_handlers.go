@@ -481,6 +481,9 @@ func (h *Handlers) DeleteDeploymentTarget(ctx *gin.Context) {
 		writeError(ctx, http.StatusConflict, "部署配置正在删除中，请等待资源清理完成")
 		return
 	}
+	if !h.ensureNoIncomingServiceBindings(ctx, target.ProjectID, target.ApplicationID, target.ID) {
+		return
+	}
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
 		if err := markResourceDeleting(tx, &model.DeploymentTarget{}, target.ID); err != nil {
 			return err

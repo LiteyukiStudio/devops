@@ -11,6 +11,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { Boxes, Focus, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { api } from '@/api'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -56,6 +57,11 @@ export function ApplicationTopologyPanel({ applicationId, projectId }: Applicati
     enabled: Boolean(projectId && applicationId),
     refetchInterval: topologyRefetchIntervalMs,
   })
+  const logicalTopology = useQuery({
+    queryKey: ['project-topology', projectId, 'application-summary', applicationId],
+    queryFn: () => api.getProjectTopology(projectId, { applicationId, origins: ['service_binding', 'manual'] }),
+    enabled: Boolean(projectId && applicationId),
+  })
 
   const visibleNodes = useMemo(() => {
     const nodes = topology.data?.nodes ?? []
@@ -93,6 +99,28 @@ export function ApplicationTopologyPanel({ applicationId, projectId }: Applicati
 
   return (
     <div className="grid gap-3">
+      {(logicalTopology.data?.edges.length ?? 0) > 0 && (
+        <div className="grid gap-3 rounded-md border border-border bg-muted/25 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold">{t('apps.topology.logicalDependencies')}</h2>
+            <Link className="text-sm text-primary hover:underline" to={`/projects/${projectId}?tab=topology`}>{t('apps.topology.openProjectTopology')}</Link>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {logicalTopology.data?.edges.map((edge) => {
+              const upstream = edge.target === applicationId
+              const relatedId = upstream ? edge.source : edge.target
+              const related = logicalTopology.data.nodes.find(node => node.id === relatedId)
+              return (
+                <Link key={edge.id} className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 hover:border-primary/50" to={`/projects/${projectId}/apps/${relatedId}`}>
+                  <span className="shrink-0 text-xs text-muted-foreground">{t(upstream ? 'apps.topology.upstream' : 'apps.topology.downstream')}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{related?.name ?? relatedId}</span>
+                  <StatusValueBadge labelKeyPrefix="projectTopology.statuses" value={edge.status} />
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {topology.data.warnings.length > 0 && (
         <Alert>
           <Boxes />
@@ -221,7 +249,7 @@ function TopologyChart({ edges, fitVersion, nodes }: {
 
   return (
     <>
-      <div ref={chartElementRef} className="h-[min(64vh,620px)] min-h-[420px] w-full" />
+      <div ref={chartElementRef} className="h-[min(64vh,620px)] min-h-[420px] w-full bg-muted/40" />
       <Sheet open={Boolean(selectedNode)} onOpenChange={open => !open && setSelectedNode(null)}>
         <SheetContent>
           {selectedNode && (
@@ -263,10 +291,10 @@ function buildChartOption(
   compact: boolean,
 ): TopologyChartOption {
   const styles = getComputedStyle(document.documentElement)
-  const foreground = styles.getPropertyValue('--foreground').trim() || '#18181b'
-  const muted = styles.getPropertyValue('--muted-foreground').trim() || '#71717a'
-  const border = styles.getPropertyValue('--border').trim() || '#d4d4d8'
-  const background = styles.getPropertyValue('--background').trim() || '#ffffff'
+  const foreground = chartThemeColor(styles, '--foreground', '#18181b')
+  const edgeColor = chartThemeColor(styles, '--foreground', 'rgba(24, 24, 27, 0.68)', 0.68)
+  const border = chartThemeColor(styles, '--border', '#d4d4d8')
+  const background = chartThemeColor(styles, '--surface', '#ffffff')
   const grouped = new Map<number, ApplicationTopologyNode[]>()
   for (const node of nodes) {
     const rank = kindRanks[node.kind] ?? 3
@@ -301,10 +329,12 @@ function buildChartOption(
         show: true,
         color: '#ffffff',
         fontSize: compact ? 10 : 12,
+        textBorderColor: 'rgba(15, 23, 42, 0.32)',
+        textBorderWidth: 2,
         formatter: `{kind|${escapeEChartsRichText(t(`apps.topology.kinds.${node.kind}`, { defaultValue: node.kind }))}}\n{name|${escapeEChartsRichText(truncate(node.name, labelMaxLength))}}`,
         rich: {
-          kind: { fontSize: compact ? 8 : 10, opacity: 0.82, lineHeight: compact ? 13 : 17 },
-          name: { fontSize: compact ? 9 : 12, fontWeight: 600, lineHeight: compact ? 14 : 18 },
+          kind: { color: '#f8fafc', fontSize: compact ? 8 : 10, lineHeight: compact ? 13 : 17 },
+          name: { color: '#ffffff', fontSize: compact ? 9 : 12, fontWeight: 600, lineHeight: compact ? 14 : 18 },
         },
       },
     }
@@ -347,10 +377,10 @@ function buildChartOption(
         source: edge.source,
         target: edge.target,
         lineStyle: {
-          color: muted,
+          color: edgeColor,
           curveness: edge.type === 'configures' || edge.type === 'mounts' || edge.type === 'scales' ? 0.08 : 0,
-          opacity: 0.58,
-          width: 1.5,
+          opacity: 0.78,
+          width: 1.75,
         },
       })),
       edgeSymbol: ['none', 'arrow'],
@@ -398,6 +428,20 @@ function colorForStatus(status: string) {
   if (normalized.includes('pending') || normalized.includes('progress'))
     return '#fbbf24'
   return '#cbd5e1'
+}
+
+function chartThemeColor(styles: CSSStyleDeclaration, variable: string, fallback: string, alpha?: number) {
+  const value = styles.getPropertyValue(variable).trim()
+  if (!value)
+    return fallback
+  const hslParts = value.split(/\s+/)
+  if (hslParts.length === 3 && hslParts[1]?.endsWith('%') && hslParts[2]?.endsWith('%')) {
+    const [hue, saturation, lightness] = hslParts
+    return alpha === undefined
+      ? `hsl(${hue}, ${saturation}, ${lightness})`
+      : `hsla(${hue}, ${saturation}, ${lightness}, ${alpha})`
+  }
+  return value
 }
 
 function truncate(value: string, maxLength: number) {

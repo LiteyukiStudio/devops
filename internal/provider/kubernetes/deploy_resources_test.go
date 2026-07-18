@@ -22,6 +22,7 @@ func TestApplyApplicationResourcesCreatesWorkloadResources(t *testing.T) {
 		EnvironmentID:         "env_dev",
 		DeploymentTargetID:    "dplt_backend",
 		ReleaseID:             "rel_1",
+		ServiceBindingsDigest: "binding-digest",
 		Image:                 "registry.example.com/acme/api:v1",
 		Replicas:              2,
 		ServicePort:           8080,
@@ -66,6 +67,9 @@ func TestApplyApplicationResourcesCreatesWorkloadResources(t *testing.T) {
 	assertManagedLabels(t, deployment.Spec.Template.Labels, spec.Name, spec.ProjectID, spec.ApplicationID, spec.EnvironmentID, spec.DeploymentTargetID, spec.ReleaseID)
 	if deployment.Spec.Template.Annotations[ReleaseIDLabel] != spec.ReleaseID {
 		t.Fatalf("template release annotation = %q", deployment.Spec.Template.Annotations[ReleaseIDLabel])
+	}
+	if deployment.Spec.Template.Annotations["luna.devops/service-bindings-digest"] != spec.ServiceBindingsDigest {
+		t.Fatalf("template service binding annotation = %q", deployment.Spec.Template.Annotations["luna.devops/service-bindings-digest"])
 	}
 
 	service, err := client.client.CoreV1().Services(spec.Namespace).Get(context.Background(), spec.Name, metav1.GetOptions{})

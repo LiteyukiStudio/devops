@@ -21,6 +21,7 @@ type ApplicationResourcesSpec struct {
 	ReleaseID                    string
 	BuildRunID                   string
 	ImageDigest                  string
+	ServiceBindingsDigest        string
 	Image                        string
 	Replicas                     int32
 	ServicePort                  int32
