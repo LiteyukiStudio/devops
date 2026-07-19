@@ -31,6 +31,31 @@ func TestLoginInputRequiresExplicitRememberChoice(t *testing.T) {
 	}
 }
 
+func TestUpdateCurrentUserInputDistinguishesThemeInheritance(t *testing.T) {
+	var omitted updateCurrentUserInput
+	if err := json.Unmarshal([]byte(`{"name":"Luna"}`), &omitted); err != nil {
+		t.Fatalf("unmarshal omitted theme: %v", err)
+	}
+	if omitted.BrandColorPreset != nil {
+		t.Fatalf("omitted brandColorPreset = %q, want nil", *omitted.BrandColorPreset)
+	}
+
+	var inherited updateCurrentUserInput
+	if err := json.Unmarshal([]byte(`{"brandColorPreset":""}`), &inherited); err != nil {
+		t.Fatalf("unmarshal inherited theme: %v", err)
+	}
+	if inherited.BrandColorPreset == nil || *inherited.BrandColorPreset != "" {
+		t.Fatalf("inherited brandColorPreset = %#v, want explicit empty value", inherited.BrandColorPreset)
+	}
+}
+
+func TestCurrentUserResponseIncludesBrandColorPreference(t *testing.T) {
+	response := currentUserResponse(model.User{BrandColorPreset: "teal"})
+	if response["brandColorPreset"] != "teal" {
+		t.Fatalf("brandColorPreset = %v, want teal", response["brandColorPreset"])
+	}
+}
+
 func TestCreateRememberTokenDefaultsToNoOp(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)

@@ -158,7 +158,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
                 <Plus size={16} />
                 {t('apps.createTitle')}
               </Button>
-              <Link className="text-sm text-primary hover:underline" to="/projects">{t('backToProjectSpaces')}</Link>
+              <Link className="text-sm text-primary-text hover:underline" to="/projects">{t('backToProjectSpaces')}</Link>
             </div>
           )}
           description={t('apps.description')}
@@ -362,7 +362,7 @@ function ApplicationSummary({ application, projectId }: { application: Applicati
       </span>
       <div className="min-w-0 w-full">
         <div className="flex items-center gap-2">
-          <Link className={`min-w-0 truncate font-medium transition hover:text-primary ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${projectId}/apps/${application.id}`}>
+          <Link className={`min-w-0 truncate font-medium transition hover:text-primary-text ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${projectId}/apps/${application.id}`}>
             {application.name}
           </Link>
           {application.deleteStatus && application.deleteStatus !== 'active' && (

@@ -394,3 +394,37 @@ disabledTools:
     reason: permanent cleanup 需要专门的 confirmation UX 和 administrator step-up。
   - name: luna.secret.value.read
     reason: MCP 不允许暴露 raw secret values。
+
+plannedTools:
+  - name: luna.confirmation.get
+    title: 查询确认状态
+    category: confirmation
+    risk: read
+    authz: project:read
+    description: 查询 pending intent 的确认、执行和过期状态，主要供 external MCP client 在用户打开平台确认链接后轮询结果。
+    http:
+      method: GET
+      path: /api/v1/confirmations/{confirmationId}
+    inputSchema:
+      type: object
+      additionalProperties: false
+      required: [confirmationId]
+      properties:
+        confirmationId:
+          type: string
+  - name: luna.confirmation.cancel
+    title: 取消待确认操作
+    category: confirmation
+    risk: low
+    authz: project:read
+    description: 取消尚未执行的 pending intent。该工具不会执行原始高危操作。
+    http:
+      method: POST
+      path: /api/v1/confirmations/{confirmationId}/reject
+    inputSchema:
+      type: object
+      additionalProperties: false
+      required: [confirmationId]
+      properties:
+        confirmationId:
+          type: string

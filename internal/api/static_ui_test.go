@@ -24,7 +24,7 @@ func TestStaticUIServesIndexWithoutRedirect(t *testing.T) {
 		},
 	}
 	router := gin.New()
-	registerStaticUI(router, files)
+	registerStaticUI(router, files, nil)
 
 	for _, path := range []string{"/", "/index.html", "/projects/prj_1/apps/app_1"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -60,7 +60,7 @@ func TestStaticUIServesAssetsAndSkipsAPI(t *testing.T) {
 		},
 	}
 	router := gin.New()
-	registerStaticUI(router, files)
+	registerStaticUI(router, files, nil)
 
 	assetReq := httptest.NewRequest(http.MethodGet, "/assets/app.js", nil)
 	assetRec := httptest.NewRecorder()
@@ -90,5 +90,40 @@ func TestStaticUIServesAssetsAndSkipsAPI(t *testing.T) {
 	router.ServeHTTP(apiRec, apiReq)
 	if apiRec.Code != http.StatusNotFound {
 		t.Fatalf("api route expected 404, got %d", apiRec.Code)
+	}
+}
+
+func TestStaticUIInjectsValidatedBrandThemeBeforeFirstPaint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	files := fstest.MapFS{
+		"index.html": {
+			Data: []byte(`<!doctype html><html data-brand-theme="__LUNA_DEVOPS_BRAND_THEME__"></html>`),
+		},
+	}
+
+	for _, test := range []struct {
+		name       string
+		configured string
+		want       string
+	}{
+		{name: "official preset", configured: "teal", want: `data-brand-theme="teal"`},
+		{name: "invalid preset", configured: "url(javascript:bad)", want: `data-brand-theme="blue"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			router := gin.New()
+			registerStaticUI(router, files, func() string { return test.configured })
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("GET / expected 200, got %d", recorder.Code)
+			}
+			if !strings.Contains(recorder.Body.String(), test.want) {
+				t.Fatalf("index body %q does not contain %q", recorder.Body.String(), test.want)
+			}
+			if strings.Contains(recorder.Body.String(), brandThemeHTMLPlaceholder) {
+				t.Fatalf("index body still contains theme placeholder: %q", recorder.Body.String())
+			}
+		})
 	}
 }

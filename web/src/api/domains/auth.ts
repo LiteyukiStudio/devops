@@ -32,7 +32,7 @@ export const authApi = {
   updateAuthAdmissionPolicy: (payload: Omit<AuthAdmissionPolicy, 'id'>) =>
     request<AuthAdmissionPolicy>('/auth/admission-policy', { method: 'PUT', body: JSON.stringify(payload) }),
   getCurrentUser: () => request<CurrentUser>('/users/me'),
-  updateCurrentUser: (payload: { name?: string, avatarUrl?: string, language?: 'zh-CN' | 'en-US' }) =>
+  updateCurrentUser: (payload: { name?: string, avatarUrl?: string, language?: 'zh-CN' | 'en-US', brandColorPreset?: CurrentUser['brandColorPreset'] }) =>
     request<CurrentUser>('/users/me', { method: 'PUT', body: JSON.stringify(payload) }),
   listMyExternalIdentities: () => request<ExternalIdentity[]>('/users/me/external-identities'),
   unbindMyExternalIdentity: (identityId: string) =>

@@ -28,14 +28,14 @@ export function FormField({
         <FieldLabel className="min-w-0 gap-1.5">
           <span className="truncate">
             {label}
-            {required && <span className="ml-1 text-primary">*</span>}
+            {required && <span className="ml-1 text-primary-text">*</span>}
           </span>
           {hint && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   aria-label={`${label}${i18next.t('common.helpSuffix')}`}
-                  className="inline-flex shrink-0 text-muted-foreground outline-none hover:text-primary focus:text-primary"
+                  className="inline-flex shrink-0 text-muted-foreground outline-none hover:text-primary-text focus:text-primary-text"
                   tabIndex={-1}
                   type="button"
                 >

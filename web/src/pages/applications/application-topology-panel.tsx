@@ -103,7 +103,7 @@ export function ApplicationTopologyPanel({ applicationId, projectId }: Applicati
         <div className="grid gap-3 rounded-md border border-border bg-muted/25 p-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">{t('apps.topology.logicalDependencies')}</h2>
-            <Link className="text-sm text-primary hover:underline" to={`/projects/${projectId}?tab=topology`}>{t('apps.topology.openProjectTopology')}</Link>
+            <Link className="text-sm text-primary-text hover:underline" to={`/projects/${projectId}?tab=topology`}>{t('apps.topology.openProjectTopology')}</Link>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {logicalTopology.data?.edges.map((edge) => {

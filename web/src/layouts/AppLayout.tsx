@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ActivitySquare, Bell, CalendarClock, Container, CreditCard, FolderKanban, GitBranch, LayoutDashboard, Link2, Menu, PackageOpen, Server, Settings, ShieldCheck, Users } from 'lucide-react'
+import { Bell, ChartNoAxesCombined, CircleUserRound, Container, CreditCard, Fingerprint, FolderKanban, GitBranch, LayoutDashboard, Menu, ScrollText, Server, Settings, Store, Users } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -53,7 +53,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard },
       { to: '/projects', labelKey: 'projects', icon: FolderKanban, activeMatch: pathname => pathname === '/projects' || pathname.startsWith('/projects/') },
-      { to: '/events', labelKey: 'events', icon: CalendarClock },
+      { to: '/events', labelKey: 'events', icon: ScrollText },
     ],
   },
   {
@@ -62,23 +62,23 @@ const navSections: NavSection[] = [
       { to: '/code-repositories', labelKey: 'codeRepositories', icon: GitBranch },
       { to: '/registries', labelKey: 'registries', icon: Container },
       { to: '/clusters', labelKey: 'clusters', icon: Server },
-      { to: '/app-templates', labelKey: 'appTemplates', icon: PackageOpen },
+      { to: '/app-templates', labelKey: 'appTemplates', icon: Store },
     ],
   },
   {
     titleKey: 'nav.systemManagement',
     items: [
-      { to: '/settings/auth-providers', labelKey: 'authProviders', icon: ShieldCheck, permission: 'user.manage' },
+      { to: '/settings/auth-providers', labelKey: 'authProviders', icon: Fingerprint, permission: 'user.manage' },
       { to: '/settings/users', labelKey: 'users', icon: Users, permission: 'user.manage' },
       { to: '/settings/notifications', labelKey: 'notifications', icon: Bell, permission: 'user.manage' },
-      { to: '/settings/operations', labelKey: 'operationsDashboard', icon: ActivitySquare, permission: 'user.manage' },
+      { to: '/settings/operations', labelKey: 'operationsDashboard', icon: ChartNoAxesCombined, permission: 'user.manage' },
       { to: '/settings/site', labelKey: 'siteSettings', icon: Settings, permission: 'user.manage' },
     ],
   },
   {
     titleKey: 'nav.personal',
     items: [
-      { to: '/settings/account', labelKey: 'account', icon: Link2 },
+      { to: '/settings/account', labelKey: 'account', icon: CircleUserRound },
       { to: '/billing', labelKey: 'billing', icon: CreditCard },
     ],
   },
@@ -296,7 +296,7 @@ function TopbarTitle({ crumbs, prefix, title }: { crumbs: TopbarCrumb[], prefix:
       {crumbs.map((crumb, index) => (
         <span key={crumb.to} className="flex min-w-0 items-center gap-1.5">
           {index > 0 && <span className="shrink-0 text-muted-foreground">/</span>}
-          <Link className="min-w-0 truncate rounded-sm outline-none transition-colors hover:text-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-ring" title={crumb.label} to={crumb.to}>
+          <Link className="min-w-0 truncate rounded-sm outline-none transition-colors hover:text-primary-text focus-visible:text-primary-text focus-visible:ring-2 focus-visible:ring-ring" title={crumb.label} to={crumb.to}>
             {crumb.label}
           </Link>
         </span>

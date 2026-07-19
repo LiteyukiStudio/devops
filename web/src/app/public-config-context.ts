@@ -9,6 +9,7 @@ export const defaultPublicConfigs: Record<string, string> = {
   'site.logoUrl': '/luna-devops-logo.svg',
   'site.faviconUrl': '/luna-devops-logo.svg',
   'site.loginSubtitle': i18next.t('loginPage.subtitle'),
+  'site.brandColorPreset': 'blue',
 }
 
 export const PublicConfigContext = createContext(defaultPublicConfigs)

@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api'
+import { applyUserBrandColorPreference, clearActiveUserBrandColorPreference } from './brand-theme'
 import { SessionContext } from './session-context'
 
 const currentUserQueryKey = ['current-user'] as const
@@ -37,6 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     queryKey: currentUserQueryKey,
     queryFn: async () => {
       const user = await api.getCurrentUser()
+      applyUserBrandColorPreference(user.id, user.brandColorPreset)
       setRecentLoginUsers(cacheRecentLoginUser(user))
       return user
     },
@@ -72,6 +74,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: api.logout,
     onSuccess: () => {
+      clearActiveUserBrandColorPreference()
       queryClient.clear()
       navigate('/login')
     },
@@ -147,6 +150,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
 function setCurrentUser(queryClient: ReturnType<typeof useQueryClient>, user: CurrentUser) {
   localStorage.setItem('luna-devops-language', user.language)
+  applyUserBrandColorPreference(user.id, user.brandColorPreset)
   queryClient.setQueryData(currentUserQueryKey, user)
 }
 

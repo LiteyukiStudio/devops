@@ -2,7 +2,7 @@ import type { AuthAdmissionPolicy, AuthProvider } from '@/api'
 import type { DataListColumn } from '@/components/common/data-list'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, Plus, Save, ShieldCheck } from 'lucide-react'
+import { Copy, Plus, Save } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -364,7 +364,7 @@ export function AuthProvidersPage() {
                 </Select>
               </Field>
               <Button disabled={savePolicy.isPending || !policyForm.formState.isValid} type="submit">
-                <ShieldCheck size={16} />
+                <Save size={16} />
                 {t('authProvidersPage.savePolicy')}
               </Button>
             </form>

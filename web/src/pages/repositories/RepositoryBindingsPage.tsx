@@ -221,7 +221,7 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
                   <Plus size={16} />
                   {t('repositories.bindRepoTitle')}
                 </Button>
-                <Link className="text-sm text-primary hover:underline" to={`/projects/${projectId}/apps`}>{t('backToApps')}</Link>
+                <Link className="text-sm text-primary-text hover:underline" to={`/projects/${projectId}/apps`}>{t('backToApps')}</Link>
               </div>
             )
           : undefined}
@@ -334,7 +334,7 @@ export function RepositoryBindingsPage({ applicationId, applicationName, embedde
             })}
           >
             <div className="flex justify-end">
-              <Link className="text-sm text-primary hover:underline" to="/code-repositories">{t('repositories.manageCodeRepositories')}</Link>
+              <Link className="text-sm text-primary-text hover:underline" to="/code-repositories">{t('repositories.manageCodeRepositories')}</Link>
             </div>
             {applicationId
               ? <input type="hidden" {...form.register('applicationId')} value={applicationId} />

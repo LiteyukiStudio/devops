@@ -354,7 +354,7 @@ function GuideValue({ important, label, value }: { important?: boolean, label: s
   return (
     <div className="grid gap-1 sm:grid-cols-[9rem_1fr_auto] sm:items-center">
       <span className="text-muted-foreground">{label}</span>
-      <code className={important ? 'break-all font-mono text-primary' : 'break-all font-mono'}>{value}</code>
+      <code className={important ? 'break-all font-mono text-primary-text' : 'break-all font-mono'}>{value}</code>
       <Button
         className="w-fit"
         type="button"

@@ -9,6 +9,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { api, oidcStartUrl } from '@/api'
+import { brandColorPresets } from '@/app/brand-theme'
+import { usePublicConfig } from '@/app/public-config-context'
 import { useSession } from '@/app/session-context'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { EmptyState } from '@/components/common/empty-state'
@@ -24,11 +26,13 @@ import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
 import { AccessTokensPanel } from '@/pages/access-tokens/AccessTokensPage'
 import { AccountMFAPanel } from './account-mfa-panel'
+import { BrandColorPresetField } from './brand-color-preset-field'
 
 const profileSchema = z.object({
   name: z.string().min(1, i18next.t('accountPage.profileNameRequired')),
   avatarUrl: z.string().optional(),
   language: z.enum(['zh-CN', 'en-US']),
+  brandColorPreset: z.union([z.literal(''), z.enum(brandColorPresets)]),
 })
 
 type ProfileForm = z.infer<typeof profileSchema>
@@ -80,11 +84,13 @@ export function AccountPage() {
 function ProfilePanel() {
   const { t } = useTranslation()
   const { updateProfile, user } = useSession()
+  const configs = usePublicConfig()
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     mode: 'onChange',
     defaultValues: {
       avatarUrl: user?.avatarUrl ?? '',
+      brandColorPreset: user?.brandColorPreset ?? '',
       language: user?.language ?? 'zh-CN',
       name: user?.name ?? '',
     },
@@ -95,6 +101,7 @@ function ProfilePanel() {
       return
     form.reset({
       avatarUrl: user.avatarUrl ?? '',
+      brandColorPreset: user.brandColorPreset ?? '',
       language: user.language,
       name: user.name,
     })
@@ -136,6 +143,15 @@ function ProfilePanel() {
             <option value="zh-CN">{t('languages.zhCN')}</option>
             <option value="en-US">{t('languages.enUS')}</option>
           </Select>
+        </Field>
+        <Field error={form.formState.errors.brandColorPreset?.message} hint={t('accountPage.brandColorHint')} label={t('accountPage.brandColor')}>
+          <BrandColorPresetField
+            ariaLabel={t('accountPage.brandColor')}
+            inheritedPreset={configs['site.brandColorPreset']}
+            inheritLabel={t('accountPage.followPlatformBrandColor')}
+            value={form.watch('brandColorPreset')}
+            onValueChange={nextValue => form.setValue('brandColorPreset', nextValue, { shouldDirty: true, shouldValidate: true })}
+          />
         </Field>
         <div className="flex justify-end">
           <Button disabled={saveProfile.isPending || !form.formState.isValid || !form.formState.isDirty} type="submit">

@@ -11,7 +11,7 @@ export function InternalServiceEndpoint({ endpoint, onCopy }: { endpoint?: Inter
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button className="grid min-w-0 max-w-64 gap-0.5 text-left transition hover:text-primary" type="button" onClick={() => onCopy(endpoint.fqdn)}>
+        <button className="grid min-w-0 max-w-64 gap-0.5 text-left transition hover:text-primary-text" type="button" onClick={() => onCopy(endpoint.fqdn)}>
           <span className="truncate font-mono text-xs">{endpoint.serviceName}</span>
           <span className="truncate text-xs text-muted-foreground">{endpoint.fqdn}</span>
         </button>

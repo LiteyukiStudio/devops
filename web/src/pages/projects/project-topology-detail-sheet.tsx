@@ -7,7 +7,7 @@ import type {
   ServiceBindingCheckResult,
 } from '@/api'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Activity, Pencil, Trash2 } from 'lucide-react'
+import { Pencil, ScanSearch, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -133,7 +133,7 @@ export function ProjectTopologyDetailSheet({
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="font-semibold">{t('projectTopology.diagnostics')}</h3>
                       <Button disabled={checkBinding.isPending} size="sm" variant="outline" onClick={() => checkBinding.mutate()}>
-                        <Activity className={checkBinding.isPending ? 'size-4 animate-pulse' : 'size-4'} />
+                        <ScanSearch className={checkBinding.isPending ? 'size-4 animate-pulse' : 'size-4'} />
                         {t(checkBinding.isPending ? 'projectTopology.checking' : 'projectTopology.check')}
                       </Button>
                     </div>
@@ -193,7 +193,7 @@ function ApplicationLink({ applicationId, label, name, projectId }: { applicatio
     <div className="min-w-0">
       <p className="text-xs text-muted-foreground">{label}</p>
       {applicationId
-        ? <Link className="mt-1 block truncate font-medium text-primary hover:underline" to={`/projects/${projectId}/apps/${applicationId}`}>{name}</Link>
+        ? <Link className="mt-1 block truncate font-medium text-primary-text hover:underline" to={`/projects/${projectId}/apps/${applicationId}`}>{name}</Link>
         : <p className="mt-1 truncate font-medium">{name}</p>}
     </div>
   )

@@ -1,7 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form'
 import type { CredentialForm, ImageForm, RegistryForm } from './registry-form-model'
 import type { ArtifactRegistry, Project, RegistryCredential, RegistryRepositoryItem, RegistryTagItem } from '@/api'
-import { Container, KeyRound, Plus, Search } from 'lucide-react'
+import { KeyRound, PackagePlus, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CheckboxField } from '@/components/common/checkbox-field'
 import { EmptyState } from '@/components/common/empty-state'
@@ -385,7 +385,7 @@ export function ImageDialog({
           </div>
           <DialogFooter>
             <Button disabled={pending || !form.formState.isValid} type="submit">
-              <Container size={16} />
+              <PackagePlus size={16} />
               {t('registriesPage.recordImage')}
             </Button>
           </DialogFooter>

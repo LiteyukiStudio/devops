@@ -2,7 +2,7 @@ import type { CredentialForm, CredentialWithRegistry, ImageForm, RegistryForm } 
 import type { ArtifactRegistry, RegistryCredential, RegistryRepositoryItem } from '@/api'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Container, KeyRound, Plus } from 'lucide-react'
+import { KeyRound, PackagePlus, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -308,7 +308,7 @@ export function RegistriesPage() {
                   setImageDialogOpen(true)
                 }}
               >
-                <Container size={16} />
+                <PackagePlus size={16} />
                 {t('registriesPage.recordImage')}
               </Button>
             )}

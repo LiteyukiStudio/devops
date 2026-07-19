@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { api } from '@/api'
+import { applySiteBrandColorPreset } from './brand-theme'
 import { defaultPublicConfigs, PublicConfigContext } from './public-config-context'
 
-const publicConfigKeys = ['site.title', 'site.logoUrl', 'site.faviconUrl', 'site.loginSubtitle', 'billing.creditsDisplayName', 'billing.fiatCurrencyUnit', 'billing.creditsPerFiatUnit']
+const publicConfigKeys = ['site.title', 'site.logoUrl', 'site.faviconUrl', 'site.loginSubtitle', 'site.brandColorPreset', 'billing.creditsDisplayName', 'billing.fiatCurrencyUnit', 'billing.creditsPerFiatUnit']
 
 export function PublicConfigProvider({ children }: { children: ReactNode }) {
   const configs = useQuery({
@@ -27,6 +28,12 @@ export function PublicConfigProvider({ children }: { children: ReactNode }) {
     }
     link.href = faviconUrl
   }, [value])
+
+  useEffect(() => {
+    const preset = configs.data?.['site.brandColorPreset']
+    if (preset)
+      applySiteBrandColorPreset(preset)
+  }, [configs.data])
 
   return <PublicConfigContext value={value}>{children}</PublicConfigContext>
 }

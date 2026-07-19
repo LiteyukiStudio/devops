@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { AppTemplate, AppTemplateInstallPayload, Project, RuntimeCluster } from '@/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Box, CircleHelp, Database, Link2, PackageOpen, Rocket, Search, ShieldCheck } from 'lucide-react'
+import { Box, CircleHelp, Database, ExternalLink, PackagePlus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -320,7 +320,7 @@ function TemplateCard({ canInstallSystemComponent, template, onInstall }: { canI
           <div className="flex min-w-0 items-center gap-2">
             <TemplateSourceLink
               href={template.officialWebsite}
-              icon={<Link2 className="size-4" />}
+              icon={<ExternalLink className="size-4" />}
               label={t('appTemplatesPage.officialWebsite')}
             />
             <TemplateSourceLink
@@ -336,7 +336,7 @@ function TemplateCard({ canInstallSystemComponent, template, onInstall }: { canI
         </div>
         <div className="shrink-0 sm:self-end">
           <Button className="w-full sm:w-auto" disabled={installDisabled} type="button" onClick={onInstall}>
-            {systemComponent ? <ShieldCheck className="size-4" /> : <Rocket className="size-4" />}
+            <PackagePlus className="size-4" />
             {t('appTemplatesPage.install')}
           </Button>
         </div>
@@ -351,7 +351,7 @@ function TemplateSourceLink({ href, icon, label }: { href: string, icon: ReactNo
   return (
     <a
       aria-label={label}
-      className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-primary-text focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       href={href}
       rel="noreferrer"
       target="_blank"
@@ -589,7 +589,7 @@ function InstallTemplateDialog({
         <DialogFooter className="shrink-0 border-t border-border bg-surface px-4 py-3 sm:px-6 sm:py-4 [&>button]:w-full sm:[&>button]:w-auto">
           <Button disabled={installing} type="button" variant="outline" onClick={onClose}>{t('common.cancel')}</Button>
           <Button disabled={!canSubmit} type="button" onClick={onSubmit}>
-            <PackageOpen className={cn('size-4', installing && 'animate-pulse')} />
+            <PackagePlus className={cn('size-4', installing && 'animate-pulse')} />
             {installing ? t('appTemplatesPage.installing') : t('appTemplatesPage.install')}
           </Button>
         </DialogFooter>
@@ -606,14 +606,14 @@ function Field({ children, hint, label, required }: { children: React.ReactNode,
       <Label className="flex w-fit items-center gap-1.5">
         <span>
           {label}
-          {required && <span className="ml-1 text-primary">*</span>}
+          {required && <span className="ml-1 text-primary-text">*</span>}
         </span>
         {hint && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 aria-label={`${label}${t('common.helpSuffix')}`}
-                className="inline-flex shrink-0 text-muted-foreground outline-none hover:text-primary focus:text-primary"
+                className="inline-flex shrink-0 text-muted-foreground outline-none hover:text-primary-text focus:text-primary-text"
                 tabIndex={-1}
                 type="button"
               >

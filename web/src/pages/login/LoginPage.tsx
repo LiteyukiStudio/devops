@@ -137,7 +137,7 @@ export function LoginPage() {
                             <TooltipTrigger asChild>
                               <button
                                 aria-label={t('loginPage.selectRecentAccount', { email: user.email, name: user.name })}
-                                className="group flex size-10 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-sm font-semibold text-muted-foreground transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/30 focus-visible:outline-none"
+                                className="group flex size-10 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-sm font-semibold text-muted-foreground transition hover:border-primary hover:text-primary-text focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary/30 focus-visible:outline-none"
                                 type="button"
                                 onClick={() => selectRecentUser(user)}
                               >

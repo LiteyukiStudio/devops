@@ -1,3 +1,4 @@
+@import "./styles/brand-themes.css";
 @import "tailwindcss";
 
 @theme {
@@ -16,9 +17,16 @@
   --color-secondary-foreground: hsl(var(--foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--border));
-  --color-ring: hsl(var(--primary));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-ring: var(--primary-ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-subtle-hover: var(--primary-subtle-hover);
+  --color-primary-subtle-active: var(--primary-subtle-active);
+  --color-primary-border: var(--primary-border);
+  --color-primary-text: var(--primary-text);
+  --color-primary-text-strong: var(--primary-text-strong);
+  --color-primary-foreground: var(--primary-foreground);
   --color-danger: hsl(var(--danger));
   --color-destructive: hsl(var(--danger));
 }
@@ -30,8 +38,6 @@
   --muted-foreground: 220 9% 42%;
   --surface: 0 0% 100%;
   --border: 214 18% 86%;
-  --primary: 220 79% 55%;
-  --primary-foreground: 0 0% 100%;
   --danger: 0 74% 48%;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: hsl(var(--background));
@@ -45,8 +51,6 @@
   --muted-foreground: 218 10% 68%;
   --surface: 222 16% 13%;
   --border: 220 13% 24%;
-  --primary: 213 94% 68%;
-  --primary-foreground: 222 47% 8%;
   --danger: 0 70% 56%;
 }
 

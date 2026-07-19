@@ -6,7 +6,7 @@ import type { ProjectHooksPageHandle } from '@/pages/projects/ProjectHooksPage'
 import type { ProjectMembersPageHandle } from '@/pages/projects/ProjectMembersPage'
 import type { ProjectRuntimeConfigSetsPageHandle } from '@/pages/projects/ProjectRuntimeConfigSetsPage'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ArrowRight, CalendarClock, FileCode2, Globe2, KeyRound, Network, Package, Plus, Rocket, ScrollText, UserPlus } from 'lucide-react'
+import { Activity, ArrowRight, FileCode2, Globe2, KeyRound, Network, Package, Plus, Rocket, ScrollText, UserPlus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { lazy, Suspense, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -300,7 +300,7 @@ function ProjectOverviewDashboard({ applications, builds, events, members, proje
             <h3 className="text-sm font-semibold">{t('projectSpaces.recentEvents')}</h3>
             <p className="mt-1 text-xs text-muted-foreground">{t('projectSpaces.recentEventsDescription')}</p>
           </div>
-          <Link className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm text-primary transition hover:bg-muted" to={`/events?projectId=${encodeURIComponent(project?.id ?? '')}`}>
+          <Link className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm text-primary-text transition hover:bg-muted" to={`/events?projectId=${encodeURIComponent(project?.id ?? '')}`}>
             {t('projectSpaces.viewAllEvents')}
             <ArrowRight className="size-4" />
           </Link>
@@ -310,7 +310,7 @@ function ProjectOverviewDashboard({ applications, builds, events, members, proje
             ? events.map(event => (
                 <div key={event.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
                   <div className="flex min-w-0 items-center gap-3">
-                    <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+                    <ScrollText className="size-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{t(`eventsPage.types.${event.type.replaceAll('.', '_')}`, { defaultValue: event.type })}</p>
                       <p className="mt-1 truncate text-xs text-muted-foreground">{event.message || t('eventsPage.noMessage')}</p>

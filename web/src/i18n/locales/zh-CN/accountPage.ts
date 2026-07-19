@@ -11,6 +11,9 @@ const accountPage = {
   avatarUrlHint: '填写可公开访问的头像图片地址；留空时使用昵称首字母作为头像。',
   avatarUrlPlaceholder: 'https://example.com/avatar.png',
   languageHint: '用户偏好的界面语言，后端错误文案和前端语言会尽量保持同步。',
+  brandColor: '主题色',
+  brandColorHint: '默认跟随平台主题色；选择个人主题色后，将优先使用你的设置。',
+  followPlatformBrandColor: '跟随平台',
   saveProfile: '保存个人资料',
   profileSaved: '个人资料已保存',
   mfa: {

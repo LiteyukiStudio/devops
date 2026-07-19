@@ -47,7 +47,7 @@ export interface SessionContextValue {
   refreshUser: () => Promise<void>
   resumeLogin: (userId: string) => Promise<CurrentUser>
   setDebugOverride: (override: DebugSessionOverride) => void
-  updateProfile: (input: { name: string, avatarUrl: string, language: CurrentUser['language'] }) => Promise<CurrentUser>
+  updateProfile: (input: { name: string, avatarUrl: string, language: CurrentUser['language'], brandColorPreset: CurrentUser['brandColorPreset'] }) => Promise<CurrentUser>
   updateLanguage: (language: CurrentUser['language']) => Promise<CurrentUser>
 }
 

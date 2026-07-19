@@ -70,7 +70,7 @@ export function MFADialogProvider({ children }: { children: ReactNode }) {
       <Dialog open={Boolean(challenge)} onOpenChange={open => !open && cancel()}>
         <DialogContent showCloseButton={!verifying}>
           <div className="flex gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-text">
               <ShieldCheck size={18} />
             </span>
             <DialogHeader>

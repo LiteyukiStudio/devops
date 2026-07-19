@@ -160,7 +160,7 @@ export function ProjectTopologyPanel({ applications, canManage, initialCreate = 
       {pendingReleaseApplicationId && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
           <span>{t('projectTopology.savedNeedsRelease')}</span>
-          <Link className="font-medium text-primary hover:underline" to={`/projects/${projectId}/apps/${pendingReleaseApplicationId}?tab=deployments`}>
+          <Link className="font-medium text-primary-text hover:underline" to={`/projects/${projectId}/apps/${pendingReleaseApplicationId}?tab=deployments`}>
             {t('projectTopology.openDeployment')}
           </Link>
         </div>

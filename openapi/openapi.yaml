@@ -492,6 +492,10 @@ paths:
       responses:
         "200":
           description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
     put:
       tags: [Users]
       summary: Update current user preferences
@@ -504,6 +508,10 @@ paths:
       responses:
         "200":
           description: Updated current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
 
   /api/v1/users/me/external-identities:
     get:
@@ -2467,12 +2475,34 @@ components:
           type: array
           items: { $ref: "#/components/schemas/DataRetentionResult" }
       required: [items]
+    CurrentUser:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string }
+        avatarUrl: { type: string }
+        authType: { type: string, enum: [local, oidc] }
+        role: { type: string }
+        language: { type: string, enum: [zh-CN, en-US] }
+        brandColorPreset:
+          type: string
+          description: Empty follows the platform brand color; otherwise contains the user's official Radix color preset ID.
+          enum: ['', gold, bronze, brown, yellow, amber, orange, tomato, red, ruby, crimson, pink, plum, purple, violet, iris, indigo, blue, cyan, teal, jade, green, grass, lime, mint, sky]
+        permissions:
+          type: array
+          items: { type: string }
+      required: [id, email, name, avatarUrl, authType, role, language, brandColorPreset, permissions]
     UpdateCurrentUserInput:
       type: object
       properties:
         name: { type: string }
         avatarUrl: { type: string }
         language: { type: string, enum: [zh-CN, en-US] }
+        brandColorPreset:
+          type: string
+          description: Empty follows the platform brand color; otherwise stores an official Radix color preset ID.
+          enum: ['', gold, bronze, brown, yellow, amber, orange, tomato, red, ruby, crimson, pink, plum, purple, violet, iris, indigo, blue, cyan, teal, jade, green, grass, lime, mint, sky]
     UserInput:
       type: object
       properties:

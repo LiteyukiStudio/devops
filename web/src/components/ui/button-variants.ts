@@ -15,10 +15,10 @@ const buttonVariants = cva(
         sm: 'h-8 px-3',
       },
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        default: 'bg-primary text-primary-foreground hover:bg-primary-hover',
         destructive: 'bg-danger text-white hover:bg-danger/90 focus-visible:ring-danger/20',
         ghost: 'hover:bg-muted hover:text-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        link: 'text-primary-text underline-offset-4 hover:underline',
         outline: 'border border-border bg-background hover:bg-muted hover:text-foreground',
         secondary: 'border border-border bg-surface text-foreground hover:bg-muted',
       },

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
+import { useCallback, useEffect, useId, useMemo } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -33,6 +34,8 @@ export function ContentTabs({
   value,
   onValueChange,
 }: ContentTabsProps) {
+  const indicatorLayoutId = `content-tabs-indicator-${useId()}`
+  const reducedMotion = useReducedMotion()
   const { routeToValue, valueToRoute } = useMemo(() => {
     const routeToValue = new Map<string, string>()
     const valueToRoute = new Map<string, string>()
@@ -119,8 +122,16 @@ export function ContentTabs({
         <div className="-mx-1 hidden min-w-0 overflow-x-auto px-1 md:block">
           <TabsList className="w-max max-w-none flex-nowrap">
             {tabs.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value}>
+              <TabsTrigger key={tab.value} className="relative data-[state=active]:border-transparent" value={tab.value}>
                 <span className="truncate">{tab.label}</span>
+                {tab.value === effectiveValue && (
+                  <motion.span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 -bottom-px h-0.5 bg-primary"
+                    layoutId={indicatorLayoutId}
+                    transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                )}
               </TabsTrigger>
             ))}
           </TabsList>

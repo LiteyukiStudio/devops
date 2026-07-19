@@ -438,7 +438,7 @@ function ProjectSummary({ project }: { project: Project }) {
         <FolderKanban size={18} />
       </span>
       <div className="min-w-0 w-full">
-        <Link aria-disabled={deleting} className={`truncate font-medium transition hover:text-primary ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${project.id}`}>
+        <Link aria-disabled={deleting} className={`truncate font-medium transition hover:text-primary-text ${deleting ? 'pointer-events-none opacity-60' : ''}`} to={`/projects/${project.id}`}>
           {project.name}
         </Link>
         {project.deleteStatus && project.deleteStatus !== 'active' && (

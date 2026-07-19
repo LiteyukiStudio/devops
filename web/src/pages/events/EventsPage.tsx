@@ -3,7 +3,7 @@ import type { PlatformEvent, PlatformEventSnapshot } from '@/api'
 import type { DataListColumn } from '@/components/common/data-list'
 import type { SearchSelectOption } from '@/components/common/search-select'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Activity, ExternalLink, Eye, Globe2, Hammer, RefreshCw, Rocket, ShieldCheck, Workflow } from 'lucide-react'
+import { Activity, ExternalLink, Eye, FileKey2, Globe2, Hammer, RefreshCw, Rocket, Workflow } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -528,7 +528,7 @@ function categoryIcon(category: string) {
   if (category === 'gateway')
     return <Globe2 className={className} />
   if (category === 'certificate')
-    return <ShieldCheck className={className} />
+    return <FileKey2 className={className} />
   return <Activity className={className} />
 }
 

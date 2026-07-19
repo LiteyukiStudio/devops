@@ -13,7 +13,7 @@ function Sidebar({ className, ...props }: ComponentProps<'aside'>) {
 }
 
 function SidebarHeader({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('min-w-0 max-w-full shrink-0 overflow-hidden border-b border-border', className)} data-slot="sidebar-header" {...props} />
+  return <div className={cn('min-w-0 max-w-full shrink-0 overflow-hidden', className)} data-slot="sidebar-header" {...props} />
 }
 
 function SidebarContent({ className, ...props }: ComponentProps<'nav'>) {

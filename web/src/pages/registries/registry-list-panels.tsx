@@ -1,6 +1,6 @@
 import type { CredentialWithRegistry } from './registry-form-model'
 import type { ArtifactRegistry, ContainerImage, PaginatedResponse } from '@/api'
-import { CheckCircle2, RefreshCw, Trash2 } from 'lucide-react'
+import { CheckCircle2, FlaskConical, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CopyableHoverText } from '@/components/common/copyable-hover-text'
 import { DataList } from '@/components/common/data-list'
@@ -85,7 +85,7 @@ export function RegistriesPanel({
               <div className="flex justify-end gap-2">
                 <EditActionButton type="button" label={t('edit')} onClick={() => onEdit(registry)} />
                 <Button disabled={testing} type="button" variant="ghost" onClick={() => onTest(registry.id)}>
-                  <RefreshCw size={16} />
+                  <FlaskConical size={16} />
                   {t('registriesPage.test')}
                 </Button>
                 <Button aria-label={t('registriesPage.deleteRegistryAria')} type="button" variant="ghost" onClick={() => onDelete(registry)}>
@@ -225,7 +225,7 @@ export function ImagesPanel({ images, registries, pagination }: ImagesPanelProps
         { key: 'registry', header: t('registries'), render: image => registries.find(registry => registry.id === image.registryId)?.name ?? image.registryId },
         { key: 'source', header: t('common.type'), render: image => <StatusBadge>{image.sourceType}</StatusBadge> },
         { key: 'scan', header: t('common.status'), render: image => <StatusValueBadge value={image.scanStatus} /> },
-        { key: 'digest', header: t('registriesPage.digest'), render: image => image.digest ? <CheckCircle2 className="text-primary" size={16} /> : '-' },
+        { key: 'digest', header: t('registriesPage.digest'), render: image => image.digest ? <CheckCircle2 className="text-primary-text" size={16} /> : '-' },
       ]}
       emptyTitle={t('registriesPage.noImagesTitle')}
       emptyDescription={t('registriesPage.noImagesDescription')}

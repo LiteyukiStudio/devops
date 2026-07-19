@@ -13,6 +13,14 @@
 
 这些内容可以放心展示给前端，但不要放 Token、密码或内部地址。
 
+### 品牌主题色
+
+平台管理员可以在“站点设置 → 品牌信息”的第一项选择全站默认品牌主题色。用户可以在“账号 → 个人资料”中继续跟随平台，或者选择自己的主题色。个人设置优先于站点默认；用户选择“跟随平台”时，账号中保存的是空偏好而不是当前颜色快照，因此管理员以后修改默认颜色会自动影响这些用户。主题色只影响按钮、正文链接、选中态和焦点环；成功、警告、失败等状态色保持独立，浅色、深色或跟随系统的明暗模式也不会被覆盖。
+
+可选颜色完整来自 [Radix Colors 3.0.0 官方品牌色阶](https://www.radix-ui.com/colors/docs/palette-composition/composing-a-palette)：Gold、Bronze、Brown、Yellow、Amber、Orange、Tomato、Red、Ruby、Crimson、Pink、Plum、Purple、Violet、Iris、Indigo、Blue、Cyan、Teal、Jade、Green、Grass、Lime、Mint 和 Sky。平台不接受任意 HEX 或自定义 CSS；Yellow、Amber、Lime、Mint、Sky 会按照 Radix 官方规则使用深色前景文字，其余色阶使用白色前景文字。
+
+每个色阶的组件背景、悬停、边框、焦点、实心控件和文本分别使用 Radix 定义的对应步骤。官方 CSS 同时提供 sRGB 和 Display-P3 值，浏览器会按屏幕能力选择。生产环境返回控制台首页时，API 会把站点默认预设写入 HTML；首屏脚本在 React 渲染前读取当前账号缓存的个人偏好，并按“个人偏好 → 站点默认 → Blue”应用主题。登录后再以后端用户记录校准缓存，退出账号后恢复站点默认，因此刷新和正常登录态下不会先显示错误颜色再切换。
+
 ## 安全策略
 
 生产模式下，API 会为控制台响应增加基础安全响应头，包括 `Content-Security-Policy`、`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy` 和 `Permissions-Policy`。CSP 默认只允许同源脚本、manifest 和连接，禁止插件对象，允许 Tailwind/shadcn 所需的 inline style、`data:` 字体和图片，以及 HTTPS 图片资源。

@@ -73,6 +73,15 @@ var configDefinitions = []configDefinition{
 		Default:     "使用本地账号登录控制台",
 	},
 	{
+		Key:         siteBrandColorPresetKey,
+		Label:       "默认品牌主题色",
+		Description: "控制台按钮、链接、选中态和焦点环使用的默认主题色。没有个人主题色偏好的用户会持续跟随此设置。",
+		Type:        "select",
+		Public:      true,
+		Default:     defaultBrandColorPreset,
+		Options:     brandColorPresetOptions,
+	},
+	{
 		Key:         "site.operationsDashboardUrl",
 		Label:       "运营面板地址",
 		Description: "用于平台管理员查看运营大盘的 Grafana dashboard 或 panel iframe 地址。留空时不展示运营面板内容。",

@@ -136,7 +136,7 @@ export function ProjectMembersPage({ embedded = false, projectId: projectIdProp,
                 <UserPlus size={16} />
                 {t('projectMembers.addTitle')}
               </Button>
-              <Link className="text-sm text-primary hover:underline" to="/projects">{t('backToProjectSpaces')}</Link>
+              <Link className="text-sm text-primary-text hover:underline" to="/projects">{t('backToProjectSpaces')}</Link>
             </div>
           )}
           description={t('projectMembers.description')}

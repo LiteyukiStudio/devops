@@ -37,7 +37,7 @@ export function CopyableHoverText({
     <Tooltip>
       <TooltipTrigger asChild>
         <button
-          className={cn('block min-w-0 truncate text-left transition hover:text-primary', className)}
+          className={cn('block min-w-0 truncate text-left transition hover:text-primary-text', className)}
           type="button"
           onClick={copyValue}
         >

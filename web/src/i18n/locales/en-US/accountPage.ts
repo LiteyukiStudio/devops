@@ -11,6 +11,9 @@ const accountPage = {
   avatarUrlHint: 'Use a publicly reachable image URL. Leave empty to use the first letter of the nickname.',
   avatarUrlPlaceholder: 'https://example.com/avatar.png',
   languageHint: 'Preferred UI language. Backend errors and frontend language will stay in sync where possible.',
+  brandColor: 'Theme color',
+  brandColorHint: 'Follow the platform theme by default. A personal selection takes priority over future platform changes.',
+  followPlatformBrandColor: 'Follow platform',
   saveProfile: 'Save profile',
   profileSaved: 'Profile saved',
   mfa: {

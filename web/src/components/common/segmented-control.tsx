@@ -112,8 +112,8 @@ function segmentedItemClassName(active: boolean, iconOnly?: boolean) {
   return cn(
     'relative z-10 flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-full border-0 px-3 text-sm font-medium text-muted-foreground transition-colors duration-150 outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring/50',
     iconOnly && 'px-0',
-    'data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none',
-    active && 'text-primary',
+    'data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:text-primary-text data-[state=active]:shadow-none',
+    active && 'text-primary-text',
     !active && 'hover:bg-surface/70 hover:text-foreground',
   )
 }

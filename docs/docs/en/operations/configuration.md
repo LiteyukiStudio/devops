@@ -13,6 +13,14 @@ Public settings control what users see:
 
 These can be shown to the frontend, but should never contain tokens, passwords, or internal-only addresses.
 
+### Brand color
+
+Platform administrators can select the default brand color as the first setting under Site Settings → Branding. Users can continue following the platform or choose a personal color under Account → Profile. A personal selection takes priority. Following the platform stores an empty preference rather than a snapshot, so later administrator changes continue to reach those users. Brand color affects buttons, links within content, selected states, and focus rings only. Success, warning, and failure colors remain independent, as do light, dark, and system appearance modes.
+
+Every option comes from the [official Radix Colors 3.0.0 brand scales](https://www.radix-ui.com/colors/docs/palette-composition/composing-a-palette): Gold, Bronze, Brown, Yellow, Amber, Orange, Tomato, Red, Ruby, Crimson, Pink, Plum, Purple, Violet, Iris, Indigo, Blue, Cyan, Teal, Jade, Green, Grass, Lime, Mint, and Sky. Arbitrary HEX values and custom CSS are not accepted. Yellow, Amber, Lime, Mint, and Sky use the dark foreground prescribed by Radix; the other solid scales use a white foreground.
+
+Component backgrounds, hover states, borders, focus rings, solid controls, and text map to the corresponding Radix scale steps. The official CSS includes both sRGB and Display-P3 values and lets the browser select the supported gamut. In production, the API injects the site preset into the console HTML. Before React renders, the initialization script reads the active account's cached preference and applies the first available value in this order: personal preference, site default, then Blue. The authenticated user response subsequently reconciles that cache with the backend record, and signing out restores the site default, preventing a default-color flash during normal signed-in visits.
+
 ## Security policy
 
 In production mode, API responses for the console include security headers such as `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`. The default CSP allows only same-origin scripts, manifests, and connections, blocks plugin objects, and permits inline styles needed by Tailwind/shadcn, `data:` fonts and images, and HTTPS images.

@@ -75,10 +75,10 @@ export function ApplicationBuildRunRow({ binding, deploymentTargetName, cancelin
           </div>
           <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <span className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1">
-              <span className="shrink-0 font-mono font-medium text-primary">{branch}</span>
+              <span className="shrink-0 font-mono font-medium text-primary-text">{branch}</span>
               {commitUrl
                 ? (
-                    <a className="min-w-0 truncate font-medium text-primary transition-colors hover:text-primary/80" href={commitUrl} rel="noreferrer" target="_blank" title={`${binding.owner}/${binding.repo}`}>
+                    <a className="min-w-0 truncate font-medium text-primary-text transition-colors hover:text-primary-text/80" href={commitUrl} rel="noreferrer" target="_blank" title={`${binding.owner}/${binding.repo}`}>
                       {binding.owner}
                       /
                       {binding.repo}
@@ -101,18 +101,18 @@ export function ApplicationBuildRunRow({ binding, deploymentTargetName, cancelin
                   {sourceAuthor && <span className="shrink-0">·</span>}
                   {sourceAuthor && (
                     authorUrl
-                      ? <a className="shrink-0 text-primary transition-colors hover:text-primary/80" href={authorUrl} rel="noreferrer" target="_blank">{t('buildsPage.committedBy', { actor: sourceAuthor })}</a>
+                      ? <a className="shrink-0 text-primary-text transition-colors hover:text-primary-text/80" href={authorUrl} rel="noreferrer" target="_blank">{t('buildsPage.committedBy', { actor: sourceAuthor })}</a>
                       : <span className="shrink-0">{t('buildsPage.committedBy', { actor: sourceAuthor })}</span>
                   )}
                   <span className="shrink-0">{t('buildsPage.commitAction')}</span>
                   {commitUrl
-                    ? <a className="shrink-0 font-mono text-primary transition-colors hover:text-primary/80" href={commitUrl} rel="noreferrer" target="_blank">{commit}</a>
+                    ? <a className="shrink-0 font-mono text-primary-text transition-colors hover:text-primary-text/80" href={commitUrl} rel="noreferrer" target="_blank">{commit}</a>
                     : <span className="shrink-0 font-mono text-foreground/70">{commit}</span>}
                 </>
               )}
             </span>
             <button
-              className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 text-left transition-colors hover:border-primary/50 hover:text-primary disabled:hover:border-border disabled:hover:text-muted-foreground"
+              className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 text-left transition-colors hover:border-primary/50 hover:text-primary-text disabled:hover:border-border disabled:hover:text-muted-foreground"
               disabled={!imageReady}
               title={imageReady ? targetImage : failureMessage ? undefined : liveState}
               type="button"
@@ -224,7 +224,7 @@ function BuildRunStatusIcon({ compact = false, status }: { compact?: boolean, st
   if (status === 'failed' || status === 'lost' || status === 'timeout')
     return <CircleX className={`${className} text-rose-600`} />
   if (status === 'running')
-    return <LoaderCircle className={`${className} animate-spin text-primary`} />
+    return <LoaderCircle className={`${className} animate-spin text-primary-text`} />
   return <Clock3 className={`${className} text-muted-foreground`} />
 }
 

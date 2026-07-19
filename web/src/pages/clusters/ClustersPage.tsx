@@ -1,6 +1,6 @@
 import type { RuntimeCluster } from '@/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCcw, Trash2 } from 'lucide-react'
+import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -98,7 +98,7 @@ export function ClustersPage() {
                       variant="secondary"
                       onClick={() => resources.clusterResources.refetch()}
                     >
-                      <RefreshCcw className="size-4" />
+                      <RefreshCw className="size-4" />
                       {t('common.refresh')}
                     </Button>
                     {resources.visibleSelectedResourceKeys.length > 0 && (

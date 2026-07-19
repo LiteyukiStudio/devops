@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func registerStaticUI(router *gin.Engine, staticFS fs.FS) {
+func registerStaticUI(router *gin.Engine, staticFS fs.FS, brandTheme func() string) {
 	if staticFS == nil {
 		return
 	}
@@ -21,7 +21,7 @@ func registerStaticUI(router *gin.Engine, staticFS fs.FS) {
 		}
 		target := staticUIPath(ctx.Request.URL.Path)
 		if target == "index.html" {
-			serveStaticUIIndex(ctx, staticFS)
+			serveStaticUIIndex(ctx, staticFS, brandTheme)
 			return
 		}
 		if staticUIFileExists(staticFS, target) {
@@ -30,7 +30,7 @@ func registerStaticUI(router *gin.Engine, staticFS fs.FS) {
 			fileServer.ServeHTTP(ctx.Writer, ctx.Request)
 			return
 		}
-		serveStaticUIIndex(ctx, staticFS)
+		serveStaticUIIndex(ctx, staticFS, brandTheme)
 	})
 }
 
@@ -55,12 +55,17 @@ func staticUIFileExists(files fs.FS, name string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func serveStaticUIIndex(ctx *gin.Context, staticFS fs.FS) {
+func serveStaticUIIndex(ctx *gin.Context, staticFS fs.FS, brandTheme func() string) {
 	data, err := fs.ReadFile(staticFS, "index.html")
 	if err != nil {
 		ctx.Status(http.StatusNotFound)
 		return
 	}
+	preset := defaultBrandColorPreset
+	if brandTheme != nil {
+		preset = normalizeBrandColorPreset(brandTheme())
+	}
+	data = []byte(strings.ReplaceAll(string(data), brandThemeHTMLPlaceholder, preset))
 	setStaticUICacheHeaders(ctx, "index.html")
 	ctx.Data(http.StatusOK, "text/html; charset=utf-8", data)
 }

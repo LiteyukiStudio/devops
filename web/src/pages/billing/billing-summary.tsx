@@ -93,7 +93,7 @@ export function BillingSummary({
             <SpendCategoryCard
               action={(
                 <a
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary-text transition-colors hover:text-primary-text/80"
                   href={GATEWAY_TRAFFIC_METRICS_DOC_URL}
                   rel="noreferrer"
                   target="_blank"
@@ -156,7 +156,7 @@ export function BillingBalanceWarning({ accountSummary, billingDisplay }: {
 function MetricCard({ fiatValue, icon, label, loading, value }: { fiatValue?: string, icon: ReactNode, label: string, loading: boolean, value: string }) {
   return (
     <Card className="flex min-w-0 items-center gap-4 rounded-lg p-5">
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-text">
         {icon}
       </div>
       <div className="min-w-0">

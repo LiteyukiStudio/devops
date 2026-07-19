@@ -253,7 +253,9 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 	}
 
 	registerSwaggerUI(router)
-	registerStaticUI(router, staticFS)
+	registerStaticUI(router, staticFS, func() string {
+		return handlers.configs.get([]string{siteBrandColorPresetKey})[siteBrandColorPresetKey]
+	})
 	return router
 }
 

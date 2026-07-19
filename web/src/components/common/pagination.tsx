@@ -118,7 +118,7 @@ export function PaginationController({
         aria-label={t('pagination.goToPage', { page })}
         className={cn(
           'h-9 min-w-9 rounded-md px-3 text-sm',
-          page === effectivePage && 'border-primary/25 bg-primary/10 text-primary shadow-none hover:bg-primary/15 hover:text-primary',
+          page === effectivePage && 'border-primary/25 bg-primary/10 text-primary-text shadow-none hover:bg-primary/15 hover:text-primary-text',
         )}
         isActive={page === effectivePage}
         tabIndex={disabled ? -1 : 0}
@@ -166,7 +166,7 @@ export function PaginationController({
           <PaginationItem>
             <PaginationPrevious
               aria-disabled={previousDisabled}
-              className={cn('h-9 whitespace-nowrap text-sm text-foreground/70 hover:text-primary', previousDisabled && 'pointer-events-none text-muted-foreground opacity-60')}
+              className={cn('h-9 whitespace-nowrap text-sm text-foreground/70 hover:text-primary-text', previousDisabled && 'pointer-events-none text-muted-foreground opacity-60')}
               tabIndex={previousDisabled ? -1 : 0}
               onClick={(event) => {
                 event.preventDefault()
@@ -206,7 +206,7 @@ export function PaginationController({
           <PaginationItem>
             <PaginationNext
               aria-disabled={nextDisabled}
-              className={cn('h-9 whitespace-nowrap text-sm text-foreground/70 hover:text-primary', nextDisabled && 'pointer-events-none text-muted-foreground opacity-60')}
+              className={cn('h-9 whitespace-nowrap text-sm text-foreground/70 hover:text-primary-text', nextDisabled && 'pointer-events-none text-muted-foreground opacity-60')}
               tabIndex={nextDisabled ? -1 : 0}
               onClick={(event) => {
                 event.preventDefault()

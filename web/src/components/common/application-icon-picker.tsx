@@ -64,7 +64,7 @@ export function ApplicationIconPicker({ compact = false, disabled, value, onChan
                 aria-label={t(`apps.icons.${name}`)}
                 className={cn(
                   'flex size-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition hover:border-border hover:bg-muted hover:text-foreground',
-                  active && 'border-primary bg-primary/10 text-primary',
+                  active && 'border-primary bg-primary/10 text-primary-text',
                 )}
                 title={t(`apps.icons.${name}`)}
                 type="button"

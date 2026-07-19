@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api'
+import { applySiteBrandColorPreset } from '@/app/brand-theme'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { DataList } from '@/components/common/data-list'
@@ -20,8 +21,11 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { BrandColorPresetField } from './brand-color-preset-field'
 import { configDefinitionText } from './config-definition-text'
 import { changedConfigValues } from './site-settings-values'
+
+const siteBrandColorPresetKey = 'site.brandColorPreset'
 
 export function SiteSettingsPage() {
   const { t } = useTranslation()
@@ -35,7 +39,9 @@ export function SiteSettingsPage() {
     queryFn: api.getConfigs,
     enabled: keys.length > 0,
   })
-  const siteDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('site.')), [definitions.data])
+  const siteDefinitions = useMemo(() => (definitions.data ?? [])
+    .filter(definition => definition.key.startsWith('site.'))
+    .sort((left, right) => Number(right.key === siteBrandColorPresetKey) - Number(left.key === siteBrandColorPresetKey)), [definitions.data])
   const securityDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('security.')), [definitions.data])
   const billingDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('billing.')), [definitions.data])
   const retentionDefinitions = useMemo(() => (definitions.data ?? []).filter(definition => definition.key.startsWith('retention.')), [definitions.data])
@@ -55,6 +61,7 @@ export function SiteSettingsPage() {
     mutationFn: api.updateConfigs,
     onSuccess: (result) => {
       toast.success(t('settings.siteSaved'))
+      applySiteBrandColorPreset(result['site.brandColorPreset'])
       queryClient.setQueryData(['configs'], result)
       queryClient.invalidateQueries({ queryKey: ['configs'] })
       queryClient.invalidateQueries({ queryKey: ['public-configs'] })
@@ -148,23 +155,32 @@ function ConfigSection({ definitions, form }: ConfigSectionProps) {
         const error = form.getFieldState(definition.key, form.formState).error?.message
         return (
           <Field key={definition.key} error={error} hint={description} label={label}>
-            {definition.type === 'textarea'
-              ? <Textarea className="min-h-28 resize-y font-mono text-sm" {...form.register(definition.key)} />
-              : definition.type === 'select' || definition.type === 'boolean'
-                ? <ConfigSelect definition={definition} form={form} options={definition.type === 'boolean' ? ['true', 'false'] : definition.options} />
-                : (
-                    <Input
-                      aria-invalid={Boolean(error)}
-                      inputMode={definition.type === 'number' ? 'numeric' : undefined}
-                      max={retentionDays ? 3650 : undefined}
-                      min={retentionDays ? 0 : undefined}
-                      step={retentionDays ? 1 : undefined}
-                      type={definition.type === 'number' ? 'number' : 'text'}
-                      {...form.register(definition.key, retentionDays
-                        ? { validate: value => validRetentionDays(value) || t('settings.retentionDaysInvalid') }
-                        : undefined)}
-                    />
-                  )}
+            {definition.key === siteBrandColorPresetKey
+              ? (
+                  <BrandColorPresetField
+                    ariaLabel={label}
+                    options={definition.options}
+                    value={String(form.watch(definition.key) || definition.default)}
+                    onValueChange={nextValue => form.setValue(definition.key, nextValue, { shouldDirty: true, shouldValidate: true })}
+                  />
+                )
+              : definition.type === 'textarea'
+                ? <Textarea className="min-h-28 resize-y font-mono text-sm" {...form.register(definition.key)} />
+                : definition.type === 'select' || definition.type === 'boolean'
+                  ? <ConfigSelect definition={definition} form={form} options={definition.type === 'boolean' ? ['true', 'false'] : definition.options} />
+                  : (
+                      <Input
+                        aria-invalid={Boolean(error)}
+                        inputMode={definition.type === 'number' ? 'numeric' : undefined}
+                        max={retentionDays ? 3650 : undefined}
+                        min={retentionDays ? 0 : undefined}
+                        step={retentionDays ? 1 : undefined}
+                        type={definition.type === 'number' ? 'number' : 'text'}
+                        {...form.register(definition.key, retentionDays
+                          ? { validate: value => validRetentionDays(value) || t('settings.retentionDaysInvalid') }
+                          : undefined)}
+                      />
+                    )}
           </Field>
         )
       })}

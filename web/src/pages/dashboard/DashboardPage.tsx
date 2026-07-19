@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { DashboardActivity, DashboardAttentionItem, DashboardProjectShortcut, DashboardReadinessItem } from '@/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AppWindow, Boxes, CheckCircle2, Container, FolderKanban, Globe2, Hammer, Pin, Rocket, Server, ShieldAlert, ShieldCheck, Workflow } from 'lucide-react'
+import { Activity, AppWindow, Boxes, CheckCircle2, Container, FileKey2, FolderKanban, Globe2, Hammer, Pin, Rocket, ScrollText, Server, ShieldAlert, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
@@ -57,7 +57,7 @@ export function DashboardPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <SectionTitle icon={<FolderKanban size={18} />} title={t('dashboardPage.projectShortcuts')} />
           {hasMoreProjects && (
-            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary" to="/projects">
+            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary-text" to="/projects">
               {t('dashboardPage.viewAllProjects')}
             </Link>
           )}
@@ -103,8 +103,8 @@ export function DashboardPage() {
       <Card className="grid min-w-0 overflow-hidden p-0 xl:grid-cols-3">
         <section className="min-w-0 p-4 xl:col-span-2">
           <div className="flex items-center justify-between gap-3">
-            <SectionTitle icon={<Activity size={18} />} title={t('dashboardPage.recentActivity')} />
-            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary" to="/events">
+            <SectionTitle icon={<ScrollText size={18} />} title={t('dashboardPage.recentActivity')} />
+            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary-text" to="/events">
               {t('dashboardPage.viewAllEvents')}
             </Link>
           </div>
@@ -144,7 +144,7 @@ function ProjectShortcutCard({ isPinPending, onTogglePin, project }: { isPinPend
       </div>
       <Button
         aria-label={project.pinned ? t('common.unpinProject') : t('common.pinProject')}
-        className={`absolute right-2 top-2 size-8 transition-opacity ${project.pinned ? 'text-primary opacity-100 hover:text-primary' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+        className={`absolute right-2 top-2 size-8 transition-opacity ${project.pinned ? 'text-primary-text opacity-100 hover:text-primary-text' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
         disabled={isPinPending}
         size="icon"
         type="button"
@@ -172,7 +172,7 @@ function DashboardMetric({ icon, label, to, tone = 'neutral', value }: { icon: R
   const toneClass = tone === 'danger' ? 'text-red-600 dark:text-red-400' : tone === 'warning' ? 'text-amber-700 dark:text-amber-400' : ''
   return (
     <Link className={`group bg-surface p-3 transition-colors hover:bg-muted/40 ${toneClass}`} to={to}>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-primary">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground transition-colors group-hover:text-primary-text">
         {icon}
         <span>{label}</span>
       </div>
@@ -194,12 +194,12 @@ function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
             <div className="flex min-w-0 flex-wrap gap-2 lg:col-span-3">
               {items.slice(0, 4).map(item => (
                 <Link key={item.key} className="group flex min-h-8 min-w-0 max-w-full items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5 transition-colors hover:bg-muted" to={activityTarget(item.latest)}>
-                  <span className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary">{categoryIcon(item.category)}</span>
+                  <span className="shrink-0 text-muted-foreground transition-colors group-hover:text-primary-text">{categoryIcon(item.category)}</span>
                   <span className="truncate text-sm">{eventTypeLabel(t, item.latest.type)}</span>
                   {item.occurrences > 1 && <StatusBadge tone={item.severity === 'error' ? 'danger' : 'warning'}>{t('dashboardPage.occurrences', { count: item.occurrences })}</StatusBadge>}
                 </Link>
               ))}
-              {items.length > 4 && <Link className="flex min-h-8 items-center px-2 text-sm font-medium text-primary" to="/events?severities=error&severities=warning">{t('dashboardPage.moreAttention', { count: items.length - 4 })}</Link>}
+              {items.length > 4 && <Link className="flex min-h-8 items-center px-2 text-sm font-medium text-primary-text" to="/events?severities=error&severities=warning">{t('dashboardPage.moreAttention', { count: items.length - 4 })}</Link>}
             </div>
           )
         : (
@@ -215,7 +215,7 @@ function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
 function ActivityRow({ activity }: { activity: DashboardActivity }) {
   const { t } = useTranslation()
   return (
-    <Link className="group grid gap-2 py-3 transition-colors first:pt-0 hover:text-primary sm:flex sm:items-center sm:justify-between" to={activityTarget(activity)}>
+    <Link className="group grid gap-2 py-3 transition-colors first:pt-0 hover:text-primary-text sm:flex sm:items-center sm:justify-between" to={activityTarget(activity)}>
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           {categoryIcon(activity.category)}
@@ -293,7 +293,7 @@ function categoryIcon(category: string) {
   if (category === 'gateway')
     return <Globe2 className={className} />
   if (category === 'certificate')
-    return <ShieldCheck className={className} />
+    return <FileKey2 className={className} />
   if (category === 'application')
     return <AppWindow className={className} />
   return <Activity className={className} />

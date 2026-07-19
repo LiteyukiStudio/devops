@@ -170,7 +170,7 @@ export function SearchMultiSelect({
         footer={selectedOptions.length > 0 && (
           <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2 text-xs text-muted-foreground">
             <span>{t('common.selectedCount', { count: selectedOptions.length })}</span>
-            <button className="inline-flex items-center gap-1 text-foreground hover:text-primary" type="button" onClick={() => onValueChange([])}>
+            <button className="inline-flex items-center gap-1 text-foreground hover:text-primary-text" type="button" onClick={() => onValueChange([])}>
               <X className="size-3.5" />
               {t('common.clearSelection')}
             </button>
@@ -283,7 +283,7 @@ function SearchOptionButton({ checked, checkbox, option, onSelect }: {
         <span className="block truncate font-medium">{option.label}</span>
         {option.description && <span className="block truncate text-xs text-muted-foreground">{option.description}</span>}
       </span>
-      {!checkbox && checked && <Check className="size-4 shrink-0 text-primary" />}
+      {!checkbox && checked && <Check className="size-4 shrink-0 text-primary-text" />}
     </button>
   )
 }

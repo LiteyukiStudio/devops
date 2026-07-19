@@ -105,7 +105,7 @@ export function AccountMFAPanel() {
       <Card className="grid gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-text">
               <ShieldCheck size={18} />
             </span>
             <div className="min-w-0">

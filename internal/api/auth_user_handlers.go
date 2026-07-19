@@ -233,6 +233,14 @@ func (h *Handlers) UpdateCurrentUser(ctx *gin.Context) {
 	if input.Language != "" {
 		user.Language = normalizeLanguage(input.Language)
 	}
+	if input.BrandColorPreset != nil {
+		preset, valid := normalizeUserBrandColorPreset(*input.BrandColorPreset)
+		if !valid {
+			writeErrorCode(ctx, http.StatusBadRequest, "user.brand_color_invalid", "unsupported brand color preset")
+			return
+		}
+		user.BrandColorPreset = preset
+	}
 
 	if err := h.db.Save(&user).Error; err != nil {
 		writeError(ctx, http.StatusBadRequest, err.Error())
@@ -513,9 +521,10 @@ type resumeLoginInput struct {
 }
 
 type updateCurrentUserInput struct {
-	Name      string `json:"name"`
-	AvatarURL string `json:"avatarUrl"`
-	Language  string `json:"language"`
+	Name             string  `json:"name"`
+	AvatarURL        string  `json:"avatarUrl"`
+	Language         string  `json:"language"`
+	BrandColorPreset *string `json:"brandColorPreset"`
 }
 
 type userInput struct {
@@ -707,14 +716,15 @@ func slugWithNumericSuffix(base string, index int) string {
 
 func currentUserResponse(user model.User) gin.H {
 	return gin.H{
-		"id":          user.ID,
-		"email":       user.Email,
-		"name":        user.Name,
-		"avatarUrl":   user.AvatarURL,
-		"authType":    user.AuthType,
-		"role":        user.Role,
-		"language":    normalizeLanguage(user.Language),
-		"permissions": permissionsFor(user),
+		"id":               user.ID,
+		"email":            user.Email,
+		"name":             user.Name,
+		"avatarUrl":        user.AvatarURL,
+		"authType":         user.AuthType,
+		"role":             user.Role,
+		"language":         normalizeLanguage(user.Language),
+		"brandColorPreset": user.BrandColorPreset,
+		"permissions":      permissionsFor(user),
 	}
 }
 

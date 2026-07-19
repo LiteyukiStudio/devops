@@ -44,7 +44,7 @@ function renderPage() {
   )
 }
 
-describe('site settings data retention', () => {
+describe('site settings page', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     window.history.replaceState(null, '', '/')
@@ -97,5 +97,33 @@ describe('site settings data retention', () => {
     fireEvent.change(screen.getByLabelText(i18next.t('settings.retentionEndAt')), { target: { value: '2026-07-03T09:45' } })
     expect(cleanupButton).toBeDisabled()
     expect(screen.queryByText(i18next.t('settings.retentionPreviewResults'))).not.toBeInTheDocument()
+  })
+
+  it('places the default brand color before the remaining brand settings', async () => {
+    mocks.listConfigDefinitions.mockResolvedValue([
+      {
+        default: 'Luna DevOps',
+        key: 'site.title',
+        public: true,
+        type: 'string',
+      },
+      {
+        default: 'blue',
+        key: 'site.brandColorPreset',
+        options: ['red', 'blue'],
+        public: true,
+        type: 'select',
+      },
+    ])
+    mocks.getConfigs.mockResolvedValue({
+      'site.brandColorPreset': 'blue',
+      'site.title': 'Luna DevOps',
+    })
+
+    renderPage()
+
+    const brandColorGroup = await screen.findByRole('radiogroup', { name: i18next.t('settings.configDefinitions.site.brandColorPreset.label') })
+    const siteTitleInput = screen.getByRole('textbox')
+    expect(brandColorGroup.compareDocumentPosition(siteTitleInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

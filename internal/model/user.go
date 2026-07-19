@@ -7,18 +7,19 @@ import (
 )
 
 type User struct {
-	ID        string         `gorm:"primaryKey" json:"id"`
-	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
-	Name      string         `gorm:"not null" json:"name"`
-	AvatarURL string         `json:"avatarUrl"`
-	AuthType  string         `gorm:"not null;default:local" json:"authType"`
-	Role      string         `gorm:"not null;default:user" json:"role"`
-	Language  string         `gorm:"not null;default:zh-CN" json:"language"`
-	Password  string         `json:"-"`
-	Disabled  bool           `gorm:"not null;default:false" json:"disabled"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID               string         `gorm:"primaryKey" json:"id"`
+	Email            string         `gorm:"uniqueIndex;not null" json:"email"`
+	Name             string         `gorm:"not null" json:"name"`
+	AvatarURL        string         `json:"avatarUrl"`
+	AuthType         string         `gorm:"not null;default:local" json:"authType"`
+	Role             string         `gorm:"not null;default:user" json:"role"`
+	Language         string         `gorm:"not null;default:zh-CN" json:"language"`
+	BrandColorPreset string         `gorm:"not null;default:''" json:"brandColorPreset"`
+	Password         string         `json:"-"`
+	Disabled         bool           `gorm:"not null;default:false" json:"disabled"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	UpdatedAt        time.Time      `json:"updatedAt"`
+	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type UserSession struct {
