@@ -236,6 +236,8 @@ func RequiredAccessTokenScope(path, method string) string {
 		return string(ActionProjectWrite)
 	case strings.HasPrefix(path, "/api/v1/access-tokens"):
 		return string(ActionTokenManage)
+	case strings.HasPrefix(path, "/api/v1/oauth"):
+		return string(ActionTokenManage)
 	case strings.HasPrefix(path, "/api/v1/billing") && method == http.MethodGet:
 		return string(ActionBillingRead)
 	case strings.HasPrefix(path, "/api/v1/billing") && method != http.MethodGet:

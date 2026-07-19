@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LiteyukiStudio/devops/internal/buildtemplate"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
 )
@@ -102,6 +103,27 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 	if !ok {
 		return model.DeploymentTarget{}, false
 	}
+	buildDefinitionMode := buildtemplate.DefinitionModeRepository
+	buildTemplateID := ""
+	buildTemplateVersion := ""
+	buildTemplateValues := "{}"
+	if sourceType == "repository" && strings.TrimSpace(input.BuildDefinitionMode) == buildtemplate.DefinitionModeTemplate {
+		buildDefinitionMode = buildtemplate.DefinitionModeTemplate
+		buildTemplateID = strings.TrimSpace(input.BuildTemplateID)
+		buildTemplateVersion = strings.TrimSpace(input.BuildTemplateVersion)
+		definition, found := buildtemplate.Find(buildTemplateID, buildTemplateVersion)
+		if !found {
+			writeErrorCode(ctx, http.StatusBadRequest, "build_template.not_found", "build template not found")
+			return model.DeploymentTarget{}, false
+		}
+		values, err := buildtemplate.NormalizeValues(definition, input.BuildTemplateValues)
+		if err != nil {
+			writeErrorCode(ctx, http.StatusBadRequest, "build_template.invalid", err.Error())
+			return model.DeploymentTarget{}, false
+		}
+		buildTemplateVersion = definition.Version
+		buildTemplateValues = buildtemplate.EncodeValues(values)
+	}
 	clusterID := strings.TrimSpace(input.ClusterID)
 	targetRegistryID := strings.TrimSpace(input.TargetRegistryID)
 	if _, ok := h.runtimeClusterForProjectUse(ctx, user, app.ProjectID, clusterID); !ok {
@@ -190,6 +212,10 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 		ServicePorts:                 model.EncodeDeploymentServicePorts(servicePorts, servicePort),
 		SourceType:                   sourceType,
 		RepositoryBindingID:          repositoryBindingID,
+		BuildDefinitionMode:          buildDefinitionMode,
+		BuildTemplateID:              buildTemplateID,
+		BuildTemplateVersion:         buildTemplateVersion,
+		BuildTemplateValues:          buildTemplateValues,
 		DockerfilePath:               fallback(strings.TrimSpace(input.DockerfilePath), "Dockerfile"),
 		BuildContext:                 fallback(strings.TrimSpace(input.BuildContext), "."),
 		BuildDirectory:               strings.TrimSpace(input.BuildDirectory),

@@ -56,6 +56,10 @@ export const deploymentTargetDefaults: DeploymentTargetPayload = {
   servicePorts: [{ appProtocol: '', name: 'http', port: 8080 }],
   sourceType: 'repository',
   repositoryBindingId: '',
+  buildDefinitionMode: 'repository_dockerfile',
+  buildTemplateId: '',
+  buildTemplateVersion: '',
+  buildTemplateValues: '{}',
   dockerfilePath: 'Dockerfile',
   buildContext: '.',
   buildDirectory: '',
@@ -245,6 +249,7 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     : []
   const primaryDataVolume = dataVolumes[0]
   const sourceType = values.sourceType === 'image' ? 'image' : 'repository'
+  const buildDefinitionMode = values.buildDefinitionMode === 'template' ? 'template' : 'repository_dockerfile'
   const servicePorts = normalizeDeploymentServicePorts(values.servicePorts, values.servicePort)
   const runtimeConfigRefs = normalizeRuntimeConfigRefs(values.runtimeConfigRefs, values.runtimeConfigSetIds)
   return {
@@ -306,6 +311,10 @@ export function normalizeDeploymentTargetPayload(values: DeploymentTargetPayload
     dataAccessMode: dataRetentionEnabled ? normalizeChoice(values.dataAccessMode, ['ReadWriteOnce', 'ReadWriteMany', 'ReadOnlyMany']) : '',
     dataVolumeMode: dataRetentionEnabled ? normalizeChoice(values.dataVolumeMode, ['Filesystem', 'Block']) : '',
     repositoryBindingId: sourceType === 'repository' ? values.repositoryBindingId : '',
+    buildDefinitionMode,
+    buildTemplateId: sourceType === 'repository' && buildDefinitionMode === 'template' ? values.buildTemplateId?.trim() : '',
+    buildTemplateVersion: sourceType === 'repository' && buildDefinitionMode === 'template' ? values.buildTemplateVersion?.trim() : '',
+    buildTemplateValues: sourceType === 'repository' && buildDefinitionMode === 'template' ? (values.buildTemplateValues?.trim() || '{}') : '{}',
     targetRegistryId: sourceType === 'repository' ? values.targetRegistryId : '',
     targetImageRef: sourceType === 'repository' ? values.targetImageRef : '',
     imageRef: sourceType === 'image' ? values.imageRef : '',

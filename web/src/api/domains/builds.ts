@@ -1,7 +1,10 @@
-import type { BuildJob, BuildLog, BuildRun, BuildRunListParams, BuildVariableSet, BuildVariableSetPayload, HookRun, HookRunLog, PaginatedResponse, PaginationParams, ProjectHookConfig, ProjectHookConfigPayload, ProjectRuntimeConfigSet, ProjectRuntimeConfigSetPayload } from '../types'
+import type { BuildJob, BuildLog, BuildRun, BuildRunListParams, BuildTemplate, BuildTemplatePreview, BuildVariableSet, BuildVariableSetPayload, HookRun, HookRunLog, PaginatedResponse, PaginationParams, ProjectHookConfig, ProjectHookConfigPayload, ProjectRuntimeConfigSet, ProjectRuntimeConfigSetPayload } from '../types'
 import { buildRunListQuery, optionalProjectQuery, paginationQuery, paginationWithProjectQuery, request } from '../core'
 
 export const buildsApi = {
+  listBuildTemplates: () => request<BuildTemplate[]>('/build/templates'),
+  previewBuildTemplate: (templateId: string, version: string, values: Record<string, string>) =>
+    request<BuildTemplatePreview>(`/build/templates/${templateId}/preview`, { method: 'POST', body: JSON.stringify({ values, version }) }),
   listBuildVariableSets: (projectId?: string) =>
     request<BuildVariableSet[]>(`/build/variable-sets${optionalProjectQuery(projectId)}`),
   listBuildVariableSetsPage: (params: PaginationParams & { projectId?: string }) =>

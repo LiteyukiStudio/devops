@@ -17,6 +17,7 @@ tags:
   - name: Projects
   - name: Applications
   - name: Deployments
+  - name: Builds
   - name: AccessTokens
 paths:
   /healthz:
@@ -40,6 +41,40 @@ paths:
       responses:
         "200":
           description: Public config dictionary.
+
+  /api/v1/build/templates:
+    get:
+      tags: [Builds]
+      summary: List immutable platform build templates
+      responses:
+        "200":
+          description: Built-in template catalog.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BuildTemplate" }
+
+  /api/v1/build/templates/{templateId}/preview:
+    post:
+      tags: [Builds]
+      summary: Validate template parameters and preview the generated Dockerfile
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BuildTemplatePreviewInput" }
+      responses:
+        "200":
+          description: Rendered, immutable build definition preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuildTemplatePreview" }
 
   /api/v1/auth/bootstrap:
     get:
@@ -2318,6 +2353,20 @@ components:
       description: Deployment target create/update payload. Other build and Kubernetes fields are accepted by the implemented endpoint; `webConsoleEnabled` is documented here because it has inherited policy semantics.
       additionalProperties: true
       properties:
+        buildDefinitionMode:
+          type: string
+          enum: [repository_dockerfile, template]
+          default: repository_dockerfile
+          description: Selects the repository Dockerfile or a platform-rendered template Dockerfile.
+        buildTemplateId:
+          type: string
+          description: Required when buildDefinitionMode is template.
+        buildTemplateVersion:
+          type: string
+          description: Immutable built-in template version. An empty value selects the current version.
+        buildTemplateValues:
+          type: string
+          description: JSON object containing validated template parameters.
         webConsoleEnabled:
           type: [boolean, "null"]
           default: null
@@ -2329,10 +2378,56 @@ components:
         id: { type: string }
         projectId: { type: string }
         applicationId: { type: string }
+        buildDefinitionMode: { type: string, enum: [repository_dockerfile, template] }
+        buildTemplateId: { type: string }
+        buildTemplateVersion: { type: string }
+        buildTemplateValues: { type: string }
         webConsoleEnabled:
           type: [boolean, "null"]
           description: Nullable target restriction. Effective policy is `project.webConsoleEnabled && webConsoleEnabled != false`; a true value is treated as inheritance.
       required: [id, projectId, applicationId, webConsoleEnabled]
+    BuildTemplateParameter:
+      type: object
+      properties:
+        key: { type: string }
+        type: { type: string, enum: [select, command, path, identifier, port] }
+        required: { type: boolean }
+        defaultValue: { type: string }
+        options:
+          type: array
+          items: { type: string }
+      required: [key, type, required, defaultValue]
+    BuildTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        version: { type: string }
+        runtime: { type: string }
+        category: { type: string, enum: [service, static] }
+        defaultServicePort: { type: integer }
+        parameters:
+          type: array
+          items: { $ref: "#/components/schemas/BuildTemplateParameter" }
+      required: [id, version, runtime, category, defaultServicePort, parameters]
+    BuildTemplatePreviewInput:
+      type: object
+      properties:
+        version: { type: string }
+        values:
+          type: object
+          additionalProperties: { type: string }
+      required: [values]
+    BuildTemplatePreview:
+      type: object
+      properties:
+        templateId: { type: string }
+        version: { type: string }
+        values:
+          type: object
+          additionalProperties: { type: string }
+        dockerfile: { type: string }
+        checksum: { type: string }
+      required: [templateId, version, values, dockerfile, checksum]
     PaginatedProjectList:
       type: object
       properties:

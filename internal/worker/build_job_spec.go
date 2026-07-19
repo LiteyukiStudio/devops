@@ -121,6 +121,9 @@ func buildJobSpec(jobName string, secretName string, environment model.Environme
 	labels["luna.devops/build-run-id"] = task.BuildRunID
 	labels["luna.devops/build-job-id"] = task.JobID
 	items := []corev1.KeyToPath{{Key: "run.sh", Path: "run.sh", Mode: &mode}}
+	if strings.TrimSpace(task.Build.TemplateDockerfile) != "" {
+		items = append(items, corev1.KeyToPath{Key: "template.Dockerfile", Path: "template.Dockerfile"})
+	}
 	for _, hook := range task.Build.Hooks {
 		if strings.TrimSpace(hook.ID) == "" || strings.TrimSpace(hook.Script) == "" {
 			continue

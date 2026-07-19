@@ -182,6 +182,12 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
     ),
     enabled: Boolean(targetDialogOpen && targetSourceType === 'repository' && selectedTargetRepositoryBinding?.gitAccountId && selectedTargetRepositoryBinding.owner && selectedTargetRepositoryBinding.repo),
   })
+  const buildTemplates = useQuery({
+    queryKey: ['build-templates'],
+    queryFn: () => api.listBuildTemplates(),
+    enabled: Boolean(targetDialogOpen && targetSourceType === 'repository'),
+    staleTime: 5 * 60 * 1000,
+  })
   const targetImageTemplateDefault = useQuery({
     queryKey: ['registry-image-template-default', targetRegistryId, projectId, applicationId, targetStage, targetName],
     queryFn: () => api.getRegistryImageTemplateDefault(targetRegistryId, {
@@ -723,6 +729,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
       <ApplicationDeploymentTargetDialog
         buildContextSuggestions={buildContextSuggestions}
         buildMinutePriceText={billingDisplay.formatAmountWithUnit(buildMinuteCost)}
+        buildTemplates={buildTemplates.data ?? []}
         buildTimeoutMinutes={buildTimeoutMinutes}
         defaultRuntimeCluster={defaultRuntimeCluster}
         dockerfileExposedPorts={dockerfileExposedPorts}
@@ -735,6 +742,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
         open={targetDialogOpen}
         registries={registries}
         repositoryBindings={repositoryBindings}
+        recommendedTemplateIds={targetBuildOptions.data?.recommendedTemplateIds ?? []}
         runtimeClusters={runtimeClusters.data ?? []}
         runtimeConfigRedeployableCount={runtimeConfigRedeployableTargets.length}
         runtimeConfigRedeployPending={redeployRuntimeConfigTargets.isPending}

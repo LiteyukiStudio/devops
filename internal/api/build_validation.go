@@ -2,11 +2,13 @@ package api
 
 import (
 	"errors"
+	"net/http"
+	"strings"
+
+	"github.com/LiteyukiStudio/devops/internal/buildtemplate"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"net/http"
-	"strings"
 )
 
 type buildRunRequestError struct {
@@ -75,6 +77,32 @@ func (h *Handlers) prepareBuildRunRequest(user model.User, run *model.BuildRun) 
 	}
 	if strings.TrimSpace(run.BuildVariableSetIDs) == "" {
 		run.BuildVariableSetIDs = strings.TrimSpace(config.BuildVariableSetIDs)
+	}
+	run.BuildDefinitionMode = buildtemplate.DefinitionModeRepository
+	run.BuildTemplateID = ""
+	run.BuildTemplateVersion = ""
+	run.BuildTemplateValues = "{}"
+	run.BuildTemplateDockerfile = ""
+	run.BuildTemplateChecksum = ""
+	if strings.TrimSpace(config.BuildDefinitionMode) == buildtemplate.DefinitionModeTemplate {
+		definition, ok := buildtemplate.Find(config.BuildTemplateID, config.BuildTemplateVersion)
+		if !ok {
+			return buildRunBadRequest("部署配置引用的构建模板不存在")
+		}
+		values, err := buildtemplate.NormalizeValues(definition, config.BuildTemplateValues)
+		if err != nil {
+			return buildRunBadRequest(err.Error())
+		}
+		preview, err := buildtemplate.Render(definition.ID, definition.Version, values)
+		if err != nil {
+			return buildRunBadRequest(err.Error())
+		}
+		run.BuildDefinitionMode = buildtemplate.DefinitionModeTemplate
+		run.BuildTemplateID = preview.TemplateID
+		run.BuildTemplateVersion = preview.Version
+		run.BuildTemplateValues = buildtemplate.EncodeValues(preview.Values)
+		run.BuildTemplateDockerfile = preview.Dockerfile
+		run.BuildTemplateChecksum = preview.Checksum
 	}
 	run.DockerfilePath = fallback(strings.TrimSpace(config.DockerfilePath), "Dockerfile")
 	run.BuildContext = fallback(strings.TrimSpace(config.BuildContext), ".")

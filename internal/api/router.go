@@ -39,6 +39,7 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+	router.GET("/.well-known/oauth-authorization-server", handlers.GetOAuthAuthorizationServerMetadata)
 
 	v1 := router.Group("/api/v1")
 	{
@@ -66,6 +67,17 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 		v1.PUT("/users/me", handlers.UpdateCurrentUser)
 		v1.GET("/users/me/external-identities", handlers.ListMyExternalIdentities)
 		v1.DELETE("/users/me/external-identities/:identityId", handlers.UnbindMyExternalIdentity)
+		v1.GET("/oauth/applications", handlers.ListOAuthApplications)
+		v1.POST("/oauth/applications", handlers.CreateOAuthApplication)
+		v1.PUT("/oauth/applications/:applicationId", handlers.UpdateOAuthApplication)
+		v1.POST("/oauth/applications/:applicationId/rotate-secret", handlers.RotateOAuthApplicationSecret)
+		v1.DELETE("/oauth/applications/:applicationId", handlers.DeleteOAuthApplication)
+		v1.GET("/oauth/grants", handlers.ListMyOAuthGrants)
+		v1.DELETE("/oauth/grants/:grantId", handlers.RevokeMyOAuthGrant)
+		v1.GET("/oauth/authorize", handlers.GetOAuthAuthorizationRequest)
+		v1.POST("/oauth/authorize", handlers.DecideOAuthAuthorization)
+		v1.POST("/oauth/token", handlers.ExchangeOAuthToken)
+		v1.POST("/oauth/revoke", handlers.RevokeOAuthToken)
 		v1.GET("/users", handlers.ListUsers)
 		v1.POST("/users", handlers.CreateUser)
 		v1.PUT("/users/:userId", handlers.UpdateUser)
@@ -111,6 +123,8 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 		v1.POST("/container-images", handlers.CreateContainerImage)
 
 		v1.GET("/build/variable-sets", handlers.ListBuildVariableSets)
+		v1.GET("/build/templates", handlers.ListBuildTemplates)
+		v1.POST("/build/templates/:templateId/preview", handlers.PreviewBuildTemplate)
 		v1.POST("/build/variable-sets", handlers.CreateBuildVariableSet)
 		v1.PUT("/build/variable-sets/:setId", handlers.UpdateBuildVariableSet)
 		v1.DELETE("/build/variable-sets/:setId", handlers.DeleteBuildVariableSet)

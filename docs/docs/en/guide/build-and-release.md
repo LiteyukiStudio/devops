@@ -56,3 +56,26 @@ docker compose logs -f worker
 ```
 
 The Worker handles builds, deployments, and status synchronization. The API alone is enough to browse the console, but the Worker must stay healthy before you can build or release an application.
+
+## Use platform build templates
+
+Deployment targets support two build definition modes:
+
+- **Repository Dockerfile** uses a Dockerfile already maintained in the repository.
+- **Platform build template** generates the Dockerfile used by the current build from a small set of parameters.
+
+The first release includes templates for Node.js services, Node.js static sites, Python with uv, Go, Rust, and plain static sites. You can adjust the runtime version, dependency installation, build and start commands, and service port where applicable, then preview the generated Dockerfile before saving.
+
+Templates never modify the repository. The Worker mounts the generated Dockerfile as a separate file in the Kubernetes build Job and asks BuildKit to use it with the original repository build context. When a platform template is selected, it overrides a Dockerfile that may already exist in the repository.
+
+Each build snapshots the template ID, immutable template version, parameter values, rendered Dockerfile checksum, and an internal copy of the rendered Dockerfile. Later deployment-target changes do not alter historical build records.
+
+### Choose a template
+
+1. Create or edit a deployment target from the application's Deploy page.
+2. Select a repository. The platform inspects its files and puts likely templates first.
+3. Select **Platform build template** under **Build definition**.
+4. Choose a template, review its parameters, and preview the Dockerfile.
+5. Save the deployment target and create a build.
+
+Recommendations only use files such as `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, and `index.html`. The platform does not guess project-specific start commands; verify them against the project's documentation.

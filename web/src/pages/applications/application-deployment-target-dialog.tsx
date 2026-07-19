@@ -1,5 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form'
-import type { DeploymentRuntimeConfigRef, DeploymentTarget, DeploymentTargetPayload, ProjectHookConfig, ProjectRuntimeConfigSet, RuntimeCluster, RuntimeConfigRefMode } from '@/api'
+import type { BuildTemplate, DeploymentRuntimeConfigRef, DeploymentTarget, DeploymentTargetPayload, ProjectHookConfig, ProjectRuntimeConfigSet, RuntimeCluster, RuntimeConfigRefMode } from '@/api'
 import { Rocket, Save } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CheckboxField } from '@/components/common/checkbox-field'
@@ -22,6 +22,7 @@ import { ApplicationRuntimeConfigSelector } from './application-runtime-config-s
 export function ApplicationDeploymentTargetDialog({
   buildContextSuggestions,
   buildMinutePriceText,
+  buildTemplates,
   buildTimeoutMinutes,
   defaultRuntimeCluster,
   dockerfileExposedPorts,
@@ -34,6 +35,7 @@ export function ApplicationDeploymentTargetDialog({
   open,
   registries,
   repositoryBindings,
+  recommendedTemplateIds,
   runtimeCostText,
   runtimeConfigRedeployableCount,
   runtimeConfigRedeployPending,
@@ -73,6 +75,7 @@ export function ApplicationDeploymentTargetDialog({
 }: {
   buildContextSuggestions: string[]
   buildMinutePriceText: string
+  buildTemplates: BuildTemplate[]
   buildTimeoutMinutes: number
   defaultRuntimeCluster?: RuntimeCluster
   dockerfileExposedPorts: Record<string, number[]>
@@ -85,6 +88,7 @@ export function ApplicationDeploymentTargetDialog({
   open: boolean
   registries: Parameters<typeof ApplicationDeploymentSourceFields>[0]['registries']
   repositoryBindings: Parameters<typeof ApplicationDeploymentSourceFields>[0]['repositoryBindings']
+  recommendedTemplateIds: string[]
   runtimeCostText: string
   runtimeConfigRedeployableCount: number
   runtimeConfigRedeployPending: boolean
@@ -202,9 +206,11 @@ export function ApplicationDeploymentTargetDialog({
                 <ApplicationDeploymentBuildSettingsFields
                   buildContextSuggestions={buildContextSuggestions}
                   buildMinutePriceText={buildMinutePriceText}
+                  buildTemplates={buildTemplates}
                   buildTimeoutMinutes={buildTimeoutMinutes}
                   dockerfileExposedPorts={dockerfileExposedPorts}
                   dockerfileSuggestions={dockerfileSuggestions}
+                  recommendedTemplateIds={recommendedTemplateIds}
                   sourceType={sourceType}
                   targetForm={form}
                   targetImagePrefix={targetImagePrefix}

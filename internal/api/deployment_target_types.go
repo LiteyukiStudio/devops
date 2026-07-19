@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LiteyukiStudio/devops/internal/buildtemplate"
 	"github.com/LiteyukiStudio/devops/internal/model"
 )
 
@@ -59,6 +60,10 @@ type deploymentTargetResponse struct {
 	ServicePorts                 []model.DeploymentServicePort        `json:"servicePorts"`
 	SourceType                   string                               `json:"sourceType"`
 	RepositoryBindingID          string                               `json:"repositoryBindingId"`
+	BuildDefinitionMode          string                               `json:"buildDefinitionMode"`
+	BuildTemplateID              string                               `json:"buildTemplateId"`
+	BuildTemplateVersion         string                               `json:"buildTemplateVersion"`
+	BuildTemplateValues          string                               `json:"buildTemplateValues"`
 	DockerfilePath               string                               `json:"dockerfilePath"`
 	BuildContext                 string                               `json:"buildContext"`
 	BuildDirectory               string                               `json:"buildDirectory"`
@@ -164,6 +169,10 @@ func deploymentTargetResponseFromModel(target model.DeploymentTarget) deployment
 		ServicePorts:                 model.DeploymentTargetServicePorts(target),
 		SourceType:                   normalizeDeploymentSourceType(target.SourceType),
 		RepositoryBindingID:          target.RepositoryBindingID,
+		BuildDefinitionMode:          fallback(strings.TrimSpace(target.BuildDefinitionMode), buildtemplate.DefinitionModeRepository),
+		BuildTemplateID:              target.BuildTemplateID,
+		BuildTemplateVersion:         target.BuildTemplateVersion,
+		BuildTemplateValues:          fallback(strings.TrimSpace(target.BuildTemplateValues), "{}"),
 		DockerfilePath:               target.DockerfilePath,
 		BuildContext:                 target.BuildContext,
 		BuildDirectory:               target.BuildDirectory,
@@ -297,6 +306,10 @@ type deploymentTargetInput struct {
 	ServicePorts                 []model.DeploymentServicePort      `json:"servicePorts"`
 	SourceType                   string                             `json:"sourceType"`
 	RepositoryBindingID          string                             `json:"repositoryBindingId"`
+	BuildDefinitionMode          string                             `json:"buildDefinitionMode"`
+	BuildTemplateID              string                             `json:"buildTemplateId"`
+	BuildTemplateVersion         string                             `json:"buildTemplateVersion"`
+	BuildTemplateValues          string                             `json:"buildTemplateValues"`
 	DockerfilePath               string                             `json:"dockerfilePath"`
 	BuildContext                 string                             `json:"buildContext"`
 	BuildDirectory               string                             `json:"buildDirectory"`

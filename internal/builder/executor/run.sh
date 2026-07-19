@@ -245,14 +245,24 @@ AUTH="$(printf "%s:%s" "$REGISTRY_USERNAME" "$REGISTRY_PASSWORD" | base64 | tr -
 printf '{"auths":{"%s":{"auth":"%s"}}}' "$REGISTRY_ENDPOINT" "$AUTH" > "$HOME/.docker/config.json"
 
 build_with_retry() {
+	dockerfile_dir="$PWD/$(dirname "$DOCKERFILE_PATH")"
+	dockerfile_name="$(basename "$DOCKERFILE_PATH")"
+	if [ "${BUILD_DEFINITION_MODE:-repository_dockerfile}" = "template" ]; then
+		if [ ! -s /executor/template.Dockerfile ]; then
+			echo "platform build template snapshot is unavailable" >&2
+			return 1
+		fi
+		dockerfile_dir="/executor"
+		dockerfile_name="template.Dockerfile"
+	fi
   attempt=1
   while [ "$attempt" -le 3 ]; do
     if buildctl-daemonless.sh build \
       --progress=plain \
       --frontend dockerfile.v0 \
       --local context="$PWD/$BUILD_CONTEXT" \
-      --local dockerfile="$PWD/$(dirname "$DOCKERFILE_PATH")" \
-      --opt filename="$(basename "$DOCKERFILE_PATH")" \
+      --local dockerfile="$dockerfile_dir" \
+      --opt filename="$dockerfile_name" \
       "$@" \
       --output type=image,name="$IMAGE_REF",push=true; then
       return 0

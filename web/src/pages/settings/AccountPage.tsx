@@ -26,6 +26,7 @@ import { NativeSelect as Select } from '@/components/ui/native-select'
 import { TabsContent } from '@/components/ui/tabs'
 import { AccessTokensPanel } from '@/pages/access-tokens/AccessTokensPage'
 import { AccountMFAPanel } from './account-mfa-panel'
+import { OAuthApplicationsPanel, OAuthGrantsPanel } from './account-oauth-panels'
 import { BrandColorPresetField } from './brand-color-preset-field'
 
 const profileSchema = z.object({
@@ -52,6 +53,10 @@ export function AccountPage() {
         )
       case 'tokens':
         return <AccessTokensPanel />
+      case 'oauth-applications':
+        return <OAuthApplicationsPanel />
+      case 'oauth-grants':
+        return <OAuthGrantsPanel />
       default:
         return <ProfilePanel />
     }
@@ -63,6 +68,8 @@ export function AccountPage() {
         { value: 'profile', label: t('accountPage.profileTab') },
         { value: 'security', label: t('accountPage.securityTab') },
         { value: 'tokens', label: t('accountPage.tokensTab') },
+        { value: 'oauth-applications', label: t('oauthApps.applicationsTab') },
+        { value: 'oauth-grants', label: t('oauthApps.grantsTab') },
       ]}
       value={activeTab}
       onValueChange={setActiveTab}

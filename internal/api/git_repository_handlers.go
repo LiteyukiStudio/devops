@@ -3,15 +3,17 @@ package api
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/LiteyukiStudio/devops/internal/buildtemplate"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	gitprovider "github.com/LiteyukiStudio/devops/internal/provider/git"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"io"
-	"net/http"
-	"strings"
-	"time"
 )
 
 var errGitClientResponseWritten = errors.New("git client response written")
@@ -116,12 +118,14 @@ func (h *Handlers) GetGitRepositoryBuildOptions(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
-		"dockerfiles":  options.Dockerfiles,
-		"directories":  options.Directories,
-		"exposedPorts": options.ExposedPorts,
-		"strategy":     options.Strategy,
-		"truncated":    options.Truncated,
-		"durationMs":   time.Since(started).Milliseconds(),
+		"dockerfiles":            options.Dockerfiles,
+		"directories":            options.Directories,
+		"detectedFiles":          options.DetectedFiles,
+		"recommendedTemplateIds": buildtemplate.Recommend(options.DetectedFiles),
+		"exposedPorts":           options.ExposedPorts,
+		"strategy":               options.Strategy,
+		"truncated":              options.Truncated,
+		"durationMs":             time.Since(started).Milliseconds(),
 	})
 }
 

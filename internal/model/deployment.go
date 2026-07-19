@@ -154,6 +154,10 @@ type DeploymentTarget struct {
 	DeleteFinishedAt             *time.Time                    `json:"deleteFinishedAt"`
 	SourceType                   string                        `gorm:"not null;default:repository" json:"sourceType"`
 	RepositoryBindingID          string                        `gorm:"index" json:"repositoryBindingId"`
+	BuildDefinitionMode          string                        `gorm:"not null;default:repository_dockerfile" json:"buildDefinitionMode"`
+	BuildTemplateID              string                        `gorm:"index;not null;default:''" json:"buildTemplateId"`
+	BuildTemplateVersion         string                        `gorm:"not null;default:''" json:"buildTemplateVersion"`
+	BuildTemplateValues          string                        `gorm:"type:text;not null;default:'{}'" json:"buildTemplateValues"`
 	DockerfilePath               string                        `gorm:"not null;default:Dockerfile" json:"dockerfilePath"`
 	BuildContext                 string                        `gorm:"not null;default:." json:"buildContext"`
 	BuildDirectory               string                        `json:"buildDirectory"`

@@ -40,11 +40,12 @@ type ContentItem struct {
 }
 
 type BuildOptions struct {
-	Dockerfiles  []string         `json:"dockerfiles"`
-	Directories  []string         `json:"directories"`
-	ExposedPorts map[string][]int `json:"exposedPorts"`
-	Strategy     string           `json:"strategy"`
-	Truncated    bool             `json:"truncated"`
+	Dockerfiles   []string         `json:"dockerfiles"`
+	Directories   []string         `json:"directories"`
+	DetectedFiles []string         `json:"detectedFiles"`
+	ExposedPorts  map[string][]int `json:"exposedPorts"`
+	Strategy      string           `json:"strategy"`
+	Truncated     bool             `json:"truncated"`
 }
 
 type WebhookCreateResult struct {

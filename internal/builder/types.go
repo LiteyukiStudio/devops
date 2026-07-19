@@ -58,12 +58,14 @@ type RepositoryPayload struct {
 }
 
 type BuildPayload struct {
-	DockerfilePath string            `json:"dockerfilePath"`
-	BuildContext   string            `json:"buildContext"`
-	BuildDirectory string            `json:"buildDirectory"`
-	BuildArgs      map[string]string `json:"buildArgs"`
-	Env            map[string]string `json:"env"`
-	Hooks          []HookPayload     `json:"hooks"`
+	DefinitionMode     string            `json:"definitionMode"`
+	TemplateDockerfile string            `json:"templateDockerfile"`
+	DockerfilePath     string            `json:"dockerfilePath"`
+	BuildContext       string            `json:"buildContext"`
+	BuildDirectory     string            `json:"buildDirectory"`
+	BuildArgs          map[string]string `json:"buildArgs"`
+	Env                map[string]string `json:"env"`
+	Hooks              []HookPayload     `json:"hooks"`
 }
 
 type HookPayload struct {

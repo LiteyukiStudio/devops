@@ -7,6 +7,7 @@ import authProvidersPage from './zh-CN/authProvidersPage'
 import billingPage from './zh-CN/billingPage'
 import bootstrap from './zh-CN/bootstrap'
 import buildsPage from './zh-CN/buildsPage'
+import buildTemplates from './zh-CN/buildTemplates'
 import clustersPage from './zh-CN/clustersPage'
 import codeRepositoriesPage from './zh-CN/codeRepositoriesPage'
 import codeRepositoriesView from './zh-CN/codeRepositoriesView'
@@ -21,6 +22,7 @@ import languages from './zh-CN/languages'
 import loginPage from './zh-CN/loginPage'
 import nav from './zh-CN/nav'
 import notificationsPage from './zh-CN/notificationsPage'
+import oauthApps from './zh-CN/oauthApps'
 import operationsDashboardPage from './zh-CN/operationsDashboardPage'
 import pagination from './zh-CN/pagination'
 import projectHooks from './zh-CN/projectHooks'
@@ -47,6 +49,7 @@ const zhCN = {
   auth,
   pagination,
   operationsDashboardPage,
+  oauthApps,
   theme,
   nav,
   notificationsPage,
@@ -56,6 +59,7 @@ const zhCN = {
   projectTopology,
   dashboardPage,
   buildsPage,
+  buildTemplates,
   runtimeConfigSets,
   runtimeConfigFilesEditor,
   deploymentsPage,

@@ -7,6 +7,7 @@ import authProvidersPage from './en-US/authProvidersPage'
 import billingPage from './en-US/billingPage'
 import bootstrap from './en-US/bootstrap'
 import buildsPage from './en-US/buildsPage'
+import buildTemplates from './en-US/buildTemplates'
 import clustersPage from './en-US/clustersPage'
 import codeRepositoriesPage from './en-US/codeRepositoriesPage'
 import codeRepositoriesView from './en-US/codeRepositoriesView'
@@ -21,6 +22,7 @@ import languages from './en-US/languages'
 import loginPage from './en-US/loginPage'
 import nav from './en-US/nav'
 import notificationsPage from './en-US/notificationsPage'
+import oauthApps from './en-US/oauthApps'
 import operationsDashboardPage from './en-US/operationsDashboardPage'
 import pagination from './en-US/pagination'
 import projectHooks from './en-US/projectHooks'
@@ -47,6 +49,7 @@ const enUS = {
   eventsPage,
   pagination,
   operationsDashboardPage,
+  oauthApps,
   debugPanel,
   apps,
   repositories,
@@ -57,6 +60,7 @@ const enUS = {
   accountPage,
   appTemplatesPage,
   buildsPage,
+  buildTemplates,
   runtimeConfigSets,
   runtimeConfigFilesEditor,
   deploymentsPage,

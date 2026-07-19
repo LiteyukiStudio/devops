@@ -589,10 +589,37 @@ export interface GitContentItem {
 export interface GitRepositoryBuildOptions {
   dockerfiles: string[]
   directories: string[]
+  detectedFiles: string[]
+  recommendedTemplateIds: string[]
   exposedPorts?: Record<string, number[]>
   strategy: string
   truncated: boolean
   durationMs: number
+}
+
+export interface BuildTemplateParameter {
+  key: string
+  type: 'select' | 'command' | 'path' | 'identifier' | 'port' | string
+  required: boolean
+  defaultValue: string
+  options?: string[]
+}
+
+export interface BuildTemplate {
+  id: string
+  version: string
+  runtime: string
+  category: string
+  defaultServicePort: number
+  parameters: BuildTemplateParameter[]
+}
+
+export interface BuildTemplatePreview {
+  templateId: string
+  version: string
+  values: Record<string, string>
+  dockerfile: string
+  checksum: string
 }
 
 export interface ArtifactRegistry {
@@ -800,6 +827,11 @@ export interface BuildRun {
   sourceBranch: string
   sourceTag: string
   sourceCommit: string
+  buildDefinitionMode: 'repository_dockerfile' | 'template'
+  buildTemplateId: string
+  buildTemplateVersion: string
+  buildTemplateValues: string
+  buildTemplateChecksum: string
   dockerfilePath: string
   buildContext: string
   buildDirectory: string
@@ -893,6 +925,10 @@ export interface DeploymentTarget {
   servicePorts: DeploymentServicePort[]
   sourceType: 'repository' | 'image'
   repositoryBindingId: string
+  buildDefinitionMode: 'repository_dockerfile' | 'template'
+  buildTemplateId: string
+  buildTemplateVersion: string
+  buildTemplateValues: string
   dockerfilePath: string
   buildContext: string
   buildDirectory: string
@@ -1197,6 +1233,57 @@ export interface AccessTokenScopeDefinition {
 
 export interface AccessTokenScopeCatalog {
   items: AccessTokenScopeDefinition[]
+}
+
+export interface OAuthApplication {
+  id: string
+  ownerUserId: string
+  name: string
+  description: string
+  homepageUrl: string
+  logoUrl: string
+  clientId: string
+  redirectUris: string[]
+  allowedScopes: string
+  accessTokenLifetimeDays: number
+  revokedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OAuthApplicationInput {
+  name: string
+  description: string
+  homepageUrl: string
+  logoUrl: string
+  redirectUris: string[]
+  allowedScopes: string
+  accessTokenLifetimeDays: number
+}
+
+export interface OAuthGrant {
+  id: string
+  application: OAuthApplication
+  scope: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OAuthAuthorizationRequest {
+  application: OAuthApplication
+  scope: string
+  accessTokenLifetimeDays: number
+  previouslyAuthorized: boolean
+}
+
+export interface OAuthAuthorizationDecision {
+  approved: boolean
+  clientId: string
+  redirectUri: string
+  scope: string
+  state: string
+  codeChallenge: string
+  codeChallengeMethod: string
 }
 
 export interface BillingSummary {

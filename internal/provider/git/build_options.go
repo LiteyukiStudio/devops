@@ -11,6 +11,12 @@ import (
 const gitBuildOptionsMaxDirectories = 80
 const gitBuildOptionsMaxDepth = 3
 
+var buildTemplateDetectionFiles = map[string]bool{
+	"Cargo.lock": true, "Cargo.toml": true, "go.mod": true, "index.html": true,
+	"package.json": true, "pnpm-lock.yaml": true, "pyproject.toml": true,
+	"uv.lock": true, "vite.config.js": true, "vite.config.ts": true, "yarn.lock": true,
+}
+
 func (c Client) DiscoverBuildOptions(ctx context.Context, owner, repo, ref string) (BuildOptions, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -74,6 +80,7 @@ func (c Client) discoverBuildOptionsByTree(ctx context.Context, owner, repo, ref
 		return BuildOptions{}, err
 	}
 	dockerfiles := map[string]struct{}{}
+	detectedFiles := map[string]struct{}{}
 	directories := map[string]struct{}{".": {}}
 	for _, item := range tree.Tree {
 		path := strings.Trim(strings.TrimSpace(item.Path), "/")
@@ -85,21 +92,27 @@ func (c Client) discoverBuildOptionsByTree(ctx context.Context, owner, repo, ref
 			directories[path] = struct{}{}
 		case "file":
 			parts := strings.Split(path, "/")
-			if isDockerfileName(parts[len(parts)-1]) {
+			name := parts[len(parts)-1]
+			if isDockerfileName(name) {
 				dockerfiles[path] = struct{}{}
+			}
+			if buildTemplateDetectionFiles[name] {
+				detectedFiles[path] = struct{}{}
 			}
 		}
 	}
 	return BuildOptions{
-		Directories: sortedPathSet(directories),
-		Dockerfiles: sortedPathSet(dockerfiles),
-		Strategy:    "recursive-tree",
-		Truncated:   tree.Truncated,
+		Directories:   sortedPathSet(directories),
+		Dockerfiles:   sortedPathSet(dockerfiles),
+		DetectedFiles: sortedPathSet(detectedFiles),
+		Strategy:      "recursive-tree",
+		Truncated:     tree.Truncated,
 	}, nil
 }
 
 func (c Client) discoverBuildOptionsByContents(ctx context.Context, owner, repo, ref string) (BuildOptions, error) {
 	dockerfiles := map[string]struct{}{}
+	detectedFiles := map[string]struct{}{}
 	directories := map[string]struct{}{".": {}}
 	queue := []struct {
 		path  string
@@ -126,14 +139,18 @@ func (c Client) discoverBuildOptionsByContents(ctx context.Context, owner, repo,
 				if isDockerfileName(item.Name) {
 					dockerfiles[item.Path] = struct{}{}
 				}
+				if buildTemplateDetectionFiles[item.Name] {
+					detectedFiles[item.Path] = struct{}{}
+				}
 			}
 		}
 	}
 	return BuildOptions{
-		Directories: sortedPathSet(directories),
-		Dockerfiles: sortedPathSet(dockerfiles),
-		Strategy:    "contents-bfs",
-		Truncated:   len(queue) > gitBuildOptionsMaxDirectories,
+		Directories:   sortedPathSet(directories),
+		Dockerfiles:   sortedPathSet(dockerfiles),
+		DetectedFiles: sortedPathSet(detectedFiles),
+		Strategy:      "contents-bfs",
+		Truncated:     len(queue) > gitBuildOptionsMaxDirectories,
 	}, nil
 }
 

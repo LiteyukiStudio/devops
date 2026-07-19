@@ -47,13 +47,16 @@ type UserRememberToken struct {
 }
 
 type AccessToken struct {
-	ID        string     `gorm:"primaryKey" json:"id"`
-	UserID    string     `gorm:"index" json:"userId"`
-	Name      string     `gorm:"not null" json:"name"`
-	Scope     string     `gorm:"not null" json:"scope"`
-	TokenHash string     `gorm:"not null" json:"-"`
-	ExpiresAt *time.Time `json:"expiresAt"`
-	RevokedAt *time.Time `json:"revokedAt"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
+	ID                 string     `gorm:"primaryKey" json:"id"`
+	UserID             string     `gorm:"index" json:"userId"`
+	Name               string     `gorm:"not null" json:"name"`
+	Scope              string     `gorm:"not null" json:"scope"`
+	TokenHash          string     `gorm:"uniqueIndex;not null" json:"-"`
+	Source             string     `gorm:"index;not null;default:personal" json:"source"`
+	OAuthApplicationID string     `gorm:"column:oauth_application_id;index" json:"oauthApplicationId,omitempty"`
+	OAuthGrantID       string     `gorm:"column:oauth_grant_id;index" json:"oauthGrantId,omitempty"`
+	ExpiresAt          *time.Time `json:"expiresAt"`
+	RevokedAt          *time.Time `json:"revokedAt"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
 }

@@ -1,0 +1,1 @@
+-- Revocation repair is intentionally irreversible: rolling back must not reactivate tokens.

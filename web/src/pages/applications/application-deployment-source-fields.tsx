@@ -1,5 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form'
-import type { ArtifactRegistry, DeploymentTargetPayload, RepositoryBinding } from '@/api'
+import type { ArtifactRegistry, BuildTemplate, DeploymentTargetPayload, RepositoryBinding } from '@/api'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormField as Field } from '@/components/common/form-field'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
+import { ApplicationBuildTemplateFields } from './application-build-template-fields'
 import { registryOptionLabel } from './application-config-utils'
 import { BuildEnvironmentFields } from './application-deployment-resource-fields'
 import { applyDockerfileBuildDefaults } from './application-deployments-panel-utils'
@@ -78,10 +79,12 @@ export function ApplicationDeploymentSourceFields({
 
 interface ApplicationDeploymentBuildSettingsFieldsProps {
   buildContextSuggestions: string[]
+  buildTemplates: BuildTemplate[]
   buildMinutePriceText: string
   buildTimeoutMinutes: number
   dockerfileExposedPorts: Record<string, number[]>
   dockerfileSuggestions: string[]
+  recommendedTemplateIds: string[]
   sourceType: DeploymentTargetPayload['sourceType']
   targetForm: UseFormReturn<DeploymentTargetPayload>
   targetImagePrefix: string
@@ -91,10 +94,12 @@ interface ApplicationDeploymentBuildSettingsFieldsProps {
 
 export function ApplicationDeploymentBuildSettingsFields({
   buildContextSuggestions,
+  buildTemplates,
   buildMinutePriceText,
   buildTimeoutMinutes,
   dockerfileExposedPorts,
   dockerfileSuggestions,
+  recommendedTemplateIds,
   sourceType,
   targetForm,
   targetImagePrefix,
@@ -103,6 +108,7 @@ export function ApplicationDeploymentBuildSettingsFields({
 }: ApplicationDeploymentBuildSettingsFieldsProps) {
   const { t } = useTranslation()
   const buildDirectorySuggestions = buildContextSuggestions.filter(option => option !== '.')
+  const buildDefinitionMode = targetForm.watch('buildDefinitionMode') || 'repository_dockerfile'
   const dockerfilePathField = targetForm.register('dockerfilePath', { required: sourceType === 'repository' })
 
   if (sourceType !== 'repository')
@@ -111,22 +117,30 @@ export function ApplicationDeploymentBuildSettingsFields({
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 md:grid-cols-2">
-        <Field hint={t('buildsPage.dockerfileLookupHint')} label={t('buildsPage.dockerfilePath')} required>
-          <Input
-            {...dockerfilePathField}
-            list="deployment-target-dockerfile-options"
-            placeholder={t('deploymentsPage.dockerfilePathPlaceholder')}
-            onChange={(event) => {
-              dockerfilePathField.onChange(event)
-              applyDockerfileBuildDefaults(targetForm, event.target.value, buildContextSuggestions, dockerfileExposedPorts)
-            }}
-          />
-          <datalist id="deployment-target-dockerfile-options">
-            {dockerfileSuggestions.map(option => <option key={option} value={option} />)}
-          </datalist>
-          {targetOptionsFetching && <p className="mt-1 text-xs text-muted-foreground">{t('apps.detectingRepository')}</p>}
-          {targetOptionsError && <p className="mt-1 text-xs text-destructive">{t('deploymentsPage.buildOptionsLoadFailed')}</p>}
-        </Field>
+        <ApplicationBuildTemplateFields
+          dockerfileSuggestions={dockerfileSuggestions}
+          form={targetForm}
+          recommendedTemplateIds={recommendedTemplateIds}
+          templates={buildTemplates}
+        />
+        {buildDefinitionMode === 'repository_dockerfile' && (
+          <Field hint={t('buildsPage.dockerfileLookupHint')} label={t('buildsPage.dockerfilePath')} required>
+            <Input
+              {...dockerfilePathField}
+              list="deployment-target-dockerfile-options"
+              placeholder={t('deploymentsPage.dockerfilePathPlaceholder')}
+              onChange={(event) => {
+                dockerfilePathField.onChange(event)
+                applyDockerfileBuildDefaults(targetForm, event.target.value, buildContextSuggestions, dockerfileExposedPorts)
+              }}
+            />
+            <datalist id="deployment-target-dockerfile-options">
+              {dockerfileSuggestions.map(option => <option key={option} value={option} />)}
+            </datalist>
+            {targetOptionsFetching && <p className="mt-1 text-xs text-muted-foreground">{t('apps.detectingRepository')}</p>}
+            {targetOptionsError && <p className="mt-1 text-xs text-destructive">{t('deploymentsPage.buildOptionsLoadFailed')}</p>}
+          </Field>
+        )}
         <Field hint={t('buildsPage.buildContextLookupHint')} label={t('buildsPage.buildContext')} required>
           <Input {...targetForm.register('buildContext', { required: true })} list="deployment-target-build-context-options" placeholder={t('deploymentsPage.buildContextPlaceholder')} />
           <datalist id="deployment-target-build-context-options">

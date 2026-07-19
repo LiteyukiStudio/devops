@@ -334,6 +334,43 @@ func TestBuildJobSecretSeparatesExplicitBuildArgs(t *testing.T) {
 	}
 }
 
+func TestBuildJobUsesRenderedTemplateDockerfile(t *testing.T) {
+	task := builder.Task{
+		Build: builder.BuildPayload{
+			DefinitionMode:     "template",
+			DockerfilePath:     "Dockerfile",
+			TemplateDockerfile: "FROM scratch\n",
+		},
+	}
+	secret := buildJobSecret("build-secret", task, "", false, "buildcache")
+	if secret.StringData["env-BUILD_DEFINITION_MODE"] != "template" {
+		t.Fatalf("BUILD_DEFINITION_MODE = %q", secret.StringData["env-BUILD_DEFINITION_MODE"])
+	}
+	if secret.StringData["template.Dockerfile"] != "FROM scratch\n" {
+		t.Fatalf("template.Dockerfile = %q", secret.StringData["template.Dockerfile"])
+	}
+
+	spec := buildJobSpec("build-job", "build-secret", model.Environment{}, model.BuildRun{}, task, "executor", "", false, "buildcache", 1800, 3600)
+	found := false
+	for _, volume := range spec.Spec.Template.Spec.Volumes {
+		if volume.Name != "executor-files" || volume.Secret == nil {
+			continue
+		}
+		for _, item := range volume.Secret.Items {
+			if item.Key == "template.Dockerfile" && item.Path == "template.Dockerfile" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("template.Dockerfile was not projected into the build job")
+	}
+	executorScript := builder.ExecutorScript()
+	if !strings.Contains(executorScript, `dockerfile_dir="/executor"`) || !strings.Contains(executorScript, `dockerfile_name="template.Dockerfile"`) {
+		t.Fatal("executor does not select the rendered template Dockerfile")
+	}
+}
+
 func TestBuildJobSpecCopiesOnlyProjectedExecutorFiles(t *testing.T) {
 	spec := buildJobSpec(
 		"build-job-1",

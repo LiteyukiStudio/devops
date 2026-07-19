@@ -16,6 +16,7 @@ const DashboardPage = lazyNamed(() => import('./pages/dashboard/DashboardPage'),
 const EventsPage = lazyNamed(() => import('./pages/events/EventsPage'), 'EventsPage')
 const LoginPage = lazyNamed(() => import('./pages/login/LoginPage'), 'LoginPage')
 const NotificationsPage = lazyNamed(() => import('./pages/settings/NotificationsPage'), 'NotificationsPage')
+const OAuthAuthorizePage = lazyNamed(() => import('./pages/oauth/OAuthAuthorizePage'), 'OAuthAuthorizePage')
 const OperationsDashboardPage = lazyNamed(() => import('./pages/settings/OperationsDashboardPage'), 'OperationsDashboardPage')
 const ProjectsPage = lazyNamed(() => import('./pages/projects/ProjectsPage'), 'ProjectsPage')
 const ProjectWorkspacePage = lazyNamed(() => import('./pages/projects/ProjectWorkspacePage'), 'ProjectWorkspacePage')
@@ -30,6 +31,7 @@ export default function App() {
         <Routes>
           <Route path="/bootstrap" element={<BootstrapPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/oauth/authorize" element={<OAuthAuthorizePage />} />
           <Route element={<AppLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />

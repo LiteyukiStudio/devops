@@ -21,6 +21,7 @@ func buildJobSecret(name string, task builder.Task, npmRegistry string, cacheEna
 		"LITEYUKI_BUILD_RUN_ID":         task.BuildRunID,
 		"LITEYUKI_BUILD_JOB_ID":         task.JobID,
 		"DOCKERFILE_PATH":               builder.StringDefault(task.Build.DockerfilePath, "Dockerfile"),
+		"BUILD_DEFINITION_MODE":         builder.StringDefault(task.Build.DefinitionMode, "repository_dockerfile"),
 		"BUILD_CONTEXT":                 builder.StringDefault(task.Build.BuildContext, "."),
 		"BUILD_DIRECTORY":               task.Build.BuildDirectory,
 		"CACHE_ENABLED":                 builder.BoolEnvValue(cacheEnabled),
@@ -67,6 +68,9 @@ func buildJobSecret(name string, task builder.Task, npmRegistry string, cacheEna
 	env["BUILD_ARG_KEYS"] = strings.Join(buildArgKeys, ",")
 
 	data := map[string]string{"run.sh": builder.ExecutorScript()}
+	if strings.TrimSpace(task.Build.TemplateDockerfile) != "" {
+		data["template.Dockerfile"] = task.Build.TemplateDockerfile
+	}
 	for _, hook := range task.Build.Hooks {
 		if strings.TrimSpace(hook.ID) == "" || strings.TrimSpace(hook.Script) == "" {
 			continue

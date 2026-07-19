@@ -17,7 +17,7 @@ func (h *Handlers) ListAccessTokens(ctx *gin.Context) {
 
 	pagination := paginationFromQuery(ctx)
 	var tokens []model.AccessToken
-	query := h.db.Model(&model.AccessToken{}).Where("user_id = ? and revoked_at is null", user.ID)
+	query := h.db.Model(&model.AccessToken{}).Where("user_id = ? and source = ? and revoked_at is null", user.ID, "personal")
 	query = applySearch(ctx, query, "name", "scope")
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -76,6 +76,7 @@ func (h *Handlers) CreateAccessToken(ctx *gin.Context) {
 		Name:      input.Name,
 		Scope:     scope,
 		TokenHash: hashToken(plainToken),
+		Source:    "personal",
 	}
 
 	if input.ExpiresInDays > 0 {
@@ -102,7 +103,7 @@ func (h *Handlers) RevokeAccessToken(ctx *gin.Context) {
 	}
 
 	var token model.AccessToken
-	if err := h.db.First(&token, "id = ? and user_id = ?", ctx.Param("tokenId"), user.ID).Error; err != nil {
+	if err := h.db.First(&token, "id = ? and user_id = ? and source = ?", ctx.Param("tokenId"), user.ID, "personal").Error; err != nil {
 		writeError(ctx, http.StatusNotFound, "token not found")
 		return
 	}
