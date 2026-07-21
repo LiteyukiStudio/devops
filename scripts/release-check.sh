@@ -95,6 +95,7 @@ pnpm --dir web lint
 pnpm --dir web build
 
 section "Building the documentation site"
+"${ROOT_DIR}/scripts/generate-changelog.sh"
 pnpm --dir docs build
 
 section "Auditing pnpm dependencies"

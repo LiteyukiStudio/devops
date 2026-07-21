@@ -10,6 +10,11 @@
     "activeMatch": "/operations/"
   },
   {
+    "text": "更新日志",
+    "link": "/changelog",
+    "activeMatch": "/changelog"
+  },
+  {
     "text": "开发",
     "link": "/developer/architecture",
     "activeMatch": "/developer/"

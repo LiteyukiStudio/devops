@@ -10,6 +10,11 @@
     "activeMatch": "/operations/"
   },
   {
+    "text": "Changelog",
+    "link": "/changelog",
+    "activeMatch": "/changelog"
+  },
+  {
     "text": "Develop",
     "link": "/developer/architecture",
     "activeMatch": "/developer/"
