@@ -75,6 +75,8 @@ The platform includes templates for:
 - .NET services
 - Plain static sites
 
+The template picker uses official project marks bundled with the console, so opening it does not contact a third-party icon service.
+
 You can adjust dependency installation, build and start commands, service ports, and other required parameters, then preview the generated Dockerfile before saving. Java templates use JDK/JRE 21 by default, while the .NET template uses .NET 8. Adjust the parameters when your project uses a different version or artifact name.
 
 Templates never modify the repository. The Worker mounts the generated Dockerfile as a separate file in the Kubernetes build Job and asks BuildKit to use it with the original repository build context. When a platform template is selected, it overrides a Dockerfile that may already exist in the repository.

@@ -1,7 +1,7 @@
 import type { UseFormReturn } from 'react-hook-form'
 import type { BuildTemplate, BuildTemplatePreview, DeploymentTargetPayload } from '@/api'
 import { useMutation } from '@tanstack/react-query'
-import { Binary, Boxes, Braces, Coffee, Cog, FileCode2, Gem, Globe2, Sparkles, Zap } from 'lucide-react'
+import { FileCode2, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -177,27 +177,28 @@ function parseTemplateValues(raw?: string) {
   }
 }
 
+const buildTemplateLogoByRuntime: Partial<Record<BuildTemplate['runtime'], string>> = {
+  bun: '/build-templates/icons/bun.svg',
+  dotnet: '/build-templates/icons/dotnet.svg',
+  go: '/build-templates/icons/go.svg',
+  java: '/build-templates/icons/java.png',
+  node: '/build-templates/icons/nodejs.svg',
+  python: '/build-templates/icons/python.png',
+  ruby: '/build-templates/icons/ruby.svg',
+  rust: '/build-templates/icons/rust.svg',
+}
+
 function buildTemplateIcon(template: BuildTemplate) {
-  if (template.category === 'static')
-    return <Globe2 className="size-4" />
-  switch (template.runtime) {
-    case 'bun':
-      return <Zap className="size-4" />
-    case 'dotnet':
-      return <Boxes className="size-4" />
-    case 'go':
-      return <Binary className="size-4" />
-    case 'java':
-      return <Coffee className="size-4" />
-    case 'node':
-      return <Braces className="size-4" />
-    case 'python':
-      return <FileCode2 className="size-4" />
-    case 'ruby':
-      return <Gem className="size-4" />
-    case 'rust':
-      return <Cog className="size-4" />
-    default:
-      return <FileCode2 className="size-4" />
-  }
+  const source = template.id === 'static-site'
+    ? '/build-templates/icons/html5.svg'
+    : buildTemplateLogoByRuntime[template.runtime]
+
+  if (!source)
+    return null
+
+  return (
+    <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 ring-1 ring-border/60">
+      <img alt="" className="max-h-full max-w-full object-contain" src={source} />
+    </span>
+  )
 }
