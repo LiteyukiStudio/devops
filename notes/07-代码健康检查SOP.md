@@ -532,7 +532,7 @@ rg -n "TODO|FIXME|临时|兼容|fallback|special case|module|Builder|builder" in
 | 后端 | `gofmt` 无差异；`go test ./...`；上述 PostgreSQL 非缓存测试；`go vet ./...`；关键包 `go test -race` |
 | 前端 | `pnpm --dir web install --frozen-lockfile`；`pnpm --dir web test`；`pnpm --dir web lint`；`pnpm --dir web build`；lint/build 不得有未解释的 warning；对登录、账号安全、管理员用户和项目空间路由做 production preview smoke |
 | 契约/文档 | 解析 OpenAPI，核对 code/枚举、请求响应与前端类型；`pnpm --dir docs install --frozen-lockfile`；`pnpm --dir docs build`；用户可见流程中英文同步 |
-| 依赖 | 审查 `go.mod`/`go.sum` 与 pnpm lockfile 差异；`govulncheck ./...`；`pnpm --dir web audit --audit-level=high`；`pnpm --dir docs audit --audit-level=high`；高危可达漏洞阻断发布 |
+| 依赖 | 审查 `go.mod`/`go.sum` 与 pnpm lockfile 差异；`govulncheck ./...`；`pnpm --dir web audit --prod --audit-level=high`；`pnpm --dir docs audit --prod --audit-level=high`；Go 可达漏洞和生产 pnpm 依赖 high/critical 漏洞阻断发布，开发工具链告警单独升级处理但不阻断 RC |
 | Helm | `helm lint charts/luna-devops`；`helm template luna-devops charts/luna-devops` 结果非空；复核 Secret/RBAC、安全上下文、探针、资源限制、非浮动镜像 tag 和生产 values 覆盖 |
 
 干净工作区的 RC 最终执行 `AUTH_TEST_DATABASE_URL=... ./scripts/release-check.sh`。聚合脚本通过不代替针对本轮发现的业务回归、并发测试和独立复审。
