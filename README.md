@@ -1,120 +1,124 @@
 <p align="center">
-  <img src="web/public/luna-devops-logo.svg" width="132" alt="Luna DevOps logo" />
+  <img src="web/public/luna-devops-logo.svg" width="132" alt="Luna DevOps 标志" />
 </p>
 
 <h1 align="center">Luna DevOps</h1>
 
 <p align="center">
-  A lightweight application delivery platform for small teams and independent developers.
+  面向小型团队、企业与独立开发者的轻量级应用交付平台。
 </p>
 
 <p align="center">
-  <img src="web/public/images/luna-devops-banner-v4.png" alt="Luna DevOps automated delivery pipeline banner" />
+  <strong>简体中文</strong> · <a href="README_EN.md">English</a>
 </p>
 
 <p align="center">
-  <a href="https://devops-docs.liteyuki.org">Documentation</a>
+  <img src="web/public/images/luna-devops-banner-v4.png" alt="Luna DevOps 自动化交付流水线" />
+</p>
+
+<p align="center">
+  <a href="https://devops-docs.liteyuki.org">文档站</a>
   ·
   <a href="https://github.com/LiteyukiStudio/devops">GitHub</a>
   ·
-  <a href="docs/docs/zh/guide/deployment/kubernetes-helm.md">Helm</a>
+  <a href="docs/docs/zh/guide/deployment/kubernetes-helm.md">Helm 部署</a>
   ·
-  <a href="docs/docs/zh/guide/deployment/docker-compose.md">Docker Compose</a>
+  <a href="docs/docs/zh/guide/deployment/docker-compose.md">Docker Compose 部署</a>
 </p>
 
-## What Is Luna DevOps?
+## Luna DevOps 是什么？
 
-Luna DevOps connects source repositories, image registries, BuildKit, Kubernetes, gateway routes, certificates, releases, and billing into one delivery workflow.
+Luna DevOps 将代码仓库、镜像站、BuildKit、Kubernetes、访问入口、证书、发布和计费能力串联成一条完整的应用交付流程。
 
-The goal is simple: keep the product team focused on code, while the platform handles the repeatable steps required to build and expose a service.
+目标很简单：让产品团队专注于代码，只需轻松几步即可部署自己的项目，平台负责重复而繁琐的构建与交付工作。
 
 ```text
-Repository
-  -> Build image
-  -> Push registry artifact
-  -> Deploy to Kubernetes / K3s
-  -> Create gateway route
-  -> Track status, logs, release history, and usage
+代码仓库
+  -> 构建镜像
+  -> 推送镜像产物
+  -> 部署到 Kubernetes / K3s
+  -> 创建访问入口
+  -> 跟踪状态、日志、发布历史与资源用量
 ```
 
-## Features
+## 主要功能
 
-| Area | Included |
+| 领域 | 已支持能力 |
 | --- | --- |
-| Workspaces | Project spaces, applications, members, roles, and audit-oriented operations |
-| Repositories | GitHub and Gitea account integration, repository binding, webhook entry points |
-| Builds | Worker-managed Kubernetes Jobs, rootless BuildKit, image tags, logs, and build records |
-| Registries | Harbor, Gitea Registry, DockerHub, and generic OCI registry connections |
-| Deployments | Kubernetes / K3s workloads, release records, status sync, and rollback-oriented history |
-| Gateway | Gateway API / HTTPRoute, domains, access entries, and certificate automation |
-| Operations | Events, notifications, application marketplace, billing, and platform settings |
-| User experience | React console, i18n, light / dark / system theme, and embedded production frontend |
+| 工作空间 | 项目空间、应用、成员、角色和带审计记录的管理操作 |
+| 代码仓库 | GitHub 与 Gitea 账号接入、仓库绑定和 Webhook 入口 |
+| 构建 | Worker 管理的 Kubernetes Job、Rootless BuildKit、镜像标签、日志和构建记录 |
+| 镜像站 | Harbor、Gitea Registry、DockerHub 和通用 OCI 镜像站 |
+| 部署 | Kubernetes / K3s 工作负载、发布记录、状态同步和支持回滚的历史记录 |
+| 访问入口 | Gateway API / HTTPRoute、域名、访问入口和证书自动化 |
+| 平台运营 | 事件、通知、应用市场、计费和站点设置 |
+| 用户体验 | React 控制台、国际化、浅色 / 深色 / 跟随系统主题和内嵌生产前端 |
 
-## Tech Stack
+## 技术栈
 
-| Layer | Stack |
+| 层级 | 技术栈 |
 | --- | --- |
-| Backend | Go, Gin, GORM, PostgreSQL, Redis, Asynq, client-go |
-| Frontend | Vite, React, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query |
-| Forms and UX | React Hook Form, Zod, i18next, react-i18next, Sonner |
-| Delivery | Docker Compose, Helm, Kubernetes Job, BuildKit, Gateway API |
-| Tooling | pnpm, uv, golang-migrate, OpenAPI |
+| 后端 | Go、Gin、GORM、PostgreSQL、Redis、Asynq、client-go |
+| 前端 | Vite、React、TypeScript、Tailwind CSS、shadcn/ui、TanStack Query |
+| 表单与交互 | React Hook Form、Zod、i18next、react-i18next、Sonner |
+| 交付 | Docker Compose、Helm、Kubernetes Job、BuildKit、Gateway API |
+| 工具链 | pnpm、uv、golang-migrate、OpenAPI |
 
-## Quick Start
+## 快速开始
 
-Start local dependencies:
+启动本地开发依赖：
 
 ```bash
 docker compose -f docker-compose-dev.yaml up -d
 ```
 
-Create local configuration:
+创建本地配置：
 
 ```bash
 cp .env.example .env
 ```
 
-Run the backend:
+运行后端：
 
 ```bash
 go run ./cmd/api
 go run ./cmd/worker
 ```
 
-Run the frontend:
+运行前端：
 
 ```bash
 pnpm --dir web install
 pnpm --dir web dev
 ```
 
-The Vite dev server proxies `/api/v1` to `http://localhost:8080`.
+Vite 开发服务器会将 `/api/v1` 代理到 `http://localhost:8080`。
 
-## Deployment
+## 部署
 
-Luna DevOps can run from containers, Helm, or a local binary workflow. Containerized deployment is recommended for real environments.
+Luna DevOps 支持容器、Helm 和本地二进制部署。实际使用环境推荐采用容器化部署。
 
-| Method | Best for | Entry point |
+| 方式 | 适用场景 | 入口 |
 | --- | --- | --- |
-| Kubernetes / Helm | Production-like Kubernetes or K3s clusters | [`charts/luna-devops`](charts/luna-devops) |
-| Docker Compose | Single-node trial, small labs, release verification | [`docker-compose.yaml`](docker-compose.yaml) |
-| Binary | Local debugging and source-level development | [`cmd/api`](cmd/api), [`cmd/worker`](cmd/worker) |
+| Kubernetes / Helm | 生产级 Kubernetes 或 K3s 集群 | [`charts/luna-devops`](charts/luna-devops) |
+| Docker Compose | 单机试用、小型实验室和发版验证 | [`docker-compose.yaml`](docker-compose.yaml) |
+| 二进制 | 本地调试和源码开发 | [`cmd/api`](cmd/api)、[`cmd/worker`](cmd/worker) |
 
-Start the published container images with Docker Compose:
+使用 Docker Compose 启动已发布的容器镜像：
 
 ```bash
 cp .env.example .env
-# Fill SECRET_ENCRYPTION_KEY, BOOTSTRAP_TOKEN, and REDIS_PASSWORD before first startup.
+# 首次启动前请填写 SECRET_ENCRYPTION_KEY、BOOTSTRAP_TOKEN 和 REDIS_PASSWORD。
 docker compose up -d
 ```
 
-Build the complete stack from the current source tree:
+从当前源码构建并启动完整服务：
 
 ```bash
 docker compose -f docker-compose-build.yaml up -d --build
 ```
 
-Install with Helm:
+使用 Helm 安装：
 
 ```bash
 helm install luna-devops ./charts/luna-devops \
@@ -122,41 +126,41 @@ helm install luna-devops ./charts/luna-devops \
   --create-namespace
 ```
 
-More deployment guides:
+更多部署说明：
 
 - [Kubernetes / Helm](docs/docs/zh/guide/deployment/kubernetes-helm.md)
 - [Docker Compose](docs/docs/zh/guide/deployment/docker-compose.md)
-- [Binary deployment](docs/docs/zh/guide/deployment/binary.md)
-- [Configuration reference](docs/docs/zh/guide/configuration-reference.md)
+- [二进制部署](docs/docs/zh/guide/deployment/binary.md)
+- [配置参考](docs/docs/zh/guide/configuration-reference.md)
 
-## Configuration Notes
+## 配置说明
 
-- `APP_ENV=development` enables local development conveniences.
-- `APP_ENV=production` disables development defaults and requires administrator bootstrap.
-- `SECRET_ENCRYPTION_KEY` must be stable in production. It protects stored tokens, registry credentials, OAuth secrets, and other sensitive values.
-- `TRUSTED_PROXY_CIDRS` should include trusted reverse proxies or CDN egress ranges when Luna DevOps is behind a proxy.
-- Worker build networking is configurable. Use restricted egress plus explicit allowlists when builds need to access private registries or mirrors.
+- `APP_ENV=development` 会启用本地开发便利功能。
+- `APP_ENV=production` 会关闭开发默认值，并要求初始化管理员。
+- 生产环境中的 `SECRET_ENCRYPTION_KEY` 必须保持稳定。它用于保护已保存的 Token、镜像站凭据、OAuth Secret 和其他敏感数据。
+- Luna DevOps 位于反向代理之后时，`TRUSTED_PROXY_CIDRS` 应包含可信反向代理或 CDN 的出口网段。
+- Worker 的构建网络可以单独配置。构建需要访问私有镜像站或镜像源时，建议使用受限出口并显式配置白名单。
 
-For the full list of API and worker options, use the [configuration reference](docs/docs/zh/guide/configuration-reference.md).
+完整的 API 与 Worker 配置请查看[配置参考](docs/docs/zh/guide/configuration-reference.md)。
 
-## Repository Layout
+## 仓库结构
 
 ```text
-cmd/api                 API service entry point
-cmd/worker              Async worker entry point
-internal/               Backend domains, providers, services, and models
-migrations/             PostgreSQL migrations
-openapi/                OpenAPI definitions
-web/                    Vite + React console
-web/public/             Public assets, logo, mascot, and favicon
-docs/                   Rspress documentation site
-notes/                  Product notes, engineering notes, and SOPs
-charts/luna-devops      Helm chart
+cmd/api                 API 服务入口
+cmd/worker              异步 Worker 入口
+internal/               后端业务域、Provider、Service 和数据模型
+migrations/             PostgreSQL 数据库迁移
+openapi/                OpenAPI 定义
+web/                    Vite + React 控制台
+web/public/             公共资源、标志、吉祥物和 favicon
+docs/                   Rspress 文档站
+notes/                  产品方案、工程笔记和 SOP
+charts/luna-devops      Helm Chart
 ```
 
-## Development
+## 开发
 
-Common checks:
+常用检查命令：
 
 ```bash
 go test ./...
@@ -164,23 +168,23 @@ pnpm --dir web lint
 pnpm --dir web build
 ```
 
-Project conventions:
+项目约定：
 
-- Use `pnpm` for frontend dependencies.
-- Use `uv` for Python tooling.
-- Keep backend handlers thin; put business logic in services and external integrations in providers.
-- Keep user-facing frontend text in i18n files.
-- Update the documentation site when a feature or behavior changes.
+- 前端依赖统一使用 `pnpm`。
+- Python 工具链统一使用 `uv`。
+- 后端 Handler 保持精简，业务逻辑放入 Service，外部平台集成放入 Provider。
+- 所有用户可见的前端文案都放入 i18n 文件。
+- 功能或行为变化时同步更新文档站。
 
-## Assets
+## 品牌资源
 
-- Logo / favicon: [`web/public/luna-devops-logo.svg`](web/public/luna-devops-logo.svg)
-- Mascot: [`web/public/brand/mascot-luna-devops.png`](web/public/brand/mascot-luna-devops.png)
+- 标志 / favicon：[`web/public/luna-devops-logo.svg`](web/public/luna-devops-logo.svg)
+- 吉祥物：[`web/public/brand/mascot-luna-devops.png`](web/public/brand/mascot-luna-devops.png)
 
-## Documentation
+## 文档
 
-- Public documentation: [devops-docs.liteyuki.org](https://devops-docs.liteyuki.org)
-- Product notes: [`notes/01-产品与一体化方案.md`](notes/01-产品与一体化方案.md)
-- Code health SOP: [`notes/07-代码健康检查SOP.md`](notes/07-代码健康检查SOP.md)
-- Development plan: [`TODO.md`](TODO.md)
-- Agent and contribution rules: [`AGENTS.md`](AGENTS.md)
+- 在线文档：[devops-docs.liteyuki.org](https://devops-docs.liteyuki.org)
+- 产品方案：[`notes/01-产品与一体化方案.md`](notes/01-产品与一体化方案.md)
+- 代码健康检查 SOP：[`notes/07-代码健康检查SOP.md`](notes/07-代码健康检查SOP.md)
+- 开发计划：[`TODO.md`](TODO.md)
+- Agent 与贡献规范：[`AGENTS.md`](AGENTS.md)
