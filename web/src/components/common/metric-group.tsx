@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 type MetricTone = 'danger' | 'info' | 'neutral' | 'success' | 'warning'
+type MetricSurface = 'neutral' | 'tinted'
 
 /** 概览页指标的统一分组，外层依靠表面与圆角分层，指标之间保留共享分隔线。 */
 export function MetricGroup({ children, className }: { children: ReactNode, className?: string }) {
@@ -14,12 +15,13 @@ export function MetricGroup({ children, className }: { children: ReactNode, clas
 }
 
 /** 指标项只表达标签、值和语义权重，不负责业务查询。 */
-export function MetricItem({ emphasis = true, href, icon, label, meta, tone = 'neutral', value }: {
+export function MetricItem({ emphasis = true, href, icon, label, meta, surface = 'tinted', tone = 'neutral', value }: {
   emphasis?: boolean
   href?: string
   icon?: ReactNode
   label: ReactNode
   meta?: ReactNode
+  surface?: MetricSurface
   tone?: MetricTone
   value: ReactNode
 }) {
@@ -37,12 +39,12 @@ export function MetricItem({ emphasis = true, href, icon, label, meta, tone = 'n
   )
   const className = cn(
     'group min-w-0 p-4 ring-1 ring-inset transition-colors',
-    metricToneSurfaceClassName(tone),
+    surface === 'neutral' ? metricToneSurfaceClassName('neutral') : metricToneSurfaceClassName(tone),
   )
 
   return href
-    ? <Link className={className} data-slot="metric-item" to={href}>{content}</Link>
-    : <div className={className} data-slot="metric-item">{content}</div>
+    ? <Link className={className} data-slot="metric-item" data-surface={surface} to={href}>{content}</Link>
+    : <div className={className} data-slot="metric-item" data-surface={surface}>{content}</div>
 }
 
 function metricToneClassName(tone: MetricTone) {

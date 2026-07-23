@@ -26,7 +26,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 
 const FALLBACK_ICON = '/app-templates/icons/fallback.svg'
-const CATEGORY_BUTTON_CLASS_NAME = 'shrink-0 rounded-full border border-primary-subtle px-4 text-muted-foreground transition-[background-color,border-color,color] duration-fast ease-standard hover:border-border data-[active=true]:border-border data-[active=true]:bg-surface data-[active=true]:text-foreground data-[active=true]:hover:bg-muted'
 
 export function AppTemplatesPage() {
   const { i18n, t } = useTranslation()
@@ -224,37 +223,9 @@ export function AppTemplatesPage() {
         </div>
       </section>
 
-      <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
-        <Button
-          className={CATEGORY_BUTTON_CLASS_NAME}
-          data-active={category === 'all'}
-          size="sm"
-          variant="ghost"
-          onClick={() => setCategory('all')}
-        >
-          {t('appTemplatesPage.allCategories')}
-        </Button>
-        {categoryOptions.map(item => (
-          <Button
-            key={item}
-            className={CATEGORY_BUTTON_CLASS_NAME}
-            data-active={category === item}
-            size="sm"
-            variant="ghost"
-            onClick={() => setCategory(item)}
-          >
-            {t(`appTemplatesPage.categories.${item}`, { defaultValue: item })}
-          </Button>
-        ))}
-      </div>
-
       {templates.isError && <ErrorState title={templates.error.message} />}
       {templates.isLoading && <TemplateGridSkeleton />}
-      {templates.isSuccess && sortedTemplates.length === 0 && (
-        <EmptyState description={t('appTemplatesPage.emptyDescription')} title={t('appTemplatesPage.emptyTitle')} />
-      )}
-
-      {sortedTemplates.length > 0 && (
+      {templates.isSuccess && (
         <section className="grid gap-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -263,7 +234,20 @@ export function AppTemplatesPage() {
                 {t('appTemplatesPage.resultCount', { count: sortedTemplates.length })}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Select
+                aria-label={t('appTemplatesPage.categoryFilter')}
+                className="h-9 min-w-36 border-0 bg-surface-inset shadow-none"
+                value={category}
+                onChange={event => setCategory(event.target.value)}
+              >
+                <option value="all">{t('appTemplatesPage.allCategories')}</option>
+                {categoryOptions.map(item => (
+                  <option key={item} value={item}>
+                    {t(`appTemplatesPage.categories.${item}`, { defaultValue: item })}
+                  </option>
+                ))}
+              </Select>
               <Select
                 aria-label={t('appTemplatesPage.sortBy')}
                 className="h-9 min-w-32 border-0 bg-surface-inset shadow-none"
@@ -284,16 +268,20 @@ export function AppTemplatesPage() {
               </Select>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {sortedTemplates.map(template => (
-              <TemplateCard
-                key={template.id}
-                canInstallSystemComponent={canInstallSystemComponent}
-                template={template}
-                onInstall={() => openInstallDialog(template)}
-              />
-            ))}
-          </div>
+          {sortedTemplates.length === 0
+            ? <EmptyState description={t('appTemplatesPage.emptyDescription')} title={t('appTemplatesPage.emptyTitle')} />
+            : (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {sortedTemplates.map(template => (
+                    <TemplateCard
+                      key={template.id}
+                      canInstallSystemComponent={canInstallSystemComponent}
+                      template={template}
+                      onInstall={() => openInstallDialog(template)}
+                    />
+                  ))}
+                </div>
+              )}
         </section>
       )}
 

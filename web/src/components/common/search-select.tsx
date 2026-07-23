@@ -16,6 +16,8 @@ export interface SearchSelectOption {
   keywords?: string
 }
 
+export type SearchSelectSize = 'sm' | 'default'
+
 interface SearchSelectCommonProps {
   ariaLabel?: string
   className?: string
@@ -29,6 +31,7 @@ interface SearchSelectCommonProps {
   placeholder?: string
   search?: string
   searchPlaceholder?: string
+  size?: SearchSelectSize
   onSearchChange?: (value: string) => void
 }
 
@@ -60,6 +63,7 @@ export function SearchSelect({
   placeholder,
   search,
   searchPlaceholder,
+  size = 'default',
   value,
   onSearchChange,
   onValueChange,
@@ -79,6 +83,7 @@ export function SearchSelect({
         disabled={disabled}
         open={open}
         placeholder={!selected}
+        size={size}
       >
         {selected?.icon}
         <span className="min-w-0 flex-1 truncate text-left">{selected?.label ?? placeholder ?? t('common.select')}</span>
@@ -90,12 +95,14 @@ export function SearchSelect({
         options={visibleOptions.items}
         search={searchState.value}
         searchPlaceholder={searchPlaceholder}
+        size={size}
         onSearchChange={searchState.onChange}
         renderOption={option => (
           <SearchOptionButton
             key={option.value}
             checked={option.value === value}
             option={option}
+            size={size}
             onSelect={() => {
               onValueChange(option.value)
               setOpen(false)
@@ -125,6 +132,7 @@ export function SearchMultiSelect({
   search,
   searchPlaceholder,
   selectedLabel,
+  size = 'default',
   value,
   onSearchChange,
   onValueChange,
@@ -162,6 +170,7 @@ export function SearchMultiSelect({
         disabled={disabled}
         open={open}
         placeholder={selectedOptions.length === 0}
+        size={size}
       >
         <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
       </SelectTriggerButton>
@@ -181,6 +190,7 @@ export function SearchMultiSelect({
         options={visibleOptions.items}
         search={searchState.value}
         searchPlaceholder={searchPlaceholder}
+        size={size}
         onSearchChange={searchState.onChange}
         renderOption={option => (
           <SearchOptionButton
@@ -188,6 +198,7 @@ export function SearchMultiSelect({
             checked={selectedValues.has(option.value)}
             checkbox
             option={option}
+            size={size}
             onSelect={() => toggleValue(option)}
           />
         )}
@@ -196,32 +207,37 @@ export function SearchMultiSelect({
   )
 }
 
-function SelectTriggerButton({ ariaLabel, children, className, disabled, open, placeholder }: {
+function SelectTriggerButton({ ariaLabel, children, className, disabled, open, placeholder, size }: {
   ariaLabel: string
   children: ReactNode
   className?: string
   disabled?: boolean
   open: boolean
   placeholder: boolean
+  size: SearchSelectSize
 }) {
   return (
     <PopoverTrigger asChild>
       <Button
         aria-expanded={open}
         aria-label={ariaLabel}
-        className={cn('h-9 w-full justify-between rounded-md px-3 font-normal', className)}
+        className={cn(
+          'w-full justify-between rounded-md font-normal',
+          size === 'sm' ? 'h-8 px-2.5 text-xs' : 'h-9 px-3 text-sm',
+          className,
+        )}
         disabled={disabled}
         type="button"
         variant="outline"
       >
         <span className={cn('flex min-w-0 flex-1 items-center gap-2', placeholder && 'text-muted-foreground')}>{children}</span>
-        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn(size === 'sm' ? 'size-3.5' : 'size-4', 'shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </Button>
     </PopoverTrigger>
   )
 }
 
-function SearchOptionsContent({ emptyLabel, footer, isLimited, loading, options, renderOption, search, searchPlaceholder, onSearchChange }: {
+function SearchOptionsContent({ emptyLabel, footer, isLimited, loading, options, renderOption, search, searchPlaceholder, size, onSearchChange }: {
   emptyLabel?: string
   footer?: ReactNode
   isLimited: boolean
@@ -230,6 +246,7 @@ function SearchOptionsContent({ emptyLabel, footer, isLimited, loading, options,
   renderOption: (option: SearchSelectOption) => ReactNode
   search: string
   searchPlaceholder?: string
+  size: SearchSelectSize
   onSearchChange: (value: string) => void
 }) {
   const { t } = useTranslation()
@@ -239,19 +256,19 @@ function SearchOptionsContent({ emptyLabel, footer, isLimited, loading, options,
       className="grid max-h-80 w-[var(--radix-popover-trigger-width)] min-w-64 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0"
       sideOffset={6}
     >
-      <div className="flex items-center gap-2 border-b border-border p-2">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
+      <div className={cn('flex items-center gap-2 border-b border-border', size === 'sm' ? 'px-2 py-1.5' : 'p-2')}>
+        <Search className={cn(size === 'sm' ? 'size-3.5' : 'size-4', 'shrink-0 text-muted-foreground')} />
         <Input
           autoFocus
-          className="h-8 rounded-md border-0 px-0 shadow-none focus-visible:ring-0"
+          className={cn('rounded-md border-0 px-0 shadow-none focus-visible:ring-0', size === 'sm' ? 'h-7 text-xs' : 'h-8 text-sm')}
           placeholder={searchPlaceholder ?? t('common.search')}
           value={search}
           onChange={event => onSearchChange(event.target.value)}
         />
       </div>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-1" onWheel={event => event.stopPropagation()}>
-        {loading && <p className="px-3 py-2 text-sm text-muted-foreground">{t('common.loading')}</p>}
-        {!loading && options.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">{emptyLabel ?? t('common.noOptions')}</p>}
+        {loading && <p className={cn('px-3 py-2 text-muted-foreground', size === 'sm' ? 'text-xs' : 'text-sm')}>{t('common.loading')}</p>}
+        {!loading && options.length === 0 && <p className={cn('px-3 py-2 text-muted-foreground', size === 'sm' ? 'text-xs' : 'text-sm')}>{emptyLabel ?? t('common.noOptions')}</p>}
         {!loading && options.map(renderOption)}
         {!loading && isLimited && <p className="px-3 py-2 text-xs text-muted-foreground">{t('common.searchSelectLimited', { count: options.length })}</p>}
       </div>
@@ -260,22 +277,26 @@ function SearchOptionsContent({ emptyLabel, footer, isLimited, loading, options,
   )
 }
 
-function SearchOptionButton({ checked, checkbox, option, onSelect }: {
+function SearchOptionButton({ checked, checkbox, option, size, onSelect }: {
   checked: boolean
   checkbox?: boolean
   option: SearchSelectOption
+  size: SearchSelectSize
   onSelect: () => void
 }) {
   return (
     <button
-      className="flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      className={cn(
+        'flex w-full min-w-0 items-center gap-2 rounded-md text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
+        size === 'sm' ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm',
+      )}
       disabled={option.disabled}
       type="button"
       onClick={onSelect}
     >
       {checkbox && (
-        <span className={cn('flex size-4 shrink-0 items-center justify-center rounded border border-border', checked && 'border-primary bg-primary text-primary-foreground')}>
-          {checked && <Check className="size-3" />}
+        <span className={cn('flex shrink-0 items-center justify-center rounded border border-border', size === 'sm' ? 'size-3.5' : 'size-4', checked && 'border-primary bg-primary text-primary-foreground')}>
+          {checked && <Check className={size === 'sm' ? 'size-2.5' : 'size-3'} />}
         </span>
       )}
       {option.icon}
@@ -283,7 +304,7 @@ function SearchOptionButton({ checked, checkbox, option, onSelect }: {
         <span className="block truncate font-medium">{option.label}</span>
         {option.description && <span className="block truncate text-xs text-muted-foreground">{option.description}</span>}
       </span>
-      {!checkbox && checked && <Check className="size-4 shrink-0 text-primary-text" />}
+      {!checkbox && checked && <Check className={cn(size === 'sm' ? 'size-3.5' : 'size-4', 'shrink-0 text-primary-text')} />}
     </button>
   )
 }

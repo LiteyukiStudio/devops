@@ -2,6 +2,8 @@
 
 Use the app marketplace when you need a database, cache, or monitoring tool without configuring it from scratch. Built-in templates cover databases, caches, messaging, object storage, search, observability, registries, database administration, web servers, and common self-hosted apps, such as PostgreSQL, Redis, NATS, ClickHouse, Qdrant, Typesense, Garage, Prometheus, Grafana, Gitea, Vaultwarden, NocoDB, Wiki.js, and WordPress.
 
+Template icons prefer official SVG or raster assets published by each application project. A traceable, properly licensed brand icon library is used only when an official reusable asset is unavailable, and the neutral placeholder is the final fallback. The platform does not draw approximate logos for established third-party products. External brand assets are vendored with the frontend, so the marketplace does not depend on an icon CDN at runtime.
+
 The marketplace also includes a small set of platform components. Only platform administrators can install them. They live in the platform-owned `platform-system` project space and create normal applications, deployment targets, and Releases. This project space is visible only to platform administrators, cannot be deleted, and is excluded from user project billing. The built-in `Luna Gateway Traffic Probe` enables gateway traffic billing when needed.
 
 Installing a template creates:
@@ -12,7 +14,7 @@ Installing a template creates:
 - Template-defined config files and secret files; sensitive files are written into Kubernetes Secrets.
 - An optional first Release; deployment is enabled by default.
 
-The marketplace organizes discovery around search and overview, use-case categories, and a single template directory. All templates remain in the same directory and can be sorted by popularity or name. Categories are available as quick filters. Search covers application names, images, websites, and official repositories. Template cards show only the application icon, name, category, purpose, source links, and install action. Resource defaults and image references are confirmed in the install dialog.
+The marketplace organizes discovery around search and overview, template filters, and a single template directory. All templates remain in the same directory. The category dropdown sits directly before popularity and sort-order controls as one list toolbar. Search covers application names, images, websites, and official repositories. Template cards show only the application icon, name, category, purpose, source links, and install action. Resource defaults and image references are confirmed in the install dialog.
 
 The top hero uses a clean raised surface without gradients or ambient glows for search and template metrics, preserving stable separation from the global themed canvas in both light and dark modes.
 

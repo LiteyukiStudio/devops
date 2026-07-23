@@ -36,6 +36,7 @@
   --color-theme-supporting: var(--theme-supporting, var(--primary));
   --color-theme-highlight: var(--theme-highlight, var(--primary));
   --color-sidebar-nav-hover: var(--sidebar-nav-hover);
+  --color-sidebar-nav-active: var(--sidebar-nav-active);
   --color-danger: hsl(var(--danger));
   --color-danger-subtle: var(--red-3);
   --color-danger-border: var(--red-7);

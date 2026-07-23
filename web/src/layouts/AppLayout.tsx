@@ -108,7 +108,7 @@ const pageMetaRules = [
 function sidebarMenuButtonClassName(active?: boolean) {
   return cn(
     'flex h-10 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-normal leading-none text-muted-foreground transition-all duration-150 hover:bg-sidebar-nav-hover hover:text-primary-text-strong',
-    active && 'theme-selection-surface text-primary-text-strong',
+    active && '[background:var(--sidebar-nav-active)] text-primary-text-strong hover:[background:var(--sidebar-nav-active)]',
   )
 }
 

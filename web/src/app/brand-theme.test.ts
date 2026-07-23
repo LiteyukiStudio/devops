@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { applySiteBrandColorPreset, applyUserBrandColorPreference, brandColorPresets, brandColorUsesDarkForeground, brandThemeIsComposite, brandThemeSwatchBackground, clearActiveUserBrandColorPreference, defaultBrandColorPreset, normalizeBrandColorPreset, normalizeUserBrandColorPreference, themePickerPresets } from './brand-theme'
+import { applySiteBrandColorPreset, applyUserBrandColorPreference, brandColorPresets, brandColorUsesDarkForeground, brandThemeIsComposite, brandThemeSwatchBackground, brandThemeSwatchColors, clearActiveUserBrandColorPreference, defaultBrandColorPreset, normalizeBrandColorPreset, normalizeUserBrandColorPreference, themePickerPresets } from './brand-theme'
 
 describe('brand theme presets', () => {
   beforeEach(() => {
@@ -76,8 +76,10 @@ describe('brand theme presets', () => {
   it('describes composite and single-color swatches consistently', () => {
     expect(brandThemeIsComposite('aurora')).toBe(true)
     expect(brandThemeIsComposite('blue')).toBe(false)
-    expect(brandThemeSwatchBackground('aurora')).toContain('conic-gradient')
-    expect(brandThemeSwatchBackground('botanical')).toContain('#0d4336')
+    expect(brandThemeSwatchColors('aurora')).toEqual(['#3b6fe8', '#7867d9', '#2e9eaa', '#e7a63a'])
+    expect(brandThemeSwatchColors('botanical')?.[0]).toBe('#0d4336')
+    expect(brandThemeSwatchColors('blue')).toBeNull()
+    expect(brandThemeSwatchBackground('aurora')).toBe('#3b6fe8')
     expect(brandThemeSwatchBackground('blue')).toBe('var(--blue-9)')
   })
 

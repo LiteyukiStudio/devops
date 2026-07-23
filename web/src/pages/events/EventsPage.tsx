@@ -471,6 +471,7 @@ function EventFilterMultiSelect({ disabled, label, loading, options, placeholder
         loading={loading}
         options={options}
         placeholder={placeholder}
+        size="sm"
         value={value}
         onValueChange={onChange}
       />

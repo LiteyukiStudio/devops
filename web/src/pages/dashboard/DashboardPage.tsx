@@ -64,7 +64,7 @@ export function DashboardPage() {
       <section className="grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone={overview.summary.attentionItems ? 'warning' : 'success'}>
+            <StatusBadge>
               {overview.summary.attentionItems ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}
             </StatusBadge>
             <span className="text-sm text-muted-foreground">
@@ -76,10 +76,10 @@ export function DashboardPage() {
           )}
         </div>
         <MetricGroup>
-          <MetricItem emphasis={overview.summary.activeBuilds > 0} href="/events?categories=build&statuses=in_progress" icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} tone={overview.summary.activeBuilds > 0 ? 'info' : 'neutral'} value={overview.summary.activeBuilds} />
-          <MetricItem emphasis={overview.summary.activeReleases > 0} href="/events?categories=release&statuses=in_progress" icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} tone={overview.summary.activeReleases > 0 ? 'info' : 'neutral'} value={overview.summary.activeReleases} />
-          <MetricItem emphasis={overview.summary.attentionItems > 0} href="/events?severities=error&severities=warning" icon={<ShieldAlert size={18} />} label={t('dashboardPage.attentionItems')} tone={overview.summary.attentionItems ? 'danger' : 'neutral'} value={overview.summary.attentionItems} />
-          <MetricItem emphasis={overview.summary.totalClusters > 0} href="/clusters" icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} tone={overview.summary.healthyClusters < overview.summary.totalClusters ? 'warning' : 'neutral'} value={`${overview.summary.healthyClusters}/${overview.summary.totalClusters}`} />
+          <MetricItem emphasis={overview.summary.activeBuilds > 0} href="/events?categories=build&statuses=in_progress" icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} surface="neutral" value={overview.summary.activeBuilds} />
+          <MetricItem emphasis={overview.summary.activeReleases > 0} href="/events?categories=release&statuses=in_progress" icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} surface="neutral" value={overview.summary.activeReleases} />
+          <MetricItem emphasis={overview.summary.attentionItems > 0} href="/events?severities=error&severities=warning" icon={<ShieldAlert size={18} />} label={t('dashboardPage.attentionItems')} surface="neutral" tone={overview.summary.attentionItems ? 'danger' : 'neutral'} value={overview.summary.attentionItems} />
+          <MetricItem emphasis={overview.summary.totalClusters > 0} href="/clusters" icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} surface="neutral" tone={overview.summary.healthyClusters < overview.summary.totalClusters ? 'warning' : 'neutral'} value={`${overview.summary.healthyClusters}/${overview.summary.totalClusters}`} />
         </MetricGroup>
       </section>
 
@@ -199,13 +199,13 @@ function AttentionPanel({ items }: { items: DashboardAttentionItem[] }) {
   const { t } = useTranslation()
   const tone = items.some(item => item.severity === 'error') ? 'danger' : 'warning'
   return (
-    <Notice icon={<ShieldAlert size={18} />} title={t('dashboardPage.attention')} tone={tone}>
+    <Notice icon={<ShieldAlert size={18} />} title={t('dashboardPage.attention')} tone={tone} variant="neutral">
       <div className="flex min-w-0 flex-wrap gap-2">
         {items.slice(0, 4).map(item => (
-          <Link key={item.key} className="group flex min-h-8 min-w-0 max-w-full items-center gap-2 rounded-md bg-surface-raised/70 px-2 py-1.5 transition-colors hover:bg-surface-raised" to={activityTarget(item.latest)}>
+          <Link key={item.key} className="group flex min-h-8 min-w-0 max-w-full items-center gap-2 rounded-md bg-surface-subtle px-2 py-1.5 transition-colors hover:bg-surface-inset" to={activityTarget(item.latest)}>
             <span className="shrink-0 transition-colors group-hover:text-primary-text">{categoryIcon(item.category)}</span>
             <span className="truncate text-sm text-foreground">{eventTypeLabel(t, item.latest.type)}</span>
-            {item.occurrences > 1 && <StatusBadge tone={item.severity === 'error' ? 'danger' : 'warning'}>{t('dashboardPage.occurrences', { count: item.occurrences })}</StatusBadge>}
+            {item.occurrences > 1 && <StatusBadge>{t('dashboardPage.occurrences', { count: item.occurrences })}</StatusBadge>}
           </Link>
         ))}
         {items.length > 4 && <Link className="flex min-h-8 items-center px-2 text-sm font-medium text-primary-text" to="/events?severities=error&severities=warning">{t('dashboardPage.moreAttention', { count: items.length - 4 })}</Link>}

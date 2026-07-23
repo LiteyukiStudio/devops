@@ -167,6 +167,7 @@ export function DataList<T>({
   const rowKeys = items.map(rowKey)
   const selectableRowKeys = selection ? items.filter(item => selection.isRowSelectable?.(item) ?? true).map(rowKey) : rowKeys
   const selectable = Boolean(selection)
+  const hasHeaderTools = Boolean(toolbar || search || selection?.bulkActions)
   const allRowsSelected = selectableRowKeys.length > 0 && selectableRowKeys.every(key => selectedKeySet.has(key))
   const someRowsSelected = selectableRowKeys.some(key => selectedKeySet.has(key))
   const updateRowSelection = (key: string, selected: boolean) => {
@@ -195,10 +196,13 @@ export function DataList<T>({
   return (
     <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden border-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none bg-transparent shadow-none')} padding="none">
       {(title || toolbar || search || selection?.bulkActions) && (
-        <div className={cn(
-          'flex shrink-0 flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center',
-          title ? 'sm:justify-between' : 'sm:justify-start',
-        )}
+        <div
+          className={cn(
+            'relative flex shrink-0 flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center',
+            title ? 'sm:justify-between' : 'sm:justify-start',
+            hasHeaderTools && 'after:absolute after:inset-x-4 after:bottom-0 after:border-b after:border-separator-strong',
+          )}
+          data-slot="data-list-tools"
         >
           <div className="min-w-0">
             {title && <h2 className="text-base font-semibold">{title}</h2>}
@@ -240,7 +244,7 @@ export function DataList<T>({
               )
             : (
                 <table className="w-max min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
-                  <thead className="sticky top-0 z-10 border-b border-separator-strong bg-card/95 backdrop-blur">
+                  <thead className="sticky top-0 z-10 bg-card/95 backdrop-blur">
                     <tr>
                       {selectable && (
                         <th className="h-11 w-10 px-4 py-3 text-left align-middle text-sm font-medium whitespace-nowrap text-foreground">
@@ -277,14 +281,14 @@ export function DataList<T>({
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="[&_tr:last-child]:border-0 [&_tr:has(+_tr:hover)]:border-surface-subtle">
+                  <tbody className="[&_tr:hover+tr]:border-surface-subtle">
                     {items.map((item) => {
                       const itemKey = rowKey(item)
                       const rowSelectable = selection?.isRowSelectable?.(item) ?? true
                       return (
                         <tr
                           key={itemKey}
-                          className="group border-b border-separator-strong transition-colors hover:border-surface-subtle hover:[&>td]:bg-surface-subtle [&>td]:transition-colors [&>td:first-child]:rounded-l-container [&>td:last-child]:rounded-r-container"
+                          className="group border-t border-separator-strong transition-colors hover:border-surface-subtle hover:[&>td]:bg-surface-subtle [&>td]:transition-colors [&>td:first-child]:rounded-l-container [&>td:last-child]:rounded-r-container"
                         >
                           {selectable && (
                             <td className="w-10 px-4 py-3 align-middle">

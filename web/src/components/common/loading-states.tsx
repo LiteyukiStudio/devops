@@ -32,12 +32,12 @@ export function AppLoadingState({ logoUrl, title }: { logoUrl: string, title: st
 export function DataListSkeleton({ columns = 4, rows = 6 }: { columns?: number, rows?: number }) {
   return (
     <LoadingRegion className="min-w-full">
-      <div className="grid h-10 items-center gap-4 border-b border-separator-strong bg-muted/70 px-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
+      <div className="grid h-10 items-center gap-4 bg-muted/70 px-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
         {Array.from({ length: columns }, (_, index) => <Skeleton key={index} className="h-3 w-20 max-w-full" />)}
       </div>
-      <div className="divide-y divide-separator-strong">
+      <div>
         {Array.from({ length: rows }, (_, row) => (
-          <div key={row} className="grid min-h-14 items-center gap-4 px-4 py-3" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
+          <div key={row} className="grid min-h-14 items-center gap-4 border-t border-separator-strong px-4 py-3" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
             {Array.from({ length: columns }, (_, column) => (
               <Skeleton key={column} className={cn('h-4 max-w-full', column === 0 ? 'w-32' : 'w-20')} />
             ))}

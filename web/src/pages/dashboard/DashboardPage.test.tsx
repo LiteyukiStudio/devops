@@ -37,6 +37,8 @@ describe('dashboard page', () => {
     expect(screen.getByText('2 consecutive')).toBeInTheDocument()
     expect(screen.getByText('Recent activity')).toBeInTheDocument()
     expect(screen.getByText('Partially available')).toBeInTheDocument()
+    expect(screen.getByText('Attention').closest('[data-slot="notice"]')).toHaveAttribute('data-variant', 'neutral')
+    expect(screen.getByText('Active builds').closest('[data-slot="metric-item"]')).toHaveAttribute('data-surface', 'neutral')
     expect(mocks.getDashboard).toHaveBeenCalledTimes(1)
   })
 

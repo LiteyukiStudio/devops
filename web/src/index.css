@@ -30,7 +30,8 @@
   --separator-subtle: color-mix(in oklab, hsl(var(--border)) 48%, hsl(var(--surface)) 52%);
   --workspace-background: hsl(var(--surface-base));
   --theme-selection-surface: hsl(var(--muted));
-  --sidebar-nav-hover: hsl(var(--muted));
+  --sidebar-nav-hover: hsl(var(--surface-subtle));
+  --sidebar-nav-active: hsl(var(--muted));
   --danger: 0 74% 48%;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: hsl(var(--background));
@@ -64,7 +65,8 @@
     color-mix(in oklab, var(--primary) 13%, hsl(var(--surface-base))),
     color-mix(in oklab, var(--theme-secondary) 12%, hsl(var(--surface-base)))
   );
-  --sidebar-nav-hover: color-mix(in oklab, var(--primary) 18%, hsl(var(--surface-base)));
+  --sidebar-nav-hover: color-mix(in oklab, var(--primary) 14%, hsl(var(--surface-base)));
+  --sidebar-nav-active: color-mix(in oklab, var(--primary) 26%, color-mix(in oklab, var(--theme-secondary) 4%, hsl(var(--surface-base))));
   --workspace-background: color-mix(in oklab, var(--primary-border) 7%, hsl(var(--surface-base)));
 }
 
@@ -74,8 +76,39 @@
   --primary-subtle-active: color-mix(in oklab, var(--primary-border) 18%, color-mix(in oklab, var(--theme-secondary) 7%, hsl(var(--surface-base))));
   --separator-strong: color-mix(in oklab, hsl(var(--border)) 76%, var(--theme-secondary) 24%);
   --separator-subtle: color-mix(in oklab, hsl(var(--border)) 86%, var(--theme-supporting) 14%);
-  --sidebar-nav-hover: color-mix(in oklab, var(--primary) 16%, hsl(var(--surface-base)));
+  --sidebar-nav-hover: color-mix(in oklab, var(--primary) 13%, hsl(var(--surface-base)));
+  --sidebar-nav-active: color-mix(in oklab, var(--primary) 24%, color-mix(in oklab, var(--theme-secondary) 4%, hsl(var(--surface-base))));
   --workspace-background: color-mix(in oklab, var(--primary-border) 6%, hsl(var(--surface-base)));
+}
+
+:root:is(
+  [data-brand-theme="aurora"],
+  [data-brand-theme="harbor"],
+  [data-brand-theme="sunset"],
+  [data-brand-theme="botanical"],
+  [data-brand-theme="meadow"],
+  [data-brand-theme="citrus"]
+)[data-interface-style="themed"] {
+  --sidebar-nav-active: linear-gradient(
+    115deg,
+    color-mix(in oklab, var(--primary) 28%, hsl(var(--surface-base))),
+    color-mix(in oklab, var(--theme-secondary) 24%, hsl(var(--surface-base)))
+  );
+}
+
+:root[data-theme="dark"]:is(
+  [data-brand-theme="aurora"],
+  [data-brand-theme="harbor"],
+  [data-brand-theme="sunset"],
+  [data-brand-theme="botanical"],
+  [data-brand-theme="meadow"],
+  [data-brand-theme="citrus"]
+)[data-interface-style="themed"] {
+  --sidebar-nav-active: linear-gradient(
+    115deg,
+    color-mix(in oklab, var(--primary) 28%, hsl(var(--surface-base))),
+    color-mix(in oklab, var(--theme-secondary) 22%, hsl(var(--surface-base)))
+  );
 }
 
 :root[data-interface-style="minimal"] {
@@ -86,7 +119,8 @@
   --separator-subtle: color-mix(in oklab, hsl(var(--border)) 48%, hsl(var(--surface)) 52%);
   --workspace-background: hsl(var(--surface-base));
   --theme-selection-surface: hsl(var(--muted));
-  --sidebar-nav-hover: hsl(var(--muted));
+  --sidebar-nav-hover: hsl(var(--surface-subtle));
+  --sidebar-nav-active: hsl(var(--muted));
 }
 
 .workspace-canvas {

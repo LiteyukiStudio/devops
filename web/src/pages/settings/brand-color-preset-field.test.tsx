@@ -30,8 +30,12 @@ describe('brand color preset field', () => {
 
     const auroraSwatch = document.querySelector<HTMLSpanElement>('label[for="brand-color-aurora"] .brand-theme-swatch')
     const blueSwatch = document.querySelector<HTMLSpanElement>('label[for="brand-color-blue"] .brand-theme-swatch')
-    expect(auroraSwatch).toHaveStyle({ background: expect.stringContaining('conic-gradient') })
+    const auroraGraphic = auroraSwatch?.querySelector<SVGElement>('[data-slot="composite-theme-swatch"]')
+    expect(auroraSwatch).toHaveStyle({ background: '#3b6fe8' })
+    expect(auroraGraphic?.querySelectorAll('path')).toHaveLength(3)
+    expect(auroraGraphic?.querySelector('circle')).toHaveAttribute('fill', '#3b6fe8')
     expect(blueSwatch).toHaveStyle({ background: 'var(--blue-9)' })
+    expect(blueSwatch?.querySelector('[data-slot="composite-theme-swatch"]')).not.toBeInTheDocument()
     expect(auroraSwatch).toHaveClass('rounded-full')
   })
 

@@ -95,13 +95,18 @@ describe('data list layout', () => {
     )
 
     expect(screen.getAllByRole('rowgroup')[0]).toHaveClass('bg-card/95')
-    expect(screen.getAllByRole('rowgroup')[0]).toHaveClass('border-separator-strong')
+    expect(screen.getAllByRole('rowgroup')[0]).not.toHaveClass('border-separator-strong')
     expect(screen.getByRole('row', { name: 'One' })).toHaveClass(
       'border-separator-strong',
+      'border-t',
       'hover:border-surface-subtle',
       'hover:[&>td]:bg-surface-subtle',
       '[&>td:first-child]:rounded-l-container',
       '[&>td:last-child]:rounded-r-container',
+    )
+    expect(screen.getByRole('button', { name: 'Sort projects' }).closest('[data-slot="data-list-tools"]')).toHaveClass(
+      'after:border-separator-strong',
+      'after:inset-x-4',
     )
     expect(screen.getByRole('table').closest('[data-slot="scroll-area"]')).toHaveClass('mx-group')
     const search = screen.getByPlaceholderText('Search projects')
@@ -110,7 +115,7 @@ describe('data list layout', () => {
     expect(screen.getByRole('table').closest('[data-slot="card"]')).not.toHaveClass('p-section')
   })
 
-  it('does not draw separators above the table header or below the final row', () => {
+  it('only draws a toolbar separator when tools are present', () => {
     render(
       <DataList
         columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
@@ -133,7 +138,26 @@ describe('data list layout', () => {
     const pagination = screen.getByText('1 item').parentElement?.parentElement
     expect(titleBar?.className).not.toContain('after:')
     expect(pagination?.className).not.toContain('before:')
-    expect(screen.getAllByRole('rowgroup')[1]).toHaveClass('[&_tr:last-child]:border-0')
+    expect(screen.getByRole('row', { name: 'One' })).toHaveClass('border-t', 'border-separator-strong')
+  })
+
+  it('uses the same top border for the header-to-row and row-to-row separators', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyTitle="Empty"
+        items={[
+          { id: 'one', name: 'One' },
+          { id: 'two', name: 'Two' },
+        ]}
+        rowKey={item => item.id}
+      />,
+    )
+
+    const rows = screen.getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(2)
+    for (const row of rows)
+      expect(row).toHaveClass('border-t', 'border-separator-strong')
   })
 
   it('does not render pagination controls for an empty result', () => {

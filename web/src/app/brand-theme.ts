@@ -109,23 +109,27 @@ export function brandThemeIsComposite(preset: BrandColorPreset) {
   return compositeBrandColorPresetSet.has(preset)
 }
 
-export function brandThemeSwatchBackground(preset: BrandColorPreset) {
+export function brandThemeSwatchColors(preset: BrandColorPreset): readonly [string, string, string, string] | null {
   switch (preset) {
     case 'aurora':
-      return 'conic-gradient(from 45deg, #3b6fe8 0 25%, #7867d9 25% 50%, #2e9eaa 50% 75%, #e7a63a 75% 100%)'
+      return ['#3b6fe8', '#7867d9', '#2e9eaa', '#e7a63a']
     case 'harbor':
-      return 'conic-gradient(from 45deg, #147d73 0 34%, #47709b 34% 67%, #ce8a62 67% 100%)'
+      return ['#147d73', '#47709b', '#ce8a62', '#e7a63a']
     case 'sunset':
-      return 'conic-gradient(from 45deg, #eb7a53 0 34%, #f7d44c 34% 67%, #7c5cc4 67% 100%)'
+      return ['#eb7a53', '#f7d44c', '#7c5cc4', '#d84a8c']
     case 'botanical':
-      return 'conic-gradient(from 45deg, #0d4336 0 34%, #ce8a62 34% 67%, #f4f2f1 67% 100%)'
+      return ['#0d4336', '#ce8a62', '#147d73', '#eb7a53']
     case 'meadow':
-      return 'conic-gradient(from 45deg, #5cab8c 0 34%, #fbfe8d 34% 67%, #d4d5cf 67% 100%)'
+      return ['#5cab8c', '#bdee63', '#86ead4', '#f7d44c']
     case 'citrus':
-      return 'conic-gradient(from 45deg, #eb7a53 0 34%, #f7d44c 34% 67%, #f6ecc9 67% 100%)'
+      return ['#eb7a53', '#f7d44c', '#f6ecc9', '#e5484d']
     default:
-      return `var(--${preset}-9)`
+      return null
   }
+}
+
+export function brandThemeSwatchBackground(preset: BrandColorPreset) {
+  return brandThemeSwatchColors(preset)?.[0] ?? `var(--${preset}-9)`
 }
 
 function readActiveUserBrandColorPreference() {
