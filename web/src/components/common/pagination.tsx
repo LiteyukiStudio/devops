@@ -53,7 +53,7 @@ export function PaginationController({
     return normalized % 2 === 0 ? normalized + 1 : normalized
   }, [maxButtons])
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / Math.max(1, effectivePageSize))),
+    () => Math.max(0, Math.ceil(Math.max(0, total) / Math.max(1, effectivePageSize))),
     [effectivePageSize, total],
   )
   const [uncontrolledPage, setUncontrolledPage] = useState(() => clampPage(initialPage, totalPages))
@@ -107,6 +107,9 @@ export function PaginationController({
     }
     return { end, list: range(start, end), start, type: 'window' as const }
   }, [effectivePage, maxBtns, totalPages])
+
+  if (total <= 0 || totalPages === 0)
+    return null
 
   if (hideOnSinglePage && totalPages === 1)
     return null

@@ -48,6 +48,35 @@ Use `StatusBadge`, `StatusValueBadge`, or `Notice` for status. Business pages sh
 
 Prefer standard Tailwind spacing and width tokens. Do not introduce arbitrary pixel values for local visual adjustments.
 
+## Loading and empty states
+
+Choose a shared skeleton that matches the page structure:
+
+- `AppLoadingState` for session and public configuration bootstrap;
+- `DataListSkeleton` for resource headers, rows, and pagination geometry;
+- `OverviewSkeleton` for attention areas, metrics, and primary/secondary content;
+- `SettingsSkeleton` for tabs, labels, and fields;
+- `TemplateGridSkeleton` for marketplace tools and template grids;
+- `ToolViewportSkeleton` for iframes, logs, topology, and terminal workspaces.
+
+Once the application shell is available, replace only the content region. Do not place a single “Loading” line inside a large Card. `DataList` hides pagination when `total === 0`. First-time configuration states should offer a clear next step, while filtered empty results stay compact and provide a way to clear conditions.
+
+## Actions and mobile workflows
+
+- Keep one solid primary action per page or tab; use outline, ghost, or menus for peer actions.
+- Dashboard and overview risks must use semantic `danger`, `warning`, `success`, or `info` tones with explicit text.
+- When desktop filters exceed four fields, disclose them through a Sheet or popover on mobile while keeping search, filter entry, and refresh on the main page.
+- Use `DataListColumn.mobile` to define retained columns for frequent mobile lists and move secondary metadata into the primary cell. Reserve horizontal scrolling for genuinely complex resource tables.
+- Developer tools and other fixed or sticky controls must avoid dialogs, sheets, toasts, pagination, and sticky action columns.
+
+## Technical terminology
+
+- Use `Git Provider` for external source-control platforms and `OIDC Provider` for identity providers. Do not alternate between generic “provider”, “platform”, and product-specific labels within the same workflow.
+- Use “permission scope” for token and protocol permissions, while “resource scope” remains the visibility boundary of a platform resource.
+- Repository fields use “Owner” and “Repository” consistently. Preserve the original casing of protocol fields, API enums, commands, paths, and environment variables.
+- OIDC claim names should keep their protocol wording, such as “Group Claim” and “Email Claim”, with contextual help where their meaning is not obvious.
+- Keep capitalization and singular/plural forms consistent across tabs, tables, dialogs, and empty states.
+
 ## Verification
 
 Changes to shared visual components, page templates, or theme tokens must check at least:

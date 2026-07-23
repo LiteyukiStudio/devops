@@ -16,6 +16,7 @@ import { ContentTabs } from '@/components/common/content-tabs'
 import { DataList } from '@/components/common/data-list'
 import { ErrorState } from '@/components/common/error-state'
 import { FormField as Field } from '@/components/common/form-field'
+import { SettingsSkeleton } from '@/components/common/loading-states'
 import { PageShell } from '@/components/common/page-shell'
 import { SearchMultiSelect } from '@/components/common/search-select'
 import { Section } from '@/components/common/section'
@@ -111,6 +112,14 @@ export function SiteSettingsPage() {
     catch (error) {
       toast.error(error instanceof Error ? error.message : t('buildsPage.buildEnvironmentLoadFailed'))
     }
+  }
+
+  if (definitions.isLoading || (keys.length > 0 && values.isLoading)) {
+    return (
+      <PageShell spacing="compact" width="settings">
+        <SettingsSkeleton />
+      </PageShell>
+    )
   }
 
   return (

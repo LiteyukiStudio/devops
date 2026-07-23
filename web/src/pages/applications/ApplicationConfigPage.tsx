@@ -17,6 +17,7 @@ import { api } from '@/api'
 import { ApplicationBasicFields } from '@/components/common/application-basic-fields'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { ErrorState } from '@/components/common/error-state'
+import { ToolViewportSkeleton } from '@/components/common/loading-states'
 import { MotionItem, MotionList } from '@/components/common/motion'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -178,7 +179,7 @@ export function ApplicationConfigPage() {
           <div className="flex items-center gap-2">
             {activeTab === 'deployments' && (
               <>
-                <Button onClick={() => deploymentsPanelRef.current?.openTargetDialog()}>
+                <Button variant="outline" onClick={() => deploymentsPanelRef.current?.openTargetDialog()}>
                   <Plus size={16} />
                   {t('deploymentsPage.createDeploymentTarget')}
                 </Button>
@@ -337,11 +338,5 @@ export function ApplicationConfigPage() {
 }
 
 function TabFallback() {
-  const { t } = useTranslation()
-
-  return (
-    <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">
-      {t('common.loading')}
-    </div>
-  )
+  return <ToolViewportSkeleton />
 }

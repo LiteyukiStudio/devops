@@ -9,6 +9,8 @@ const debugPanel = {
   normalUserView: 'Normal user view',
   effectiveUser: 'Effective view',
   reset: 'Restore actual view',
+  hide: 'Hide debug trigger',
+  restoreHint: 'Press Command/Ctrl + Shift + D to restore it',
 }
 
 export default debugPanel

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
-type MetricTone = 'danger' | 'neutral' | 'success' | 'warning'
+type MetricTone = 'danger' | 'info' | 'neutral' | 'success' | 'warning'
 
 /** 概览页指标的统一分组，使用共享边界代替多层独立卡片。 */
 export function MetricGroup({ children, className }: { children: ReactNode, className?: string }) {
@@ -35,7 +35,10 @@ export function MetricItem({ emphasis = true, href, icon, label, meta, tone = 'n
       </div>
     </>
   )
-  const className = 'group min-w-0 bg-surface-raised p-4 transition-colors hover:bg-surface-subtle'
+  const className = cn(
+    'group min-w-0 p-4 ring-1 ring-inset transition-colors',
+    metricToneSurfaceClassName(tone),
+  )
 
   return href
     ? <Link className={className} data-slot="metric-item" to={href}>{content}</Link>
@@ -49,5 +52,19 @@ function metricToneClassName(tone: MetricTone) {
     return 'text-warning'
   if (tone === 'success')
     return 'text-success'
+  if (tone === 'info')
+    return 'text-info'
   return undefined
+}
+
+function metricToneSurfaceClassName(tone: MetricTone) {
+  if (tone === 'danger')
+    return 'bg-danger-subtle/45 ring-danger-border/45 hover:bg-danger-subtle/65'
+  if (tone === 'warning')
+    return 'bg-warning-subtle/45 ring-warning-border/45 hover:bg-warning-subtle/65'
+  if (tone === 'success')
+    return 'bg-success-subtle/35 ring-success-border/35 hover:bg-success-subtle/55'
+  if (tone === 'info')
+    return 'bg-info-subtle/35 ring-info-border/35 hover:bg-info-subtle/55'
+  return 'bg-surface-raised ring-transparent hover:bg-surface-subtle'
 }

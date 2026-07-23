@@ -11,6 +11,7 @@ import { useSession } from '@/app/session-context'
 import { CheckboxField } from '@/components/common/checkbox-field'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
+import { TemplateGridSkeleton } from '@/components/common/loading-states'
 import { ProjectSpaceSelect } from '@/components/common/project-space-select'
 import { StatusBadge } from '@/components/common/status-badge'
 import { UnitInput } from '@/components/common/unit-input'
@@ -197,10 +198,7 @@ export function AppTemplatesPage() {
 
   return (
     <div className="grid gap-4 sm:gap-5">
-      <Card className="grid gap-3 p-3 sm:gap-4 sm:p-4 xl:grid-cols-[minmax(0,1fr)_18rem_12rem_10rem_10rem] xl:items-center">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold">{t('appTemplatesPage.heroTitle')}</h2>
-        </div>
+      <Card className="grid gap-3 p-3 sm:gap-4 sm:p-4 xl:grid-cols-[minmax(16rem,1fr)_12rem_10rem_10rem] xl:items-center">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -246,7 +244,7 @@ export function AppTemplatesPage() {
       </Card>
 
       {templates.isError && <ErrorState title={templates.error.message} />}
-      {templates.isLoading && <EmptyState title={t('appTemplatesPage.loading')} variant="plain" />}
+      {templates.isLoading && <TemplateGridSkeleton />}
       {templates.isSuccess && sortedTemplates.length === 0 && (
         <EmptyState description={t('appTemplatesPage.emptyDescription')} title={t('appTemplatesPage.emptyTitle')} />
       )}

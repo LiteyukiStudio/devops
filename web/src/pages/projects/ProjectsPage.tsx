@@ -2,7 +2,7 @@ import type { Project, ProjectListScope } from '@/api'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, FolderKanban, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, FolderKanban, MoreHorizontal, Pencil, Plus, Search, SearchX, Trash2 } from 'lucide-react'
 import { useDeferredValue, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -122,23 +122,8 @@ export function ProjectsPage() {
 
   return (
     <PageShell spacing="compact" width="full">
-      <PageToolbar
-        actions={(
-          <Button
-            className="shrink-0"
-            onClick={() => {
-              setEditingProject(null)
-              form.reset({ name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
-              setDialogOpen(true)
-            }}
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">{t('projectSpaces.createTitle')}</span>
-            <span className="sm:hidden">{t('create')}</span>
-          </Button>
-        )}
-      >
-        <div className="relative min-w-0 flex-1 sm:max-w-sm sm:basis-72">
+      <PageToolbar>
+        <div className="relative min-w-0 basis-full sm:max-w-sm sm:basis-72">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label={t('projectSpaces.searchProjects')}
@@ -193,6 +178,17 @@ export function ProjectsPage() {
           {sortOrder === 'desc' ? <ArrowDownWideNarrow size={16} /> : <ArrowUpNarrowWide size={16} />}
           <span className="sr-only">{t(`projectSpaces.sortOrderOptions.${sortOrder}`)}</span>
         </Button>
+        <Button
+          className="ml-auto shrink-0"
+          onClick={() => {
+            setEditingProject(null)
+            form.reset({ name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
+            setDialogOpen(true)
+          }}
+        >
+          <Plus size={16} />
+          <span>{t('projectSpaces.createTitle')}</span>
+        </Button>
       </PageToolbar>
       {projects.isError && <ErrorState title={t('projectSpaces.loadFailedTitle')} description={t('projectSpaces.loadFailedDescription')} />}
       <DataList
@@ -208,6 +204,7 @@ export function ProjectsPage() {
             key: 'slug',
             header: t('common.slug'),
             className: 'px-4 py-3 align-middle text-muted-foreground',
+            mobile: 'hidden',
             width: 'secondary',
             render: project => <code className="rounded bg-background px-2 py-1 text-xs">{project.slug}</code>,
           },
@@ -215,6 +212,7 @@ export function ProjectsPage() {
             key: 'namespaceStrategy',
             header: t('projectSpaces.namespaceStrategy'),
             className: 'px-4 py-3 align-middle',
+            mobile: 'hidden',
             width: 'status',
             render: project => (
               project.namespaceStrategy === 'project'
@@ -226,6 +224,7 @@ export function ProjectsPage() {
             key: 'usage',
             header: t('projectSpaces.usage'),
             className: 'px-4 py-3 align-middle',
+            mobile: 'hidden',
             width: 'secondary',
             render: project => <ProjectUsage project={project} />,
           },
@@ -291,9 +290,19 @@ export function ProjectsPage() {
             },
           },
         ]}
-        emptyDescription={t('projectSpaces.emptyDescription')}
-        emptyTitle={t('projectSpaces.emptyTitle')}
+        emptyActions={deferredSearch
+          ? (
+              <Button variant="outline" onClick={() => setSearch('')}>
+                {t('projectSpaces.clearSearch')}
+              </Button>
+            )
+          : undefined}
+        emptyDescription={t(deferredSearch ? 'projectSpaces.noSearchResultsDescription' : 'projectSpaces.emptyDescription')}
+        emptyIcon={deferredSearch ? <SearchX className="size-5" /> : undefined}
+        emptyMode={deferredSearch ? 'filtered' : 'actionable'}
+        emptyTitle={t(deferredSearch ? 'projectSpaces.noSearchResultsTitle' : 'projectSpaces.emptyTitle')}
         items={projectItems}
+        loading={projects.isLoading}
         pagination={{
           page: projectPage,
           pageSize: projectPageSize,
@@ -457,6 +466,16 @@ function ProjectSummary({ project }: { project: Project }) {
         <p className="truncate text-sm text-muted-foreground">
           {project.description || t('common.noDescription')}
         </p>
+        <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground md:hidden">
+          <code className="max-w-32 truncate rounded bg-background px-1.5 py-0.5">{project.slug}</code>
+          <span className="truncate">
+            {project.lastUsedAt
+              ? formatSmartDateTime(project.lastUsedAt, t)
+              : project.useCount
+                ? t('projectSpaces.useCount', { count: project.useCount })
+                : '—'}
+          </span>
+        </div>
       </div>
     </div>
   )

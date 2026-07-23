@@ -17,7 +17,7 @@ function SidebarHeader({ className, ...props }: ComponentProps<'div'>) {
 }
 
 function SidebarContent({ className, ...props }: ComponentProps<'nav'>) {
-  return <nav className={cn('min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-3 py-4', className)} data-slot="sidebar-content" {...props} />
+  return <nav className={cn('min-h-0 w-full min-w-0 max-w-full flex-1 overscroll-contain overflow-x-hidden overflow-y-auto scroll-pb-4 px-3 py-4', className)} data-slot="sidebar-content" {...props} />
 }
 
 function SidebarFooter({ className, ...props }: ComponentProps<'div'>) {

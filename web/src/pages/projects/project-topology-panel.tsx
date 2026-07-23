@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import { api } from '@/api'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
+import { ToolViewportSkeleton } from '@/components/common/loading-states'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -106,7 +107,7 @@ export function ProjectTopologyPanel({ applications, canManage, projectId }: Pro
   }
 
   if (topology.isLoading)
-    return <div className="grid min-h-80 place-items-center text-sm text-muted-foreground">{t('common.loading')}</div>
+    return <ToolViewportSkeleton />
 
   if (topology.isError) {
     return (

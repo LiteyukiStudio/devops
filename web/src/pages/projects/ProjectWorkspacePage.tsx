@@ -15,6 +15,7 @@ import { api } from '@/api'
 import { useSession } from '@/app/session-context'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { ErrorState } from '@/components/common/error-state'
+import { ToolViewportSkeleton } from '@/components/common/loading-states'
 import { StatusBadge, StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
 import { UserAvatar } from '@/components/common/user-avatar'
@@ -69,7 +70,7 @@ export function ProjectWorkspacePage() {
         return <ProjectMembersPage ref={membersPageRef} embedded projectId={projectId} />
       case 'topology':
         return (
-          <Suspense fallback={<div className="grid min-h-80 place-items-center text-sm text-muted-foreground">{t('common.loading')}</div>}>
+          <Suspense fallback={<ToolViewportSkeleton />}>
             <ProjectTopologyPanel
               key={projectId}
               applications={applications.data ?? []}

@@ -65,4 +65,75 @@ describe('data list layout', () => {
     expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass('sticky', 'right-0')
     expect(screen.getByRole('cell', { name: '...' })).toHaveClass('sticky', 'right-0')
   })
+
+  it('does not render pagination controls for an empty result', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyTitle="Empty"
+        items={[] as { id: string, name: string }[]}
+        pagination={{
+          page: 1,
+          pageInfoLabel: '0 items',
+          pageSize: 10,
+          total: 0,
+          totalPages: 0,
+          onPageChange: () => undefined,
+        }}
+        rowKey={item => item.id}
+      />,
+    )
+
+    expect(screen.queryByText('0 items')).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+
+  it('renders a structured loading state instead of the empty state', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyTitle="Empty"
+        items={[] as { id: string, name: string }[]}
+        loading
+        rowKey={item => item.id}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.queryByText('Empty')).not.toBeInTheDocument()
+  })
+
+  it('can hide secondary columns on mobile while keeping action columns intact', () => {
+    render(
+      <DataList
+        columns={[
+          { key: 'name', header: 'Name', render: item => item.name },
+          { key: 'detail', header: 'Detail', mobile: 'hidden', render: item => item.detail },
+          { key: 'actions', header: 'Actions', sticky: 'right', render: () => <button type="button">Open</button> },
+        ]}
+        emptyTitle="Empty"
+        items={[{ id: 'one', name: 'One', detail: 'Secondary' }]}
+        rowKey={item => item.id}
+      />,
+    )
+
+    expect(screen.getByRole('columnheader', { name: 'Detail' })).toHaveClass('hidden', 'md:table-cell')
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).not.toHaveClass('hidden')
+  })
+
+  it('renders filtered empty results as a compact centered state with a clear action', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyActions={<button type="button">Clear filters</button>}
+        emptyMode="filtered"
+        emptyTitle="No matching results"
+        items={[] as { id: string, name: string }[]}
+        rowKey={item => item.id}
+      />,
+    )
+
+    expect(screen.getByText('No matching results').closest('[data-slot="empty"]')).toHaveClass('min-h-24', 'items-center')
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
+  })
 })

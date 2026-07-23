@@ -2,7 +2,7 @@ import type { ClusterResource, ClusterResourceEvent, ClusterResourceYAML, Runtim
 import { useTranslation } from 'react-i18next'
 import { CodeEditor } from '@/components/common/code-editor'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { EmptyState } from '@/components/common/empty-state'
+import { ToolViewportSkeleton } from '@/components/common/loading-states'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ClusterResourceWebConsoleDialog } from './cluster-resource-web-console-dialog'
 import { ClusterResourceEventsList } from './cluster-resources-panel'
@@ -100,7 +100,7 @@ export function ClusterResourceDialogs({
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             {yamlLoading
-              ? <EmptyState title={t('common.loading')} description={t('clustersPage.resourceYamlLoading')} />
+              ? <ToolViewportSkeleton />
               : <CodeEditor height="32rem" language="yaml" readOnly value={yaml?.yaml ?? ''} onChange={() => {}} />}
           </div>
         </DialogContent>

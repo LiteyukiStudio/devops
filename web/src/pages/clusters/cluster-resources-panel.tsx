@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { CopyableHoverText } from '@/components/common/copyable-hover-text'
 import { DataList } from '@/components/common/data-list'
 import { EmptyState } from '@/components/common/empty-state'
+import { DataListSkeleton } from '@/components/common/loading-states'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
@@ -166,9 +167,10 @@ export function ClusterResourcesPanel({ items, loading, pagination, selectedClus
           ),
         },
       ]}
-      emptyDescription={loading ? t('common.loading') : t('clustersPage.resourceEmptyDescription')}
-      emptyTitle={loading ? t('common.loading') : t(`clustersPage.${tab}EmptyTitle`)}
+      emptyDescription={t('clustersPage.resourceEmptyDescription')}
+      emptyTitle={t(`clustersPage.${tab}EmptyTitle`)}
       items={rowItems}
+      loading={loading}
       pagination={pagination}
       rowKey={item => item.id}
       selection={{
@@ -208,14 +210,8 @@ function clusterResourceName(item: ClusterResource, includeNamespace: boolean) {
 
 export function ClusterResourceEventsList({ events, loading }: { events: ClusterResourceEvent[], loading: boolean }) {
   const { t } = useTranslation()
-  if (loading) {
-    return (
-      <EmptyState
-        title={t('common.loading')}
-        description={t('clustersPage.resourceEventsLoading')}
-      />
-    )
-  }
+  if (loading)
+    return <DataListSkeleton columns={3} rows={4} />
   if (events.length === 0) {
     return (
       <EmptyState

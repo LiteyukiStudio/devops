@@ -1,5 +1,5 @@
 import type { PointerEvent, ReactNode } from 'react'
-import { Bug, RotateCcw, ShieldCheck, X } from 'lucide-react'
+import { Bug, EyeOff, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/app/session-context'
@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 
 const positionStorageKey = 'luna-devops.debug.floatingPosition'
-const triggerSize = 56
+const hiddenStorageKey = 'luna-devops.debug.hidden'
+const desktopTriggerSize = 56
+const mobileTriggerSize = 44
 const panelWidth = 320
-const viewportPadding = 12
+const viewportPadding = 16
 
 interface DebugPosition {
   x: number
@@ -35,11 +37,14 @@ export function DebugFloatingPanel() {
   const { t } = useTranslation()
   const { actualUser, clearDebugOverride, debugOverride, setDebugOverride, user } = useSession()
   const [open, setOpen] = useState(false)
+  const [hidden, setHidden] = useState(() => readHidden())
+  const [overlayOpen, setOverlayOpen] = useState(() => currentOverlayOpen())
   const [viewport, setViewport] = useState(() => currentViewport())
   const [position, setPosition] = useState<DebugPosition>(() => readPosition())
   const dragRef = useRef<DragState | null>(null)
   const suppressClickRef = useRef(false)
   const selectedRole = debugOverride?.type === 'role' ? debugOverride.role : 'actual'
+  const triggerSize = triggerSizeForViewport(viewport)
   const panelPosition = useMemo(() => {
     const left = clamp(position.x, viewportPadding, Math.max(viewportPadding, viewport.width - panelWidth - viewportPadding))
     const below = position.y + triggerSize + 8
@@ -47,7 +52,7 @@ export function DebugFloatingPanel() {
       ? clamp(position.y - 360 - 8, viewportPadding, Math.max(viewportPadding, viewport.height - 360 - viewportPadding))
       : below
     return { left, top }
-  }, [position.x, position.y, viewport.height, viewport.width])
+  }, [position.x, position.y, triggerSize, viewport.height, viewport.width])
 
   useEffect(() => {
     if (!isDeveloperMode)
@@ -66,7 +71,37 @@ export function DebugFloatingPanel() {
       localStorage.setItem(positionStorageKey, JSON.stringify(position))
   }, [isDeveloperMode, position])
 
-  if (!isDeveloperMode || !actualUser || !user)
+  useEffect(() => {
+    if (!isDeveloperMode)
+      return
+
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.code === 'KeyD') {
+        event.preventDefault()
+        setHidden((value) => {
+          const next = !value
+          localStorage.setItem(hiddenStorageKey, String(next))
+          return next
+        })
+      }
+    }
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [isDeveloperMode])
+
+  useEffect(() => {
+    if (!isDeveloperMode)
+      return
+
+    const updateOverlayState = () => {
+      setOverlayOpen(currentOverlayOpen())
+    }
+    const observer = new MutationObserver(updateOverlayState)
+    observer.observe(document.body, { attributes: true, childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [isDeveloperMode])
+
+  if (!isDeveloperMode || !actualUser || !user || hidden || overlayOpen)
     return null
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
@@ -132,7 +167,7 @@ export function DebugFloatingPanel() {
       <Button
         aria-label={t('debugPanel.trigger')}
         aria-pressed={open}
-        className="fixed z-50 size-14 cursor-grab touch-none rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:cursor-grabbing"
+        className="fixed z-40 size-11 cursor-grab touch-none rounded-full border border-primary/30 bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:cursor-grabbing sm:size-14"
         size="icon"
         style={{ left: position.x, top: position.y }}
         title={t('debugPanel.trigger')}
@@ -145,7 +180,7 @@ export function DebugFloatingPanel() {
       </Button>
       {open && (
         <section
-          className="fixed z-50 w-80 rounded-lg border border-border bg-surface p-4 shadow-xl"
+          className="fixed z-40 w-80 rounded-lg border border-border bg-surface p-4 shadow-xl"
           style={{ left: panelPosition.left, top: panelPosition.top }}
         >
           <div className="flex items-start justify-between gap-3">
@@ -182,6 +217,18 @@ export function DebugFloatingPanel() {
               <RotateCcw className="size-4" />
               {t('debugPanel.reset')}
             </Button>
+            <Button
+              className="w-full justify-center gap-2"
+              title={t('debugPanel.restoreHint')}
+              variant="ghost"
+              onClick={() => {
+                localStorage.setItem(hiddenStorageKey, 'true')
+                setHidden(true)
+              }}
+            >
+              <EyeOff className="size-4" />
+              {t('debugPanel.hide')}
+            </Button>
           </div>
         </section>
       )}
@@ -210,7 +257,7 @@ function currentViewport() {
 
 function readPosition(): DebugPosition {
   if (typeof window === 'undefined')
-    return { x: 1200, y: 560 }
+    return { x: viewportPadding, y: 560 }
 
   try {
     const raw = localStorage.getItem(positionStorageKey)
@@ -225,17 +272,34 @@ function readPosition(): DebugPosition {
   }
 
   return clampPosition({
-    x: window.innerWidth - triggerSize - 24,
-    y: window.innerHeight - triggerSize - 32,
+    x: viewportPadding,
+    y: window.innerHeight - triggerSizeForViewport(currentViewport()) - viewportPadding,
   })
 }
 
 function clampPosition(position: DebugPosition): DebugPosition {
   const viewport = currentViewport()
+  const triggerSize = triggerSizeForViewport(viewport)
   return {
     x: clamp(position.x, viewportPadding, Math.max(viewportPadding, viewport.width - triggerSize - viewportPadding)),
     y: clamp(position.y, viewportPadding, Math.max(viewportPadding, viewport.height - triggerSize - viewportPadding)),
   }
+}
+
+function triggerSizeForViewport(viewport: ReturnType<typeof currentViewport>) {
+  return viewport.width < 640 ? mobileTriggerSize : desktopTriggerSize
+}
+
+function readHidden() {
+  if (typeof window === 'undefined')
+    return false
+  return localStorage.getItem(hiddenStorageKey) === 'true'
+}
+
+function currentOverlayOpen() {
+  if (typeof document === 'undefined')
+    return false
+  return Boolean(document.querySelector('[role="dialog"][data-state="open"]'))
 }
 
 function clamp(value: number, min: number, max: number) {

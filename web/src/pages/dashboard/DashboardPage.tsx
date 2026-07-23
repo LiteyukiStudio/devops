@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
 import { ErrorState } from '@/components/common/error-state'
+import { OverviewSkeleton } from '@/components/common/loading-states'
 import { MetricGroup, MetricItem } from '@/components/common/metric-group'
 import { Notice } from '@/components/common/notice'
 import { PageShell } from '@/components/common/page-shell'
@@ -48,7 +49,7 @@ export function DashboardPage() {
   }
 
   if (!dashboard.data) {
-    return <Surface className="p-4 text-sm text-muted-foreground" variant="bordered">{t('common.loading')}</Surface>
+    return <PageShell width="content"><OverviewSkeleton /></PageShell>
   }
 
   const overview = dashboard.data
@@ -70,8 +71,8 @@ export function DashboardPage() {
           )}
         </div>
         <MetricGroup>
-          <MetricItem emphasis={overview.summary.activeBuilds > 0} href="/events?categories=build&statuses=in_progress" icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} value={overview.summary.activeBuilds} />
-          <MetricItem emphasis={overview.summary.activeReleases > 0} href="/events?categories=release&statuses=in_progress" icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} value={overview.summary.activeReleases} />
+          <MetricItem emphasis={overview.summary.activeBuilds > 0} href="/events?categories=build&statuses=in_progress" icon={<Hammer size={18} />} label={t('dashboardPage.activeBuilds')} tone={overview.summary.activeBuilds > 0 ? 'info' : 'neutral'} value={overview.summary.activeBuilds} />
+          <MetricItem emphasis={overview.summary.activeReleases > 0} href="/events?categories=release&statuses=in_progress" icon={<Rocket size={18} />} label={t('dashboardPage.activeReleases')} tone={overview.summary.activeReleases > 0 ? 'info' : 'neutral'} value={overview.summary.activeReleases} />
           <MetricItem emphasis={overview.summary.attentionItems > 0} href="/events?severities=error&severities=warning" icon={<ShieldAlert size={18} />} label={t('dashboardPage.attentionItems')} tone={overview.summary.attentionItems ? 'danger' : 'neutral'} value={overview.summary.attentionItems} />
           <MetricItem emphasis={overview.summary.totalClusters > 0} href="/clusters" icon={<Server size={18} />} label={t('dashboardPage.healthyClusters')} tone={overview.summary.healthyClusters < overview.summary.totalClusters ? 'warning' : 'neutral'} value={`${overview.summary.healthyClusters}/${overview.summary.totalClusters}`} />
         </MetricGroup>

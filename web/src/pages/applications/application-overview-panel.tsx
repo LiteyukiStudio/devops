@@ -1,11 +1,11 @@
 import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
 import type { Application, BuildRun, DeploymentTarget, GatewayRoute, Release, RepositoryBinding } from '@/api'
 import { Activity, CheckCircle2, Database, GitBranch, Globe2, Package, Play, Rocket } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApplicationIcon } from '@/components/common/application-icon-picker'
 import { buildRunImageRef } from '@/components/common/deployment-build-runs'
 import { EmptyState } from '@/components/common/empty-state'
+import { MetricGroup, MetricItem } from '@/components/common/metric-group'
 import { StatusValueBadge } from '@/components/common/status-badge'
 import { formatSmartDateTime } from '@/components/common/time-format'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, on
     const latest = latestReleaseForTarget(releases, target)
     return latest?.status === 'succeeded'
   }).length
+  const readyRoutes = routes.filter(route => route.status === 'ready').length
   const primaryRoute = routes.find(route => route.status === 'ready') ?? routes[0]
   const recentActivities = [
     latestBuild && {
@@ -72,6 +73,7 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, on
     onCreateRelease,
     onTriggerBuild,
   })
+  const deployGuideComplete = deployGuide.steps.every(step => step.done)
 
   return (
     <div className="grid gap-4">
@@ -84,52 +86,69 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, on
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{t('apps.deployGuideDescription')}</p>
           </div>
-          <Button className="w-full shrink-0 lg:w-auto" onClick={deployGuide.action}>
+          <Button className="w-full shrink-0 lg:w-auto" variant={deployGuideComplete ? 'outline' : 'default'} onClick={deployGuide.action}>
             {deployGuide.icon}
             {deployGuide.actionLabel}
           </Button>
         </div>
-        <div className="mt-4 grid gap-2 md:grid-cols-5">
-          {deployGuide.steps.map(step => (
-            <div key={step.key} className="min-w-0 rounded-md border border-border bg-muted/30 px-3 py-2">
-              <div className="flex items-center gap-2">
-                {step.done ? <CheckCircle2 className="size-4 shrink-0 text-success" /> : step.icon}
-                <span className="truncate text-sm font-medium">{step.label}</span>
+        {deployGuideComplete
+          ? (
+              <div className="mt-3 flex items-center gap-2 text-sm text-success">
+                <CheckCircle2 className="size-4 shrink-0" />
+                <span>{t('apps.deployGuideCompleteDescription')}</span>
               </div>
-              <p className="mt-1 truncate text-xs text-muted-foreground" title={step.meta}>{step.meta}</p>
-            </div>
-          ))}
-        </div>
+            )
+          : (
+              <div className="mt-4 grid gap-2 md:grid-cols-5">
+                {deployGuide.steps.map(step => (
+                  <div key={step.key} className="min-w-0 rounded-md border border-border bg-muted/30 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      {step.done ? <CheckCircle2 className="size-4 shrink-0 text-success" /> : step.icon}
+                      <span className="truncate text-sm font-medium">{step.label}</span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground" title={step.meta}>{step.meta}</p>
+                  </div>
+                ))}
+              </div>
+            )}
       </Card>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <OverviewMetric
+      <MetricGroup>
+        <MetricItem
+          href="?tab=deployments"
           icon={<Package className="size-4" />}
           label={t('apps.deploymentTargetHealth')}
           meta={t('apps.enabledTotal', { enabled: enabledTargets, total: deploymentTargets.length })}
+          tone={deploymentTargets.length > 0 && enabledTargets === 0 ? 'warning' : 'neutral'}
           value={String(deploymentTargets.length)}
         />
-        <OverviewMetric
+        <MetricItem
+          emphasis={Boolean(latestBuild)}
+          href="?tab=builds"
           icon={<Activity className="size-4" />}
           label={t('apps.buildHealth')}
           meta={latestBuild ? formatSmartDateTime(latestBuild.createdAt, t) : t('apps.noRecentBuild')}
-          status={latestBuild?.status}
+          tone={statusTone(latestBuild?.status)}
           value={latestBuild ? t(`buildsPage.statuses.${latestBuild.status}`) : '-'}
         />
-        <OverviewMetric
+        <MetricItem
+          emphasis={enabledTargets > 0}
+          href="?tab=deployments"
           icon={<Rocket className="size-4" />}
           label={t('apps.deploymentHealth')}
           meta={t('apps.deploymentReadyCount', { ready: healthyReleases, total: enabledTargets })}
-          status={latestRelease?.status}
-          value={latestRelease ? t(`buildsPage.statuses.${latestRelease.status}`) : '-'}
+          tone={enabledTargets > 0 && healthyReleases < enabledTargets ? 'danger' : healthyReleases > 0 ? 'success' : 'neutral'}
+          value={`${healthyReleases} / ${enabledTargets}`}
         />
-        <OverviewMetric
+        <MetricItem
+          emphasis={routes.length > 0}
+          href="?tab=gateway"
           icon={<Globe2 className="size-4" />}
           label={t('apps.accessHealth')}
           meta={primaryRoute ? routeDisplayUrl(primaryRoute) : t('apps.noAccessRoute')}
-          status={primaryRoute?.status}
-          value={routes.length ? String(routes.length) : '-'}
+          tone={routes.length > 0 && readyRoutes === 0 ? 'danger' : readyRoutes > 0 ? 'success' : 'neutral'}
+          value={`${readyRoutes} / ${routes.length}`}
         />
-      </div>
+      </MetricGroup>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
         <Card className="min-w-0 p-4">
           <div className="flex items-center justify-between gap-3">
@@ -169,7 +188,7 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, on
           </div>
           <Package className="size-5 shrink-0 text-muted-foreground" />
         </div>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        <div className="mt-3 divide-y divide-border">
           {deploymentTargets.length
             ? deploymentTargets.map(target => (
                 <DeploymentSummary
@@ -184,10 +203,10 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, on
       </Card>
       <Card className="min-w-0 p-4">
         <h3 className="text-base font-semibold">{t('apps.recentActivity')}</h3>
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 divide-y divide-border">
           {recentActivities.length
             ? recentActivities.map(item => (
-                <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium">{item.label}</div>
                     <div className="mt-1 truncate text-xs text-muted-foreground" title={item.meta}>{item.meta}</div>
@@ -292,20 +311,6 @@ function buildDeployGuide({
   return { action: onCreateRelease, actionLabel: t('apps.deployGuideRedeploy'), icon: <Rocket className="size-4" />, steps }
 }
 
-function OverviewMetric({ icon, label, meta, status, value }: { icon: ReactNode, label: string, meta: string, status?: string, value: string }) {
-  return (
-    <Card className="min-w-0 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">{icon}</div>
-        {status && <StatusValueBadge labelKeyPrefix="buildsPage.statuses" value={status} />}
-      </div>
-      <div className="mt-4 text-2xl font-semibold tracking-normal">{value}</div>
-      <div className="mt-1 text-sm font-medium text-foreground">{label}</div>
-      <div className="mt-1 truncate text-xs text-muted-foreground" title={meta}>{meta}</div>
-    </Card>
-  )
-}
-
 function OverviewItem({ icon, label, value }: { icon?: string, label: string, value: string }) {
   return (
     <div className="min-w-0">
@@ -326,7 +331,7 @@ function DeploymentSummary({ latestRelease, target, t }: { latestRelease?: Relea
   const storageItems = target.dataRetentionEnabled ? deploymentStorageItems(target) : []
 
   return (
-    <div className="grid min-w-0 gap-3 rounded-md border border-border px-3 py-3 text-sm">
+    <div className="grid min-w-0 gap-3 py-3 text-sm">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate font-medium" title={target.name}>{target.name}</div>
@@ -364,6 +369,18 @@ function DeploymentSummary({ latestRelease, target, t }: { latestRelease?: Relea
       )}
     </div>
   )
+}
+
+function statusTone(status?: string): 'danger' | 'info' | 'neutral' | 'success' | 'warning' {
+  if (!status)
+    return 'neutral'
+  if (['failed', 'error', 'cancelled'].includes(status))
+    return 'danger'
+  if (['pending', 'queued', 'running', 'building', 'deploying'].includes(status))
+    return 'warning'
+  if (['succeeded', 'ready', 'healthy'].includes(status))
+    return 'success'
+  return 'info'
 }
 
 function DeploymentResourceItem({ label, value }: { label: string, value: string }) {

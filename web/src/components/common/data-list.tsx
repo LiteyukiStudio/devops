@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { EmptyState } from './empty-state'
+import { DataListSkeleton } from './loading-states'
 import { PaginationController } from './pagination'
 
 type DataListColumnWidth = 'actions' | 'compact' | 'normal' | 'number' | 'primary' | 'secondary' | 'status'
@@ -16,6 +17,7 @@ export interface DataListColumn<T> {
   cellClassName?: string
   maxWidth?: number | string
   minWidth?: number | string
+  mobile?: 'hidden' | 'visible'
   sticky?: 'left' | 'right'
   width?: DataListColumnWidth
   render: (item: T) => ReactNode
@@ -28,7 +30,11 @@ interface DataListProps<T> {
   title?: ReactNode
   variant?: 'card' | 'plain'
   emptyTitle: string
+  emptyActions?: ReactNode
   emptyDescription?: ReactNode
+  emptyIcon?: ReactNode
+  emptyMode?: 'actionable' | 'filtered'
+  loading?: boolean
   search?: {
     value: string
     placeholder: string
@@ -145,7 +151,11 @@ export function DataList<T>({
   title,
   variant = 'card',
   emptyTitle,
+  emptyActions,
   emptyDescription,
+  emptyIcon,
+  emptyMode = 'actionable',
+  loading = false,
   search,
   selection,
   pagination,
@@ -203,89 +213,102 @@ export function DataList<T>({
         </div>
       )}
       <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1" scrollbars="both" type="auto">
-        {items.length === 0
-          ? <EmptyState description={emptyDescription} title={emptyTitle} variant="plain" />
-          : (
-              <table className="w-max min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
-                <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur [&_tr]:border-b">
-                  <tr className="border-b border-border transition-colors hover:bg-muted/40">
-                    {selectable && (
-                      <th className="h-10 w-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground">
-                        <input
-                          aria-label={selection?.selectAllLabel}
-                          checked={allRowsSelected}
-                          className="size-4 accent-primary"
-                          disabled={selectableRowKeys.length === 0}
-                          ref={(element) => {
-                            if (element)
-                              element.indeterminate = someRowsSelected && !allRowsSelected
-                          }}
-                          type="checkbox"
-                          onChange={event => updateAllRowsSelection(event.target.checked)}
-                        />
-                      </th>
-                    )}
-                    {columns.map(column => (
-                      <th
-                        key={column.key}
-                        className={cn(
-                          'h-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground',
-                          column.className,
-                          stickyColumnClass(column.sticky, 'header'),
-                          column.headerClassName,
-                          columnCellClassName(column as DataListColumn<unknown>),
-                        )}
-                      >
-                        <div className={columnContentClassName(column as DataListColumn<unknown>, 'header')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
-                          {column.header}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="[&_tr:last-child]:border-0">
-                  {items.map((item) => {
-                    const itemKey = rowKey(item)
-                    const rowSelectable = selection?.isRowSelectable?.(item) ?? true
-                    return (
-                      <tr key={itemKey} className="group border-b border-border transition-colors hover:bg-muted/40">
-                        {selectable && (
-                          <td className="w-10 px-4 py-3 align-middle">
-                            <input
-                              aria-label={selection?.selectRowLabel(item)}
-                              checked={selectedKeySet.has(itemKey)}
-                              className="size-4 accent-primary"
-                              disabled={!rowSelectable}
-                              type="checkbox"
-                              onChange={event => updateRowSelection(itemKey, event.target.checked)}
-                            />
-                          </td>
-                        )}
-                        {columns.map(column => (
-                          <td
-                            key={column.key}
-                            className={cn(
-                              'px-4 py-3 align-middle',
-                              column.className,
-                              stickyColumnClass(column.sticky, 'cell'),
-                              column.cellClassName,
-                              columnCellClassName(column as DataListColumn<unknown>),
-                            )}
-                          >
-                            <div className={columnContentClassName(column as DataListColumn<unknown>, 'cell')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
-                              {column.render(item)}
-                            </div>
-                          </td>
-                        ))}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
+        {loading
+          ? <DataListSkeleton columns={Math.max(2, Math.min(columns.length + (selectable ? 1 : 0), 6))} />
+          : items.length === 0
+            ? (
+                <EmptyState
+                  actions={emptyActions}
+                  description={emptyDescription}
+                  icon={emptyIcon}
+                  mode={emptyMode}
+                  title={emptyTitle}
+                  variant="plain"
+                />
+              )
+            : (
+                <table className="w-max min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
+                  <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur [&_tr]:border-b">
+                    <tr className="border-b border-border transition-colors hover:bg-muted/40">
+                      {selectable && (
+                        <th className="h-10 w-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground">
+                          <input
+                            aria-label={selection?.selectAllLabel}
+                            checked={allRowsSelected}
+                            className="size-4 accent-primary"
+                            disabled={selectableRowKeys.length === 0}
+                            ref={(element) => {
+                              if (element)
+                                element.indeterminate = someRowsSelected && !allRowsSelected
+                            }}
+                            type="checkbox"
+                            onChange={event => updateAllRowsSelection(event.target.checked)}
+                          />
+                        </th>
+                      )}
+                      {columns.map(column => (
+                        <th
+                          key={column.key}
+                          className={cn(
+                            'h-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground',
+                            column.className,
+                            stickyColumnClass(column.sticky, 'header'),
+                            column.headerClassName,
+                            column.mobile === 'hidden' && 'hidden md:table-cell',
+                            columnCellClassName(column as DataListColumn<unknown>),
+                          )}
+                        >
+                          <div className={columnContentClassName(column as DataListColumn<unknown>, 'header')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
+                            {column.header}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="[&_tr:last-child]:border-0">
+                    {items.map((item) => {
+                      const itemKey = rowKey(item)
+                      const rowSelectable = selection?.isRowSelectable?.(item) ?? true
+                      return (
+                        <tr key={itemKey} className="group border-b border-border transition-colors hover:bg-muted/40">
+                          {selectable && (
+                            <td className="w-10 px-4 py-3 align-middle">
+                              <input
+                                aria-label={selection?.selectRowLabel(item)}
+                                checked={selectedKeySet.has(itemKey)}
+                                className="size-4 accent-primary"
+                                disabled={!rowSelectable}
+                                type="checkbox"
+                                onChange={event => updateRowSelection(itemKey, event.target.checked)}
+                              />
+                            </td>
+                          )}
+                          {columns.map(column => (
+                            <td
+                              key={column.key}
+                              className={cn(
+                                'px-4 py-3 align-middle',
+                                column.className,
+                                stickyColumnClass(column.sticky, 'cell'),
+                                column.cellClassName,
+                                column.mobile === 'hidden' && 'hidden md:table-cell',
+                                columnCellClassName(column as DataListColumn<unknown>),
+                              )}
+                            >
+                              <div className={columnContentClassName(column as DataListColumn<unknown>, 'cell')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
+                                {column.render(item)}
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
       </ScrollArea>
 
-      {pagination && (
+      {pagination && pagination.total > 0 && !loading && (
         <div className="shrink-0 border-t border-border px-4 py-3 text-sm text-muted-foreground">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{pagination.pageInfoLabel}</span>

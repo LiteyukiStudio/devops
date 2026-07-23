@@ -216,6 +216,7 @@ const apps = {
   runtimeOverviewDescription: '按部署配置、构建、部署和访问入口快速判断当前应用是否可交付。',
   deployGuideTitle: '部署上线',
   deployGuideDescription: '按当前状态继续下一步：选好来源、确认构建、发布运行并开放访问入口。',
+  deployGuideCompleteDescription: '部署流程已完成，应用已具备构建、发布和访问能力。',
   deployGuideDone: '已就绪',
   deployGuideSource: '选择来源',
   deployGuideSourceMeta: '绑定代码仓库或使用已有镜像',

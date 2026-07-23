@@ -31,6 +31,7 @@ const usersPage = {
   platformAdmin: 'Platform admin',
   normalUser: 'Normal user',
   passwordLogin: 'Password login',
+  authentication: 'Authentication',
   mfa: 'Two-step verification',
   resetMFA: 'Reset MFA',
   resetMFATitle: 'Reset this user’s MFA?',

@@ -216,6 +216,7 @@ const apps = {
   runtimeOverviewDescription: 'Scan deploy configs, builds, deployments, and access routes to judge whether this app is deliverable.',
   deployGuideTitle: 'Deploy online',
   deployGuideDescription: 'Continue from the current state: choose a source, confirm build, release runtime, and expose access.',
+  deployGuideCompleteDescription: 'The deployment flow is complete and the application is ready to build, release, and expose.',
   deployGuideDone: 'Ready',
   deployGuideSource: 'Choose source',
   deployGuideSourceMeta: 'Bind a repository or use an existing image',

@@ -31,6 +31,7 @@ const usersPage = {
   platformAdmin: '平台管理员',
   normalUser: '普通用户',
   passwordLogin: '密码登录',
+  authentication: '认证方式',
   mfa: '两步验证',
   resetMFA: '重置 MFA',
   resetMFATitle: '确认重置该用户的 MFA？',

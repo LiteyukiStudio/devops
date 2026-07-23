@@ -11,6 +11,7 @@ import { usePublicConfig } from '@/app/public-config-context'
 import { useSession } from '@/app/session-context'
 import { useTheme } from '@/app/theme-context'
 import { DebugFloatingPanel } from '@/components/common/debug-floating-panel'
+import { AppLoadingState } from '@/components/common/loading-states'
 import { PageMotion } from '@/components/common/motion'
 import { SidebarUserPanel } from '@/components/common/sidebar-user-panel'
 import { ThemeModeSegmented } from '@/components/common/theme-mode-segmented'
@@ -170,7 +171,7 @@ export function AppLayout() {
 
     return (
       <>
-        <SidebarHeader className="h-16">
+        <SidebarHeader className="h-14">
           <Link
             aria-label={configs['site.title'] || t('appName')}
             className="flex h-full w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-5"
@@ -232,11 +233,7 @@ export function AppLayout() {
   }, [i18n, user?.language])
 
   if (sessionLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-background text-sm text-muted-foreground">
-        {t('common.loading')}
-      </div>
-    )
+    return <AppLoadingState logoUrl={configs['site.logoUrl'] || '/luna-devops-logo.svg'} title={configs['site.title'] || t('appName')} />
   }
 
   if (!user) {
@@ -251,14 +248,14 @@ export function AppLayout() {
           {renderSidebarContent()}
         </Sidebar>
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent className="w-72 max-w-[86vw] gap-0 overflow-hidden bg-surface p-0 sm:max-w-80" side="left">
+          <SheetContent className="flex h-full w-72 max-w-[86vw] flex-col gap-0 overflow-hidden bg-surface p-0 sm:max-w-80" side="left">
             <SheetTitle className="sr-only">{configs['site.title'] || t('appName')}</SheetTitle>
             {renderSidebarContent(() => setMobileSidebarOpen(false))}
           </SheetContent>
         </Sheet>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface-raised/90 px-4 py-2 backdrop-blur lg:px-5 xl:px-6">
+          <header className="z-10 flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface-raised/90 px-4 py-2 backdrop-blur lg:px-5 xl:px-6">
             <Button
               aria-label={t('nav.openSidebar')}
               className="mr-2 shrink-0 lg:hidden"

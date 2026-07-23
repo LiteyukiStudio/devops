@@ -3,7 +3,7 @@ import type { PlatformEvent, PlatformEventSnapshot } from '@/api'
 import type { DataListColumn } from '@/components/common/data-list'
 import type { SearchSelectOption } from '@/components/common/search-select'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Activity, ExternalLink, Eye, FileKey2, Globe2, Hammer, RefreshCw, Rocket, Workflow } from 'lucide-react'
+import { Activity, ExternalLink, Eye, FileKey2, Globe2, Hammer, RefreshCw, Rocket, SearchX, SlidersHorizontal, Workflow } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
@@ -40,6 +40,7 @@ export function EventsPage() {
   const [dateFrom, setDateFrom] = useState(() => dateDaysAgo(7))
   const [dateTo, setDateTo] = useState(() => dateDaysAgo(0))
   const [selectedEventId, setSelectedEventId] = useState('')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
   const applicationQueries = useQueries({
@@ -143,6 +144,11 @@ export function EventsPage() {
           <div className="min-w-0">
             <p className="truncate font-medium">{eventTypeLabel(t, event.type)}</p>
             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{event.message || t('eventsPage.noMessage')}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 md:hidden">
+              <StatusValueBadge labelKeyPrefix="eventsPage.severities" value={event.severity} />
+              <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={event.status} />
+              <span className="text-xs text-muted-foreground">{formatSmartDateTime(event.occurredAt, t)}</span>
+            </div>
           </div>
         </div>
       ),
@@ -150,24 +156,28 @@ export function EventsPage() {
     {
       key: 'resource',
       header: t('eventsPage.columns.resource'),
+      mobile: 'hidden',
       width: 'normal',
       render: event => <EventResource event={event} />,
     },
     {
       key: 'severity',
       header: t('eventsPage.columns.severity'),
+      mobile: 'hidden',
       width: 'status',
       render: event => <StatusValueBadge labelKeyPrefix="eventsPage.severities" value={event.severity} />,
     },
     {
       key: 'status',
       header: t('eventsPage.columns.status'),
+      mobile: 'hidden',
       width: 'status',
       render: event => <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={event.status} />,
     },
     {
       key: 'occurredAt',
       header: t('eventsPage.columns.time'),
+      mobile: 'hidden',
       width: 'compact',
       render: event => <span className="whitespace-nowrap text-sm text-muted-foreground">{formatSmartDateTime(event.occurredAt, t)}</span>,
     },
@@ -183,6 +193,157 @@ export function EventsPage() {
       ),
     },
   ], [t])
+  const activeFilterCount = projectIds.length + applicationIds.length + deploymentTargetIds.length + categories.length + eventTypes.length + severities.length + statuses.length + (scope === 'all' ? 1 : 0)
+  const clearFilters = () => {
+    setScope('mine')
+    setProjectIds([])
+    setApplicationIds([])
+    setDeploymentTargetIds([])
+    setCategories([])
+    setEventTypes([])
+    setSeverities([])
+    setStatuses([])
+    setDateFrom('')
+    setDateTo('')
+    resetPage()
+  }
+  const filterFields = (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {isPlatformAdmin && (
+        <EventFilterSelect
+          label={t('eventsPage.filters.scope')}
+          value={scope}
+          onChange={(value) => {
+            setScope(value as 'mine' | 'all')
+            resetPage()
+          }}
+        >
+          <SelectItem value="mine">{t('eventsPage.scopes.mine')}</SelectItem>
+          <SelectItem value="all">{t('eventsPage.scopes.all')}</SelectItem>
+        </EventFilterSelect>
+      )}
+      <EventFilterMultiSelect
+        label={t('eventsPage.filters.project')}
+        loading={projects.isLoading}
+        options={projectOptions}
+        placeholder={t('eventsPage.filters.allProjects')}
+        value={projectIds}
+        onChange={(values) => {
+          const retainedApplicationIds = applicationIds.filter((applicationId) => {
+            const application = applications.find(item => item.id === applicationId)
+            return application && values.includes(application.projectId)
+          })
+          const retainedTargetIds = deploymentTargetIds.filter((targetId) => {
+            const target = deploymentTargets.find(item => item.id === targetId)
+            return target && retainedApplicationIds.includes(target.applicationId)
+          })
+          setProjectIds(values)
+          setApplicationIds(retainedApplicationIds)
+          setDeploymentTargetIds(retainedTargetIds)
+          resetPage()
+        }}
+      />
+      <EventFilterMultiSelect
+        disabled={projectIds.length === 0}
+        label={t('eventsPage.filters.application')}
+        loading={applicationQueries.some(query => query.isLoading)}
+        options={applicationOptions}
+        placeholder={t('eventsPage.filters.allApplications')}
+        value={applicationIds}
+        onChange={(values) => {
+          const retainedTargetIds = deploymentTargetIds.filter((targetId) => {
+            const target = deploymentTargets.find(item => item.id === targetId)
+            return target && values.includes(target.applicationId)
+          })
+          setApplicationIds(values)
+          setDeploymentTargetIds(retainedTargetIds)
+          resetPage()
+        }}
+      />
+      <EventFilterMultiSelect
+        disabled={applicationIds.length === 0}
+        label={t('eventsPage.filters.deploymentTarget')}
+        loading={deploymentTargetQueries.some(query => query.isLoading)}
+        options={deploymentTargetOptions}
+        placeholder={t('eventsPage.filters.allDeploymentTargets')}
+        value={deploymentTargetIds}
+        onChange={(values) => {
+          setDeploymentTargetIds(values)
+          resetPage()
+        }}
+      />
+      <EventFilterMultiSelect
+        label={t('eventsPage.filters.category')}
+        options={categoryOptions}
+        placeholder={t('eventsPage.filters.allCategories')}
+        value={categories}
+        onChange={(values) => {
+          const allowedTypes = new Set((catalog.data ?? [])
+            .filter(item => values.length === 0 || values.includes(item.category))
+            .map(item => item.type))
+          setCategories(values)
+          setEventTypes(current => current.filter(value => allowedTypes.has(value)))
+          resetPage()
+        }}
+      />
+      <EventFilterMultiSelect
+        label={t('eventsPage.filters.type')}
+        options={eventTypeOptions}
+        placeholder={t('eventsPage.filters.allTypes')}
+        value={eventTypes}
+        onChange={(values) => {
+          setEventTypes(values)
+          resetPage()
+        }}
+      />
+      <EventFilterMultiSelect
+        label={t('eventsPage.filters.severity')}
+        options={severityOptions}
+        placeholder={t('eventsPage.filters.allSeverities')}
+        value={severities}
+        onChange={(values) => {
+          setSeverities(values)
+          resetPage()
+        }}
+      />
+      <EventFilterMultiSelect
+        label={t('eventsPage.filters.status')}
+        options={statusOptions}
+        placeholder={t('eventsPage.filters.allStatuses')}
+        value={statuses}
+        onChange={(values) => {
+          setStatuses(values)
+          resetPage()
+        }}
+      />
+      <label className="grid gap-1.5 text-xs text-muted-foreground">
+        {t('eventsPage.filters.dateFrom')}
+        <Input
+          className="h-9 rounded-md"
+          max={dateTo}
+          type="date"
+          value={dateFrom}
+          onChange={(event) => {
+            setDateFrom(event.target.value)
+            resetPage()
+          }}
+        />
+      </label>
+      <label className="grid gap-1.5 text-xs text-muted-foreground">
+        {t('eventsPage.filters.dateTo')}
+        <Input
+          className="h-9 rounded-md"
+          min={dateFrom}
+          type="date"
+          value={dateTo}
+          onChange={(event) => {
+            setDateTo(event.target.value)
+            resetPage()
+          }}
+        />
+      </label>
+    </div>
+  )
 
   if (events.isError) {
     return (
@@ -195,148 +356,54 @@ export function EventsPage() {
 
   return (
     <div className="space-y-4">
-      <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {isPlatformAdmin && (
-            <EventFilterSelect
-              label={t('eventsPage.filters.scope')}
-              value={scope}
-              onChange={(value) => {
-                setScope(value as 'mine' | 'all')
-                resetPage()
-              }}
-            >
-              <SelectItem value="mine">{t('eventsPage.scopes.mine')}</SelectItem>
-              <SelectItem value="all">{t('eventsPage.scopes.all')}</SelectItem>
-            </EventFilterSelect>
-          )}
-          <EventFilterMultiSelect
-            label={t('eventsPage.filters.project')}
-            loading={projects.isLoading}
-            options={projectOptions}
-            placeholder={t('eventsPage.filters.allProjects')}
-            value={projectIds}
-            onChange={(values) => {
-              const retainedApplicationIds = applicationIds.filter((applicationId) => {
-                const application = applications.find(item => item.id === applicationId)
-                return application && values.includes(application.projectId)
-              })
-              const retainedTargetIds = deploymentTargetIds.filter((targetId) => {
-                const target = deploymentTargets.find(item => item.id === targetId)
-                return target && retainedApplicationIds.includes(target.applicationId)
-              })
-              setProjectIds(values)
-              setApplicationIds(retainedApplicationIds)
-              setDeploymentTargetIds(retainedTargetIds)
-              resetPage()
-            }}
-          />
-          <EventFilterMultiSelect
-            disabled={projectIds.length === 0}
-            label={t('eventsPage.filters.application')}
-            loading={applicationQueries.some(query => query.isLoading)}
-            options={applicationOptions}
-            placeholder={t('eventsPage.filters.allApplications')}
-            value={applicationIds}
-            onChange={(values) => {
-              const retainedTargetIds = deploymentTargetIds.filter((targetId) => {
-                const target = deploymentTargets.find(item => item.id === targetId)
-                return target && values.includes(target.applicationId)
-              })
-              setApplicationIds(values)
-              setDeploymentTargetIds(retainedTargetIds)
-              resetPage()
-            }}
-          />
-          <EventFilterMultiSelect
-            disabled={applicationIds.length === 0}
-            label={t('eventsPage.filters.deploymentTarget')}
-            loading={deploymentTargetQueries.some(query => query.isLoading)}
-            options={deploymentTargetOptions}
-            placeholder={t('eventsPage.filters.allDeploymentTargets')}
-            value={deploymentTargetIds}
-            onChange={(values) => {
-              setDeploymentTargetIds(values)
-              resetPage()
-            }}
-          />
-          <EventFilterMultiSelect
-            label={t('eventsPage.filters.category')}
-            options={categoryOptions}
-            placeholder={t('eventsPage.filters.allCategories')}
-            value={categories}
-            onChange={(values) => {
-              const allowedTypes = new Set((catalog.data ?? [])
-                .filter(item => values.length === 0 || values.includes(item.category))
-                .map(item => item.type))
-              setCategories(values)
-              setEventTypes(current => current.filter(value => allowedTypes.has(value)))
-              resetPage()
-            }}
-          />
-          <EventFilterMultiSelect
-            label={t('eventsPage.filters.type')}
-            options={eventTypeOptions}
-            placeholder={t('eventsPage.filters.allTypes')}
-            value={eventTypes}
-            onChange={(values) => {
-              setEventTypes(values)
-              resetPage()
-            }}
-          />
-          <EventFilterMultiSelect
-            label={t('eventsPage.filters.severity')}
-            options={severityOptions}
-            placeholder={t('eventsPage.filters.allSeverities')}
-            value={severities}
-            onChange={(values) => {
-              setSeverities(values)
-              resetPage()
-            }}
-          />
-          <EventFilterMultiSelect
-            label={t('eventsPage.filters.status')}
-            options={statusOptions}
-            placeholder={t('eventsPage.filters.allStatuses')}
-            value={statuses}
-            onChange={(values) => {
-              setStatuses(values)
-              resetPage()
-            }}
-          />
-          <label className="grid gap-1.5 text-xs text-muted-foreground">
-            {t('eventsPage.filters.dateFrom')}
-            <Input
-              className="h-9 rounded-md"
-              max={dateTo}
-              type="date"
-              value={dateFrom}
-              onChange={(event) => {
-                setDateFrom(event.target.value)
-                resetPage()
-              }}
-            />
-          </label>
-          <label className="grid gap-1.5 text-xs text-muted-foreground">
-            {t('eventsPage.filters.dateTo')}
-            <Input
-              className="h-9 rounded-md"
-              min={dateFrom}
-              type="date"
-              value={dateTo}
-              onChange={(event) => {
-                setDateTo(event.target.value)
-                resetPage()
-              }}
-            />
-          </label>
-        </div>
-      </Card>
+      <Card className="hidden p-4 lg:block">{filterFields}</Card>
+
+      <div className="flex items-center justify-between gap-2 lg:hidden">
+        <Button className="gap-2" variant="outline" onClick={() => setMobileFiltersOpen(true)}>
+          <SlidersHorizontal className="size-4" />
+          {t('eventsPage.filters.open')}
+          {activeFilterCount > 0 && <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-xs text-primary-text">{activeFilterCount}</span>}
+        </Button>
+        <Button aria-label={t('common.refresh')} disabled={events.isFetching} size="icon" variant="outline" onClick={() => events.refetch()}>
+          <RefreshCw className={`size-4 ${events.isFetching ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <SheetContent className="flex w-full flex-col overflow-hidden sm:max-w-md" side="right">
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>{t('eventsPage.filters.title')}</SheetTitle>
+            <SheetDescription>{t('eventsPage.filters.selectedCount', { count: activeFilterCount })}</SheetDescription>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{filterFields}</div>
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border p-4">
+            <Button variant="ghost" onClick={clearFilters}>{t('eventsPage.filters.clearAll')}</Button>
+            <Button onClick={() => setMobileFiltersOpen(false)}>{t('eventsPage.filters.apply')}</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <DataList
         columns={columns}
-        emptyTitle={events.isLoading ? t('common.loading') : t('eventsPage.emptyTitle')}
+        emptyActions={(search || activeFilterCount > 0)
+          ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearch('')
+                  clearFilters()
+                }}
+              >
+                {t('eventsPage.filters.clearAll')}
+              </Button>
+            )
+          : undefined}
+        emptyDescription={t(search || activeFilterCount > 0 ? 'eventsPage.filteredEmptyDescription' : 'eventsPage.emptyDescription')}
+        emptyIcon={search || activeFilterCount > 0 ? <SearchX className="size-5" /> : undefined}
+        emptyMode={search || activeFilterCount > 0 ? 'filtered' : 'actionable'}
+        emptyTitle={t(search || activeFilterCount > 0 ? 'eventsPage.filteredEmptyTitle' : 'eventsPage.emptyTitle')}
         items={events.data?.items ?? []}
+        loading={events.isLoading}
         pagination={{
           page: events.data?.page ?? page,
           pageSize,

@@ -130,32 +130,30 @@ export function UsersPage() {
       key: 'role',
       header: t('usersPage.globalRole'),
       className: 'w-[13%] px-4 py-3 align-middle',
-      render: user => <StatusBadge>{user.role === 'platform_admin' ? t('usersPage.platformAdmin') : t('usersPage.normalUser')}</StatusBadge>,
+      render: user => <span className="text-sm text-muted-foreground">{user.role === 'platform_admin' ? t('usersPage.platformAdmin') : t('usersPage.normalUser')}</span>,
     },
     {
-      key: 'passwordSet',
-      header: t('usersPage.passwordLogin'),
-      className: 'w-[10%] px-4 py-3 align-middle',
+      key: 'authentication',
+      header: t('usersPage.authentication'),
+      className: 'px-4 py-3 align-middle',
       render: user => (
-        <StatusBadge tone={user.passwordSet ? 'success' : 'neutral'}>
-          {user.passwordSet ? t('common.enabled') : t('common.disabled')}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: 'mfa',
-      header: t('usersPage.mfa'),
-      className: 'w-[10%] px-4 py-3 align-middle',
-      render: user => (
-        <StatusBadge tone={user.mfaEnabled ? 'success' : 'neutral'}>
-          {user.mfaEnabled ? t('common.enabled') : t('common.disabled')}
-        </StatusBadge>
+        <div className="grid gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-2">
+            <span>{t('usersPage.passwordLogin')}</span>
+            <StatusBadge tone="neutral">{user.passwordSet ? t('common.enabled') : t('common.disabled')}</StatusBadge>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>{t('usersPage.mfa')}</span>
+            <StatusBadge tone="neutral">{user.mfaEnabled ? t('common.enabled') : t('common.disabled')}</StatusBadge>
+          </div>
+        </div>
       ),
     },
     {
       key: 'language',
       header: t('language'),
       className: 'w-[10%] px-4 py-3 align-middle text-muted-foreground',
+      mobile: 'hidden',
       render: user => user.language === 'en-US' ? t('languages.enUS') : t('languages.zhCN'),
     },
     {
@@ -168,12 +166,14 @@ export function UsersPage() {
       key: 'balance',
       header: t('usersPage.balance'),
       className: 'w-[12%] px-4 py-3 align-middle font-medium tabular-nums',
+      mobile: 'hidden',
       render: user => billingDisplay.formatAmountWithUnit(user.balanceCredits),
     },
     {
       key: 'createdAt',
       header: t('usersPage.createdAt'),
       className: 'w-[13%] px-4 py-3 align-middle text-muted-foreground',
+      mobile: 'hidden',
       render: user => formatAbsoluteDateTime(user.createdAt),
     },
     {
@@ -235,6 +235,7 @@ export function UsersPage() {
           emptyDescription={t('usersPage.emptyDescription')}
           emptyTitle={t('usersPage.emptyTitle')}
           items={userItems}
+          loading={users.isLoading}
           pagination={{
             page: users.data?.page ?? page,
             pageSize: users.data?.pageSize ?? pageSize,
