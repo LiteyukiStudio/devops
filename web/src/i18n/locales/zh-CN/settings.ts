@@ -39,7 +39,8 @@ const settings = {
       logoUrl: { label: 'Logo 地址', description: '控制台左上角 Logo 图片地址，留空时使用默认图标。' },
       faviconUrl: { label: 'Favicon 地址', description: '浏览器标签页图标地址，留空时使用默认 favicon。' },
       loginSubtitle: { label: '登录页副标题', description: '登录页品牌下方的短说明。' },
-      brandColorPreset: { label: '默认品牌主题色', description: '用于按钮、链接、选中态和焦点环；未选择个人主题色的用户会跟随此设置，全部色阶来自 Radix Colors 官方色板。' },
+      brandColorPreset: { label: '默认配色主题', description: '用于按钮、链接、选中态、焦点环和装饰强调；未选择个人主题的用户会跟随此设置。支持精选多色主题和 Radix Colors 单色主题。' },
+      minimalModeDefault: { label: '默认启用简约模式', description: '启用后，未设置个人界面风格的用户默认使用中性白色或灰色画布；用户仍可在个人资料中覆盖。' },
       operationsDashboardUrl: { label: '运营面板地址', description: '平台管理员使用的 Grafana dashboard 或 panel 嵌入地址；留空时不展示运营面板。' },
     },
     security: {
@@ -78,6 +79,12 @@ const settings = {
     },
   },
   brandColorPresets: {
+    aurora: '极光',
+    harbor: '海港',
+    sunset: '日落',
+    botanical: '植物园',
+    meadow: '青柠草甸',
+    citrus: '柑橘',
     gold: '金色',
     bronze: '青铜色',
     brown: '棕色',

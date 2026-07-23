@@ -63,7 +63,7 @@ describe('data list layout', () => {
     )
 
     expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass('sticky', 'right-0')
-    expect(screen.getByRole('cell', { name: '...' })).toHaveClass('sticky', 'right-0')
+    expect(screen.getByRole('cell', { name: '...' })).toHaveClass('sticky', 'right-0', 'border-separator-strong')
   })
 
   it('renders query controls in the list header toolbar', () => {
@@ -80,6 +80,60 @@ describe('data list layout', () => {
 
     const toolbarButton = screen.getByRole('button', { name: 'Sort projects' })
     expect(screen.getByText('Projects').parentElement?.parentElement).toContainElement(toolbarButton)
+  })
+
+  it('uses a clean white header surface and left-aligns query controls without a repeated title', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyTitle="Empty"
+        items={[{ id: 'one', name: 'One' }]}
+        rowKey={item => item.id}
+        search={{ value: '', placeholder: 'Search projects', onChange: () => undefined }}
+        toolbar={<button type="button">Sort projects</button>}
+      />,
+    )
+
+    expect(screen.getAllByRole('rowgroup')[0]).toHaveClass('bg-card/95')
+    expect(screen.getAllByRole('rowgroup')[0]).toHaveClass('border-separator-strong')
+    expect(screen.getByRole('row', { name: 'One' })).toHaveClass(
+      'border-separator-strong',
+      'hover:border-surface-subtle',
+      'hover:[&>td]:bg-surface-subtle',
+      '[&>td:first-child]:rounded-l-container',
+      '[&>td:last-child]:rounded-r-container',
+    )
+    expect(screen.getByRole('table').closest('[data-slot="scroll-area"]')).toHaveClass('mx-group')
+    const search = screen.getByPlaceholderText('Search projects')
+    expect(search.parentElement).not.toHaveClass('sm:justify-end')
+    expect(search.parentElement).toContainElement(screen.getByRole('button', { name: 'Sort projects' }))
+    expect(screen.getByRole('table').closest('[data-slot="card"]')).not.toHaveClass('p-section')
+  })
+
+  it('does not draw separators above the table header or below the final row', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyTitle="Empty"
+        items={[{ id: 'one', name: 'One' }]}
+        pagination={{
+          page: 1,
+          pageInfoLabel: '1 item',
+          pageSize: 10,
+          total: 1,
+          totalPages: 1,
+          onPageChange: () => undefined,
+        }}
+        rowKey={item => item.id}
+        title="Projects"
+      />,
+    )
+
+    const titleBar = screen.getByText('Projects').parentElement?.parentElement
+    const pagination = screen.getByText('1 item').parentElement?.parentElement
+    expect(titleBar?.className).not.toContain('after:')
+    expect(pagination?.className).not.toContain('before:')
+    expect(screen.getAllByRole('rowgroup')[1]).toHaveClass('[&_tr:last-child]:border-0')
   })
 
   it('does not render pagination controls for an empty result', () => {

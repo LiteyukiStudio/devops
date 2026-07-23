@@ -425,13 +425,10 @@ export function EventsPage() {
             resetPage()
           },
         }}
-        title={(
-          <div className="flex items-center gap-2">
-            <span>{t('eventsPage.listTitle')}</span>
-            <Button aria-label={t('common.refresh')} disabled={events.isFetching} size="icon" variant="ghost" onClick={() => events.refetch()}>
-              <RefreshCw className={`size-4 ${events.isFetching ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+        toolbar={(
+          <Button aria-label={t('common.refresh')} disabled={events.isFetching} size="icon" variant="ghost" onClick={() => events.refetch()}>
+            <RefreshCw className={`size-4 ${events.isFetching ? 'animate-spin' : ''}`} />
+          </Button>
         )}
       />
 

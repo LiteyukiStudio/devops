@@ -2729,12 +2729,16 @@ components:
         language: { type: string, enum: [zh-CN, en-US] }
         brandColorPreset:
           type: string
-          description: Empty follows the platform brand color; otherwise contains the user's official Radix color preset ID.
+          description: Empty follows the platform color theme; otherwise contains a curated multi-color theme or official Radix single-color preset ID.
           enum: ['', gold, bronze, brown, yellow, amber, orange, tomato, red, ruby, crimson, pink, plum, purple, violet, iris, indigo, blue, cyan, teal, jade, green, grass, lime, mint, sky]
+        interfaceStyle:
+          type: string
+          description: Empty follows the platform default; minimal uses a neutral canvas and themed uses the brand-tinted canvas.
+          enum: ['', minimal, themed]
         permissions:
           type: array
           items: { type: string }
-      required: [id, email, name, avatarUrl, passwordSet, role, language, brandColorPreset, permissions]
+      required: [id, email, name, avatarUrl, passwordSet, role, language, brandColorPreset, interfaceStyle, permissions]
     AuthRegistrationStatus:
       type: object
       properties:
@@ -2804,8 +2808,12 @@ components:
         language: { type: string, enum: [zh-CN, en-US] }
         brandColorPreset:
           type: string
-          description: Empty follows the platform brand color; otherwise stores an official Radix color preset ID.
+          description: Empty follows the platform color theme; otherwise stores a curated multi-color theme or official Radix single-color preset ID.
           enum: ['', gold, bronze, brown, yellow, amber, orange, tomato, red, ruby, crimson, pink, plum, purple, violet, iris, indigo, blue, cyan, teal, jade, green, grass, lime, mint, sky]
+        interfaceStyle:
+          type: string
+          description: Empty follows the platform default; otherwise overrides the interface style.
+          enum: ['', minimal, themed]
     UserInput:
       type: object
       properties:

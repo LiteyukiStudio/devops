@@ -82,6 +82,14 @@ var configDefinitions = []configDefinition{
 		Options:     brandColorPresetOptions,
 	},
 	{
+		Key:         siteMinimalModeDefaultKey,
+		Label:       "默认启用简约模式",
+		Description: "启用后，未设置个人界面风格的用户默认使用中性画布；用户可以在个人资料中覆盖。",
+		Type:        "boolean",
+		Public:      true,
+		Default:     "false",
+	},
+	{
 		Key:         "site.operationsDashboardUrl",
 		Label:       "运营面板地址",
 		Description: "用于平台管理员查看运营大盘的 Grafana dashboard 或 panel iframe 地址。留空时不展示运营面板内容。",

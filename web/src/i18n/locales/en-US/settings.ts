@@ -39,7 +39,8 @@ const settings = {
       logoUrl: { label: 'Logo URL', description: 'Logo displayed in the top-left corner of the console. Leave empty to use the default icon.' },
       faviconUrl: { label: 'Favicon URL', description: 'Browser tab icon URL. Leave empty to use the default favicon.' },
       loginSubtitle: { label: 'Login subtitle', description: 'Short description displayed below the brand on the login page.' },
-      brandColorPreset: { label: 'Default brand color', description: 'Used for buttons, links, selected states, and focus rings. Users without a personal selection follow this setting. Every scale comes from the official Radix Colors palette.' },
+      brandColorPreset: { label: 'Default color theme', description: 'Used for buttons, links, selected states, focus rings, and decorative accents. Users without a personal theme follow this setting. Includes curated multi-color themes and Radix Colors single-color themes.' },
+      minimalModeDefault: { label: 'Enable minimal mode by default', description: 'Users without a personal interface-style preference use a neutral white or gray canvas. They can still override it in their profile.' },
       operationsDashboardUrl: { label: 'Operations dashboard URL', description: 'Grafana dashboard or panel embed URL for platform administrators. Leave empty to hide the operations dashboard.' },
     },
     security: {
@@ -78,6 +79,12 @@ const settings = {
     },
   },
   brandColorPresets: {
+    aurora: 'Aurora',
+    harbor: 'Harbor',
+    sunset: 'Sunset',
+    botanical: 'Botanical',
+    meadow: 'Meadow',
+    citrus: 'Citrus',
     gold: 'Gold',
     bronze: 'Bronze',
     brown: 'Brown',

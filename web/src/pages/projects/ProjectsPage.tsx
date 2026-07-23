@@ -276,7 +276,6 @@ export function ProjectsPage() {
             setPage(1)
           },
         }}
-        title={t('projectSpaces.listTitle')}
         toolbar={(
           <>
             {canViewAllProjects && (

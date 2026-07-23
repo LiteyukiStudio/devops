@@ -26,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 
 const FALLBACK_ICON = '/app-templates/icons/fallback.svg'
+const CATEGORY_BUTTON_CLASS_NAME = 'shrink-0 rounded-full border border-primary-subtle px-4 text-muted-foreground transition-[background-color,border-color,color] duration-fast ease-standard hover:border-border data-[active=true]:border-border data-[active=true]:bg-surface data-[active=true]:text-foreground data-[active=true]:hover:bg-muted'
 
 export function AppTemplatesPage() {
   const { i18n, t } = useTranslation()
@@ -198,7 +199,7 @@ export function AppTemplatesPage() {
 
   return (
     <PageShell width="content">
-      <section className="relative overflow-hidden rounded-2xl border border-transparent bg-surface-raised px-5 py-8 sm:px-8 sm:py-10">
+      <section className="relative overflow-hidden rounded-feature border border-transparent bg-surface-raised px-5 py-8 sm:px-8 sm:py-10">
         <div className="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="max-w-3xl">
             <div className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-primary-text">
@@ -225,9 +226,10 @@ export function AppTemplatesPage() {
 
       <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
         <Button
-          className="shrink-0 rounded-full px-4"
+          className={CATEGORY_BUTTON_CLASS_NAME}
+          data-active={category === 'all'}
           size="sm"
-          variant={category === 'all' ? 'secondary' : 'ghost'}
+          variant="ghost"
           onClick={() => setCategory('all')}
         >
           {t('appTemplatesPage.allCategories')}
@@ -235,10 +237,10 @@ export function AppTemplatesPage() {
         {categoryOptions.map(item => (
           <Button
             key={item}
-            className="shrink-0 rounded-full px-4 text-muted-foreground data-[active=true]:text-foreground"
+            className={CATEGORY_BUTTON_CLASS_NAME}
             data-active={category === item}
             size="sm"
-            variant={category === item ? 'secondary' : 'ghost'}
+            variant="ghost"
             onClick={() => setCategory(item)}
           >
             {t(`appTemplatesPage.categories.${item}`, { defaultValue: item })}
@@ -319,12 +321,12 @@ function TemplateCard({ canInstallSystemComponent, template, onInstall }: { canI
   const systemComponent = isSystemComponentTemplate(template)
   const installDisabled = systemComponent && !canInstallSystemComponent
   return (
-    <Surface className="group flex min-h-48 flex-col rounded-xl p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-raised">
+    <Surface className="group flex min-h-48 flex-col rounded-xl p-5 transition-[background-color,box-shadow,transform] duration-standard ease-emphasized hover:bg-surface-subtle hover:shadow-raised motion-safe:hover:-translate-y-0.5">
       <div className="flex items-start gap-4">
         <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-surface-inset">
           <img
             alt=""
-            className="size-8 object-contain transition-transform duration-200 group-hover:scale-105"
+            className="size-8 object-contain transition-transform duration-standard ease-emphasized motion-safe:group-hover:scale-105"
             src={template.icon || FALLBACK_ICON}
             onError={(event) => {
               event.currentTarget.src = FALLBACK_ICON

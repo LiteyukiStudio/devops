@@ -2,10 +2,14 @@ import type { ComponentProps } from 'react'
 
 import { cn } from '@/lib/utils'
 
-function Card({ className, ...props }: ComponentProps<'div'>) {
+function Card({ className, padding = 'section', ...props }: ComponentProps<'div'> & { padding?: 'none' | 'section' }) {
   return (
     <div
-      className={cn('rounded-lg border border-transparent bg-surface p-6', className)}
+      className={cn(
+        'rounded-container bg-surface',
+        padding === 'section' && 'p-section',
+        className,
+      )}
       data-slot="card"
       {...props}
     />

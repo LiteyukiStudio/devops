@@ -223,7 +223,6 @@ export function OAuthApplicationsPanel() {
                   setPage(1)
                 },
               }}
-              title={t('oauthApps.applicationsTitle')}
             />
           )}
       <OAuthApplicationDialog

@@ -262,7 +262,6 @@ export function UsersPage() {
               setPage(1)
             },
           }}
-          title={t('usersPage.listTitle')}
         />
       </div>
 

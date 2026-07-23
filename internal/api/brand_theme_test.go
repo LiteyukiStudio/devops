@@ -2,8 +2,9 @@ package api
 
 import "testing"
 
-func TestBrandColorPresetOptionsMatchOfficialRadixBrandScales(t *testing.T) {
+func TestBrandColorPresetOptionsIncludeCuratedAndRadixThemes(t *testing.T) {
 	want := []string{
+		"aurora", "harbor", "sunset", "botanical", "meadow", "citrus",
 		"gold", "bronze", "brown", "yellow", "amber", "orange", "tomato", "red", "ruby", "crimson",
 		"pink", "plum", "purple", "violet", "iris", "indigo", "blue", "cyan", "teal", "jade",
 		"green", "grass", "lime", "mint", "sky",

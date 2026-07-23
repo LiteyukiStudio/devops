@@ -8,9 +8,15 @@ const (
 	brandThemeHTMLPlaceholder = "__LUNA_DEVOPS_BRAND_THEME__"
 )
 
-// Radix Colors 3.0.0 brand scales, in the order published by the official
-// palette composition guide. The backend persists only these stable IDs.
+// Curated multi-color themes are followed by Radix Colors 3.0.0 single-color
+// scales. The backend persists only these stable IDs.
 var brandColorPresetOptions = []string{
+	"aurora",
+	"harbor",
+	"sunset",
+	"botanical",
+	"meadow",
+	"citrus",
 	"gold",
 	"bronze",
 	"brown",

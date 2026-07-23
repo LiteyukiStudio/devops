@@ -32,10 +32,10 @@ export function AppLoadingState({ logoUrl, title }: { logoUrl: string, title: st
 export function DataListSkeleton({ columns = 4, rows = 6 }: { columns?: number, rows?: number }) {
   return (
     <LoadingRegion className="min-w-full">
-      <div className="grid h-10 items-center gap-4 border-b border-border bg-muted/70 px-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
+      <div className="grid h-10 items-center gap-4 border-b border-separator-strong bg-muted/70 px-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
         {Array.from({ length: columns }, (_, index) => <Skeleton key={index} className="h-3 w-20 max-w-full" />)}
       </div>
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-separator-strong">
         {Array.from({ length: rows }, (_, row) => (
           <div key={row} className="grid min-h-14 items-center gap-4 px-4 py-3" style={{ gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))` }}>
             {Array.from({ length: columns }, (_, column) => (
@@ -52,7 +52,7 @@ export function DataListSkeleton({ columns = 4, rows = 6 }: { columns?: number, 
 export function OverviewSkeleton() {
   return (
     <LoadingRegion className="grid gap-4">
-      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-px overflow-hidden rounded-lg bg-border sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <div key={index} className="grid gap-3 bg-surface-raised p-4">
             <Skeleton className="h-4 w-24" />
@@ -61,11 +61,11 @@ export function OverviewSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-3">
-        <div className="grid gap-3 rounded-lg border border-border bg-surface-raised p-4 xl:col-span-2">
+        <div className="grid gap-3 rounded-lg bg-surface-raised p-4 xl:col-span-2">
           <Skeleton className="h-5 w-28" />
           {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-12 w-full" />)}
         </div>
-        <div className="grid content-start gap-3 rounded-lg border border-border bg-surface-raised p-4">
+        <div className="grid content-start gap-3 rounded-lg bg-surface-raised p-4">
           <Skeleton className="h-5 w-24" />
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
@@ -78,7 +78,7 @@ export function OverviewSkeleton() {
 /** Settings form loading state with a constrained form width. */
 export function SettingsSkeleton() {
   return (
-    <LoadingRegion className="grid max-w-3xl gap-4 rounded-lg border border-border bg-surface-raised p-4">
+    <LoadingRegion className="grid max-w-3xl gap-4 rounded-lg bg-surface-raised p-4">
       {Array.from({ length: 5 }, (_, index) => (
         <div key={index} className="grid gap-2">
           <Skeleton className="h-4 w-28" />
@@ -94,7 +94,7 @@ export function TemplateGridSkeleton() {
   return (
     <LoadingRegion className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
       {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="grid min-h-56 gap-4 rounded-lg border border-border bg-surface-raised p-4">
+        <div key={index} className="grid min-h-56 gap-4 rounded-lg bg-surface-raised p-4">
           <div className="flex gap-3">
             <Skeleton className="size-12 shrink-0" />
             <div className="grid flex-1 content-start gap-2">
@@ -114,7 +114,7 @@ export function TemplateGridSkeleton() {
 /** Embedded tool loading state that keeps the viewport visible while content connects. */
 export function ToolViewportSkeleton() {
   return (
-    <LoadingRegion className="grid min-h-96 place-items-center rounded-lg border border-border bg-surface-inset p-4">
+    <LoadingRegion className="grid min-h-96 place-items-center rounded-lg bg-surface-inset p-4">
       <div className="grid w-full max-w-sm justify-items-center gap-3">
         <Skeleton className="size-10 rounded-full" />
         <Skeleton className="h-4 w-40" />

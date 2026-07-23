@@ -9,14 +9,12 @@ import { api } from '@/api'
 import { useDocumentTitle } from '@/app/document-title'
 import { usePublicConfig } from '@/app/public-config-context'
 import { useSession } from '@/app/session-context'
-import { useTheme } from '@/app/theme-context'
 import { DebugFloatingPanel } from '@/components/common/debug-floating-panel'
 import { AppLoadingState } from '@/components/common/loading-states'
 import { PageMotion } from '@/components/common/motion'
 import { PageChrome } from '@/components/common/page-chrome'
 import { PageChromeTargetsProvider } from '@/components/common/page-chrome-context'
 import { SidebarUserPanel } from '@/components/common/sidebar-user-panel'
-import { ThemeModeSegmented } from '@/components/common/theme-mode-segmented'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
@@ -109,14 +107,13 @@ const pageMetaRules = [
 
 function sidebarMenuButtonClassName(active?: boolean) {
   return cn(
-    'flex h-10 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-normal leading-none text-muted-foreground transition-all duration-150 hover:bg-primary-subtle-hover hover:text-primary-text-strong',
-    active && 'bg-primary-subtle-active text-primary-text-strong',
+    'flex h-10 w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-normal leading-none text-muted-foreground transition-all duration-150 hover:bg-sidebar-nav-hover hover:text-primary-text-strong',
+    active && 'theme-selection-surface text-primary-text-strong',
   )
 }
 
 export function AppLayout() {
   const { i18n, t } = useTranslation()
-  const { mode, setMode } = useTheme()
   const { isLoading: sessionLoading, isLoggingOut, logout, user } = useSession()
   const configs = usePublicConfig()
   const location = useLocation()
@@ -139,15 +136,25 @@ export function AppLayout() {
   const pageMeta = useMemo(() => {
     const rule = pageMetaRules.find(item => item.match(location.pathname))
     const projectWorkspaceMatch = location.pathname.match(/^\/projects\/([^/]+)$/)
+    const projectMembersMatch = location.pathname.match(/^\/projects\/([^/]+)\/members$/)
+    const projectApplicationsMatch = location.pathname.match(/^\/projects\/([^/]+)\/apps$/)
     const project = currentProject.data ?? (projectRouteMatch ? projects.data?.find(project => project.id === projectRouteMatch[1]) : undefined)
     const application = appRouteMatch ? currentApplication.data : undefined
     let title = rule?.titleKey ? t(rule.titleKey) : configs['site.title'] || t('appName')
     let titlePrefix = ''
     const titleCrumbs: TopbarCrumb[] = []
+    let backNavigation
     if (projectWorkspaceMatch && project) {
       title = t('projectSpaces.detailTopbarTitle', { name: project.name })
       titlePrefix = t('projectSpaces.topbarPrefix')
       titleCrumbs.push({ label: project.name, to: `/projects/${project.id}` })
+      backNavigation = { label: t('backToProjectSpaces'), to: '/projects' }
+    }
+    if ((projectMembersMatch || projectApplicationsMatch) && project) {
+      backNavigation = {
+        label: t('backToProjectWorkspace'),
+        to: `/projects/${project.id}`,
+      }
     }
     if (application) {
       title = t('apps.detailTopbarTitle', { name: application.name, projectName: project?.name ?? t('projectSpaces.title') })
@@ -155,8 +162,13 @@ export function AppLayout() {
       if (project)
         titleCrumbs.push({ label: project.name, to: `/projects/${project.id}` })
       titleCrumbs.push({ label: application.name, to: `/projects/${application.projectId}/apps/${application.id}` })
+      backNavigation = {
+        label: t('backToApps'),
+        to: `/projects/${application.projectId}?tab=apps`,
+      }
     }
     return {
+      backNavigation,
       title,
       titleCrumbs,
       titlePrefix,
@@ -217,7 +229,6 @@ export function AppLayout() {
           })}
         </SidebarContent>
         <SidebarFooter>
-          <ThemeModeSegmented mode={mode} setMode={setMode} />
           <SidebarUserPanel
             logoutLabel={t('logout')}
             logoutPending={isLoggingOut}
@@ -244,13 +255,13 @@ export function AppLayout() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-primary-subtle text-foreground">
+    <div className="workspace-canvas h-dvh overflow-hidden text-foreground">
       <div className="flex h-full w-full min-w-0 overflow-hidden">
         <Sidebar>
           {renderSidebarContent()}
         </Sidebar>
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent className="flex h-full w-72 max-w-[86vw] flex-col gap-0 overflow-hidden bg-primary-subtle p-0 sm:max-w-80" side="left">
+          <SheetContent className="workspace-canvas flex h-full w-72 max-w-[86vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-80" side="left">
             <SheetTitle className="sr-only">{configs['site.title'] || t('appName')}</SheetTitle>
             {renderSidebarContent(() => setMobileSidebarOpen(false))}
           </SheetContent>
@@ -258,7 +269,7 @@ export function AppLayout() {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <header
-            className="z-10 flex h-14 shrink-0 items-center justify-between bg-primary-subtle/90 px-8 py-2 backdrop-blur sm:px-12 lg:hidden"
+            className="z-10 flex h-14 shrink-0 items-center justify-between bg-surface-base/80 px-page-inline py-inline backdrop-blur lg:hidden"
           >
             <Button
               aria-label={t('nav.openSidebar')}
@@ -274,10 +285,11 @@ export function AppLayout() {
             </div>
           </header>
           <main
-            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-primary-subtle px-8 py-4 transition-colors sm:px-12 sm:py-6 lg:px-16 lg:py-8"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-transparent px-page-inline py-page-block transition-colors"
           >
-            <div className="flex min-h-full min-w-0 flex-col gap-5">
+            <div className="flex min-h-full min-w-0 flex-col gap-group">
               <PageChrome
+                backNavigation={pageMeta.backNavigation}
                 tabsTargetRef={setPageTabsTarget}
                 title={(
                   <TopbarTitle crumbs={pageMeta.titleCrumbs} prefix={pageMeta.titlePrefix} title={pageMeta.title} />

@@ -29,7 +29,8 @@ const root = {
   delete: 'Delete',
   remove: 'Remove',
   backToProjectSpaces: 'Back to project spaces',
-  backToApps: 'Back to apps',
+  backToProjectWorkspace: 'Back to project workspace',
+  backToApps: 'Back to applications',
 }
 
 export default root

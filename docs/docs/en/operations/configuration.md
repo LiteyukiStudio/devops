@@ -25,11 +25,19 @@ The global build environment has its own Build tab and is not part of Branding. 
 
 ### Brand color
 
-Platform administrators can select the default brand color as the first setting under Site Settings → Branding. Users can continue following the platform or choose a personal color under Account → Profile. A personal selection takes priority. Following the platform stores an empty preference rather than a snapshot, so later administrator changes continue to reach those users. Brand color affects buttons, links within content, selected states, and focus rings only. Success, warning, and failure colors remain independent, as do light, dark, and system appearance modes.
+Platform administrators can select the default color theme as the first setting under Site Settings → Branding. Users can continue following the platform or choose a personal theme under Account → Personal settings. A personal selection takes priority. Following the platform stores an empty preference rather than a snapshot, so later administrator changes continue to reach those users. Multi-color themes combine primary, secondary, supporting, and highlight roles; single-color themes keep those roles within one hue. Success, warning, and failure colors remain independent. Light, dark, and system appearance modes are also selected under Account → Personal settings and do not require separate color-theme choices.
 
-Every option comes from the [official Radix Colors 3.0.0 brand scales](https://www.radix-ui.com/colors/docs/palette-composition/composing-a-palette): Gold, Bronze, Brown, Yellow, Amber, Orange, Tomato, Red, Ruby, Crimson, Pink, Plum, Purple, Violet, Iris, Indigo, Blue, Cyan, Teal, Jade, Green, Grass, Lime, Mint, and Sky. Arbitrary HEX values and custom CSS are not accepted. Yellow, Amber, Lime, Mint, and Sky use the dark foreground prescribed by Radix; the other solid scales use a white foreground.
+The platform provides six curated multi-color themes: Aurora, Harbor, Sunset, Botanical, Meadow, and Citrus. The picker also keeps Gold, Orange, Red, Pink, Violet, Blue, Cyan, Teal, Green, and Lime from the [official Radix Colors 3.0.0 brand scales](https://www.radix-ui.com/colors/docs/palette-composition/composing-a-palette), retaining one representative for each major hue. Other official solid presets already stored by existing accounts remain usable and editable, but are no longer promoted as picker options. Arbitrary HEX values and custom CSS are not accepted.
+
+Each scale maps component backgrounds, hover states, borders, focus rings, solid controls, and text to the corresponding Radix steps. Multi-color themes additionally use their secondary, supporting, and highlight roles for navigation selection surfaces and list separators, while the large workspace background remains a low-saturation solid surface; status colors remain independent.
 
 Component backgrounds, hover states, borders, focus rings, solid controls, and text map to the corresponding Radix scale steps. The official CSS includes both sRGB and Display-P3 values and lets the browser select the supported gamut. In production, the API injects the site preset into the console HTML. Before React renders, the initialization script reads the active account's cached preference and applies the first available value in this order: personal preference, site default, then Blue. The authenticated user response subsequently reconciles that cache with the backend record, and signing out restores the site default, preventing a default-color flash during normal signed-in visits.
+
+### Minimal mode
+
+Platform administrators can enable “Minimal mode by default” under Site Settings → Branding. Standard keeps the low-saturation brand-colored canvas. Minimal returns the page background, transparent sidebar, and weak navigation surfaces to neutral white/gray while preserving primary buttons, links, focus rings, selection indicators, and success/warning/failure colors.
+
+Users can select Follow platform, Standard, or Minimal under Account → Personal settings. Follow platform stores an empty preference, so later platform-default changes continue to apply. An explicit personal selection always takes priority over the platform default. Light, dark, and system appearance remain independent from interface style, and Minimal supports all three.
 
 ## Security policy
 

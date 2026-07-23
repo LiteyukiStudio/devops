@@ -65,6 +65,105 @@
   --primary-text: var(--blue-11);
   --primary-text-strong: var(--blue-12);
   --primary-foreground: #fff;
+  --theme-secondary: var(--primary);
+  --theme-supporting: var(--primary);
+  --theme-highlight: var(--primary);
+}
+
+:root[data-brand-theme="aurora"] {
+  --primary-subtle: var(--blue-3);
+  --primary-subtle-hover: var(--blue-4);
+  --primary-subtle-active: var(--blue-5);
+  --primary-border: var(--blue-7);
+  --primary-ring: var(--blue-8);
+  --primary: var(--blue-9);
+  --primary-hover: var(--blue-10);
+  --primary-text: var(--blue-11);
+  --primary-text-strong: var(--blue-12);
+  --primary-foreground: #fff;
+  --theme-secondary: var(--violet-9);
+  --theme-supporting: var(--cyan-9);
+  --theme-highlight: var(--amber-9);
+}
+
+:root[data-brand-theme="harbor"] {
+  --primary-subtle: var(--teal-3);
+  --primary-subtle-hover: var(--teal-4);
+  --primary-subtle-active: var(--teal-5);
+  --primary-border: var(--teal-7);
+  --primary-ring: var(--teal-8);
+  --primary: var(--teal-9);
+  --primary-hover: var(--teal-10);
+  --primary-text: var(--teal-11);
+  --primary-text-strong: var(--teal-12);
+  --primary-foreground: #fff;
+  --theme-secondary: var(--blue-9);
+  --theme-supporting: var(--bronze-9);
+  --theme-highlight: var(--amber-9);
+}
+
+:root[data-brand-theme="sunset"] {
+  --primary-subtle: var(--orange-3);
+  --primary-subtle-hover: var(--orange-4);
+  --primary-subtle-active: var(--orange-5);
+  --primary-border: var(--orange-7);
+  --primary-ring: var(--orange-8);
+  --primary: var(--orange-9);
+  --primary-hover: var(--orange-10);
+  --primary-text: var(--orange-11);
+  --primary-text-strong: var(--orange-12);
+  --primary-foreground: #fff;
+  --theme-secondary: var(--amber-9);
+  --theme-supporting: var(--violet-9);
+  --theme-highlight: var(--pink-9);
+}
+
+:root[data-brand-theme="botanical"] {
+  --primary-subtle: var(--jade-3);
+  --primary-subtle-hover: var(--jade-4);
+  --primary-subtle-active: var(--jade-5);
+  --primary-border: var(--jade-7);
+  --primary-ring: var(--jade-8);
+  --primary: var(--jade-9);
+  --primary-hover: var(--jade-10);
+  --primary-text: var(--jade-11);
+  --primary-text-strong: var(--jade-12);
+  --primary-foreground: #fff;
+  --theme-secondary: var(--bronze-9);
+  --theme-supporting: var(--teal-9);
+  --theme-highlight: var(--orange-9);
+}
+
+:root[data-brand-theme="meadow"] {
+  --primary-subtle: var(--mint-3);
+  --primary-subtle-hover: var(--mint-4);
+  --primary-subtle-active: var(--mint-5);
+  --primary-border: var(--mint-7);
+  --primary-ring: var(--mint-8);
+  --primary: var(--jade-9);
+  --primary-hover: var(--jade-10);
+  --primary-text: var(--jade-11);
+  --primary-text-strong: var(--jade-12);
+  --primary-foreground: #fff;
+  --theme-secondary: var(--lime-9);
+  --theme-supporting: var(--mint-9);
+  --theme-highlight: var(--yellow-9);
+}
+
+:root[data-brand-theme="citrus"] {
+  --primary-subtle: var(--orange-3);
+  --primary-subtle-hover: var(--orange-4);
+  --primary-subtle-active: var(--orange-5);
+  --primary-border: var(--orange-7);
+  --primary-ring: var(--orange-8);
+  --primary: var(--orange-9);
+  --primary-hover: var(--orange-10);
+  --primary-text: var(--orange-11);
+  --primary-text-strong: var(--orange-12);
+  --primary-foreground: #fff;
+  --theme-secondary: var(--amber-9);
+  --theme-supporting: var(--yellow-9);
+  --theme-highlight: var(--tomato-9);
 }
 
 :root[data-brand-theme="gold"] {

@@ -39,6 +39,19 @@ describe('dashboard page', () => {
     expect(screen.getByText('Partially available')).toBeInTheDocument()
     expect(mocks.getDashboard).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps empty dashboard sections compact and actionable', async () => {
+    const fixture = dashboardOverviewFixture()
+    fixture.projects = []
+    fixture.activities = []
+    mocks.getDashboard.mockResolvedValue(fixture)
+
+    renderPage()
+
+    expect(await screen.findByText('No activity yet')).toBeInTheDocument()
+    expect(screen.getByText('Build, release, and gateway activity will appear here.')).toBeInTheDocument()
+    expect(screen.getByText('Create or join a project space to continue work from here.')).toBeInTheDocument()
+  })
 })
 
 function renderPage() {

@@ -1,7 +1,7 @@
 import type { BrandColorPreset, UserBrandColorPreference } from '@/app/brand-theme'
-import { Check } from 'lucide-react'
+import { Check, Link2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { brandColorPresets, brandColorUsesDarkForeground, normalizeBrandColorPreset, normalizeUserBrandColorPreference } from '@/app/brand-theme'
+import { brandColorPresets, brandThemeSwatchBackground, normalizeBrandColorPreset, normalizeUserBrandColorPreference, themePickerPresets } from '@/app/brand-theme'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -19,15 +19,18 @@ export function BrandColorPresetField({ ariaLabel, inheritedPreset, inheritLabel
   onValueChange: (value: UserBrandColorPreference) => void
 }) {
   const { t } = useTranslation()
-  const availablePresets = (options ?? brandColorPresets).filter((preset): preset is BrandColorPreset => brandColorPresetSet.has(preset))
   const allowsInheritance = Boolean(inheritLabel)
   const selectedPreset = allowsInheritance ? normalizeUserBrandColorPreference(value) : normalizeBrandColorPreset(value)
   const platformPreset = normalizeBrandColorPreset(inheritedPreset)
+  const configuredPresets = (options ?? themePickerPresets).filter((preset): preset is BrandColorPreset => brandColorPresetSet.has(preset))
+  const availablePresets = selectedPreset && !configuredPresets.includes(selectedPreset)
+    ? [...configuredPresets, selectedPreset]
+    : configuredPresets
 
   return (
     <RadioGroup
       aria-label={ariaLabel}
-      className="flex flex-wrap items-center gap-2"
+      className="flex flex-wrap items-center gap-3"
       value={selectedPreset || inheritValue}
       onValueChange={nextValue => onValueChange(nextValue === inheritValue ? '' : normalizeBrandColorPreset(nextValue))}
     >
@@ -70,19 +73,28 @@ function BrandColorOption({ checked, id, label, preset, value }: {
         <TooltipTrigger asChild>
           <Label
             className={cn(
-              'flex h-9 cursor-pointer items-center justify-center rounded-md border border-border bg-background transition-colors hover:border-primary-border hover:bg-primary-subtle peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary-subtle peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
-              showLabel ? 'gap-2 px-3' : 'w-9 p-1',
+              'relative flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-transparent bg-card p-1.5 transition-all duration-standard ease-standard hover:border-primary-border peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-sm peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50',
             )}
             htmlFor={id}
           >
             <span
-              className={cn('brand-theme-swatch flex items-center justify-center rounded-sm shadow-xs', showLabel ? 'size-5' : 'size-7')}
-              data-dark-foreground={brandColorUsesDarkForeground(preset)}
-              style={{ backgroundColor: `var(--${preset}-9)` }}
+              className="brand-theme-swatch flex size-full items-center justify-center rounded-full border border-border/70 shadow-xs"
+              style={{ background: brandThemeSwatchBackground(preset) }}
             >
-              <Check className={`size-4 transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
+              <span className={cn(
+                'flex size-5 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm backdrop-blur-sm transition-opacity',
+                checked ? 'opacity-100' : 'opacity-0',
+              )}
+              >
+                <Check className="size-3.5" />
+              </span>
             </span>
-            <span className={showLabel ? 'text-sm font-medium text-foreground' : 'sr-only'}>{label}</span>
+            {showLabel && (
+              <span className="absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-xs">
+                <Link2 className="size-2.5" />
+              </span>
+            )}
+            <span className="sr-only">{label}</span>
           </Label>
         </TooltipTrigger>
         <TooltipContent sideOffset={4}>

@@ -1,53 +1,6 @@
 @import "./styles/brand-themes.css";
+@import "./styles/design-tokens.css";
 @import "tailwindcss";
-
-@theme {
-  --animate-caret-blink: caret-blink 1s ease-out infinite;
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-surface: hsl(var(--surface));
-  --color-surface-base: hsl(var(--surface-base));
-  --color-surface-raised: hsl(var(--surface-raised));
-  --color-surface-subtle: hsl(var(--surface-subtle));
-  --color-surface-inset: hsl(var(--surface-inset));
-  --color-card: hsl(var(--surface));
-  --color-card-foreground: hsl(var(--foreground));
-  --color-popover: hsl(var(--surface));
-  --color-popover-foreground: hsl(var(--foreground));
-  --color-accent: hsl(var(--muted));
-  --color-accent-foreground: hsl(var(--foreground));
-  --color-secondary: hsl(var(--muted));
-  --color-secondary-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--border));
-  --color-ring: var(--primary-ring);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-primary-subtle: var(--primary-subtle);
-  --color-primary-subtle-hover: var(--primary-subtle-hover);
-  --color-primary-subtle-active: var(--primary-subtle-active);
-  --color-primary-border: var(--primary-border);
-  --color-primary-text: var(--primary-text);
-  --color-primary-text-strong: var(--primary-text-strong);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-danger: hsl(var(--danger));
-  --color-danger-subtle: var(--red-3);
-  --color-danger-border: var(--red-7);
-  --color-destructive: hsl(var(--danger));
-  --color-success: var(--green-11);
-  --color-success-subtle: var(--green-3);
-  --color-success-border: var(--green-7);
-  --color-warning: var(--amber-11);
-  --color-warning-subtle: var(--amber-3);
-  --color-warning-border: var(--amber-7);
-  --color-info: var(--sky-11);
-  --color-info-subtle: var(--sky-3);
-  --color-info-border: var(--sky-7);
-  --shadow-raised: 0 1px 2px hsl(var(--foreground) / 0.04), 0 8px 24px hsl(var(--foreground) / 0.05);
-  --shadow-overlay: 0 16px 48px hsl(var(--foreground) / 0.18);
-}
 
 @keyframes caret-blink {
   0%,
@@ -73,6 +26,11 @@
   --surface-subtle: 214 28% 96%;
   --surface-inset: 214 24% 94%;
   --border: 214 18% 86%;
+  --separator-strong: color-mix(in oklab, hsl(var(--border)) 82%, hsl(var(--foreground)) 18%);
+  --separator-subtle: color-mix(in oklab, hsl(var(--border)) 48%, hsl(var(--surface)) 52%);
+  --workspace-background: hsl(var(--surface-base));
+  --theme-selection-surface: hsl(var(--muted));
+  --sidebar-nav-hover: hsl(var(--muted));
   --danger: 0 74% 48%;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: hsl(var(--background));
@@ -90,7 +48,53 @@
   --surface-subtle: 220 15% 16%;
   --surface-inset: 220 16% 12%;
   --border: 220 13% 24%;
+  --separator-strong: color-mix(in oklab, hsl(var(--border)) 78%, hsl(var(--foreground)) 22%);
+  --separator-subtle: color-mix(in oklab, hsl(var(--border)) 52%, hsl(var(--surface)) 48%);
   --danger: 0 70% 56%;
+}
+
+:root[data-interface-style="themed"] {
+  --primary-subtle: color-mix(in oklab, var(--primary-border) 7%, color-mix(in oklab, var(--theme-supporting) 3%, hsl(var(--surface-base))));
+  --primary-subtle-hover: color-mix(in oklab, var(--primary-border) 14%, color-mix(in oklab, var(--theme-secondary) 5%, hsl(var(--surface-base))));
+  --primary-subtle-active: color-mix(in oklab, var(--primary-border) 20%, color-mix(in oklab, var(--theme-secondary) 8%, hsl(var(--surface-base))));
+  --separator-strong: color-mix(in oklab, hsl(var(--border)) 74%, var(--theme-secondary) 26%);
+  --separator-subtle: color-mix(in oklab, hsl(var(--border)) 84%, var(--theme-supporting) 16%);
+  --theme-selection-surface: linear-gradient(
+    115deg,
+    color-mix(in oklab, var(--primary) 13%, hsl(var(--surface-base))),
+    color-mix(in oklab, var(--theme-secondary) 12%, hsl(var(--surface-base)))
+  );
+  --sidebar-nav-hover: color-mix(in oklab, var(--primary) 18%, hsl(var(--surface-base)));
+  --workspace-background: color-mix(in oklab, var(--primary-border) 7%, hsl(var(--surface-base)));
+}
+
+:root[data-theme="dark"][data-interface-style="themed"] {
+  --primary-subtle: color-mix(in oklab, var(--primary-border) 6%, color-mix(in oklab, var(--theme-supporting) 2%, hsl(var(--surface-base))));
+  --primary-subtle-hover: color-mix(in oklab, var(--primary-border) 12%, color-mix(in oklab, var(--theme-secondary) 4%, hsl(var(--surface-base))));
+  --primary-subtle-active: color-mix(in oklab, var(--primary-border) 18%, color-mix(in oklab, var(--theme-secondary) 7%, hsl(var(--surface-base))));
+  --separator-strong: color-mix(in oklab, hsl(var(--border)) 76%, var(--theme-secondary) 24%);
+  --separator-subtle: color-mix(in oklab, hsl(var(--border)) 86%, var(--theme-supporting) 14%);
+  --sidebar-nav-hover: color-mix(in oklab, var(--primary) 16%, hsl(var(--surface-base)));
+  --workspace-background: color-mix(in oklab, var(--primary-border) 6%, hsl(var(--surface-base)));
+}
+
+:root[data-interface-style="minimal"] {
+  --primary-subtle: hsl(var(--surface-base));
+  --primary-subtle-hover: hsl(var(--muted));
+  --primary-subtle-active: hsl(var(--muted));
+  --separator-strong: color-mix(in oklab, hsl(var(--border)) 82%, hsl(var(--foreground)) 18%);
+  --separator-subtle: color-mix(in oklab, hsl(var(--border)) 48%, hsl(var(--surface)) 52%);
+  --workspace-background: hsl(var(--surface-base));
+  --theme-selection-surface: hsl(var(--muted));
+  --sidebar-nav-hover: hsl(var(--muted));
+}
+
+.workspace-canvas {
+  background: var(--workspace-background);
+}
+
+.theme-selection-surface {
+  background: var(--theme-selection-surface);
 }
 
 * {
@@ -98,7 +102,7 @@
 }
 
 html {
-  transition: background-color 180ms ease, color 180ms ease;
+  transition: background-color var(--duration-standard) var(--ease-standard), color var(--duration-standard) var(--ease-standard);
 }
 
 html,
@@ -120,7 +124,7 @@ body {
   margin: 0;
   min-width: calc(var(--spacing) * 80);
   background: hsl(var(--background));
-  transition: background-color 180ms ease, color 180ms ease;
+  transition: background-color var(--duration-standard) var(--ease-standard), color var(--duration-standard) var(--ease-standard);
 }
 
 * {
@@ -215,7 +219,7 @@ a,
 input,
 select,
 textarea {
-  transition-duration: 150ms;
+  transition-duration: var(--duration-fast);
 }
 
 @media (prefers-reduced-motion: reduce) {

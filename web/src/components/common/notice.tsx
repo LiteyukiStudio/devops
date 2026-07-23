@@ -13,7 +13,7 @@ export function Notice({ actions, children, className, icon, title, tone = 'info
   tone?: NoticeTone
 }) {
   return (
-    <div className={cn('grid gap-3 rounded-lg border p-4', noticeToneClassName(tone), className)} data-slot="notice" role="status">
+    <div className={cn('grid gap-field rounded-container p-group', noticeToneClassName(tone), className)} data-slot="notice" role="status">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
@@ -30,10 +30,10 @@ export function Notice({ actions, children, className, icon, title, tone = 'info
 
 function noticeToneClassName(tone: NoticeTone) {
   if (tone === 'danger')
-    return 'border-danger-border bg-danger-subtle'
+    return 'bg-danger-subtle'
   if (tone === 'warning')
-    return 'border-warning-border bg-warning-subtle'
+    return 'bg-warning-subtle'
   if (tone === 'success')
-    return 'border-success-border bg-success-subtle'
-  return 'border-info-border bg-info-subtle'
+    return 'bg-success-subtle'
+  return 'bg-info-subtle'
 }

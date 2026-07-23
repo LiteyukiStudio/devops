@@ -2,6 +2,26 @@
 
 Luna DevOps adds page-level visual primitives on top of shadcn/ui and Tailwind CSS. These primitives only define hierarchy, layout, and visual semantics. They must not own queries, authorization, or submission logic.
 
+## Design tokens
+
+Tailwind v4 tokens live in `web/src/styles/design-tokens.css`, while `brand-themes.css` continues to own the brand scales. Components consume semantic utilities instead of binding to concrete color values or repeating page dimensions.
+
+| Responsibility | Tailwind utility / token | Scope |
+| --- | --- | --- |
+| Surfaces and text | `surface-*`, `foreground`, `muted-*` | Canvas, solid containers, and supporting content |
+| Brand interaction | `primary-*` | Primary actions, links, focus, and selection |
+| Status | `success-*`, `warning-*`, `danger-*`, `info-*` | Status feedback independent from brand choice |
+| Separators | `separator-strong/subtle` | Section boundaries and repeated-item dividers |
+| Radius | `rounded-control/container/feature` | Controls, regular containers, and feature containers |
+| Spacing | `gap-inline/field/group/section`, `p-group/section` | Inline content, fields, related groups, and major sections |
+| Page gutters | `px-page-inline`, `py-page-block` | Responsive mobile, medium, and desktop values owned by the token |
+| Motion | `duration-fast/standard/slow`, `ease-standard/emphasized` | Control feedback, surface transitions, and emphasized movement |
+| Elevation | `shadow-raised/overlay` | Interactive elevation and overlays |
+
+Shared layout and semantic components own token consumption. Business pages compose `PageShell`, `PageChrome`, `Surface`, `Section`, `MetricGroup`, `DataList`, and `FormActions` instead of copying full component recipes through `@apply` or introducing page-specific token sets. shadcn primitives retain their own sizing so page-level tokens do not override accessibility or interaction contracts.
+
+Use `duration-fast` for control feedback, `duration-standard` for card color, shadow, and subtle movement, and reserve `duration-slow` for larger or staged transitions. Regular color changes use `ease-standard`, while movement or scale emphasis uses `ease-emphasized`; business pages must not introduce arbitrary millisecond values. When reduced motion is enabled, global styles zero animation and transition durations, and transforms or scaling should be guarded with `motion-safe`.
+
 ## Page templates
 
 Classify a new page before choosing its root layout:
@@ -13,7 +33,7 @@ Classify a new page before choosing its root layout:
 | Settings | `settings` | `ContentTabs` + `Section` / `Surface` |
 | Logs, terminals, or topology | `tool` | tool bar + inset workspace |
 
-`DataList` is already the list shell and should not be wrapped in another Card. Keep one solid primary action per page by default. Search, filters, sorting, and refresh actions belong in `PageToolbar` or `ContentTabs.tools`.
+`DataList` is already the list shell and should not be wrapped in another Card. Its shell uses `Card padding="none"` so the toolbar, header, body, and pagination own their internal spacing without duplicating the default `p-section` around the table. Keep one solid primary action per page by default. Search, filters, sorting, and refresh actions belong in `PageToolbar` or `ContentTabs.tools`.
 
 ## Surface hierarchy
 
@@ -24,7 +44,7 @@ Use semantic tokens instead of choosing ad hoc backgrounds for business containe
 - `surface-subtle`: weak grouping and hover states.
 - `surface-inset`: code, logs, diagnostics, and filter workspaces.
 
-Prefer `Surface` and `Section` for business sections. `Card` remains a base component for independent repeated items, but it is not the default wrapper for all content and should not create hierarchy-free Card nesting.
+Prefer `Surface` and `Section` for business sections. `Card` remains a base component for independent repeated items, but it is not the default wrapper for all content and should not create hierarchy-free Card nesting. Regular business containers, metric groups, notices, and resource display cards do not draw an outer border; solid surfaces and radius establish hierarchy. Row separators, split panes, form controls, and local structures that communicate ownership retain semantic boundaries.
 
 Overlays use `shadow-overlay`. Primary surfaces that need gentle separation from the page use `shadow-raised`.
 
@@ -38,16 +58,20 @@ Colors have three distinct roles:
 
 Use `StatusBadge`, `StatusValueBadge`, or `Notice` for status. Business pages should not compose state colors directly with `red-*`, `amber-*`, or `green-*` classes. Third-party brand icons, terminals, and centrally managed chart palettes are exceptions.
 
+The console also supports Standard and Minimal interface styles. Standard blends a small amount of the brand border color into a neutral surface: light mode stays close to white, dark mode stays close to black, and progressively stronger blends distinguish navigation hover and active states. Minimal maps the large canvas, sidebar, and weak navigation surfaces completely back to neutral white/gray surfaces without changing primary actions, links, focus rings, tab indicators, or semantic status colors. The app root resolves the preference once and exposes it through `data-interface-style`; business pages must not read the account preference and introduce their own style branches.
+
+Color themes support stable multi-color and single-color presets. Multi-color themes expose four semantic roles: `primary`, `theme-secondary`, `theme-supporting`, and `theme-highlight`. The layout layer maps the latter roles to selection surfaces and separators, while `workspace-background` remains a low-saturation solid surface. Business components consume only semantic tokens such as `workspace-background`, `theme-selection-surface`, and `separator-*`. Single-color themes resolve the final three roles back to the primary hue, so parallel business implementations are unnecessary. Theme choices use one circular palette language: segmented pies for multi-color themes and solid circles for single-color themes. Light, dark, and system modes only control appearance and live under personal account settings; they are not multiplied into separate color-theme variants.
+
 ## Spacing and density
 
 - The authenticated content canvas uses spacious horizontal and compact vertical responsive padding: `px-8 py-4` on mobile, `px-12 py-6` on medium screens, and `px-16 py-8` on desktop. The topbar uses the same horizontal padding. `PageShell` owns only maximum width and section gaps; it must not add `mx-auto` or horizontal padding, so titles, dashboards, the marketplace, lists, and settings share one left baseline. Tool workspaces that need to fill available space should do so inside their viewport structure rather than overriding global page breathing room.
 - On desktop, the page title belongs to the content workspace instead of a separate full-width topbar. It shares the global content-padding baseline with the body, tabs, and tools, using compact vertical spacing to read as one navigation group. Mobile retains a topbar containing the sidebar trigger and page title.
-- Desktop page headers consistently use `PageChrome`: the first row places the title on the left and page tools on the right, while an optional second row appears only when tabs are provided. Pages without tabs retain no empty navigation row. `ContentTabs` owns tab state and content switching and delegates its optional navigation and tools to `PageChrome`; on smaller screens, tools fall back into the document flow to avoid crowding the mobile title bar.
-- Keep the gray `DataList` header as a continuous borderless surface: do not draw a bottom rule or sticky-column separator in the header. Sticky body cells retain the structural divider needed for scanning rows.
+- Page headers consistently use `PageChrome`: the first row places the title on the left and page tools on the right and keeps a stable minimum height so switching to a tab without tools does not move the navigation vertically. Hierarchical pages may provide one back-navigation row below the title; it keeps link semantics and its destination is generated by the shared layout. An optional final row appears only when tabs are provided, and pages without tabs retain no empty navigation row. `ContentTabs` owns tab state and content switching and delegates its optional navigation and tools to `PageChrome`; on smaller screens, tools fall back into the document flow while back navigation remains below the title.
+- `DataList` uses the same solid surface for its container and header instead of a full-width gray block. The table track is inset by `spacing-group` on both sides so content never touches the rounded container edge. The line below the header, separators between rows, sticky action-column boundaries, and skeleton rules all use the clearer `separator-strong`, keeping every table region at one visual weight; no rule is drawn above the header or below the final row. Row hover uses a rounded semantic surface and blends adjacent separators into it. Sticky action headers continue to inherit the same surface.
 - The sidebar brand area is 72px tall; its 40px logo keeps 16px of space from both the top and left edges to maintain balanced horizontal and vertical insets.
 - Content tabs align the neutral baseline and active primary indicator to the same bottom coordinate, with rounded line ends. Tab triggers do not draw a second bottom border, preventing a visible gap between the indicator and baseline.
-- `DataList` does not draw an outer border; its radius and surface color distinguish it from the canvas. Row separators and toolbar/pagination boundaries remain to preserve information structure.
-- Place list search, filtering, and sorting controls in the `DataList` header toolbar, while page-level primary actions such as create belong on the right side of the `PageChrome` title row. Do not add a separate query toolbar above the list. Use `DataList.toolbar` for filter and sort controls beyond the built-in search field.
+- `DataList` does not draw an outer border; its radius and surface color distinguish it from the canvas. Keep only the structural rule below the header and subtle separators between data rows; do not repeat rules around the toolbar, final row, or pagination.
+- Place list search, filtering, sorting, and refresh controls in the `DataList` header toolbar and align them from the left. When the page title already identifies the list context, do not repeat labels such as “User list” inside the list shell. Use `DataList.title` only when multiple independent lists on the same page need explicit differentiation. Page-level primary actions such as create belong on the right side of the `PageChrome` title row. Do not add a separate query toolbar above the list. Use `DataList.toolbar` for filters, sorting, and refresh controls beyond the built-in search field.
 - Primary forms, settings panels, and account panels use `p-6` by default. Catalog cards and compact metric cards may use `p-4` or `p-5`. `DataList`, logs, topology, terminals, and iframe shells use `p-0` and let their internal structure own spacing. Do not combine parent padding with compensating child margins in the same container.
 - Use `gap-6` between major page sections.
 - Use `gap-4` between related sections.
@@ -64,7 +88,8 @@ Prefer standard Tailwind spacing and width tokens. Do not introduce arbitrary pi
 - Page-level submit and cancel actions use `FormActions`. Buttons keep their natural width and align right on desktop, becoming full width only on mobile.
 - Tabs within the same settings page must place save actions consistently. The default position is the end of the current form; do not mix toolbar saves in some tabs with bottom saves in others.
 - The authenticated console uses a layout-level `primary-subtle` background across every page header and full content canvas. Page components must not imitate full bleed with negative spacing or oversized decorative wrappers. Regular business `Surface` and `Card` containers use transparent borders and solid flat surfaces without persistent shadows. Shadows are reserved for dialogs, overlays, explicit raised surfaces, and interaction hover. Table rows, form controls, status feedback, and local ownership boundaries retain semantic borders where clarity requires them.
-- The authenticated app root uses the `primary-subtle` theme background, while the desktop sidebar remains transparent and directly inherits that global canvas without its own fill, right divider, or menu-group rules. Group labels and vertical spacing distinguish navigation categories, while hover and active states use `primary-subtle-*` and `primary-text-*` semantic tokens. The mobile drawer remains an opaque themed overlay.
+- The authenticated app root uses the low-saturation `workspace-background`, while the desktop sidebar remains transparent and directly inherits that global canvas without its own fill, right divider, or menu-group rules. Group labels and vertical spacing distinguish navigation categories. Navigation hover uses `sidebar-nav-hover`, mixed from the solid primary color so it remains distinct on a same-hue canvas, while the selected item uses the separate `theme-selection-surface`. In Standard mode, `separator-*` may receive a restrained tint from the theme secondary role; Minimal mode keeps separators neutral. The mobile drawer remains an opaque themed overlay.
+- Interface style resolves in this order: personal preference, platform default, then Standard. An empty account preference keeps following the platform; an explicit Standard or Minimal choice overrides it. New pages use the existing surface and theme tokens and must not add conditional classes specifically for Minimal mode.
 - Sidebar group labels use a smaller supporting type size, regular weight, and lower contrast than actionable navigation items. Category labels such as Workbench, Resources, System Management, and Personal must not compete with clickable destinations.
 - Long forms use a top divider before the action area. Dialogs continue to use `DialogFooter`; focused login and registration flows may retain full-width submit buttons.
 - A button must not stretch across the form merely because its parent uses CSS Grid.
@@ -86,6 +111,7 @@ Once the application shell is available, replace only the content region. Do not
 
 - Keep one solid primary action per page or tab; use outline, ghost, or menus for peer actions.
 - Dashboard and overview risks must use semantic `danger`, `warning`, `success`, or `info` tones with explicit text.
+- Organize dashboards in this reading order: risk summary and active metrics, recent operational flow with platform readiness, then frequent resource entry points. Normal zero-value metrics may be subdued, empty activity regions must not preserve large fixed-height blanks, and frequent resources use a responsive grid with an explicit “view all” path for longer collections.
 - When desktop filters exceed four fields, disclose them through a Sheet or popover on mobile while keeping search, filter entry, and refresh on the main page.
 - Use `DataListColumn.mobile` to define retained columns for frequent mobile lists and move secondary metadata into the primary cell. Reserve horizontal scrolling for genuinely complex resource tables.
 - Developer tools and other fixed or sticky controls must avoid dialogs, sheets, toasts, pagination, and sticky action columns.

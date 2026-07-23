@@ -213,7 +213,6 @@ export function AccessTokensPanel() {
             setPage(1)
           },
         }}
-        title={t('accessTokens.listTitle')}
       />
       <Dialog
         open={dialogOpen}

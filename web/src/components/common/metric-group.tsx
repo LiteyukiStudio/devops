@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils'
 
 type MetricTone = 'danger' | 'info' | 'neutral' | 'success' | 'warning'
 
-/** 概览页指标的统一分组，使用共享边界代替多层独立卡片。 */
+/** 概览页指标的统一分组，外层依靠表面与圆角分层，指标之间保留共享分隔线。 */
 export function MetricGroup({ children, className }: { children: ReactNode, className?: string }) {
   return (
-    <div className={cn('grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 xl:grid-cols-4', className)} data-slot="metric-group">
+    <div className={cn('grid gap-px overflow-hidden rounded-container bg-border sm:grid-cols-2 xl:grid-cols-4', className)} data-slot="metric-group">
       {children}
     </div>
   )

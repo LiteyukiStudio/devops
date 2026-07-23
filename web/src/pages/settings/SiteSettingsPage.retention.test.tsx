@@ -69,9 +69,9 @@ describe('site settings page', () => {
 
   it('invalidates cleanup authorization when the preview inputs change', async () => {
     const user = userEvent.setup()
+    window.history.replaceState(null, '', '/#tab=retention')
     renderPage()
 
-    await user.click(await screen.findByRole('tab', { name: i18next.t('settings.retentionConfigTitle') }))
     const cleanupButton = await screen.findByRole('button', { name: i18next.t('settings.retentionCleanup') })
     expect(cleanupButton).toBeDisabled()
 

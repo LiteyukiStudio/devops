@@ -1,0 +1,103 @@
+@theme {
+  --animate-caret-blink: caret-blink 1s ease-out infinite;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-surface: hsl(var(--surface));
+  --color-surface-base: hsl(var(--surface-base));
+  --color-surface-raised: hsl(var(--surface-raised));
+  --color-surface-subtle: hsl(var(--surface-subtle));
+  --color-surface-inset: hsl(var(--surface-inset));
+  --color-card: hsl(var(--surface));
+  --color-card-foreground: hsl(var(--foreground));
+  --color-popover: hsl(var(--surface));
+  --color-popover-foreground: hsl(var(--foreground));
+  --color-accent: hsl(var(--muted));
+  --color-accent-foreground: hsl(var(--foreground));
+  --color-secondary: hsl(var(--muted));
+  --color-secondary-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-separator-strong: var(--separator-strong);
+  --color-separator-subtle: var(--separator-subtle);
+  --color-input: hsl(var(--border));
+  --color-ring: var(--primary-ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-subtle-hover: var(--primary-subtle-hover);
+  --color-primary-subtle-active: var(--primary-subtle-active);
+  --color-primary-border: var(--primary-border);
+  --color-primary-text: var(--primary-text);
+  --color-primary-text-strong: var(--primary-text-strong);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-theme-secondary: var(--theme-secondary, var(--primary));
+  --color-theme-supporting: var(--theme-supporting, var(--primary));
+  --color-theme-highlight: var(--theme-highlight, var(--primary));
+  --color-sidebar-nav-hover: var(--sidebar-nav-hover);
+  --color-danger: hsl(var(--danger));
+  --color-danger-subtle: var(--red-3);
+  --color-danger-border: var(--red-7);
+  --color-destructive: hsl(var(--danger));
+  --color-success: var(--green-11);
+  --color-success-subtle: var(--green-3);
+  --color-success-border: var(--green-7);
+  --color-warning: var(--amber-11);
+  --color-warning-subtle: var(--amber-3);
+  --color-warning-border: var(--amber-7);
+  --color-info: var(--sky-11);
+  --color-info-subtle: var(--sky-3);
+  --color-info-border: var(--sky-7);
+
+  --radius-control: 0.375rem;
+  --radius-container: 0.5rem;
+  --radius-feature: 0.75rem;
+
+  --spacing-inline: 0.5rem;
+  --spacing-field: 0.75rem;
+  --spacing-group: 1rem;
+  --spacing-section: 1.5rem;
+  --spacing-page-inline: var(--layout-page-inline);
+  --spacing-page-block: var(--layout-page-block);
+
+  --duration-fast: 150ms;
+  --duration-standard: 200ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --shadow-raised: 0 1px 2px hsl(var(--foreground) / 0.04), 0 8px 24px hsl(var(--foreground) / 0.05);
+  --shadow-overlay: 0 16px 48px hsl(var(--foreground) / 0.18);
+}
+
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+
+@utility duration-standard {
+  transition-duration: var(--duration-standard);
+}
+
+@utility duration-slow {
+  transition-duration: var(--duration-slow);
+}
+
+:root {
+  --layout-page-inline: 2rem;
+  --layout-page-block: 1rem;
+}
+
+@media (width >= 40rem) {
+  :root {
+    --layout-page-inline: 3rem;
+    --layout-page-block: 1.5rem;
+  }
+}
+
+@media (width >= 64rem) {
+  :root {
+    --layout-page-inline: 4rem;
+    --layout-page-block: 2rem;
+  }
+}

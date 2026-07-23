@@ -29,7 +29,8 @@ const root = {
   delete: '删除',
   remove: '移除',
   backToProjectSpaces: '返回项目空间',
-  backToApps: '返回应用',
+  backToProjectWorkspace: '返回项目空间工作台',
+  backToApps: '返回应用列表',
 }
 
 export default root

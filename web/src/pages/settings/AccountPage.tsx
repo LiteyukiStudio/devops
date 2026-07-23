@@ -12,6 +12,7 @@ import { api, oidcStartUrl } from '@/api'
 import { brandColorPresets } from '@/app/brand-theme'
 import { usePublicConfig } from '@/app/public-config-context'
 import { useSession } from '@/app/session-context'
+import { useTheme } from '@/app/theme-context'
 import { ContentTabs } from '@/components/common/content-tabs'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -36,6 +37,7 @@ const profileSchema = z.object({
   avatarUrl: z.string().optional(),
   language: z.enum(['zh-CN', 'en-US']),
   brandColorPreset: z.union([z.literal(''), z.enum(brandColorPresets)]),
+  interfaceStyle: z.enum(['', 'minimal', 'themed']),
 })
 
 type ProfileForm = z.infer<typeof profileSchema>
@@ -67,6 +69,7 @@ export function AccountPage() {
 
   return (
     <ContentTabs
+      headerClassName="flex justify-start"
       tabs={[
         { value: 'profile', label: t('accountPage.profileTab') },
         { value: 'security', label: t('accountPage.securityTab') },
@@ -94,6 +97,7 @@ export function AccountPage() {
 
 function ProfilePanel() {
   const { t } = useTranslation()
+  const { mode, setMode } = useTheme()
   const { updateProfile, user } = useSession()
   const configs = usePublicConfig()
   const form = useForm<ProfileForm>({
@@ -102,6 +106,7 @@ function ProfilePanel() {
     defaultValues: {
       avatarUrl: user?.avatarUrl ?? '',
       brandColorPreset: user?.brandColorPreset ?? '',
+      interfaceStyle: user?.interfaceStyle ?? '',
       language: user?.language ?? 'zh-CN',
       name: user?.name ?? '',
     },
@@ -113,6 +118,7 @@ function ProfilePanel() {
     form.reset({
       avatarUrl: user.avatarUrl ?? '',
       brandColorPreset: user.brandColorPreset ?? '',
+      interfaceStyle: user.interfaceStyle ?? '',
       language: user.language,
       name: user.name,
     })
@@ -155,6 +161,13 @@ function ProfilePanel() {
             <option value="en-US">{t('languages.enUS')}</option>
           </Select>
         </Field>
+        <Field hint={t('accountPage.appearanceModeHint')} label={t('theme.mode')}>
+          <Select value={mode} onChange={event => setMode(event.target.value as typeof mode)}>
+            <option value="system">{t('theme.system')}</option>
+            <option value="light">{t('theme.light')}</option>
+            <option value="dark">{t('theme.dark')}</option>
+          </Select>
+        </Field>
         <Field error={form.formState.errors.brandColorPreset?.message} hint={t('accountPage.brandColorHint')} label={t('accountPage.brandColor')}>
           <BrandColorPresetField
             ariaLabel={t('accountPage.brandColor')}
@@ -163,6 +176,13 @@ function ProfilePanel() {
             value={form.watch('brandColorPreset')}
             onValueChange={nextValue => form.setValue('brandColorPreset', nextValue, { shouldDirty: true, shouldValidate: true })}
           />
+        </Field>
+        <Field error={form.formState.errors.interfaceStyle?.message} hint={t('accountPage.interfaceStyleHint')} label={t('accountPage.interfaceStyle')}>
+          <Select {...form.register('interfaceStyle')} aria-invalid={Boolean(form.formState.errors.interfaceStyle)}>
+            <option value="">{t('accountPage.followPlatformInterfaceStyle')}</option>
+            <option value="themed">{t('accountPage.interfaceStyles.themed')}</option>
+            <option value="minimal">{t('accountPage.interfaceStyles.minimal')}</option>
+          </Select>
         </Field>
         <FormActions>
           <Button disabled={saveProfile.isPending || !form.formState.isValid || !form.formState.isDirty} type="submit">

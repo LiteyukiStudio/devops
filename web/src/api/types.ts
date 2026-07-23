@@ -1480,7 +1480,8 @@ export interface CurrentUser {
   passwordSet: boolean
   role: string
   language: 'zh-CN' | 'en-US'
-  brandColorPreset: '' | 'gold' | 'bronze' | 'brown' | 'yellow' | 'amber' | 'orange' | 'tomato' | 'red' | 'ruby' | 'crimson' | 'pink' | 'plum' | 'purple' | 'violet' | 'iris' | 'indigo' | 'blue' | 'cyan' | 'teal' | 'jade' | 'green' | 'grass' | 'lime' | 'mint' | 'sky'
+  brandColorPreset: '' | 'aurora' | 'harbor' | 'sunset' | 'botanical' | 'meadow' | 'citrus' | 'gold' | 'bronze' | 'brown' | 'yellow' | 'amber' | 'orange' | 'tomato' | 'red' | 'ruby' | 'crimson' | 'pink' | 'plum' | 'purple' | 'violet' | 'iris' | 'indigo' | 'blue' | 'cyan' | 'teal' | 'jade' | 'green' | 'grass' | 'lime' | 'mint' | 'sky'
+  interfaceStyle: '' | 'minimal' | 'themed'
   permissions: string[]
 }
 

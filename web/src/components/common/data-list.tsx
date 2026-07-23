@@ -69,9 +69,9 @@ function stickyColumnClass(sticky: DataListColumn<unknown>['sticky'], surface: '
 
   return cn(
     'sticky',
-    surface === 'cell' && (sticky === 'right' ? 'right-0 border-l border-border' : 'left-0 border-r border-border'),
+    surface === 'cell' && (sticky === 'right' ? 'right-0 border-l border-separator-strong group-hover:border-surface-subtle' : 'left-0 border-r border-separator-strong group-hover:border-surface-subtle'),
     surface === 'header' && (sticky === 'right' ? 'right-0' : 'left-0'),
-    surface === 'header' ? 'z-30 bg-muted' : 'z-20 bg-card group-hover:bg-muted/40',
+    surface === 'header' ? 'z-30 bg-card' : 'z-20 bg-card group-hover:bg-surface-subtle',
   )
 }
 
@@ -193,16 +193,24 @@ export function DataList<T>({
   }
 
   return (
-    <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden border-0 p-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none bg-transparent shadow-none')}>
+    <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden border-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none bg-transparent shadow-none')} padding="none">
       {(title || toolbar || search || selection?.bulkActions) && (
-        <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className={cn(
+          'flex shrink-0 flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center',
+          title ? 'sm:justify-between' : 'sm:justify-start',
+        )}
+        >
           <div className="min-w-0">
             {title && <h2 className="text-base font-semibold">{title}</h2>}
             {selection && selection.selectedKeys.length > 0 && (
               <p className="mt-1 text-xs text-muted-foreground">{selection.selectedLabel}</p>
             )}
           </div>
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <div className={cn(
+            'flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center',
+            title && 'sm:justify-end',
+          )}
+          >
             {search && (
               <Input
                 className="h-9 w-full sm:w-64"
@@ -216,7 +224,7 @@ export function DataList<T>({
           </div>
         </div>
       )}
-      <ScrollArea className="min-h-0 w-full min-w-0 max-w-full flex-1" scrollbars="both" type="auto">
+      <ScrollArea className="mx-group min-h-0 w-auto min-w-0 max-w-full flex-1" scrollbars="both" type="auto">
         {loading
           ? <DataListSkeleton columns={Math.max(2, Math.min(columns.length + (selectable ? 1 : 0), 6))} />
           : items.length === 0
@@ -232,10 +240,10 @@ export function DataList<T>({
               )
             : (
                 <table className="w-max min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
-                  <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
-                    <tr className="transition-colors hover:bg-muted/40">
+                  <thead className="sticky top-0 z-10 border-b border-separator-strong bg-card/95 backdrop-blur">
+                    <tr>
                       {selectable && (
-                        <th className="h-10 w-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground">
+                        <th className="h-11 w-10 px-4 py-3 text-left align-middle text-sm font-medium whitespace-nowrap text-foreground">
                           <input
                             aria-label={selection?.selectAllLabel}
                             checked={allRowsSelected}
@@ -254,7 +262,7 @@ export function DataList<T>({
                         <th
                           key={column.key}
                           className={cn(
-                            'h-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground',
+                            'h-11 px-4 py-3 text-left align-middle text-sm font-medium whitespace-nowrap text-foreground',
                             column.className,
                             stickyColumnClass(column.sticky, 'header'),
                             column.headerClassName,
@@ -269,12 +277,15 @@ export function DataList<T>({
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="[&_tr:last-child]:border-0">
+                  <tbody className="[&_tr:last-child]:border-0 [&_tr:has(+_tr:hover)]:border-surface-subtle">
                     {items.map((item) => {
                       const itemKey = rowKey(item)
                       const rowSelectable = selection?.isRowSelectable?.(item) ?? true
                       return (
-                        <tr key={itemKey} className="group border-b border-border transition-colors hover:bg-muted/40">
+                        <tr
+                          key={itemKey}
+                          className="group border-b border-separator-strong transition-colors hover:border-surface-subtle hover:[&>td]:bg-surface-subtle [&>td]:transition-colors [&>td:first-child]:rounded-l-container [&>td:last-child]:rounded-r-container"
+                        >
                           {selectable && (
                             <td className="w-10 px-4 py-3 align-middle">
                               <input
@@ -313,7 +324,7 @@ export function DataList<T>({
       </ScrollArea>
 
       {pagination && pagination.total > 0 && !loading && (
-        <div className="shrink-0 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+        <div className="shrink-0 px-4 py-3 text-sm text-muted-foreground">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{pagination.pageInfoLabel}</span>
             <PaginationController

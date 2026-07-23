@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import type { DashboardActivity, DashboardAttentionItem, DashboardProjectShortcut, DashboardReadinessItem } from '@/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AppWindow, Boxes, Container, FileKey2, FolderKanban, Globe2, Hammer, Pin, Rocket, ScrollText, Server, ShieldAlert, Workflow } from 'lucide-react'
+import { Activity, AppWindow, ArrowRight, Boxes, Container, FileKey2, FolderKanban, Globe2, Hammer, Pin, Rocket, ScrollText, Server, ShieldAlert, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { api } from '@/api'
+import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
 import { OverviewSkeleton } from '@/components/common/loading-states'
 import { MetricGroup, MetricItem } from '@/components/common/metric-group'
@@ -60,12 +61,16 @@ export function DashboardPage() {
     <PageShell width="content">
       {overview.attention.length > 0 && <AttentionPanel items={overview.attention} />}
 
-      <section className="grid gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge tone={overview.summary.attentionItems ? 'warning' : 'success'}>
-            {overview.summary.attentionItems ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}
-          </StatusBadge>
-          <StatusBadge>{t('dashboardPage.resourceTotals', { applications: overview.summary.applications, projects: overview.summary.projects })}</StatusBadge>
+      <section className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone={overview.summary.attentionItems ? 'warning' : 'success'}>
+              {overview.summary.attentionItems ? t('dashboardPage.needsAttention') : t('dashboardPage.healthy')}
+            </StatusBadge>
+            <span className="text-sm text-muted-foreground">
+              {t('dashboardPage.resourceTotals', { applications: overview.summary.applications, projects: overview.summary.projects })}
+            </span>
+          </div>
           {activeTasks > 0 && (
             <span className="text-xs text-muted-foreground">{t('dashboardPage.activeTasksTotal', { count: activeTasks })}</span>
           )}
@@ -78,6 +83,43 @@ export function DashboardPage() {
         </MetricGroup>
       </section>
 
+      <Surface className="grid min-w-0 overflow-hidden xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]" variant="bordered">
+        <Section
+          className="min-w-0 p-5 sm:p-6"
+          icon={<ScrollText size={18} />}
+          title={t('dashboardPage.recentActivity')}
+          tools={(
+            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary-text" to="/events">
+              {t('dashboardPage.viewAllEvents')}
+            </Link>
+          )}
+        >
+          <div className={overview.activities.length > 5 ? 'max-h-80 overflow-y-auto pr-1' : ''}>
+            {overview.activities.length
+              ? (
+                  <div className="divide-y divide-border">
+                    {overview.activities.map(activity => <ActivityRow key={activity.id} activity={activity} />)}
+                  </div>
+                )
+              : (
+                  <EmptyState
+                    description={t('dashboardPage.noActivityDescription')}
+                    icon={<Activity className="size-5" />}
+                    title={t('dashboardPage.noActivity')}
+                    variant="plain"
+                  />
+                )}
+          </div>
+        </Section>
+
+        <Section className="border-t border-border p-5 sm:p-6 xl:border-l xl:border-t-0" icon={<Boxes size={18} />} title={t('dashboardPage.platformReadiness')}>
+          <div className="grid gap-3">
+            <ReadinessRow icon={<Container size={16} />} item={overview.readiness.registries} kind="registries" label={t('registries')} to="/registries" />
+            <ReadinessRow icon={<Server size={16} />} item={overview.readiness.clusters} kind="clusters" label={t('clusters')} to="/clusters" />
+          </div>
+        </Section>
+      </Surface>
+
       <Section
         icon={<FolderKanban size={18} />}
         title={t('dashboardPage.projectShortcuts')}
@@ -89,51 +131,26 @@ export function DashboardPage() {
       >
         {overview.projects.length
           ? (
-              <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden pb-2">
-                <div className="inline-flex min-w-max gap-3">
-                  {overview.projects.map(project => (
-                    <ProjectShortcutCard
-                      key={project.id}
-                      isPinPending={toggleProjectPin.isPending}
-                      project={project}
-                      onTogglePin={(projectId, pinned) => toggleProjectPin.mutate({ pinned, projectId })}
-                    />
-                  ))}
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {overview.projects.slice(0, 6).map(project => (
+                  <ProjectShortcutCard
+                    key={project.id}
+                    isPinPending={toggleProjectPin.isPending}
+                    project={project}
+                    onTogglePin={(projectId, pinned) => toggleProjectPin.mutate({ pinned, projectId })}
+                  />
+                ))}
               </div>
             )
-          : <p className="py-4 text-sm text-muted-foreground">{t('projectSpaces.emptyTitle')}</p>}
+          : (
+              <EmptyState
+                description={t('dashboardPage.noProjectsDescription')}
+                icon={<FolderKanban className="size-5" />}
+                title={t('projectSpaces.emptyTitle')}
+                variant="plain"
+              />
+            )}
       </Section>
-
-      <Surface className="grid min-w-0 overflow-hidden xl:grid-cols-3" variant="bordered">
-        <Section
-          className="min-w-0 p-4 xl:col-span-2"
-          icon={<ScrollText size={18} />}
-          title={t('dashboardPage.recentActivity')}
-          tools={(
-            <Link className="text-sm font-medium text-muted-foreground transition hover:text-primary-text" to="/events">
-              {t('dashboardPage.viewAllEvents')}
-            </Link>
-          )}
-        >
-          <div className="h-72 overflow-y-auto pr-1">
-            {overview.activities.length
-              ? (
-                  <div className="divide-y divide-border">
-                    {overview.activities.map(activity => <ActivityRow key={activity.id} activity={activity} />)}
-                  </div>
-                )
-              : <p className="py-4 text-sm text-muted-foreground">{t('dashboardPage.noActivity')}</p>}
-          </div>
-        </Section>
-
-        <Section className="border-t border-border p-4 xl:border-l xl:border-t-0" icon={<Boxes size={18} />} title={t('dashboardPage.platformReadiness')}>
-          <div className="grid gap-2">
-            <ReadinessRow icon={<Container size={16} />} item={overview.readiness.registries} kind="registries" label={t('registries')} to="/registries" />
-            <ReadinessRow icon={<Server size={16} />} item={overview.readiness.clusters} kind="clusters" label={t('clusters')} to="/clusters" />
-          </div>
-        </Section>
-      </Surface>
     </PageShell>
   )
 }
@@ -142,7 +159,7 @@ function ProjectShortcutCard({ isPinPending, onTogglePin, project }: { isPinPend
   const { t } = useTranslation()
   return (
     <Link
-      className="group relative grid min-h-28 w-64 flex-none gap-3 rounded-md border border-border bg-surface-raised p-3 transition-colors hover:border-primary-border hover:bg-surface-subtle"
+      className="group relative grid min-h-36 min-w-0 gap-4 rounded-container bg-surface-raised p-4 transition-colors hover:bg-surface-subtle"
       to={`/projects/${project.id}`}
     >
       <div className="min-w-0">
@@ -164,12 +181,15 @@ function ProjectShortcutCard({ isPinPending, onTogglePin, project }: { isPinPend
       >
         <Pin className={`size-4 ${project.pinned ? 'fill-current' : ''}`} />
       </Button>
-      <div className="flex min-w-0 flex-wrap items-center gap-2 self-end">
-        <StatusBadge>{t('dashboardPage.appsCount', { count: project.applicationCount })}</StatusBadge>
-        {project.latestActivity
-          ? <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={project.latestActivity.status} />
-          : <StatusBadge tone="neutral">{t('dashboardPage.noActivityShort')}</StatusBadge>}
-        {project.latestActivity && <span className="text-xs text-muted-foreground">{formatCompactDateTime(project.latestActivity.occurredAt)}</span>}
+      <div className="flex min-w-0 items-end justify-between gap-3 self-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <StatusBadge>{t('dashboardPage.appsCount', { count: project.applicationCount })}</StatusBadge>
+          {project.latestActivity
+            ? <StatusValueBadge labelKeyPrefix="eventsPage.statuses" value={project.latestActivity.status} />
+            : <span className="text-xs text-muted-foreground">{t('dashboardPage.noActivityShort')}</span>}
+          {project.latestActivity && <span className="text-xs text-muted-foreground">{formatCompactDateTime(project.latestActivity.occurredAt)}</span>}
+        </div>
+        <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary-text" />
       </div>
     </Link>
   )

@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { api } from '@/api'
 import { applySiteBrandColorPreset } from '@/app/brand-theme'
+import { applySiteMinimalModeDefault } from '@/app/interface-style'
 import { BuildEnvironmentEditorDialog } from '@/components/common/build-environment-editor-dialog'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ContentTabs } from '@/components/common/content-tabs'
@@ -73,6 +74,7 @@ export function SiteSettingsPage() {
     onSuccess: (result) => {
       toast.success(t('settings.siteSaved'))
       applySiteBrandColorPreset(result['site.brandColorPreset'])
+      applySiteMinimalModeDefault(result['site.minimalModeDefault'])
       queryClient.setQueryData(['configs'], result)
       queryClient.invalidateQueries({ queryKey: ['configs'] })
       queryClient.invalidateQueries({ queryKey: ['public-configs'] })
@@ -237,7 +239,6 @@ function ConfigSection({ definitions, form }: ConfigSectionProps) {
               ? (
                   <BrandColorPresetField
                     ariaLabel={label}
-                    options={definition.options}
                     value={String(form.watch(definition.key) || definition.default)}
                     onValueChange={nextValue => form.setValue(definition.key, nextValue, { shouldDirty: true, shouldValidate: true })}
                   />
