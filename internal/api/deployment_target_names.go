@@ -6,11 +6,11 @@ import (
 )
 
 func runtimeProjectNamespace(project model.Project) string {
-	return resourcename.ProjectNamespace(project.ID)
+	return resourcename.PersistedOrLegacy(project.KubernetesNamespace, "ns", project.ID)
 }
 
 func deploymentTargetResourceName(target model.DeploymentTarget) string {
-	return resourcename.DeploymentTarget(target.ID)
+	return resourcename.PersistedOrLegacy(target.KubernetesName, "dplt", target.ID)
 }
 
 func shortResourceID(value string) string {

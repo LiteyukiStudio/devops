@@ -1342,7 +1342,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [createdAt, name, slug]
+            enum: [createdAt, name, identifier]
             default: createdAt
         - $ref: "#/components/parameters/SortOrder"
       responses:
@@ -1648,7 +1648,7 @@ paths:
           headers:
             Content-Disposition:
               schema: { type: string }
-              description: Attachment filename in the form `<app-slug>-<target-id>-data.tar.gz`.
+              description: Attachment filename in the form `<app-identifier>-<target-id>-data.tar.gz`.
           content:
             application/gzip:
               schema: { type: string, format: binary }
@@ -2042,8 +2042,8 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        slug: { type: string }
-      required: [id, name, slug]
+        identifier: { type: string }
+      required: [id, name, identifier]
     DashboardActivity:
       type: object
       properties:
@@ -2068,7 +2068,7 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        slug: { type: string }
+        identifier: { type: string }
         description: { type: string }
         pinned: { type: boolean }
         applicationCount: { type: integer, format: int64 }
@@ -2076,7 +2076,7 @@ components:
           oneOf:
             - $ref: "#/components/schemas/DashboardActivity"
             - type: "null"
-      required: [id, name, slug, description, pinned, applicationCount, latestActivity]
+      required: [id, name, identifier, description, pinned, applicationCount, latestActivity]
     DashboardAttentionItem:
       type: object
       properties:
@@ -2250,6 +2250,7 @@ components:
         - security_settings_update
         - data_retention_cleanup
         - password_update
+        - access_token_manage
     MFAVerifyInput:
       type: object
       properties:
@@ -2344,14 +2345,19 @@ components:
       type: object
       properties:
         name: { type: string }
-        slug: { type: string }
+        identifier:
+          type: string
+          minLength: 2
+          maxLength: 22
+          pattern: "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+          description: Immutable application identifier, unique within its project space and used to derive stable resource IDs.
         sourceType: { type: string, enum: [repository, image] }
         repositoryUrl: { type: string }
         imageReference: { type: string }
         dockerfilePath: { type: string }
         buildContext: { type: string }
         servicePort: { type: integer }
-      required: [name, slug, sourceType]
+      required: [name, identifier, sourceType]
     ArtifactRegistryInput:
       type: object
       properties:
@@ -2496,7 +2502,12 @@ components:
       type: object
       properties:
         name: { type: string }
-        slug: { type: string }
+        identifier:
+          type: string
+          minLength: 2
+          maxLength: 22
+          pattern: "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+          description: Immutable project-space identifier used to derive the project ID and Kubernetes Namespace.
         description: { type: string }
         namespaceStrategy: { type: string, enum: [project] }
         maxConcurrentBuilds: { type: integer, minimum: 1 }
@@ -2504,13 +2515,14 @@ components:
           type: boolean
           default: true
           description: Project-space master switch for release Web Console and runtime exec access. Omission on create defaults to true; omission on update preserves the current value. When false, no deployment target can re-enable Web Console. Project roles and Step-up MFA still apply.
-      required: [name, slug]
+      required: [name, identifier]
     Project:
       type: object
       properties:
         id: { type: string }
         name: { type: string }
-        slug: { type: string }
+        identifier: { type: string }
+        kubernetesNamespace: { type: string }
         description: { type: string }
         namespaceStrategy: { type: string, enum: [project] }
         maxConcurrentBuilds: { type: integer }
@@ -2518,12 +2530,18 @@ components:
           type: boolean
           description: Project-space master switch. A false value disables Web Console for every deployment target in the project space.
         createdAt: { type: string, format: date-time }
-      required: [id, name, slug, namespaceStrategy, maxConcurrentBuilds, webConsoleEnabled, createdAt]
+      required: [id, name, identifier, kubernetesNamespace, namespaceStrategy, maxConcurrentBuilds, webConsoleEnabled, createdAt]
     DeploymentTargetInput:
       type: object
       description: Deployment target create/update payload. Other build and Kubernetes fields are accepted by the implemented endpoint; `webConsoleEnabled` is documented here because it has inherited policy semantics.
       additionalProperties: true
       properties:
+        stage:
+          type: string
+          minLength: 2
+          maxLength: 12
+          pattern: "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+          description: Immutable deployment stage identifier, unique within the application.
         buildDefinitionMode:
           type: string
           enum: [repository_dockerfile, template]
@@ -2558,6 +2576,8 @@ components:
         id: { type: string }
         projectId: { type: string }
         applicationId: { type: string }
+        stage: { type: string, minLength: 2, maxLength: 12 }
+        kubernetesName: { type: string }
         buildDefinitionMode: { type: string, enum: [repository_dockerfile, template] }
         buildTemplateId: { type: string }
         buildTemplateVersion: { type: string }
@@ -2565,7 +2585,7 @@ components:
         webConsoleEnabled:
           type: [boolean, "null"]
           description: Nullable target restriction. Effective policy is `project.webConsoleEnabled && webConsoleEnabled != false`; a true value is treated as inheritance.
-      required: [id, projectId, applicationId, webConsoleEnabled]
+      required: [id, projectId, applicationId, stage, kubernetesName, webConsoleEnabled]
     BuildTemplateParameter:
       type: object
       properties:
@@ -2651,7 +2671,7 @@ components:
       properties:
         id: { type: string }
         name: { type: string }
-        slug: { type: string }
+        identifier: { type: string }
         description: { type: string }
         namespaceStrategy: { type: string, enum: [project] }
         createdAt: { type: string, format: date-time }

@@ -44,16 +44,16 @@ function uniqueBuildFilterValues(values: Array<string | undefined>) {
     .sort((left, right) => left.localeCompare(right))
 }
 
-export function ApplicationBuildsPanel({ applicationId, appSlug, binding, deploymentTargets, buildJobs, buildRuns, projectId, projectSlug, ref, registries, repositoryBindings }: {
+export function ApplicationBuildsPanel({ applicationId, applicationIdentifier, binding, deploymentTargets, buildJobs, buildRuns, projectId, projectIdentifier, ref, registries, repositoryBindings }: {
   applicationId: string
-  appSlug: string
+  applicationIdentifier: string
   binding?: { defaultBranch: string, gitAccountId: string, owner: string, repo: string }
   repositoryBindings: RepositoryBinding[]
   deploymentTargets: DeploymentTarget[]
   buildJobs: BuildJob[]
   buildRuns: BuildRun[]
   projectId: string
-  projectSlug: string
+  projectIdentifier: string
   ref?: Ref<BuildsPanelHandle>
   registries: ArtifactRegistry[]
 }) {
@@ -310,10 +310,10 @@ export function ApplicationBuildsPanel({ applicationId, appSlug, binding, deploy
       buildMemoryRequest: defaultConfig?.buildMemoryRequest || defaultBuildMemoryRequest,
       buildTimeoutSeconds: defaultConfig?.buildTimeoutSeconds || defaultBuildTimeoutSeconds,
       sourceBranch: (repositoryBindings.find(item => item.id === defaultConfig?.repositoryBindingId) ?? binding)?.defaultBranch || 'main',
-      targetImageRef: deploymentTargetImageRef(defaultConfig) || defaultTargetImageRef(undefined, projectSlug, appSlug),
+      targetImageRef: deploymentTargetImageRef(defaultConfig) || defaultTargetImageRef(undefined, projectIdentifier, applicationIdentifier),
       targetRegistryId: defaultConfig?.targetRegistryId ?? '',
     })
-  }, [applicationId, appSlug, binding, deploymentTargets, dialogOpen, form, projectSlug, repositoryBindings])
+  }, [applicationId, applicationIdentifier, binding, deploymentTargets, dialogOpen, form, projectIdentifier, repositoryBindings])
 
   useEffect(() => {
     if (!dialogOpen || !selectedDeploymentTarget)
@@ -338,9 +338,9 @@ export function ApplicationBuildsPanel({ applicationId, appSlug, binding, deploy
     const defaultRegistry = registries.find(registry => registry.credentialSet && registry.isDefault) ?? registries.find(registry => registry.credentialSet) ?? registries.find(registry => registry.isDefault) ?? registries[0]
     form.setValue('targetRegistryId', defaultRegistry.id, { shouldDirty: true, shouldValidate: true })
     if (!form.getValues('targetImageRef')) {
-      form.setValue('targetImageRef', defaultTargetImageRef(defaultRegistry, projectSlug, appSlug), { shouldDirty: true, shouldValidate: true })
+      form.setValue('targetImageRef', defaultTargetImageRef(defaultRegistry, projectIdentifier, applicationIdentifier), { shouldDirty: true, shouldValidate: true })
     }
-  }, [appSlug, dialogOpen, form, projectSlug, registries])
+  }, [applicationIdentifier, dialogOpen, form, projectIdentifier, registries])
 
   return (
     <div className="grid gap-4">

@@ -35,6 +35,8 @@ const common = {
   test: '测试',
   validEmailRequired: '请输入有效邮箱',
   lowercaseSlugOnly: '只能包含小写字母、数字和 -',
+  identifier: '标识',
+  identifierFormat: '只能使用小写字母、数字和短横线，并且必须以字母或数字开头和结尾',
   platformAdminPermissionRequired: '请确认当前账号具有平台管理员权限。',
   active: '启用中',
   canceled: '已取消',

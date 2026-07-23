@@ -186,9 +186,9 @@
 - [x] 应用详情页移除旧交付详情入口，将部署配置维护收敛到应用概览、构建、部署和访问工作流。
 - [x] 统一构建和部署列表状态短轮询间隔，应用构建页、应用部署页和看板近期构建复用同一常量刷新运行态数据。
 - [x] 应用部署页目标镜像和部署进度保持常规截断，hover 展示完整内容，点击文本可复制完整值并提示复制成功。
-- [x] 为 Project/Application 关键命名片段增加长度防呆，提示用户使用短 slug；DeploymentTarget 名称改为纯展示名，Kubernetes 资源名由内部 ID 派生。
+- [x] Project/Application/Stage 使用创建后不可修改的标识：项目和应用限制为 2–22 个字符，阶段限制为 2–12 个字符，只允许 DNS label 字符集；展示名称保持可编辑。
 - [x] 修正 Kubernetes 资源名生成：部署配置不再使用用户填写名称生成运行态资源名，避免中文名称或长名称影响 Deployment/Service；前后端允许部署配置名称作为可读展示名自由填写。
-- [x] Kubernetes 运行态资源命名改为内部 ID 派生：namespace 使用 `ns-{projectIdShort}`，Deployment/Service/ConfigMap/Secret 使用 `dplt-{deploymentTargetIdShort}`，平台识别依赖稳定 ID labels。
+- [x] Kubernetes 运行态资源改为可读且不可变的 `luna-` 命名：Namespace 使用 `luna-{projectIdentifier}`，Deployment/StatefulSet/Service/HPA 基名使用 `luna-{appIdentifier}-{stage}`，ConfigMap/Secret/PVC 使用对应后缀；历史记录保留原 `ns-*` / `dplt-*` 名称。
 - [x] 部署配置支持维护运行时 ConfigMap/Secret 覆盖项：入口挂靠到模块的部署配置，按“环境默认 + 部署配置覆盖”生成运行态资源，Secret 不回显原文。
 - [x] 增加 i18n 边界准则：能在前端本地化的内容由前端按 key 映射，后端只返回稳定 key、原始枚举和必要备注。
 - [x] 继续将仓库绑定等多表单页面改为创建/编辑 Dialog。
@@ -296,8 +296,7 @@
 ## 4. 项目、应用与前端主工作区
 
 - [x] 实现 Project CRUD。
-- [x] 修复 Project 软删除后 slug 唯一索引仍占用的问题，改为未删除项目唯一。
-- [x] 明确并强化标识唯一约束：项目空间标识全局唯一，应用标识在同一项目空间内唯一，API 返回友好业务错误。
+- [x] 项目空间标识全局永久唯一，应用标识在同一项目空间内永久唯一；标识派生稳定 ID，软删除后也不允许复用，API 返回友好业务错误。
 - [x] 实现 Project namespaceStrategy。
 - [x] 实现 Application CRUD。
 - [x] 支持 sourceType: repository。
@@ -458,6 +457,11 @@
 - [x] 抽离统一 SSRF/出站访问控制组件，并接入 Git、OIDC 和 Registry 外部请求链路。
 - [x] SSRF/egress 组件接入管理员安全配置，支持域名黑名单、域名特许白名单、IP/CIDR 黑白名单和端口规则。
 - [x] 修复 egress CIDR 地址族匹配，避免 `::ffff:0:0/96` 误拦截 GitHub 等普通公网 IPv4。
+- [x] 修复 SSRF DNS 重绑定窗口：出站连接校验全部解析 IP 后直接拨号到同一 IP，不再在校验与连接之间二次解析域名。
+- [x] 收紧个人 Access Token：后端强制固定有效期白名单，创建与撤销接入 `access_token_manage` Step-up MFA。
+- [x] 为 OAuth token/revoke 客户端认证增加来源 IP 与散列 client ID 双维度 Redis 限流。
+- [x] 为通用 5xx 响应生成基于 HTTP 方法和 Gin 路由模板的稳定错误码，生产环境继续隐藏底层异常。
+- [x] 清理 Kubernetes 高级部署字段和通知适配器选项的用户可见硬编码枚举，统一通过中英文 i18n label 展示。
 - [x] 修复空 PostgreSQL 数据库启动迁移：baseline 在后续 ALTER 前创建计费基础表，并用真实空 schema 测试覆盖完整 migration、非 dirty 状态和重复启动。
 - [x] 收紧用户提交 kubeconfig：保存和运行时统一拒绝 exec/auth-provider、tokenFile、proxy-url、本机证书文件、HTTP API Server 和跳过 TLS 校验，仅接受内联凭据与合法 HTTPS API Server。
 - [x] 封装统一错误响应层，开发模式返回调试细节，生产模式仅返回稳定错误码和业务化文案。
@@ -598,7 +602,7 @@
 - [x] 构建日志和 Hook 日志统一脱敏验收：Git Token、Registry 密码/Token、构建密钥、常见 Authorization header 和 URL 内 token 不应落入 BuildLog/HookRunLog。
 - [x] Kubernetes 构建 Job 默认不使用 privileged，不挂载宿主机 Docker socket；rootless BuildKit executor 使用非 root UID/GID、`--oci-worker-no-process-sandbox`、允许 `newuidmap/newgidmap` 所需的 privilege escalation，并放开 seccomp/AppArmor 兼容 Kubernetes 用户命名空间限制。
 - [x] 构建变量集拆分“可使用”和“可查看明文”权限：列表仍展示可用配置摘要和变量数量，但普通项目成员不再收到 variables 明文，只有平台管理员、个人所有者或项目空间 Owner/Admin 可查看和编辑。
-- [x] 目标镜像默认模板在镜像站 namespace 为空时 fallback 到当前项目空间 slug，避免生成裸仓库名。
+- [x] 目标镜像默认模板在镜像站 namespace 为空时 fallback 到当前项目空间不可变标识，避免生成裸仓库名。
 - [x] 运行时 exec 审计收敛验收：AuditLog 只记录命令摘要、长度、容器和退出码，不记录原始命令文本。
 
 ### 7.5 Kubernetes 构建 Job 详细排期
@@ -788,7 +792,7 @@
 ### 9.1 网关与域名 API/CRUD 优先
 
 - [x] 实现 GatewayRoute 模型、迁移和 CRUD API。
-- [x] 实现默认域名生成规则 `{projectSlug}-{appSlug}-{stage}.{rootDomain}`，支持用户填写短前缀自动拼接 root domain，并在冲突时自动追加序号。
+- [x] 实现默认域名生成规则 `{projectIdentifier}-{appIdentifier}-{stage}.{rootDomain}`，支持用户填写短前缀自动拼接 root domain，并在冲突时自动追加序号。
 - [x] 重构访问/域名模型：GatewayRoute 不再只按应用和环境归属，必须绑定到模块或部署配置（优先 DeploymentTarget，间接确定 DeploymentTarget + Environment + Service），访问页选择明确流量目标，避免多模块应用下域名无法判断应转发到哪个 Service。
 - [x] GatewayRoute 增加 DeploymentTarget 绑定字段，使一个应用同环境存在多个部署配置时，HTTPRoute 能明确指向该部署配置对应的 Service。
 - [x] 访问域名支持启用/关闭：创建默认启用，关闭时保留域名配置但撤销运行态 HTTPRoute，重新启用后重新下发。
@@ -882,6 +886,8 @@
 - [x] 拆分 i18n locale 文件：`web/src/i18n/locales/zh-CN.ts` 和 `en-US.ts` 已是 namespace 聚合入口，实际文案位于 `web/src/i18n/locales/<locale>/*`。验收：单个入口文件不超过 400 行，`pnpm --dir web lint`、`pnpm --dir web build` 通过。
 - [x] 拆分 Git provider client：已按错误映射、OAuth、类型、仓库/分支/文件/Webhook、构建选项发现等职责拆分 `internal/provider/git/*`；前端仍只调用平台后端 API。验收：`go test ./internal/provider/git` 和 `go test ./...` 通过。
 - [x] 拆分大测试文件：`internal/api/handlers_test.go` 已拆为 core/auth/tasks/git-security 等领域测试文件，原文件仅保留 package 声明。验收：`go test ./internal/api` 和 `go test ./...` 通过。
+- [x] 将项目成员输入/响应 DTO 与角色归一逻辑从 `project_handlers.go` 抽到 `project_member_types.go`，减少项目主 handler 的类型职责。
+- [ ] 继续拆分当前热点：`application-deployments-panel.tsx`（约 900 行）、`project_handlers.go`、`mfa_handlers.go` 与 `web/src/api/types.ts`；每项作为独立可验收目标推进，避免和安全修复混成一次高风险重写。
 
 ## 12. 可观测性
 

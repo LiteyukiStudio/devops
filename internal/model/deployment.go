@@ -104,6 +104,7 @@ type DeploymentTarget struct {
 	EnvironmentID                string                        `gorm:"index;not null;default:''" json:"environmentId"`
 	Name                         string                        `gorm:"not null" json:"name"`
 	Stage                        string                        `gorm:"not null;default:prod" json:"stage"`
+	KubernetesName               string                        `gorm:"not null;default:''" json:"kubernetesName"`
 	ClusterID                    string                        `gorm:"index;not null;default:''" json:"clusterId"`
 	Namespace                    string                        `gorm:"not null;default:''" json:"namespace"`
 	WorkloadType                 string                        `gorm:"not null;default:Deployment" json:"workloadType"`

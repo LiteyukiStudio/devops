@@ -98,6 +98,7 @@ const accountPage = {
       security_settings_update: 'update security settings',
       data_retention_cleanup: 'permanently clean up platform data',
       password_update: 'change sign-in password',
+      access_token_manage: 'manage personal access tokens',
     },
   },
 }

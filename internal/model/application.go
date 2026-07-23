@@ -1,14 +1,15 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Application struct {
 	ID                string         `gorm:"primaryKey" json:"id"`
-	ProjectID         string         `gorm:"uniqueIndex:idx_applications_project_slug_active,where:deleted_at IS NULL;index;not null" json:"projectId"`
-	Slug              string         `gorm:"uniqueIndex:idx_applications_project_slug_active,where:deleted_at IS NULL;index;not null" json:"slug"`
+	ProjectID         string         `gorm:"uniqueIndex:idx_applications_project_identifier_active,where:deleted_at IS NULL;index;not null" json:"projectId"`
+	Identifier        string         `gorm:"column:identifier;uniqueIndex:idx_applications_project_identifier_active,where:deleted_at IS NULL;index;not null" json:"identifier"`
 	Name              string         `gorm:"not null" json:"name"`
 	Icon              string         `gorm:"not null;default:'box'" json:"icon"`
 	DeleteStatus      string         `gorm:"index;not null;default:active" json:"deleteStatus"`

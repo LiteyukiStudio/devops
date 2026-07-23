@@ -80,7 +80,7 @@ export const credentialDefaults: CredentialForm = {
   usage: 'push-pull',
   scope: 'user',
   projectIds: [],
-  repositoryTemplate: '{registryNamespace}/{projectSlug}-{appSlug}',
+  repositoryTemplate: '{registryNamespace}/{projectIdentifier}-{appIdentifier}',
   tagTemplate: 'latest',
 }
 

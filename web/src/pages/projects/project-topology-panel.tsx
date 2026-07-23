@@ -301,7 +301,7 @@ function filterEdges(edges: ProjectTopologyEdge[], nodes: ProjectTopologyNode[],
     if (normalizedSearch) {
       const source = nodeById.get(edge.source)
       const target = nodeById.get(edge.target)
-      const haystack = [source?.name, source?.slug, target?.name, target?.slug, edge.protocol, edge.relationType]
+      const haystack = [source?.name, source?.identifier, target?.name, target?.identifier, edge.protocol, edge.relationType]
         .filter(Boolean)
         .join(' ')
         .toLocaleLowerCase()

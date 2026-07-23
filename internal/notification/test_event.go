@@ -11,19 +11,19 @@ func TestEvent(now time.Time) Event {
 		Type:     "notification.test",
 		Severity: SeverityInfo,
 		Project: EntityRef{
-			ID:   "prj_test",
-			Name: "Demo Project Space",
-			Slug: "demo-space",
+			ID:         "prj_test",
+			Name:       "Demo Project Space",
+			Identifier: "demo-space",
 		},
 		Application: EntityRef{
-			ID:   "app_test",
-			Name: "Demo Application",
-			Slug: "demo-app",
+			ID:         "app_test",
+			Name:       "Demo Application",
+			Identifier: "demo-app",
 		},
 		DeploymentTarget: EntityRef{
-			ID:   "dplt_test",
-			Name: "production",
-			Slug: "prod",
+			ID:         "dplt_test",
+			Name:       "production",
+			Identifier: "prod",
 		},
 		Build: BuildContext{
 			ID:      "build_test",

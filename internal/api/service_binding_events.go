@@ -26,9 +26,9 @@ func (h *Handlers) emitServiceBindingEvent(ctx context.Context, user model.User,
 	_, _ = (notification.Service{DB: h.db, Enqueuer: h.taskClient}).Emit(ctx, notification.Event{
 		Type:             "service_binding." + status,
 		Severity:         severity,
-		Project:          notification.EntityRef{ID: project.ID, Name: project.Name, Slug: project.Slug},
-		Application:      notification.EntityRef{ID: sourceApplication.ID, Name: sourceApplication.Name, Slug: sourceApplication.Slug},
-		DeploymentTarget: notification.EntityRef{ID: sourceTarget.ID, Name: sourceTarget.Name, Slug: sourceTarget.Stage},
+		Project:          notification.EntityRef{ID: project.ID, Name: project.Name, Identifier: project.Identifier},
+		Application:      notification.EntityRef{ID: sourceApplication.ID, Name: sourceApplication.Name, Identifier: sourceApplication.Identifier},
+		DeploymentTarget: notification.EntityRef{ID: sourceTarget.ID, Name: sourceTarget.Name, Identifier: sourceTarget.Stage},
 		ServiceBinding: notification.ServiceBindingContext{
 			ID: binding.ID, Status: status,
 			SourceDeploymentTargetID: binding.SourceDeploymentTargetID,

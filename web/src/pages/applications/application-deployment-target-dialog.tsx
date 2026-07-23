@@ -177,7 +177,7 @@ export function ApplicationDeploymentTargetDialog({
                   <Input {...form.register('name', { required: true })} placeholder={t('deploymentsPage.deploymentConfigNamePattern')} />
                 </Field>
                 <Field label={t('deploymentsPage.stage')}>
-                  <Select {...form.register('stage')}>
+                  <Select {...form.register('stage')} disabled={Boolean(editingTarget)}>
                     <option value="dev">{t('deploymentsPage.stageDev')}</option>
                     <option value="test">{t('deploymentsPage.stageTest')}</option>
                     <option value="staging">{t('deploymentsPage.stageStaging')}</option>

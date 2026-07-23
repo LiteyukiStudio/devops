@@ -47,9 +47,9 @@ type ServiceBindingContext struct {
 }
 
 type EntityRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Identifier string `json:"identifier"`
 }
 
 type BuildContext struct {

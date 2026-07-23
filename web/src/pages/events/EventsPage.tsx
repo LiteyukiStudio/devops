@@ -96,13 +96,13 @@ export function EventsPage() {
 
   const categoryValues = useMemo(() => [...new Set((catalog.data ?? []).map(item => item.category))], [catalog.data])
   const projectOptions = useMemo<SearchSelectOption[]>(() => (projects.data ?? []).map(project => ({
-    description: project.slug,
+    description: project.identifier,
     keywords: project.description,
     label: project.name,
     value: project.id,
   })), [projects.data])
   const applicationOptions = useMemo<SearchSelectOption[]>(() => applications.map(application => ({
-    description: application.slug,
+    description: application.identifier,
     label: application.name,
     value: application.id,
   })), [applications])

@@ -9,7 +9,7 @@ const adminPassword = process.env.TEST_ADMIN_PASSWORD ?? 'devops'
 const runKey = `${Date.now().toString(36).slice(-6)}${crypto.randomBytes(2).toString('hex')}`
 const runId = `smk-${runKey}`
 const userSlug = `u-${runKey}`
-const projectSlug = `p-${runKey}`
+const projectIdentifier = `p-${runKey}`
 const environmentSlug = `e-${runKey}`
 
 let cookie = ''
@@ -83,7 +83,7 @@ async function main() {
   const userEmail = `${userSlug}@example.com`
   const user = await ok('/users', { method: 'POST', ...json({ email: userEmail, name: userSlug, password: 'devops-pass', role: 'user', language: 'zh-CN', disabled: false }) })
   const defaultProjects = itemsOf(await ok(`/projects?scope=all&page=1&pageSize=10&search=${encodeURIComponent(userSlug)}&sortBy=createdAt&sortOrder=desc`))
-  const defaultProject = defaultProjects.find(item => item.slug === userSlug)
+  const defaultProject = defaultProjects.find(item => item.identifier === userSlug)
   assert(defaultProject, 'new user should receive a default project space')
   await ok('/users?page=1&pageSize=10&sortBy=email&sortOrder=asc')
   await ok(`/users/${user.id}`, { method: 'PUT', ...json({ email: userEmail, name: `${userSlug}-updated`, role: 'user', language: 'zh-CN', disabled: false }) })
@@ -94,10 +94,10 @@ async function main() {
   await ok('/access-tokens?page=1&pageSize=10')
   await ok(`/access-tokens/${token.token.id}`, { method: 'DELETE' })
 
-  const project = await ok('/projects', { method: 'POST', ...json({ slug: projectSlug, name: projectSlug, description: 'smoke project' }) })
+  const project = await ok('/projects', { method: 'POST', ...json({ identifier: projectIdentifier, name: projectIdentifier, description: 'smoke project' }) })
   await ok('/projects?page=1&pageSize=10&sortBy=createdAt&sortOrder=desc')
   await ok(`/projects/${project.id}`)
-  await ok(`/projects/${project.id}`, { method: 'PUT', ...json({ slug: project.slug, name: `${runId} project`, description: 'updated smoke project' }) })
+  await ok(`/projects/${project.id}`, { method: 'PUT', ...json({ identifier: project.identifier, name: `${runId} project`, description: 'updated smoke project' }) })
   await ok('/projects/pins')
   await ok(`/projects/${project.id}/pin`, { method: 'PUT' })
   await ok(`/projects/${project.id}/pin`, { method: 'DELETE' })
@@ -107,7 +107,7 @@ async function main() {
   await ok(`/projects/${project.id}/members/${member.id}`, { method: 'PUT', ...json({ role: 'developer' }) })
 
   const app = await ok(`/projects/${project.id}/applications`, { method: 'POST', ...json({
-    slug: runId,
+    identifier: runId,
     name: runId,
     sourceType: 'repository',
     repositoryUrl: 'https://example.com/luna/demo.git',

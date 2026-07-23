@@ -14,26 +14,26 @@ export interface BillingListPage<T> {
 
 export function ProjectCell({
   fallbackName,
-  fallbackSlug,
+  fallbackIdentifier,
   project,
   unknownLabel,
 }: {
   fallbackName?: string
-  fallbackSlug?: string
+  fallbackIdentifier?: string
   project?: Project
   unknownLabel: string
 }) {
   const name = project?.name || fallbackName || unknownLabel
-  const slug = project?.slug || fallbackSlug || '-'
+  const identifier = project?.identifier || fallbackIdentifier || '-'
   return (
     <span className="block min-w-0">
       <span className="block truncate font-medium">{name}</span>
-      <span className="block truncate text-xs text-muted-foreground">{slug}</span>
+      <span className="block truncate text-xs text-muted-foreground">{identifier}</span>
     </span>
   )
 }
 
-type BillingApplicationRef = Pick<BillingDeploymentSpend, 'applicationName' | 'applicationSlug'> & {
+type BillingApplicationRef = Pick<BillingDeploymentSpend, 'applicationName' | 'applicationIdentifier'> & {
   applicationId?: string
 }
 
@@ -41,7 +41,7 @@ export function ApplicationCell({ item, unassignedLabel }: { item: BillingApplic
   return (
     <span className="block min-w-0">
       <span className="block truncate font-medium">{item.applicationName || unassignedLabel}</span>
-      <span className="block truncate text-xs text-muted-foreground">{item.applicationSlug || '-'}</span>
+      <span className="block truncate text-xs text-muted-foreground">{item.applicationIdentifier || '-'}</span>
     </span>
   )
 }

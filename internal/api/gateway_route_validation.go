@@ -59,7 +59,7 @@ func (h *Handlers) gatewayRouteFromInput(ctx *gin.Context, project model.Project
 	}
 	host := h.normalizeGatewayHost(input.Host, cluster, domainSuffix)
 	if host == "" {
-		host = h.defaultGatewayHost(project, target.Stage, application.Slug, cluster, domainSuffix)
+		host = h.defaultGatewayHost(project, target.Stage, application.Identifier, cluster, domainSuffix)
 	}
 	if host == "" {
 		writeError(ctx, http.StatusBadRequest, "请输入域名或选择部署配置")
@@ -129,6 +129,11 @@ func (h *Handlers) ensureGatewayRouteBackendAvailable(ctx *gin.Context, route mo
 		writeErrorCode(ctx, http.StatusBadRequest, "gateway_route.deployment_target_missing", "部署配置不存在，不能创建访问入口")
 		return false
 	}
+	var project model.Project
+	if err := h.db.First(&project, "id = ?", route.ProjectID).Error; err != nil {
+		writeErrorCode(ctx, http.StatusBadRequest, "gateway_route.project_missing", "项目空间不存在，不能创建访问入口")
+		return false
+	}
 	cluster, err := h.runtimeClusterForDeploymentTargetValue(target)
 	if err != nil {
 		writeErrorCode(ctx, http.StatusBadRequest, "gateway_route.runtime_cluster_missing", "部署配置运行集群不存在，不能创建访问入口")
@@ -148,8 +153,8 @@ func (h *Handlers) ensureGatewayRouteBackendAvailable(ctx *gin.Context, route mo
 		writeErrorCode(ctx, http.StatusBadRequest, "gateway_route.runtime_cluster_kubeconfig_invalid", "运行集群 kubeconfig 无效，无法检查访问入口后端服务")
 		return false
 	}
-	namespace := apiProjectNamespace(route.ProjectID)
-	serviceName := apiApplicationResourceName(target)
+	namespace := runtimeProjectNamespace(project)
+	serviceName := deploymentTargetResourceName(target)
 	snapshot, err := client.GetServiceBackendSnapshot(ctx.Request.Context(), namespace, serviceName, int32(route.ServicePort))
 	if err != nil {
 		writeErrorCode(ctx, http.StatusBadGateway, "gateway_route.backend_check_failed", "访问入口后端服务检查失败，请确认运行集群连接和权限")

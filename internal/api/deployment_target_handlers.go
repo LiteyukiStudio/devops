@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	kubeprovider "github.com/LiteyukiStudio/devops/internal/provider/kubernetes"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -109,7 +109,17 @@ func (h *Handlers) CreateDeploymentTarget(ctx *gin.Context) {
 		return
 	}
 	input.Enabled = true
-	target, ok := h.deploymentTargetFromInput(ctx, user, app, input, id.New("dplt"), nil, "")
+	stage := normalizeStage(input.Stage)
+	if err := resourceidentifier.Validate(stage, stageIdentifierMinLength, stageIdentifierMaxLength); err != nil {
+		writeErrorCode(ctx, http.StatusBadRequest, "deployment.stage_invalid", err.Error())
+		return
+	}
+	if !h.ensureDeploymentStageAvailable(ctx, app.ID, stage, "") {
+		return
+	}
+	targetID := resourceidentifier.DeploymentTargetID(project.Identifier, app.Identifier, stage)
+	kubernetesName := resourceidentifier.DeploymentTargetName(app.Identifier, stage)
+	target, ok := h.deploymentTargetFromInput(ctx, user, app, input, targetID, kubernetesName, nil, "")
 	if !ok {
 		return
 	}
@@ -160,7 +170,11 @@ func (h *Handlers) UpdateDeploymentTarget(ctx *gin.Context) {
 	if !h.ensureBillingAllowsDeployChange(ctx, project.ID) {
 		return
 	}
-	target, ok := h.deploymentTargetFromInput(ctx, user, app, input, existing.ID, decodeSecretRefs(existing.SecretFiles), existing.RuntimeConfigRefs)
+	if normalizeStage(input.Stage) != existing.Stage {
+		writeErrorCode(ctx, http.StatusConflict, "deployment.stage_immutable", "deployment stage cannot be changed")
+		return
+	}
+	target, ok := h.deploymentTargetFromInput(ctx, user, app, input, existing.ID, existing.KubernetesName, decodeSecretRefs(existing.SecretFiles), existing.RuntimeConfigRefs)
 	if !ok {
 		return
 	}
@@ -188,6 +202,24 @@ func (h *Handlers) UpdateDeploymentTarget(ctx *gin.Context) {
 	}
 	target, _ = h.deploymentTargetWithHookBindings(target)
 	ctx.JSON(http.StatusOK, deploymentTargetResponseFromModel(target))
+}
+
+func (h *Handlers) ensureDeploymentStageAvailable(ctx *gin.Context, applicationID, stage, excludeTargetID string) bool {
+	query := h.db.Unscoped().Model(&model.DeploymentTarget{}).
+		Where("application_id = ? and stage = ?", applicationID, stage)
+	if strings.TrimSpace(excludeTargetID) != "" {
+		query = query.Where("id <> ?", excludeTargetID)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		writeError(ctx, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if count > 0 {
+		writeErrorCode(ctx, http.StatusConflict, "deployment.stage_exists", "deployment stage already exists in this application")
+		return false
+	}
+	return true
 }
 
 type deploymentTargetDataExportAuthorization struct {
@@ -283,7 +315,7 @@ func (h *Handlers) ExportDeploymentTargetData(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	filename := fmt.Sprintf("%s-%s-data.tar.gz", app.Slug, target.ID)
+	filename := fmt.Sprintf("%s-%s-data.tar.gz", app.Identifier, target.ID)
 	requestCtx, cancel := context.WithTimeout(ctx.Request.Context(), 5*time.Minute)
 	defer cancel()
 	archiveReader, archiveWriter := io.Pipe()

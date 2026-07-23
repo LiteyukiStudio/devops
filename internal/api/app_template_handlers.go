@@ -2,32 +2,32 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/LiteyukiStudio/devops/internal/appstore"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 type appTemplateInstallInput struct {
-	ApplicationName string            `json:"applicationName"`
-	ApplicationSlug string            `json:"applicationSlug"`
-	DeploymentName  string            `json:"deploymentName"`
-	Stage           string            `json:"stage"`
-	ClusterID       string            `json:"clusterId"`
-	Namespace       string            `json:"namespace"`
-	ImageRef        string            `json:"imageRef"`
-	Replicas        int               `json:"replicas"`
-	CPURequest      string            `json:"cpuRequest"`
-	MemoryRequest   string            `json:"memoryRequest"`
-	DataCapacity    string            `json:"dataCapacity"`
-	InstallNow      *bool             `json:"installNow"`
-	Values          map[string]string `json:"values"`
+	ApplicationName       string            `json:"applicationName"`
+	ApplicationIdentifier string            `json:"applicationIdentifier"`
+	DeploymentName        string            `json:"deploymentName"`
+	Stage                 string            `json:"stage"`
+	ClusterID             string            `json:"clusterId"`
+	Namespace             string            `json:"namespace"`
+	ImageRef              string            `json:"imageRef"`
+	Replicas              int               `json:"replicas"`
+	CPURequest            string            `json:"cpuRequest"`
+	MemoryRequest         string            `json:"memoryRequest"`
+	DataCapacity          string            `json:"dataCapacity"`
+	InstallNow            *bool             `json:"installNow"`
+	Values                map[string]string `json:"values"`
 }
 
 type appTemplateInstallResponse struct {
@@ -144,20 +144,25 @@ type templateInstallPlan struct {
 }
 
 func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, project model.Project, template appstore.Template, input appTemplateInstallInput) (templateInstallPlan, bool) {
-	applicationID := id.New("app")
-	targetID := id.New("dplt")
 	installationID := id.New("atpl")
-	applicationSlug := strings.TrimSpace(input.ApplicationSlug)
-	if applicationSlug == "" {
-		applicationSlug = fallbackTemplateSlug(template.Slug, applicationID)
+	applicationIdentifier := strings.TrimSpace(input.ApplicationIdentifier)
+	if applicationIdentifier == "" {
+		applicationIdentifier = fallbackTemplateIdentifier(template.Slug, installationID)
 	}
-	if len(applicationSlug) > applicationSlugMaxLength {
-		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("应用标识最多 %d 个字符", applicationSlugMaxLength))
+	if err := resourceidentifier.Validate(applicationIdentifier, applicationIdentifierMinLength, applicationIdentifierMaxLength); err != nil {
+		writeErrorCode(ctx, http.StatusBadRequest, "application.identifier_invalid", err.Error())
 		return templateInstallPlan{}, false
 	}
-	if !h.ensureApplicationSlugAvailable(ctx, project.ID, applicationSlug, "") {
+	if !h.ensureApplicationIdentifierAvailable(ctx, project.ID, applicationIdentifier, "") {
 		return templateInstallPlan{}, false
 	}
+	applicationID := resourceidentifier.ApplicationID(project.Identifier, applicationIdentifier)
+	stage := normalizeStage(input.Stage)
+	if err := resourceidentifier.Validate(stage, stageIdentifierMinLength, stageIdentifierMaxLength); err != nil {
+		writeErrorCode(ctx, http.StatusBadRequest, "deployment.stage_invalid", err.Error())
+		return templateInstallPlan{}, false
+	}
+	targetID := resourceidentifier.DeploymentTargetID(project.Identifier, applicationIdentifier, stage)
 
 	rendered, err := appstore.Render(template, input.Values)
 	if err != nil {
@@ -257,7 +262,7 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 	application := model.Application{
 		ID:                applicationID,
 		ProjectID:         project.ID,
-		Slug:              applicationSlug,
+		Identifier:        applicationIdentifier,
 		Name:              applicationName,
 		Icon:              templateApplicationIcon(template),
 		DeleteStatus:      "active",
@@ -269,7 +274,8 @@ func (h *Handlers) buildTemplateInstallPlan(ctx *gin.Context, user model.User, p
 		ApplicationID:        applicationID,
 		EnvironmentID:        targetID,
 		Name:                 deploymentName,
-		Stage:                normalizeStage(input.Stage),
+		Stage:                stage,
+		KubernetesName:       resourceidentifier.DeploymentTargetName(applicationIdentifier, stage),
 		ClusterID:            clusterID,
 		Namespace:            strings.TrimSpace(input.Namespace),
 		Replicas:             replicas,
@@ -439,17 +445,17 @@ func safeTemplateValues(template appstore.Template, values map[string]string) ma
 	return output
 }
 
-func fallbackTemplateSlug(slug string, appID string) string {
+func fallbackTemplateIdentifier(slug string, appID string) string {
 	base := strings.TrimSpace(slug)
 	if base == "" {
 		base = "app"
 	}
 	suffix := shortID(appID)
 	value := base + "-" + suffix
-	if len(value) <= applicationSlugMaxLength {
+	if len(value) <= applicationIdentifierMaxLength {
 		return value
 	}
-	maxBase := applicationSlugMaxLength - len(suffix) - 1
+	maxBase := applicationIdentifierMaxLength - len(suffix) - 1
 	if maxBase < 1 {
 		return suffix
 	}

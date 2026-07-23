@@ -26,7 +26,7 @@ export function BillingDeploymentSpendList({
       key: 'project',
       header: t('billingPage.project'),
       className: 'min-w-56',
-      render: item => <ProjectCell project={projectMap.get(item.projectId)} fallbackName={item.projectName} fallbackSlug={item.projectSlug} unknownLabel={t('billingPage.unknownProject')} />,
+      render: item => <ProjectCell project={projectMap.get(item.projectId)} fallbackName={item.projectName} fallbackIdentifier={item.projectIdentifier} unknownLabel={t('billingPage.unknownProject')} />,
     },
     {
       key: 'application',

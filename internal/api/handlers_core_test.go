@@ -128,7 +128,7 @@ func TestResourceCanMutateDuringDeleteAllowsOnlyStableStates(t *testing.T) {
 }
 
 func TestProjectPinResponseIncludesDashboardOrder(t *testing.T) {
-	project := model.Project{ID: "prj_1", Slug: "demo", Name: "Demo"}
+	project := model.Project{ID: "prj_1", Identifier: "demo", Name: "Demo"}
 	pin := model.ProjectPin{ProjectID: "prj_1"}
 	response := projectPinResponseFrom(project, pin, 3)
 	if response.DashboardOrder != 3 {
@@ -161,21 +161,21 @@ func TestPlatformAdminBypassesProjectMemberRoleChecks(t *testing.T) {
 	}
 }
 
-func TestUserProjectSlugHelpersNormalizeAndLimitLength(t *testing.T) {
-	if slug := dnsSafeProjectSlug("Alice.Dev_Ops"); slug != "alice-dev-ops" {
-		t.Fatalf("normalized slug = %q", slug)
+func TestUserProjectIdentifierHelpersNormalizeAndLimitLength(t *testing.T) {
+	if identifier := dnsSafeProjectIdentifier("Alice.Dev_Ops"); identifier != "alice-dev-ops" {
+		t.Fatalf("normalized identifier = %q", identifier)
 	}
 
-	slug := slugWithNumericSuffix(strings.Repeat("a", 80), 1)
-	if len(slug) > 48 || !strings.HasSuffix(slug, "-2") {
-		t.Fatalf("suffixed slug = %q", slug)
+	identifier := slugWithNumericSuffix(strings.Repeat("a", 80), 1)
+	if len(identifier) > projectIdentifierMaxLength || !strings.HasSuffix(identifier, "-2") {
+		t.Fatalf("suffixed identifier = %q", identifier)
 	}
 }
 
 func TestBuildImageRefOmitsDockerHubDomainAndRendersTagTemplate(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "dockerhub", Endpoint: "https://registry-1.docker.io", Namespace: "snowykami"}
-	project := model.Project{Slug: "demo"}
-	application := model.Application{Slug: "blog"}
+	project := model.Project{Identifier: "demo"}
+	application := model.Application{Identifier: "blog"}
 	run := model.BuildRun{
 		TargetRepository: buildTargetImageRepository(registry, project, application),
 		TargetTag:        "${{ github.ref_name }}-{short_sha}",
@@ -190,8 +190,8 @@ func TestBuildImageRefOmitsDockerHubDomainAndRendersTagTemplate(t *testing.T) {
 
 func TestBuildImageRefAddsNonDockerHubDomainPrefix(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com", Namespace: "team"}
-	project := model.Project{Slug: "demo"}
-	application := model.Application{Slug: "api"}
+	project := model.Project{Identifier: "demo"}
+	application := model.Application{Identifier: "api"}
 	run := model.BuildRun{
 		TargetRepository: buildTargetImageRepository(registry, project, application),
 		TargetTag:        "release/${{ github.ref_name }}",
@@ -203,10 +203,10 @@ func TestBuildImageRefAddsNonDockerHubDomainPrefix(t *testing.T) {
 	}
 }
 
-func TestBuildTargetImageRepositoryFallsBackToProjectSlugNamespace(t *testing.T) {
+func TestBuildTargetImageRepositoryFallsBackToProjectIdentifierNamespace(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com"}
-	project := model.Project{Slug: "demo"}
-	application := model.Application{Slug: "api"}
+	project := model.Project{Identifier: "demo"}
+	application := model.Application{Identifier: "api"}
 
 	if repository := buildTargetImageRepository(registry, project, application); repository != "harbor.example.com/demo/demo-api" {
 		t.Fatalf("repository = %q", repository)
@@ -216,8 +216,8 @@ func TestBuildTargetImageRepositoryFallsBackToProjectSlugNamespace(t *testing.T)
 func TestCredentialRepositoryTemplateUsesStage(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "dockerhub", Endpoint: "https://registry-1.docker.io", Namespace: "snowykami"}
 	credential := model.RegistryCredential{RepositoryTemplate: "devopsns/{project}-{app}-{stage}", TagTemplate: "{commit}"}
-	project := model.Project{Slug: "neo-blog"}
-	application := model.Application{Slug: "frontend"}
+	project := model.Project{Identifier: "neo-blog"}
+	application := model.Application{Identifier: "frontend"}
 	target := model.DeploymentTarget{Name: "prod", Stage: "production"}
 
 	repository, tag := splitTargetImageRef(buildTargetImageRepositoryForCredential(registry, credential, project, application, target) + ":" + buildTargetImageTagTemplateForCredential(credential))
@@ -228,11 +228,11 @@ func TestCredentialRepositoryTemplateUsesStage(t *testing.T) {
 
 func TestCredentialStaticTagTemplateOnlyUsesDeploymentContext(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com", Namespace: "team"}
-	project := model.Project{Slug: "neo-blog"}
-	application := model.Application{Slug: "frontend"}
+	project := model.Project{Identifier: "neo-blog"}
+	application := model.Application{Identifier: "frontend"}
 	target := model.DeploymentTarget{Name: "prod-web", Stage: "prod"}
 
-	staticCredential := model.RegistryCredential{TagTemplate: "{projectSlug}-{appSlug}-{stage}"}
+	staticCredential := model.RegistryCredential{TagTemplate: "{projectIdentifier}-{appIdentifier}-{stage}"}
 	if tag := buildStaticTargetImageTagForCredential(registry, staticCredential, project, application, target); tag != "neo-blog-frontend-prod" {
 		t.Fatalf("static tag = %q", tag)
 	}
@@ -245,8 +245,8 @@ func TestCredentialStaticTagTemplateOnlyUsesDeploymentContext(t *testing.T) {
 
 func TestDefaultImageRepositoryAcceptsHostlessInput(t *testing.T) {
 	registry := model.ArtifactRegistry{Provider: "harbor", Endpoint: "https://harbor.example.com"}
-	project := model.Project{Slug: "demo"}
-	application := model.Application{Slug: "api"}
+	project := model.Project{Identifier: "demo"}
+	application := model.Application{Identifier: "api"}
 
 	if !isDefaultImageRepository(registry, project, application, "demo/demo-api") {
 		t.Fatal("expected hostless default repository to be recognized")

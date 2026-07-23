@@ -5,7 +5,7 @@ import "testing"
 func TestApplyPlatformDeploymentTargetDefaultsForGatewayTrafficProbe(t *testing.T) {
 	target := ApplyPlatformDeploymentTargetDefaults(
 		Project{SystemKey: PlatformSystemProjectKey},
-		Application{Slug: GatewayTrafficProbeApplicationSlug},
+		Application{Identifier: GatewayTrafficProbeApplicationIdentifier},
 		DeploymentTarget{},
 	)
 	if target.ServiceAccountName != GatewayTrafficProbeServiceAccountName {
@@ -19,7 +19,7 @@ func TestApplyPlatformDeploymentTargetDefaultsForGatewayTrafficProbe(t *testing.
 func TestApplyPlatformDeploymentTargetDefaultsDoesNotTouchNormalApplication(t *testing.T) {
 	target := ApplyPlatformDeploymentTargetDefaults(
 		Project{SystemKey: ""},
-		Application{Slug: GatewayTrafficProbeApplicationSlug},
+		Application{Identifier: GatewayTrafficProbeApplicationIdentifier},
 		DeploymentTarget{ServiceAccountName: "custom", AutomountServiceAccountToken: "false"},
 	)
 	if target.ServiceAccountName != "custom" {

@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { APPLICATION_IDENTIFIER_MAX_LENGTH, APPLICATION_IDENTIFIER_MIN_LENGTH } from '@/lib/identifier-limits'
 import { cn } from '@/lib/utils'
 
 const FALLBACK_ICON = '/app-templates/icons/fallback.svg'
@@ -435,7 +436,7 @@ function InstallTemplateDialog({
   const systemComponent = isSystemComponentTemplate(template)
   const canSubmit = systemComponent
     ? Boolean(template && canInstallSystemComponent && form.clusterId.trim() && (form.values.apiBaseUrl ?? '').trim() && !installing)
-    : Boolean(template && projectId && form.applicationName.trim() && form.applicationSlug.trim() && form.imageRef.trim() && !installing)
+    : Boolean(template && projectId && form.applicationName.trim() && form.applicationIdentifier.trim().length >= APPLICATION_IDENTIFIER_MIN_LENGTH && form.imageRef.trim() && !installing)
   return (
     <Dialog open={Boolean(template)} onOpenChange={open => !open && onClose()}>
       <DialogContent className="flex max-h-[min(94dvh,54rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-lg p-0 sm:w-[calc(100%-2rem)]">
@@ -472,8 +473,13 @@ function InstallTemplateDialog({
               <Field label={t('appTemplatesPage.applicationName')} required>
                 <Input value={form.applicationName} onChange={event => onUpdate('applicationName', event.target.value)} />
               </Field>
-              <Field label={t('appTemplatesPage.applicationSlug')} required>
-                <Input value={form.applicationSlug} onChange={event => onUpdate('applicationSlug', normalizeSlugInput(event.target.value))} />
+              <Field label={t('appTemplatesPage.applicationIdentifier')} required>
+                <Input
+                  maxLength={APPLICATION_IDENTIFIER_MAX_LENGTH}
+                  minLength={APPLICATION_IDENTIFIER_MIN_LENGTH}
+                  value={form.applicationIdentifier}
+                  onChange={event => onUpdate('applicationIdentifier', normalizeIdentifierInput(event.target.value))}
+                />
               </Field>
               <Field label={t('appTemplatesPage.deploymentName')}>
                 <Input value={form.deploymentName} onChange={event => onUpdate('deploymentName', event.target.value)} />
@@ -669,7 +675,7 @@ function templateValuePlaceholder(key: string, autoGenerate: boolean, defaultVal
 function emptyInstallPayload(): AppTemplateInstallPayload {
   return {
     applicationName: '',
-    applicationSlug: '',
+    applicationIdentifier: '',
     deploymentName: 'default',
     stage: 'prod',
     clusterId: '',
@@ -689,7 +695,7 @@ function payloadFromTemplate(template: AppTemplate): AppTemplateInstallPayload {
   return {
     ...emptyInstallPayload(),
     applicationName: template.name,
-    applicationSlug: normalizeSlugInput(`${template.slug}-${suffix}`).slice(0, 20),
+    applicationIdentifier: normalizeIdentifierInput(`${template.slug}-${suffix}`).slice(0, APPLICATION_IDENTIFIER_MAX_LENGTH),
     imageRef: template.image,
     replicas: template.defaultReplicas || 1,
     cpuRequest: template.defaultCPU || '1',
@@ -703,6 +709,6 @@ function isSystemComponentTemplate(template: AppTemplate | null | undefined) {
   return template?.kind === 'system_component' || Boolean(template?.systemComponent)
 }
 
-function normalizeSlugInput(value: string) {
+function normalizeIdentifierInput(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+/, '')
 }

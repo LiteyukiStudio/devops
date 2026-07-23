@@ -109,8 +109,8 @@ export function ProjectTopologyRelationDialog({
   const targetPorts = useMemo(() => normalizedServicePorts(targetDeployment), [targetDeployment])
   const applicationOptions = useMemo(() => applications.map(application => ({
     label: application.name,
-    description: application.slug,
-    keywords: application.slug,
+    description: application.identifier,
+    keywords: application.identifier,
     value: application.id,
   })), [applications])
   const sourceTargetOptions = useMemo(() => deploymentTargetOptions(sourceTargets.data ?? []), [sourceTargets.data])
@@ -318,9 +318,9 @@ export function ProjectTopologyRelationDialog({
                       form.setValue('injectionMode', 'host_port', { shouldDirty: true, shouldValidate: true })
                   }}
                 >
-                  <option value="http">HTTP</option>
-                  <option value="https">HTTPS</option>
-                  <option value="tcp">TCP</option>
+                  <option value="http">{t('projectTopology.form.protocols.http')}</option>
+                  <option value="https">{t('projectTopology.form.protocols.https')}</option>
+                  <option value="tcp">{t('projectTopology.form.protocols.tcp')}</option>
                 </NativeSelect>
               </Field>
               {mode === 'service_binding' && protocol !== 'tcp' && (

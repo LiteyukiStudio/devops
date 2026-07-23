@@ -42,7 +42,7 @@ Suggested first values:
 | Field | Suggestion |
 | --- | --- |
 | Name | Product or team name |
-| Slug | Lowercase English with hyphens |
+| Identifier | Lowercase English with hyphens; immutable after creation |
 | Members | Start with yourself, invite others later |
 
 The project space list defaults to spaces related to the current user. Platform administrators can switch the scope to all project spaces when they need global maintenance.
@@ -54,10 +54,10 @@ On mobile, management lists prioritize primary information such as the resource 
 An application represents one independently deployable service. For the first run, create a basic application:
 
 - Fill in name.
-- Fill in a short lowercase slug.
+- Fill in a short lowercase identifier. It becomes immutable after creation.
 - Leave runtime details for later.
 
-Service ports, image settings, Dockerfile paths, environment variables, and data volumes belong to deployment targets. The application profile only keeps the name, slug, and icon.
+Service ports, image settings, Dockerfile paths, environment variables, and data volumes belong to deployment targets. The application profile only keeps the name, immutable identifier, and icon.
 
 ## Next
 

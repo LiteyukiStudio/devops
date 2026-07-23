@@ -58,12 +58,12 @@ const gatewayRouteTlsModeLabels: Record<GatewayRoute['tlsMode'], string> = {
 export interface ApplicationGatewayPanelHandle {
   openCreateDialog: (environmentId?: string, deploymentTargetId?: string) => void
 }
-export function ApplicationGatewayPanel({ applicationId, appSlug, deploymentTargets, projectId, projectSlug, ref, routes }: {
+export function ApplicationGatewayPanel({ applicationId, applicationIdentifier, deploymentTargets, projectId, projectIdentifier, ref, routes }: {
   applicationId: string
-  appSlug: string
+  applicationIdentifier: string
   deploymentTargets: DeploymentTarget[]
   projectId: string
-  projectSlug: string
+  projectIdentifier: string
   ref?: React.Ref<ApplicationGatewayPanelHandle>
   routes: GatewayRoute[]
 }) {
@@ -86,7 +86,7 @@ export function ApplicationGatewayPanel({ applicationId, appSlug, deploymentTarg
     return runtimeClusterDomainSuffixes(cluster).map(suffix => ({ label: suffix, value: suffix }))
   }, [runtimeClusters.data, selectedDeploymentTarget])
   const servicePortOptions = selectedDeploymentTarget ? deploymentTargetServicePortOptions(selectedDeploymentTarget) : []
-  const defaultHostPlaceholder = defaultGatewayHostPlaceholder(projectSlug, appSlug, selectedDeploymentTarget?.stage, selectedDomainSuffix)
+  const defaultHostPlaceholder = defaultGatewayHostPlaceholder(projectIdentifier, applicationIdentifier, selectedDeploymentTarget?.stage, selectedDomainSuffix)
   useEffect(() => {
     if (!dialogOpen || selectedDomainSuffix || domainSuffixOptions.length === 0)
       return
@@ -398,13 +398,13 @@ function runtimeClusterDomainSuffixes(cluster?: RuntimeCluster) {
   return suffixes
 }
 
-function defaultGatewayHostPlaceholder(projectSlug: string, appSlug: string, stage: string | undefined, domainSuffix: string) {
+function defaultGatewayHostPlaceholder(projectIdentifier: string, applicationIdentifier: string, stage: string | undefined, domainSuffix: string) {
   const suffix = domainSuffix.trim().toLowerCase().replace(/^\.+|\.+$/g, '')
   if (!suffix)
     return ''
   const prefix = [
-    gatewayHostSegment(projectSlug),
-    gatewayHostSegment(appSlug),
+    gatewayHostSegment(projectIdentifier),
+    gatewayHostSegment(applicationIdentifier),
     gatewayHostSegment(stage || 'prod'),
   ].filter(Boolean).join('-')
   return prefix ? `${prefix}.${suffix}` : ''

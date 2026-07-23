@@ -63,9 +63,9 @@ Templates use Go template syntax with missing-field errors enabled, so typoed va
 | `.Event.Type` | Event type, such as `build.failed`. |
 | `.Event.Severity` | Severity, such as `error`. |
 | `.Event.Message` | Failure summary. |
-| `.Event.Project.Name` / `.Event.Project.Slug` | Project space name and slug. |
-| `.Event.Application.Name` / `.Event.Application.Slug` | Application name and slug. |
-| `.Event.DeploymentTarget.Name` / `.Event.DeploymentTarget.Slug` | Deployment target name and stage. |
+| `.Event.Project.Name` / `.Event.Project.Identifier` | Project space name and immutable identifier. |
+| `.Event.Application.Name` / `.Event.Application.Identifier` | Application name and immutable identifier. |
+| `.Event.DeploymentTarget.Name` / `.Event.DeploymentTarget.Identifier` | Deployment target name and stage identifier. |
 | `.Event.Build.ID` / `.Event.Build.Image` / `.Event.Build.GitRef` | Build context. |
 | `.Event.Release.ID` / `.Event.Release.ImageRef` / `.Event.Release.Revision` | Release context. |
 | `.Event.Hook.Name` / `.Event.Hook.Phase` | Hook context. |

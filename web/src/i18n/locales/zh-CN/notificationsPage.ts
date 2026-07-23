@@ -33,6 +33,10 @@ const notificationsPage = {
   channelDialog: '通知渠道',
   channelDialogDescription: '配置 Webhook 或 SMTP 适配器。密钥会写入 Secret Store，列表只展示是否已设置。',
   adapter: '适配器',
+  adapters: {
+    webhook: 'Webhook',
+    smtp: 'SMTP 邮件',
+  },
   configJson: '配置 JSON',
   secretLines: '密钥键值',
   secretPlaceholder: 'password=...',

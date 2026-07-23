@@ -187,6 +187,9 @@ func (h *Handlers) authenticateOAuthClient(ctx *gin.Context) (model.OAuthApplica
 		clientID = strings.TrimSpace(ctx.PostForm("client_id"))
 		clientSecret = ctx.PostForm("client_secret")
 	}
+	if !h.allowOAuthClientAttempt(ctx, clientID) {
+		return model.OAuthApplication{}, false
+	}
 	var application model.OAuthApplication
 	if clientID == "" || clientSecret == "" || h.db.First(&application, "client_id = ? and revoked_at is null", clientID).Error != nil {
 		oauthError(ctx, http.StatusUnauthorized, "invalid_client", "Client authentication failed")
@@ -197,6 +200,32 @@ func (h *Handlers) authenticateOAuthClient(ctx *gin.Context) (model.OAuthApplica
 		return model.OAuthApplication{}, false
 	}
 	return application, true
+}
+
+func (h *Handlers) allowOAuthClientAttempt(ctx *gin.Context, clientID string) bool {
+	if h.rateLimiter == nil {
+		h.rateLimiter = newRateLimiter()
+	}
+	limit := 30
+	if h.mode == "development" {
+		limit = developmentRateLimit
+	}
+	subjects := []string{
+		"oauth_client_ip:" + ctx.ClientIP(),
+		"oauth_client_id:" + hashToken(strings.TrimSpace(clientID)),
+	}
+	for _, subject := range subjects {
+		allowed, err := h.rateLimiter.allow(subject, limit, time.Minute)
+		if allowed {
+			continue
+		}
+		if err != nil && h.mode == "development" {
+			continue
+		}
+		oauthError(ctx, http.StatusTooManyRequests, "temporarily_unavailable", "Client authentication is temporarily rate limited")
+		return false
+	}
+	return true
 }
 
 func revokeOAuthGrant(tx *gorm.DB, grantID string, now time.Time) error {

@@ -97,21 +97,54 @@ func NewHTTPClient(policy EgressPolicy, timeout time.Duration) *http.Client {
 		timeout = 15 * time.Second
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	dialer := &net.Dialer{Timeout: timeout}
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-		host, portText, err := net.SplitHostPort(address)
-		if err != nil {
-			return nil, err
-		}
-		port, err := strconv.Atoi(portText)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid port", ErrInvalidURL)
-		}
-		if err := policy.ValidateHostPort(host, port); err != nil {
-			return nil, err
-		}
-		return (&net.Dialer{Timeout: timeout}).DialContext(ctx, network, address)
+		return dialContextWithPolicy(ctx, network, address, policy, net.DefaultResolver.LookupIPAddr, dialer.DialContext)
 	}
 	return &http.Client{Timeout: timeout, Transport: transport}
+}
+
+type lookupIPAddrFunc func(context.Context, string) ([]net.IPAddr, error)
+type dialContextFunc func(context.Context, string, string) (net.Conn, error)
+
+func dialContextWithPolicy(ctx context.Context, network, address string, policy EgressPolicy, lookup lookupIPAddrFunc, dial dialContextFunc) (net.Conn, error) {
+	host, portText, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid port", ErrInvalidURL)
+	}
+	host = strings.Trim(strings.TrimSpace(host), "[]")
+	if err := policy.validateHostAndPortRules(host, port); err != nil {
+		return nil, err
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if err := policy.validateIP(ip); err != nil {
+			return nil, err
+		}
+		return dial(ctx, network, net.JoinHostPort(ip.String(), portText))
+	}
+
+	addresses, err := lookup(ctx, normalizeDomain(host))
+	if err != nil || len(addresses) == 0 {
+		return nil, fmt.Errorf("%w: dns lookup failed", ErrBlockedByPolicy)
+	}
+	for _, resolved := range addresses {
+		if err := policy.validateResolvedIP(host, resolved.IP); err != nil {
+			return nil, err
+		}
+	}
+	var lastErr error
+	for _, resolved := range addresses {
+		connection, err := dial(ctx, network, net.JoinHostPort(resolved.IP.String(), portText))
+		if err == nil {
+			return connection, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 func (p EgressPolicy) ValidateURL(raw string) (*url.URL, error) {
@@ -179,6 +212,29 @@ func (p EgressPolicy) ValidateHostPort(host string, port int) error {
 	}
 	egressDebug("allowed host=%s normalized=%s reason=all-resolved-ips-pass", originalHost, host)
 	return nil
+}
+
+func (p EgressPolicy) validateHostAndPortRules(host string, port int) error {
+	if host == "" || port < 1 || port > 65535 {
+		return fmt.Errorf("%w: invalid host or port", ErrInvalidURL)
+	}
+	if len(p.AllowedPorts) > 0 && !containsPort(p.AllowedPorts, port) {
+		return fmt.Errorf("%w: port is not allowed", ErrBlockedByPolicy)
+	}
+	if net.ParseIP(host) != nil {
+		return nil
+	}
+	if listed, _ := domainListedBy(host, p.DomainBlockList); listed {
+		return fmt.Errorf("%w: domain is in blocklist", ErrBlockedByPolicy)
+	}
+	return nil
+}
+
+func (p EgressPolicy) validateResolvedIP(host string, ip net.IP) error {
+	if domainListed(host, p.DomainAllowList) || !p.ApplyIPFilterToNames {
+		return nil
+	}
+	return p.validateIP(ip)
 }
 
 func (p EgressPolicy) validateIP(ip net.IP) error {

@@ -98,6 +98,7 @@ const accountPage = {
       security_settings_update: '修改安全设置',
       data_retention_cleanup: '永久清理平台数据',
       password_update: '修改登录密码',
+      access_token_manage: '管理个人访问令牌',
     },
   },
 }

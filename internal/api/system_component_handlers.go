@@ -11,6 +11,7 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/appstore"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"github.com/LiteyukiStudio/devops/internal/secret"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	systemComponentGatewayTrafficProbe = model.GatewayTrafficProbeApplicationSlug
+	systemComponentGatewayTrafficProbe = model.GatewayTrafficProbeApplicationIdentifier
 )
 
 type systemComponentInstallInput struct {
@@ -178,22 +179,22 @@ type systemComponentApplicationPlan struct {
 }
 
 func (h *Handlers) systemComponentApplicationPlan(ctx *gin.Context, user model.User, project model.Project, cluster model.RuntimeCluster, template appstore.Template, componentID string, mode string, configJSON string, apiBaseURL string, traefikMetricsURL string, reportToken string) (systemComponentApplicationPlan, bool) {
-	applicationSlug := strings.TrimSpace(template.Slug)
-	if applicationSlug == "" {
-		applicationSlug = componentID
+	applicationIdentifier := strings.TrimSpace(template.Slug)
+	if applicationIdentifier == "" {
+		applicationIdentifier = componentID
 	}
 	applicationName := template.Name
 	application := model.Application{
-		ID:                id.New("app"),
+		ID:                resourceidentifier.ApplicationID(project.Identifier, applicationIdentifier),
 		ProjectID:         project.ID,
-		Slug:              applicationSlug,
+		Identifier:        applicationIdentifier,
 		Name:              applicationName,
 		Icon:              templateApplicationIcon(template),
 		DeleteStatus:      "active",
 		DataRetentionMode: "retain",
 	}
 	var existingApp model.Application
-	if err := h.db.First(&existingApp, "project_id = ? and slug = ?", project.ID, applicationSlug).Error; err == nil {
+	if err := h.db.First(&existingApp, "project_id = ? and identifier = ?", project.ID, applicationIdentifier).Error; err == nil {
 		application = existingApp
 		application.Name = applicationName
 		application.Icon = templateApplicationIcon(template)
@@ -203,13 +204,15 @@ func (h *Handlers) systemComponentApplicationPlan(ctx *gin.Context, user model.U
 		return systemComponentApplicationPlan{}, false
 	}
 
+	clusterSuffix := shortID(cluster.ID)
 	target := model.DeploymentTarget{
-		ID:                           id.New("dplt"),
+		ID:                           resourceidentifier.DeploymentTargetID(project.Identifier, applicationIdentifier, "system") + "_" + clusterSuffix,
 		ProjectID:                    project.ID,
 		ApplicationID:                application.ID,
 		EnvironmentID:                "",
 		Name:                         "cluster-" + shortID(cluster.ID),
 		Stage:                        "system",
+		KubernetesName:               resourceidentifier.DeploymentTargetName(applicationIdentifier, "system-"+clusterSuffix),
 		ClusterID:                    cluster.ID,
 		Replicas:                     1,
 		CPURequest:                   firstNonEmpty(template.DefaultCPU, "100m"),
@@ -234,6 +237,7 @@ func (h *Handlers) systemComponentApplicationPlan(ctx *gin.Context, user model.U
 	var existingTarget model.DeploymentTarget
 	if err := h.db.First(&existingTarget, "project_id = ? and application_id = ? and name = ? and deleted_at is null", project.ID, application.ID, target.Name).Error; err == nil {
 		target.ID = existingTarget.ID
+		target.KubernetesName = firstNonEmpty(existingTarget.KubernetesName, target.KubernetesName)
 		target.CreatedAt = existingTarget.CreatedAt
 		target.CreatedBy = firstNonEmpty(existingTarget.CreatedBy, user.ID)
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -280,7 +284,7 @@ func (h *Handlers) systemComponentApplicationPlan(ctx *gin.Context, user model.U
 		ApplicationID:      application.ID,
 		DeploymentTargetID: target.ID,
 		ReleaseID:          release.ID,
-		Namespace:          "ns-" + shortID(project.ID),
+		Namespace:          runtimeProjectNamespace(project),
 		Status:             "deploying",
 		Message:            "system component application deploy queued",
 		ControllerType:     firstNonEmpty(cluster.GatewayControllerType, "traefik"),

@@ -7,7 +7,7 @@ import (
 
 const (
 	PlatformSystemProjectKey                 = "platform"
-	GatewayTrafficProbeApplicationSlug       = "gateway-traffic-probe"
+	GatewayTrafficProbeApplicationIdentifier = "gateway-traffic-probe"
 	GatewayTrafficProbeServiceAccountName    = "luna-gateway-traffic-probe"
 	GatewayTrafficProbeAutomountServiceToken = "true"
 )
@@ -36,7 +36,7 @@ type SystemComponentInstallation struct {
 
 func IsGatewayTrafficProbeApplication(project Project, application Application) bool {
 	return strings.TrimSpace(project.SystemKey) == PlatformSystemProjectKey &&
-		strings.TrimSpace(application.Slug) == GatewayTrafficProbeApplicationSlug
+		strings.TrimSpace(application.Identifier) == GatewayTrafficProbeApplicationIdentifier
 }
 
 func ApplyPlatformDeploymentTargetDefaults(project Project, application Application, target DeploymentTarget) DeploymentTarget {

@@ -134,6 +134,11 @@ const projectTopology = {
     advancedSection: 'Advanced options',
     advancedSummary: 'Protocol, path, deployment scope, and notes',
     protocol: 'Protocol',
+    protocols: {
+      http: 'HTTP',
+      https: 'HTTPS',
+      tcp: 'TCP',
+    },
     path: 'HTTP path',
     pathPlaceholder: '/api',
     manualPort: 'Port',

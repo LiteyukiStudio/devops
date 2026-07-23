@@ -162,7 +162,7 @@ export function ApplicationOverviewPanel({ app, buildRuns, deploymentTargets, on
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <OverviewItem label={t('apps.name')} value={app?.name ?? t('common.loading')} />
-            <OverviewItem label={t('common.slug')} value={app?.slug ?? '-'} />
+            <OverviewItem label={t('common.identifier')} value={app?.identifier ?? '-'} />
             <OverviewItem label={t('apps.buildConfigsTitle')} value={t('apps.enabledTotal', { enabled: enabledTargets, total: deploymentTargets.length })} />
           </div>
         </Card>

@@ -2,14 +2,13 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -22,7 +21,7 @@ func (h *Handlers) ListApplications(ctx *gin.Context) {
 
 	var applications []model.Application
 	query := h.db.Model(&model.Application{}).Where("project_id = ?", ctx.Param("projectId"))
-	query = applySearch(ctx, query, "name", "slug")
+	query = applySearch(ctx, query, "name", "identifier")
 	if paginationRequested(ctx) {
 		pagination := paginationFromQuery(ctx)
 		var total int64
@@ -31,9 +30,9 @@ func (h *Handlers) ListApplications(ctx *gin.Context) {
 			return
 		}
 		if err := query.Order(orderByClause(pagination, map[string]string{
-			"name":      "name",
-			"slug":      "slug",
-			"createdAt": "created_at",
+			"name":       "name",
+			"identifier": "identifier",
+			"createdAt":  "created_at",
 		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&applications).Error; err != nil {
 			writeError(ctx, http.StatusInternalServerError, err.Error())
 			return
@@ -49,7 +48,7 @@ func (h *Handlers) ListApplications(ctx *gin.Context) {
 }
 
 func (h *Handlers) CreateApplication(ctx *gin.Context) {
-	_, _, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
+	_, project, ok := h.projectAndCurrentUserWithRoles(ctx, "owner", "admin", "developer")
 	if !ok {
 		return
 	}
@@ -58,18 +57,18 @@ func (h *Handlers) CreateApplication(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	input.Slug = strings.TrimSpace(input.Slug)
-	if len(input.Slug) > applicationSlugMaxLength {
-		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("应用标识最多 %d 个字符", applicationSlugMaxLength))
+	input.Identifier = strings.TrimSpace(input.Identifier)
+	if err := resourceidentifier.Validate(input.Identifier, applicationIdentifierMinLength, applicationIdentifierMaxLength); err != nil {
+		writeErrorCode(ctx, http.StatusBadRequest, "application.identifier_invalid", err.Error())
 		return
 	}
-	if !h.ensureApplicationSlugAvailable(ctx, ctx.Param("projectId"), input.Slug, "") {
+	if !h.ensureApplicationIdentifierAvailable(ctx, ctx.Param("projectId"), input.Identifier, "") {
 		return
 	}
 	app := model.Application{
-		ID:                id.New("app"),
+		ID:                resourceidentifier.ApplicationID(project.Identifier, input.Identifier),
 		ProjectID:         ctx.Param("projectId"),
-		Slug:              input.Slug,
+		Identifier:        input.Identifier,
 		Name:              input.Name,
 		Icon:              normalizeApplicationIcon(input.Icon),
 		DeleteStatus:      "active",
@@ -114,15 +113,11 @@ func (h *Handlers) UpdateApplication(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	input.Slug = strings.TrimSpace(input.Slug)
-	if len(input.Slug) > applicationSlugMaxLength {
-		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("应用标识最多 %d 个字符", applicationSlugMaxLength))
+	input.Identifier = strings.TrimSpace(input.Identifier)
+	if input.Identifier != app.Identifier {
+		writeErrorCode(ctx, http.StatusConflict, "application.identifier_immutable", "application identifier cannot be changed")
 		return
 	}
-	if !h.ensureApplicationSlugAvailable(ctx, ctx.Param("projectId"), input.Slug, app.ID) {
-		return
-	}
-	app.Slug = input.Slug
 	app.Name = input.Name
 	app.Icon = normalizeApplicationIcon(input.Icon)
 
@@ -224,12 +219,12 @@ func applicationCanMutate(app model.Application) bool {
 	return status == "" || status == "active" || status == "delete_failed"
 }
 
-func (h *Handlers) ensureApplicationSlugAvailable(ctx *gin.Context, projectID string, slug string, excludeApplicationID string) bool {
-	if slug == "" {
+func (h *Handlers) ensureApplicationIdentifierAvailable(ctx *gin.Context, projectID string, identifier string, excludeApplicationID string) bool {
+	if identifier == "" {
 		writeError(ctx, http.StatusBadRequest, "应用标识不能为空")
 		return false
 	}
-	query := h.db.Model(&model.Application{}).Where("project_id = ? and slug = ?", projectID, slug)
+	query := h.db.Unscoped().Model(&model.Application{}).Where("project_id = ? and identifier = ?", projectID, identifier)
 	if strings.TrimSpace(excludeApplicationID) != "" {
 		query = query.Where("id <> ?", excludeApplicationID)
 	}
@@ -246,9 +241,9 @@ func (h *Handlers) ensureApplicationSlugAvailable(ctx *gin.Context, projectID st
 }
 
 type applicationInput struct {
-	Slug string `json:"slug" binding:"required"`
-	Name string `json:"name" binding:"required"`
-	Icon string `json:"icon"`
+	Identifier string `json:"identifier" binding:"required"`
+	Name       string `json:"name" binding:"required"`
+	Icon       string `json:"icon"`
 }
 
 func normalizeBuildConcurrencyPolicy(value string) string {

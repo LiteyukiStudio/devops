@@ -32,7 +32,7 @@ const appTemplatesPage = {
   runtimeCluster: 'Runtime Cluster',
   defaultCluster: 'Use default cluster',
   applicationName: 'Application Name',
-  applicationSlug: 'Application Slug',
+  applicationIdentifier: 'Application Identifier',
   deploymentName: 'Deployment Target',
   stage: 'Stage',
   imageRef: 'Image Reference',

@@ -191,8 +191,8 @@ func (repository *fakeRepository) DeleteTopologyEdge(_ context.Context, item *mo
 
 func dependencyFixture() *fakeRepository {
 	repository := newFakeRepository()
-	repository.applications["app_source"] = model.Application{ID: "app_source", ProjectID: "prj_main", Name: "Source", Slug: "source"}
-	repository.applications["app_target"] = model.Application{ID: "app_target", ProjectID: "prj_main", Name: "Target", Slug: "target"}
+	repository.applications["app_source"] = model.Application{ID: "app_source", ProjectID: "prj_main", Name: "Source", Identifier: "source"}
+	repository.applications["app_target"] = model.Application{ID: "app_target", ProjectID: "prj_main", Name: "Target", Identifier: "target"}
 	repository.targets["dplt_source"] = model.DeploymentTarget{
 		ID: "dplt_source", ProjectID: "prj_main", ApplicationID: "app_source", Name: "source-prod", Stage: "prod", ClusterID: "clu_main", Enabled: true,
 		ServicePort: 8080, ServicePorts: model.EncodeDeploymentServicePorts([]model.DeploymentServicePort{{Name: "http", Port: 8080}}, 8080), EnvVars: `{}`,

@@ -11,7 +11,6 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/LiteyukiStudio/devops/internal/notification"
 	kubeprovider "github.com/LiteyukiStudio/devops/internal/provider/kubernetes"
-	"github.com/LiteyukiStudio/devops/internal/resourcename"
 	"github.com/gin-gonic/gin"
 )
 
@@ -126,7 +125,7 @@ func (h *Handlers) CheckServiceBinding(ctx *gin.Context) {
 		diagnostic, diagnosticErr := client.CheckServiceDependency(readContext, kubeprovider.ServiceDependencyCheckOptions{
 			SourceNamespace: runtimeProjectNamespace(project),
 			TargetNamespace: runtimeProjectNamespace(project),
-			ServiceName:     resourcename.DeploymentTarget(targetTarget.ID),
+			ServiceName:     deploymentTargetResourceName(targetTarget),
 			PortName:        binding.TargetPortName,
 			PortNumber:      int32(binding.TargetPort),
 		})

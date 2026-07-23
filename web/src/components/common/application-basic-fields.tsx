@@ -3,29 +3,31 @@ import { useTranslation } from 'react-i18next'
 import { ApplicationIconPicker } from '@/components/common/application-icon-picker'
 import { FormField as Field } from '@/components/common/form-field'
 import { Input } from '@/components/ui/input'
-import { APPLICATION_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
+import { APPLICATION_IDENTIFIER_MAX_LENGTH, APPLICATION_IDENTIFIER_MIN_LENGTH } from '@/lib/identifier-limits'
 
 export function ApplicationBasicFields({
   compact = false,
   icon,
+  identifierError,
+  identifierField,
+  identifierMaxLength,
+  identifierReadOnly = false,
   nameError,
   nameField,
   onIconChange,
-  slugError,
-  slugField,
-  slugMaxLength,
 }: {
   compact?: boolean
   icon?: string
+  identifierError?: string
+  identifierField: UseFormRegisterReturn<'identifier'>
+  identifierMaxLength?: number
+  identifierReadOnly?: boolean
   nameError?: string
   nameField: UseFormRegisterReturn<'name'>
   onIconChange: (icon: string) => void
-  slugError?: string
-  slugField: UseFormRegisterReturn<'slug'>
-  slugMaxLength?: number
 }) {
   const { t } = useTranslation()
-  const normalizedSlugMaxLength = slugMaxLength ?? APPLICATION_SLUG_MAX_LENGTH
+  const normalizedIdentifierMaxLength = identifierMaxLength ?? APPLICATION_IDENTIFIER_MAX_LENGTH
 
   if (compact) {
     return (
@@ -36,8 +38,15 @@ export function ApplicationBasicFields({
         <Field error={nameError} hint={t('apps.nameHint')} label={t('apps.name')} required>
           <Input {...nameField} aria-invalid={Boolean(nameError)} placeholder={t('apps.namePlaceholder')} />
         </Field>
-        <Field error={slugError} hint={t('apps.slugHint', { count: normalizedSlugMaxLength })} label={t('apps.slug')} required>
-          <Input {...slugField} aria-invalid={Boolean(slugError)} maxLength={normalizedSlugMaxLength} placeholder={t('apps.slugPlaceholder')} />
+        <Field error={identifierError} hint={t('apps.identifierHint', { min: APPLICATION_IDENTIFIER_MIN_LENGTH, max: normalizedIdentifierMaxLength })} label={t('apps.identifier')} required>
+          <Input
+            {...identifierField}
+            aria-invalid={Boolean(identifierError)}
+            maxLength={normalizedIdentifierMaxLength}
+            minLength={APPLICATION_IDENTIFIER_MIN_LENGTH}
+            placeholder={t('apps.identifierPlaceholder')}
+            readOnly={identifierReadOnly}
+          />
         </Field>
       </div>
     )
@@ -49,8 +58,15 @@ export function ApplicationBasicFields({
         <Field error={nameError} hint={t('apps.nameHint')} label={t('apps.name')} required>
           <Input {...nameField} aria-invalid={Boolean(nameError)} placeholder={t('apps.namePlaceholder')} />
         </Field>
-        <Field error={slugError} hint={t('apps.slugHint', { count: normalizedSlugMaxLength })} label={t('apps.slug')} required>
-          <Input {...slugField} aria-invalid={Boolean(slugError)} maxLength={normalizedSlugMaxLength} placeholder={t('apps.slugPlaceholder')} />
+        <Field error={identifierError} hint={t('apps.identifierHint', { min: APPLICATION_IDENTIFIER_MIN_LENGTH, max: normalizedIdentifierMaxLength })} label={t('apps.identifier')} required>
+          <Input
+            {...identifierField}
+            aria-invalid={Boolean(identifierError)}
+            maxLength={normalizedIdentifierMaxLength}
+            minLength={APPLICATION_IDENTIFIER_MIN_LENGTH}
+            placeholder={t('apps.identifierPlaceholder')}
+            readOnly={identifierReadOnly}
+          />
         </Field>
       </div>
       <Field hint={t('apps.iconHint')} label={t('apps.icon')}>

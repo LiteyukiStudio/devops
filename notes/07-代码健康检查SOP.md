@@ -542,3 +542,38 @@ rg -n "TODO|FIXME|临时|兼容|fallback|special case|module|Builder|builder" in
 - **本轮完成**：范围内的 P0 已清零，P1 已修复或完成显式风险接受，每条发现有证据和独立复审结论，针对性测试通过，契约、文档和 TODO 已同步。只能表述「本轮已审计范围完成」。
 - **项目可发版**：除满足本轮条件外，还需所有发布范围已纳入审计，无未处置 P0/未接受 P1，干净 RC 提交的完整门禁通过，迁移、回滚/不可逆策略、部署配置、制品来源和运维文档均已验收。
 - 本轮完成时仍要单列「未审计范围」、「已接受风险」和「项目整体发版阻断项」，不得用局部结论替代项目发版签字。
+
+## 14. 2026-07-24 全项目安全与代码健康修复复查
+
+### 范围
+
+- 检查模块：后端出站访问、Access Token、OAuth 客户端认证、API 错误边界、前端 Kubernetes/通知选项和热点文件。
+- 检查原因：依据产品方案与本 SOP 对全项目执行安全性、可维护性和工程规范审计后，修复已确认问题。
+
+### 验证结果
+
+- `go test ./...`：通过。
+- `go vet ./...`：通过。
+- `go test -race ./internal/security ./internal/authz ./internal/secret ./internal/billing`：通过。
+- `pnpm --dir web lint`、`pnpm --dir web build`：通过。
+- `pnpm --dir docs build`：通过。
+- `pnpm --dir web audit --audit-level high`：无已知漏洞。
+- `govulncheck ./...`：本机未安装，未执行。
+
+### 发现
+
+| 模块 | 问题 | 风险 | 分级 | 处理 |
+| --- | --- | --- | --- | --- |
+| SSRF / egress | 域名策略校验后仍使用原域名连接，存在二次 DNS 解析窗口 | DNS 重绑定可能把公网域名切换到回环、metadata 或私网地址 | 立即修复 | 连接阶段校验全部解析 IP，并直接拨号到同一批 IP；增加公网地址钉扎和私网解析拒绝测试 |
+| Access Token | 有效期只由前端枚举约束，创建/撤销未纳入 Step-up MFA | 绕过前端可创建非预期长期凭据，被盗浏览器会话可升级为 API 凭据 | 立即修复 | 后端固定白名单；创建与撤销使用 `access_token_manage` Step-up purpose |
+| OAuth | token/revoke 客户端认证缺少独立限流 | 公开端点可被用于持续认证尝试和资源消耗 | 局部重构 | 按来源 IP 和散列 client ID 使用 Redis 双维度限流 |
+| API 错误 | 大量 5xx 使用统一 `internal_error` | 前端和日志难以按业务入口聚合诊断 | 局部重构 | 通用响应层按方法和 Gin 路由模板生成稳定 code，生产环境继续隐藏底层错误 |
+| 前端 i18n | Kubernetes 和通知适配器枚举直接作为 UI 文案 | 中英文显示不一致，违反 MUST i18n | 立即修复 | 原始枚举只作为 value，显示 label 统一进入 locale |
+| 热点文件 | 项目成员 DTO 继续堆在项目 handler | handler 职责和类型定义耦合 | 局部重构 | 抽出 `project_member_types.go`；更大的面板和领域类型拆分继续按独立目标推进 |
+
+### 本轮结论
+
+- 立即处理：SSRF、Token、OAuth 限流、错误 code 与 i18n 缺口已修复并有针对性测试。
+- 进入 TODO：继续按独立目标拆分 `application-deployments-panel.tsx`、`project_handlers.go`、`mfa_handlers.go` 和前端领域 DTO；不与安全修复混成一次无边界重写。
+- 暂不处理：Go 可达漏洞扫描需在安装 `govulncheck` 的发布环境补跑。
+- 文档同步：OpenAPI、中文/英文运维文档、TODO 与本健康记录已同步。

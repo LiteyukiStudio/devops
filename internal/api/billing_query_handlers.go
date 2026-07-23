@@ -58,7 +58,7 @@ func (h *Handlers) ListBillingLedgerEntries(ctx *gin.Context) {
 			ledger.created_at,
 			COALESCE(usage.application_id, '') AS application_id,
 			COALESCE(applications.name, '') AS application_name,
-			COALESCE(applications.slug, '') AS application_slug
+			COALESCE(applications.identifier, '') AS application_identifier
 		`).
 		Joins("LEFT JOIN billing_usage_records AS usage ON usage.id = ledger.usage_record_id").
 		Joins("LEFT JOIN applications ON applications.id = usage.application_id").
@@ -111,7 +111,7 @@ func (h *Handlers) ListBillingUsageRecords(ctx *gin.Context) {
 			usage.billed_user_id,
 			usage.application_id,
 			COALESCE(applications.name, '') AS application_name,
-			COALESCE(applications.slug, '') AS application_slug,
+			COALESCE(applications.identifier, '') AS application_identifier,
 			usage.meter,
 			usage.quantity,
 			usage.unit,
@@ -178,10 +178,10 @@ func (h *Handlers) ListBillingDeploymentSpend(ctx *gin.Context) {
 		Select(`
 			usage.project_id,
 			projects.name AS project_name,
-			projects.slug AS project_slug,
+			projects.identifier AS project_identifier,
 			usage.application_id,
 			COALESCE(applications.name, '') AS application_name,
-			COALESCE(applications.slug, '') AS application_slug,
+			COALESCE(applications.identifier, '') AS application_identifier,
 			`+deploymentTargetIDSQL+` AS deployment_target_id,
 			COALESCE(deployment_targets.name, '') AS deployment_target_name,
 			COALESCE(deployment_targets.stage, '') AS deployment_target_stage,
@@ -198,7 +198,7 @@ func (h *Handlers) ListBillingDeploymentSpend(ctx *gin.Context) {
 		Joins("LEFT JOIN gateway_routes ON gateway_routes.id = split_part(usage.resource_id, ':', 1) AND usage.resource_type = ?", billing.ResourceTypeGateway).
 		Joins("LEFT JOIN deployment_targets ON deployment_targets.id = "+deploymentTargetIDSQL).
 		Where("usage.billed_user_id in ? AND usage.status = ?", scope.UserIDs, "settled").
-		Group("usage.project_id, projects.name, projects.slug, usage.application_id, applications.name, applications.slug, " + deploymentTargetIDSQL + ", deployment_targets.name, deployment_targets.stage")
+		Group("usage.project_id, projects.name, projects.identifier, usage.application_id, applications.name, applications.identifier, " + deploymentTargetIDSQL + ", deployment_targets.name, deployment_targets.stage")
 	if scope.FilterProjectIDs {
 		query = query.Where("usage.project_id in ?", scope.ProjectIDs)
 	}

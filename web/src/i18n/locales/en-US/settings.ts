@@ -23,6 +23,8 @@ const settings = {
     smtpPort: 'SMTP port',
     smtpSecurity: 'Connection security',
     smtpSecurityNone: 'No encryption',
+    smtpSecurityStartTLS: 'STARTTLS (upgrade after connecting)',
+    smtpSecurityTLS: 'TLS (encrypted connection)',
     smtpUsername: 'SMTP username',
     smtpPassword: 'SMTP password',
     smtpPasswordHint: 'Leave empty when editing to keep the current password. The secret is stored securely and never returned.',

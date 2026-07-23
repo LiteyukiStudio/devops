@@ -12,6 +12,7 @@ import (
 	"github.com/LiteyukiStudio/devops/internal/config"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/bcrypt"
@@ -629,12 +630,14 @@ func normalizeUserRole(role string) string {
 }
 
 func createDefaultUserProject(tx *gorm.DB, user model.User) error {
+	identifier := defaultUserProjectIdentifier(tx, user)
 	project := model.Project{
-		ID:                id.New("prj"),
-		Slug:              defaultUserProjectSlug(tx, user),
-		Name:              defaultUserProjectName(user),
-		Description:       defaultUserProjectDescription(user),
-		NamespaceStrategy: "project",
+		ID:                  resourceidentifier.ProjectID(identifier),
+		Identifier:          identifier,
+		KubernetesNamespace: resourceidentifier.ProjectNamespace(identifier),
+		Name:                defaultUserProjectName(user),
+		Description:         defaultUserProjectDescription(user),
+		NamespaceStrategy:   "project",
 	}
 	if err := tx.Create(&project).Error; err != nil {
 		return err
@@ -666,10 +669,10 @@ func defaultUserProjectDescription(user model.User) string {
 	return "为用户自动创建的默认项目空间。"
 }
 
-func defaultUserProjectSlug(tx *gorm.DB, user model.User) string {
-	base := dnsSafeProjectSlug(user.Name)
+func defaultUserProjectIdentifier(tx *gorm.DB, user model.User) string {
+	base := dnsSafeProjectIdentifier(user.Name)
 	if base == "" {
-		base = dnsSafeProjectSlug(strings.Split(strings.TrimSpace(user.Email), "@")[0])
+		base = dnsSafeProjectIdentifier(strings.Split(strings.TrimSpace(user.Email), "@")[0])
 	}
 	if base == "" {
 		base = "project"
@@ -677,13 +680,13 @@ func defaultUserProjectSlug(tx *gorm.DB, user model.User) string {
 	for index := 0; ; index++ {
 		candidate := slugWithNumericSuffix(base, index)
 		var count int64
-		if err := tx.Model(&model.Project{}).Where("slug = ?", candidate).Count(&count).Error; err != nil || count == 0 {
+		if err := tx.Unscoped().Model(&model.Project{}).Where("identifier = ?", candidate).Count(&count).Error; err != nil || count == 0 {
 			return candidate
 		}
 	}
 }
 
-func dnsSafeProjectSlug(value string) string {
+func dnsSafeProjectIdentifier(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	var builder strings.Builder
 	for _, char := range value {
@@ -698,11 +701,18 @@ func dnsSafeProjectSlug(value string) string {
 			builder.WriteByte('-')
 		}
 	}
-	return strings.Trim(builder.String(), "-")
+	identifier := strings.Trim(builder.String(), "-")
+	if len(identifier) < projectIdentifierMinLength {
+		identifier = "user"
+	}
+	if len(identifier) > projectIdentifierMaxLength {
+		identifier = strings.TrimRight(identifier[:projectIdentifierMaxLength], "-")
+	}
+	return identifier
 }
 
 func slugWithNumericSuffix(base string, index int) string {
-	const maxSlugLength = 48
+	const maxSlugLength = projectIdentifierMaxLength
 	suffix := ""
 	if index > 0 {
 		suffix = "-" + strconv.Itoa(index+1)

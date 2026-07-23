@@ -50,6 +50,19 @@ func TestUserCannotCreateAdministrativeAccessTokenScope(t *testing.T) {
 	}
 }
 
+func TestAccessTokenLifetimeUsesDocumentedAllowList(t *testing.T) {
+	for _, days := range []int{0, 7, 15, 30, 90} {
+		if !validAccessTokenLifetimeDays(days) {
+			t.Fatalf("%d days should be accepted", days)
+		}
+	}
+	for _, days := range []int{-1, 1, 14, 91, int(^uint(0) >> 1)} {
+		if validAccessTokenLifetimeDays(days) {
+			t.Fatalf("%d days should be rejected", days)
+		}
+	}
+}
+
 func TestRegistryResponseExposesCredentialSetOnly(t *testing.T) {
 	output := registryResponse(model.ArtifactRegistry{CredentialRef: "regc_secret"})
 	if !output.CredentialSet {

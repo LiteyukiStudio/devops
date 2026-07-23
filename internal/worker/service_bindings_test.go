@@ -38,6 +38,33 @@ func TestServiceBindingValuesSupportsHostAndPort(t *testing.T) {
 	}
 }
 
+func TestServiceBindingValuesUsesPersistedReadableServiceDNS(t *testing.T) {
+	values, err := serviceBindingValues(
+		model.Project{
+			ID:                  "prj_payments",
+			KubernetesNamespace: "luna-payments",
+		},
+		model.ServiceBinding{
+			ID:            "sbind_db",
+			Protocol:      "tcp",
+			InjectionMode: "host_port",
+			HostEnvVar:    "DB_HOST",
+			PortEnvVar:    "DB_PORT",
+		},
+		model.DeploymentTarget{
+			ID:             "dplt_payments_database_prod",
+			KubernetesName: "luna-database-prod",
+		},
+		model.DeploymentServicePort{Name: "postgres", Port: 5432},
+	)
+	if err != nil {
+		t.Fatalf("serviceBindingValues returned error: %v", err)
+	}
+	if values["DB_HOST"] != "luna-database-prod.luna-payments.svc.cluster.local" || values["DB_PORT"] != "5432" {
+		t.Fatalf("values = %#v", values)
+	}
+}
+
 func TestApplyServiceBindingConfigRejectsRuntimeAndSecretCollisions(t *testing.T) {
 	for _, spec := range []kubeprovider.ApplicationResourcesSpec{
 		{ConfigData: map[string]string{"API_URL": "manual"}, SecretData: map[string]string{}},

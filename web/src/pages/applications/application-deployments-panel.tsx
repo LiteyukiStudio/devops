@@ -77,13 +77,13 @@ function buildArgLineCount(raw?: string) {
   return value.split('\n').map(line => line.trim()).filter(line => line && !line.startsWith('#')).length
 }
 
-export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns, deploymentTargets, projectId, projectSlug, projectWebConsoleEnabled, ref, registries, releases, repositoryBindings }: {
+export function ApplicationDeploymentsPanel({ applicationId, applicationIdentifier, buildRuns, deploymentTargets, projectId, projectIdentifier, projectWebConsoleEnabled, ref, registries, releases, repositoryBindings }: {
   applicationId: string
-  appSlug: string
+  applicationIdentifier: string
   buildRuns: BuildRun[]
   deploymentTargets: DeploymentTarget[]
   projectId: string
-  projectSlug: string
+  projectIdentifier: string
   projectWebConsoleEnabled: boolean
   ref?: React.Ref<DeploymentsPanelHandle>
   registries: ArtifactRegistry[]
@@ -332,7 +332,7 @@ export function ApplicationDeploymentsPanel({ applicationId, appSlug, buildRuns,
       buildArgs: target?.buildArgs || '',
       repositoryBindingId: target?.repositoryBindingId ?? defaultBinding?.id ?? '',
       targetRegistryId: target?.targetRegistryId ?? defaultRegistry?.id ?? '',
-      targetImageRef: deploymentTargetImageRef(target ?? undefined) || defaultTargetImageRef(defaultRegistry, projectSlug, appSlug),
+      targetImageRef: deploymentTargetImageRef(target ?? undefined) || defaultTargetImageRef(defaultRegistry, projectIdentifier, applicationIdentifier),
       buildHooksEnabled: target?.buildHooksEnabled ?? true,
       buildHookBindings: target?.buildHookBindings ?? [],
       servicePort: target?.servicePort ?? 8080,

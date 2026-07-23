@@ -15,6 +15,13 @@ func DeploymentTarget(targetID string) string {
 	return FromID("dplt", targetID)
 }
 
+func PersistedOrLegacy(persisted, legacyPrefix, legacyID string) string {
+	if value := strings.TrimSpace(persisted); value != "" {
+		return DNSLabel(value)
+	}
+	return FromID(legacyPrefix, legacyID)
+}
+
 func FromID(prefix, value string) string {
 	suffix := ShortID(value)
 	if suffix == "" {

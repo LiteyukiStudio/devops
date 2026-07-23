@@ -196,8 +196,8 @@ export function ClusterFormDialog({ editingCluster, open, projects, user, onOpen
                         form.setValue('gatewayPublicPort', defaultGatewayPublicPort(nextScheme), { shouldDirty: true, shouldValidate: true })
                     } })}
                     >
-                      <option value="http">http</option>
-                      <option value="https">https</option>
+                      <option value="http">{t('clustersPage.protocolHttp')}</option>
+                      <option value="https">{t('clustersPage.protocolHttps')}</option>
                     </Select>
                   </Field>
                   <Field hint={t('clustersPage.gatewayPublicPortHint')} label={t('clustersPage.gatewayPublicPort')} required>
@@ -223,7 +223,7 @@ export function ClusterFormDialog({ editingCluster, open, projects, user, onOpen
                 <div className="grid gap-3 md:grid-cols-2">
                   <Field hint={t('clustersPage.gatewayControllerTypeHint')} label={t('clustersPage.gatewayControllerType')}>
                     <Select {...form.register('gatewayControllerType')}>
-                      <option value="traefik">Traefik</option>
+                      <option value="traefik">{t('clustersPage.gatewayControllerTraefik')}</option>
                       <option value="generic">{t('clustersPage.gatewayControllerGeneric')}</option>
                     </Select>
                   </Field>
@@ -239,8 +239,8 @@ export function ClusterFormDialog({ editingCluster, open, projects, user, onOpen
                   <Field hint={t('clustersPage.gatewayTlsSecretNamespaceHint')} label={t('clustersPage.gatewayTlsSecretNamespace')}><Input {...form.register('gatewayTlsSecretNamespace')} placeholder={t('clustersPage.gatewayTlsSecretNamespacePlaceholder')} /></Field>
                   <Field hint={t('clustersPage.gatewayCertIssuerKindHint')} label={t('clustersPage.gatewayCertIssuerKind')}>
                     <Select {...form.register('gatewayCertIssuerKind')}>
-                      <option value="ClusterIssuer">ClusterIssuer</option>
-                      <option value="Issuer">Issuer</option>
+                      <option value="ClusterIssuer">{t('clustersPage.gatewayClusterIssuer')}</option>
+                      <option value="Issuer">{t('clustersPage.gatewayNamespacedIssuer')}</option>
                     </Select>
                   </Field>
                   <Field hint={t('clustersPage.gatewayCertIssuerNameHint')} label={t('clustersPage.gatewayCertIssuerName')}><Input {...form.register('gatewayCertIssuerName')} placeholder={t('clustersPage.gatewayCertIssuerNamePlaceholder')} /></Field>

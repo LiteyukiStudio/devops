@@ -123,7 +123,7 @@ function credential(id: string, registryId: string, name: string): RegistryCrede
     name,
     passwordSet: true,
     registryId,
-    repositoryTemplate: '{registryNamespace}/{projectSlug}-{appSlug}',
+    repositoryTemplate: '{registryNamespace}/{projectIdentifier}-{appIdentifier}',
     usage: 'push-pull',
     scope: 'user',
     ownerRef: 'user_test',

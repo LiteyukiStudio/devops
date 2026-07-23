@@ -22,8 +22,8 @@ import { MotionItem, MotionList } from '@/components/common/motion'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { TabsContent } from '@/components/ui/tabs'
+import { APPLICATION_IDENTIFIER_MAX_LENGTH, APPLICATION_IDENTIFIER_MIN_LENGTH } from '@/lib/identifier-limits'
 import { WORKFLOW_STATUS_REFETCH_INTERVAL_MS } from '@/lib/polling'
-import { APPLICATION_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
 import { firstReleaseReadyTarget } from './application-config-utils'
 import { ApplicationOverviewPanel } from './application-overview-panel'
 
@@ -45,7 +45,10 @@ const ApplicationTopologyPanel = lazy(() =>
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('apps.nameRequired')),
-  slug: z.string().min(1, i18next.t('apps.slugRequired')).max(APPLICATION_SLUG_MAX_LENGTH, i18next.t('apps.slugMaxLength', { count: APPLICATION_SLUG_MAX_LENGTH })).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
+  identifier: z.string()
+    .min(APPLICATION_IDENTIFIER_MIN_LENGTH, i18next.t('apps.identifierLength', { min: APPLICATION_IDENTIFIER_MIN_LENGTH, max: APPLICATION_IDENTIFIER_MAX_LENGTH }))
+    .max(APPLICATION_IDENTIFIER_MAX_LENGTH, i18next.t('apps.identifierLength', { min: APPLICATION_IDENTIFIER_MIN_LENGTH, max: APPLICATION_IDENTIFIER_MAX_LENGTH }))
+    .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, i18next.t('common.identifierFormat')),
   icon: z.string().default('box'),
 })
 
@@ -112,7 +115,7 @@ export function ApplicationConfigPage() {
   const updateForm = useForm<ApplicationFormInput, undefined, ApplicationForm>({
     resolver: zodResolver(schema),
     mode: 'onChange',
-    defaultValues: { icon: 'box', name: '', slug: '' },
+    defaultValues: { icon: 'box', name: '', identifier: '' },
   })
 
   useEffect(() => {
@@ -120,7 +123,7 @@ export function ApplicationConfigPage() {
       return
     updateForm.reset({
       name: application.data.name,
-      slug: application.data.slug,
+      identifier: application.data.identifier,
       icon: application.data.icon ?? 'box',
     })
   }, [application.data, updateForm])
@@ -137,7 +140,7 @@ export function ApplicationConfigPage() {
   const updateApplication = useMutation({
     mutationFn: (payload: ApplicationForm) => api.updateApplication(projectId, applicationId, {
       name: payload.name,
-      slug: payload.slug,
+      identifier: payload.identifier,
       icon: payload.icon,
     }),
     onSuccess: (result) => {
@@ -259,9 +262,10 @@ export function ApplicationConfigPage() {
                     icon={updateForm.watch('icon')}
                     nameError={updateForm.formState.errors.name?.message}
                     nameField={updateForm.register('name')}
-                    slugError={updateForm.formState.errors.slug?.message}
-                    slugField={updateForm.register('slug')}
-                    slugMaxLength={APPLICATION_SLUG_MAX_LENGTH}
+                    identifierError={updateForm.formState.errors.identifier?.message}
+                    identifierField={updateForm.register('identifier')}
+                    identifierMaxLength={APPLICATION_IDENTIFIER_MAX_LENGTH}
+                    identifierReadOnly
                     onIconChange={icon => updateForm.setValue('icon', icon, { shouldDirty: true, shouldValidate: true })}
                   />
                 </MotionItem>
@@ -285,14 +289,14 @@ export function ApplicationConfigPage() {
             <ApplicationBuildsPanel
               ref={buildsPanelRef}
               applicationId={applicationId}
-              appSlug={application.data?.slug ?? ''}
+              applicationIdentifier={application.data?.identifier ?? ''}
               binding={binding}
               repositoryBindings={appRepositoryBindings}
               buildJobs={appBuildJobs}
               deploymentTargets={deploymentTargetRows}
               buildRuns={appBuildRuns}
               projectId={projectId}
-              projectSlug={project.data?.slug ?? ''}
+              projectIdentifier={project.data?.identifier ?? ''}
               registries={registries.data ?? []}
             />
           </Suspense>
@@ -302,11 +306,11 @@ export function ApplicationConfigPage() {
             <ApplicationDeploymentsPanel
               ref={deploymentsPanelRef}
               applicationId={applicationId}
-              appSlug={application.data?.slug ?? ''}
+              applicationIdentifier={application.data?.identifier ?? ''}
               buildRuns={appBuildRuns}
               deploymentTargets={deploymentTargetRows}
               projectId={projectId}
-              projectSlug={project.data?.slug ?? ''}
+              projectIdentifier={project.data?.identifier ?? ''}
               projectWebConsoleEnabled={project.data?.webConsoleEnabled ?? true}
               registries={registries.data ?? []}
               repositoryBindings={appRepositoryBindings}
@@ -319,10 +323,10 @@ export function ApplicationConfigPage() {
             <ApplicationGatewayPanel
               ref={gatewayPanelRef}
               applicationId={applicationId}
-              appSlug={application.data?.slug ?? ''}
+              applicationIdentifier={application.data?.identifier ?? ''}
               deploymentTargets={deploymentTargetRows}
               projectId={projectId}
-              projectSlug={project.data?.slug ?? ''}
+              projectIdentifier={project.data?.identifier ?? ''}
               routes={appRoutes}
             />
           </Suspense>

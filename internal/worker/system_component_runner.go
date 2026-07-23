@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	systemComponentGatewayTrafficProbe = model.GatewayTrafficProbeApplicationSlug
+	systemComponentGatewayTrafficProbe = model.GatewayTrafficProbeApplicationIdentifier
 	systemComponentNamespaceDefault    = "luna-system"
 )
 

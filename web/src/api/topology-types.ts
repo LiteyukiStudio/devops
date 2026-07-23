@@ -16,7 +16,7 @@ export interface ProjectTopologyNode {
   id: string
   kind: 'application' | string
   name: string
-  slug?: string
+  identifier?: string
   status: string
   deploymentTargets: ProjectTopologyDeploymentTarget[]
 }

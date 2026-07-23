@@ -108,8 +108,8 @@ export function AuthRegistrationSettingsPanel() {
           </Field>
           <Field label={t('settings.registration.smtpSecurity')} required>
             <NativeSelect {...form.register('smtpSecurity')}>
-              <option value="starttls">STARTTLS</option>
-              <option value="tls">TLS</option>
+              <option value="starttls">{t('settings.registration.smtpSecurityStartTLS')}</option>
+              <option value="tls">{t('settings.registration.smtpSecurityTLS')}</option>
               <option value="none">{t('settings.registration.smtpSecurityNone')}</option>
             </NativeSelect>
           </Field>

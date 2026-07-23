@@ -22,8 +22,8 @@ export function KubernetesAdvancedFields({ dataRetentionEnabled, form }: Kuberne
         <div className="grid gap-3 md:grid-cols-2">
           <Field hint={t('deploymentsPage.workloadTypeHint')} label={t('deploymentsPage.workloadType')}>
             <Select {...form.register('workloadType')}>
-              <option value="Deployment">Deployment</option>
-              <option value="StatefulSet">StatefulSet</option>
+              <option value="Deployment">{t('deploymentsPage.kubernetesValues.Deployment')}</option>
+              <option value="StatefulSet">{t('deploymentsPage.kubernetesValues.StatefulSet')}</option>
             </Select>
           </Field>
         </div>
@@ -41,9 +41,9 @@ export function KubernetesAdvancedFields({ dataRetentionEnabled, form }: Kuberne
           <Field hint={t('deploymentsPage.imagePullPolicyHint')} label={t('deploymentsPage.imagePullPolicy')}>
             <Select {...form.register('imagePullPolicy')}>
               <option value="">{t('deploymentsPage.kubernetesDefault')}</option>
-              <option value="IfNotPresent">IfNotPresent</option>
-              <option value="Always">Always</option>
-              <option value="Never">Never</option>
+              <option value="IfNotPresent">{t('deploymentsPage.kubernetesValues.IfNotPresent')}</option>
+              <option value="Always">{t('deploymentsPage.kubernetesValues.Always')}</option>
+              <option value="Never">{t('deploymentsPage.kubernetesValues.Never')}</option>
             </Select>
           </Field>
           <Field hint={t('deploymentsPage.priorityClassNameHint')} label={t('deploymentsPage.priorityClassName')}>
@@ -122,8 +122,8 @@ export function KubernetesAdvancedFields({ dataRetentionEnabled, form }: Kuberne
           <Field hint={t('deploymentsPage.fsGroupChangePolicyHint')} label={t('deploymentsPage.fsGroupChangePolicy')}>
             <Select {...form.register('fsGroupChangePolicy')}>
               <option value="">{t('deploymentsPage.kubernetesDefault')}</option>
-              <option value="OnRootMismatch">OnRootMismatch</option>
-              <option value="Always">Always</option>
+              <option value="OnRootMismatch">{t('deploymentsPage.kubernetesValues.OnRootMismatch')}</option>
+              <option value="Always">{t('deploymentsPage.kubernetesValues.Always')}</option>
             </Select>
           </Field>
           <Field hint={t('deploymentsPage.readOnlyRootFilesystemHint')} label={t('deploymentsPage.readOnlyRootFilesystem')}>
@@ -174,23 +174,23 @@ export function KubernetesAdvancedFields({ dataRetentionEnabled, form }: Kuberne
           <Field hint={t('deploymentsPage.serviceTypeHint')} label={t('deploymentsPage.serviceType')}>
             <Select {...form.register('serviceType')}>
               <option value="">{t('deploymentsPage.kubernetesDefaultClusterIP')}</option>
-              <option value="ClusterIP">ClusterIP</option>
-              <option value="NodePort">NodePort</option>
-              <option value="LoadBalancer">LoadBalancer</option>
+              <option value="ClusterIP">{t('deploymentsPage.kubernetesValues.ClusterIP')}</option>
+              <option value="NodePort">{t('deploymentsPage.kubernetesValues.NodePort')}</option>
+              <option value="LoadBalancer">{t('deploymentsPage.kubernetesValues.LoadBalancer')}</option>
             </Select>
           </Field>
           <Field hint={t('deploymentsPage.serviceExternalTrafficPolicyHint')} label={t('deploymentsPage.serviceExternalTrafficPolicy')}>
             <Select {...form.register('serviceExternalTrafficPolicy')}>
               <option value="">{t('deploymentsPage.kubernetesDefault')}</option>
-              <option value="Cluster">Cluster</option>
-              <option value="Local">Local</option>
+              <option value="Cluster">{t('deploymentsPage.kubernetesValues.Cluster')}</option>
+              <option value="Local">{t('deploymentsPage.kubernetesValues.Local')}</option>
             </Select>
           </Field>
           <Field hint={t('deploymentsPage.serviceSessionAffinityHint')} label={t('deploymentsPage.serviceSessionAffinity')}>
             <Select {...form.register('serviceSessionAffinity')}>
               <option value="">{t('deploymentsPage.kubernetesDefaultNone')}</option>
-              <option value="None">None</option>
-              <option value="ClientIP">ClientIP</option>
+              <option value="None">{t('deploymentsPage.kubernetesValues.None')}</option>
+              <option value="ClientIP">{t('deploymentsPage.kubernetesValues.ClientIP')}</option>
             </Select>
           </Field>
         </div>
@@ -209,16 +209,16 @@ export function KubernetesAdvancedFields({ dataRetentionEnabled, form }: Kuberne
             <Field hint={t('deploymentsPage.dataAccessModeHint')} label={t('deploymentsPage.dataAccessMode')}>
               <Select {...form.register('dataAccessMode')}>
                 <option value="">{t('deploymentsPage.kubernetesDefaultReadWriteOnce')}</option>
-                <option value="ReadWriteOnce">ReadWriteOnce</option>
-                <option value="ReadWriteMany">ReadWriteMany</option>
-                <option value="ReadOnlyMany">ReadOnlyMany</option>
+                <option value="ReadWriteOnce">{t('deploymentsPage.kubernetesValues.ReadWriteOnce')}</option>
+                <option value="ReadWriteMany">{t('deploymentsPage.kubernetesValues.ReadWriteMany')}</option>
+                <option value="ReadOnlyMany">{t('deploymentsPage.kubernetesValues.ReadOnlyMany')}</option>
               </Select>
             </Field>
             <Field hint={t('deploymentsPage.dataVolumeModeHint')} label={t('deploymentsPage.dataVolumeMode')}>
               <Select {...form.register('dataVolumeMode')}>
                 <option value="">{t('deploymentsPage.kubernetesDefaultFilesystem')}</option>
-                <option value="Filesystem">Filesystem</option>
-                <option value="Block">Block</option>
+                <option value="Filesystem">{t('deploymentsPage.kubernetesValues.Filesystem')}</option>
+                <option value="Block">{t('deploymentsPage.kubernetesValues.Block')}</option>
               </Select>
             </Field>
           </div>

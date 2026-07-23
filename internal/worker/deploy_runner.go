@@ -55,7 +55,7 @@ func (r *Runner) handleDeployRun(ctx context.Context, task *asynq.Task) error {
 		release.StartedAt = &now
 		r.emitReleaseEvent(ctx, release, "started", "Release started")
 	}
-	r.appendReleaseLog(release, fmt.Sprintf("开始部署 release=%s application=%s target=%s image=%s", release.ID, application.Slug, deploymentTarget.Name, release.ImageRef))
+	r.appendReleaseLog(release, fmt.Sprintf("开始部署 release=%s application=%s target=%s image=%s", release.ID, application.Identifier, deploymentTarget.Name, release.ImageRef))
 
 	namespace := deploymentNamespace(project, environment)
 	r.appendReleaseLog(release, fmt.Sprintf("确保命名空间 %s 存在", namespace))

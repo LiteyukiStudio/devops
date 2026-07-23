@@ -184,9 +184,20 @@ func TestKubernetesNotFoundDetection(t *testing.T) {
 	}
 }
 
-func TestProjectNamespaceUsesProjectSlug(t *testing.T) {
-	got := projectNamespace(model.Project{ID: "prj_abcdef1234567890", Slug: "Demo_App"})
+func TestProjectNamespaceFallsBackToLegacyName(t *testing.T) {
+	got := projectNamespace(model.Project{ID: "prj_abcdef1234567890", Identifier: "Demo_App"})
 	if got != "ns-abcdef1234" {
+		t.Fatalf("namespace = %q", got)
+	}
+}
+
+func TestProjectNamespaceUsesPersistedReadableName(t *testing.T) {
+	got := projectNamespace(model.Project{
+		ID:                  "prj_payments",
+		Identifier:          "payments",
+		KubernetesNamespace: "luna-payments",
+	})
+	if got != "luna-payments" {
 		t.Fatalf("namespace = %q", got)
 	}
 }
@@ -199,7 +210,7 @@ func TestProjectNamespaceCapsDNSLabelLength(t *testing.T) {
 }
 
 func TestDeploymentNamespaceAlwaysUsesProjectNamespace(t *testing.T) {
-	got := deploymentNamespace(model.Project{ID: "prj_abcdef1234567890", Slug: "demo"}, model.Environment{Namespace: " Prod_App "})
+	got := deploymentNamespace(model.Project{ID: "prj_abcdef1234567890", Identifier: "demo"}, model.Environment{Namespace: " Prod_App "})
 	if got != "ns-abcdef1234" {
 		t.Fatalf("namespace = %q", got)
 	}
@@ -222,9 +233,19 @@ func TestRuntimeClusterKubeconfigErrorExplainsLocalFileRefs(t *testing.T) {
 	}
 }
 
-func TestApplicationResourceNameUsesDeploymentTargetID(t *testing.T) {
+func TestApplicationResourceNameFallsBackToLegacyTargetID(t *testing.T) {
 	got := applicationResourceName(model.DeploymentTarget{ID: "dplt_abcdef1234567890"})
 	if got != "dplt-abcdef1234" {
+		t.Fatalf("resource name = %q", got)
+	}
+}
+
+func TestApplicationResourceNameUsesPersistedReadableName(t *testing.T) {
+	got := applicationResourceName(model.DeploymentTarget{
+		ID:             "dplt_payments_api_prod",
+		KubernetesName: "luna-api-prod",
+	})
+	if got != "luna-api-prod" {
 		t.Fatalf("resource name = %q", got)
 	}
 }
@@ -556,7 +577,7 @@ func TestHTTPRouteSpecTargetsApplicationService(t *testing.T) {
 	spec, err := httpRouteSpec(
 		model.GatewayRoute{ID: "gwr_ABC_123", Host: "api.example.com", Path: "api", ServicePort: 8080, TLSMode: "http-challenge"},
 		model.Project{ID: "prj_demo"},
-		model.Application{Slug: "api"},
+		model.Application{Identifier: "api"},
 		model.Environment{Slug: "dev"},
 		model.RuntimeCluster{GatewayName: "luna-gateway", GatewayNamespace: "kube-system", GatewayClassName: "traefik"},
 		"project-demo",
@@ -580,7 +601,7 @@ func TestHTTPRouteSpecUsesHTTPSSectionNameWhenGatewayTerminatesTLS(t *testing.T)
 	spec, err := httpRouteSpec(
 		model.GatewayRoute{ID: "gwr_1", Host: "api.example.com", ServicePort: 3000},
 		model.Project{ID: "prj_demo"},
-		model.Application{Slug: "api"},
+		model.Application{Identifier: "api"},
 		model.Environment{Slug: "dev"},
 		model.RuntimeCluster{GatewayPublicScheme: "https", GatewayExternalTLSMode: "gateway", GatewayHTTPSListenerName: "secure-internal"},
 		"project-demo",
@@ -598,7 +619,7 @@ func TestHTTPRouteSpecUsesHTTPSectionNameWhenTLSTerminatesUpstream(t *testing.T)
 	spec, err := httpRouteSpec(
 		model.GatewayRoute{ID: "gwr_1", Host: "api.example.com", ServicePort: 3000},
 		model.Project{ID: "prj_demo"},
-		model.Application{Slug: "api"},
+		model.Application{Identifier: "api"},
 		model.Environment{Slug: "dev"},
 		model.RuntimeCluster{GatewayPublicScheme: "https", GatewayExternalTLSMode: "upstream", GatewayHTTPListenerName: "internal-web", GatewayHTTPSListenerName: "secure-internal"},
 		"project-demo",
@@ -628,7 +649,7 @@ func TestHTTPRouteSpecDefaultsBackendWeight(t *testing.T) {
 	spec, err := httpRouteSpec(
 		model.GatewayRoute{ID: "gwr_1", Host: "api.example.com", ServicePort: 3000, TLSMode: "http-only"},
 		model.Project{ID: "prj_demo"},
-		model.Application{Slug: "api"},
+		model.Application{Identifier: "api"},
 		model.Environment{Slug: "dev"},
 		model.RuntimeCluster{},
 		"project-demo",
@@ -657,7 +678,7 @@ func TestHTTPRouteSpecMergesGatewayAdvancedConfig(t *testing.T) {
 			ParentGatewayNamespace: "edge-system",
 		},
 		model.Project{ID: "prj_demo"},
-		model.Application{Slug: "api"},
+		model.Application{Identifier: "api"},
 		model.Environment{Slug: "dev"},
 		model.RuntimeCluster{
 			GatewayExternalTLSMode:        "upstream",
@@ -979,7 +1000,7 @@ func TestCleanupProjectNamespacesCoversDistinctClusters(t *testing.T) {
 		return manager, nil
 	}
 
-	project := model.Project{ID: "prj_abcdef1234567890", Slug: "demo"}
+	project := model.Project{ID: "prj_abcdef1234567890", Identifier: "demo"}
 	targets := []model.DeploymentTarget{
 		{ID: "dplt_dev", ClusterID: "rcl_one"},
 		{ID: "dplt_prod", ClusterID: "rcl_two"},
@@ -1027,8 +1048,8 @@ func TestParseKeyValueMapSupportsEnvLines(t *testing.T) {
 func TestApplicationResourcesSpecAppliesDefaults(t *testing.T) {
 	spec, err := applicationResourcesSpec(
 		model.Release{ImageRef: "registry.example.com/acme/api:v1"},
-		model.Project{ID: "prj_demo", Slug: "demo"},
-		model.Application{ID: "app_api", Slug: "api"},
+		model.Project{ID: "prj_demo", Identifier: "demo"},
+		model.Application{ID: "app_api", Identifier: "api"},
 		model.Environment{ID: "env_dev", Slug: "dev", EnvVars: `{"APP_ENV":"dev"}`, ConfigRefs: "LOG_LEVEL=debug", SecretRefs: "TOKEN=secret"},
 		model.DeploymentTarget{ID: "dplt_backend"},
 		nil,

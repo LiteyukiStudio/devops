@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DefaultRepositoryTemplate = "{registryNamespace}/{projectSlug}-{appSlug}"
+	DefaultRepositoryTemplate = "{registryNamespace}/{projectIdentifier}-{appIdentifier}"
 	DefaultTagTemplate        = "latest"
 )
 
@@ -42,12 +42,12 @@ func BuildImageRef(registry model.ArtifactRegistry, run model.BuildRun) string {
 }
 
 func BuildTargetImageRepository(registry model.ArtifactRegistry, project model.Project, application model.Application) string {
-	projectSlug := projectSlugValue(project)
-	appSlug := applicationSlugValue(application)
-	repository := projectSlug + "-" + appSlug
+	projectIdentifier := projectIdentifierValue(project)
+	appIdentifier := applicationIdentifierValue(application)
+	repository := projectIdentifier + "-" + appIdentifier
 	namespace := strings.Trim(strings.TrimSpace(registry.Namespace), "/")
 	if namespace == "" {
-		namespace = projectSlug
+		namespace = projectIdentifier
 	}
 	if namespace != "" {
 		repository = namespace + "/" + repository
@@ -179,16 +179,15 @@ func renderRepositoryTemplate(template string, registry model.ArtifactRegistry, 
 
 func staticImageTemplateValues(registry model.ArtifactRegistry, project model.Project, application model.Application, target model.DeploymentTarget) map[string]string {
 	return map[string]string{
-		"registryNamespace": registryNamespaceValue(registry, project),
-		"project":           projectSlugValue(project),
-		"projectSlug":       projectSlugValue(project),
-		"app":               applicationSlugValue(application),
-		"appSlug":           applicationSlugValue(application),
-		"application":       applicationSlugValue(application),
-		"applicationSlug":   applicationSlugValue(application),
-		"stage":             stageValue(target),
-		"target":            targetSlugValue(target),
-		"targetSlug":        targetSlugValue(target),
+		"registryNamespace":     registryNamespaceValue(registry, project),
+		"project":               projectIdentifierValue(project),
+		"projectIdentifier":     projectIdentifierValue(project),
+		"app":                   applicationIdentifierValue(application),
+		"appIdentifier":         applicationIdentifierValue(application),
+		"application":           applicationIdentifierValue(application),
+		"applicationIdentifier": applicationIdentifierValue(application),
+		"stage":                 stageValue(target),
+		"target":                targetValue(target),
 	}
 }
 
@@ -235,22 +234,22 @@ func registryNamespaceValue(registry model.ArtifactRegistry, project model.Proje
 	if namespace != "" {
 		return namespace
 	}
-	return projectSlugValue(project)
+	return projectIdentifierValue(project)
 }
 
-func projectSlugValue(project model.Project) string {
-	return dnsSafeSegment(fallback(project.Slug, project.Name))
+func projectIdentifierValue(project model.Project) string {
+	return dnsSafeSegment(fallback(project.Identifier, project.Name))
 }
 
-func applicationSlugValue(application model.Application) string {
-	return dnsSafeSegment(fallback(application.Slug, application.Name))
+func applicationIdentifierValue(application model.Application) string {
+	return dnsSafeSegment(fallback(application.Identifier, application.Name))
 }
 
 func stageValue(target model.DeploymentTarget) string {
 	return dnsSafeSegment(fallback(target.Stage, "prod"))
 }
 
-func targetSlugValue(target model.DeploymentTarget) string {
+func targetValue(target model.DeploymentTarget) string {
 	return dnsSafeSegment(fallback(target.Name, target.Stage))
 }
 

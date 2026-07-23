@@ -21,7 +21,34 @@ func bindJSON(ctx *gin.Context, value any) bool {
 }
 
 func writeError(ctx *gin.Context, status int, message string) {
-	writeErrorCode(ctx, status, defaultErrorCode(status), message)
+	code := defaultErrorCode(status)
+	if code == "internal_error" {
+		code = internalErrorCode(ctx)
+	}
+	writeErrorCode(ctx, status, code, message)
+}
+
+func internalErrorCode(ctx *gin.Context) string {
+	route := strings.TrimSpace(ctx.FullPath())
+	if route == "" {
+		return "internal_error"
+	}
+	var code strings.Builder
+	code.WriteString("internal_error.")
+	code.WriteString(strings.ToLower(ctx.Request.Method))
+	for _, char := range route {
+		switch {
+		case char >= 'a' && char <= 'z', char >= '0' && char <= '9':
+			code.WriteRune(char)
+		case char >= 'A' && char <= 'Z':
+			code.WriteRune(char + ('a' - 'A'))
+		default:
+			if code.Len() > 0 && !strings.HasSuffix(code.String(), "_") {
+				code.WriteByte('_')
+			}
+		}
+	}
+	return strings.TrimSuffix(code.String(), "_")
 }
 
 func writeErrorKey(ctx *gin.Context, status int, language, key string) {

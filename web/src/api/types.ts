@@ -2,7 +2,8 @@
 
 export interface Project {
   id: string
-  slug: string
+  identifier: string
+  kubernetesNamespace: string
   name: string
   description: string
   namespaceStrategy: string
@@ -52,7 +53,7 @@ export interface ProjectMemberCandidate {
 export interface Application {
   id: string
   projectId: string
-  slug: string
+  identifier: string
   name: string
   icon: string
   deleteStatus: 'active' | 'deleting' | 'delete_failed' | 'deleted' | string
@@ -164,7 +165,7 @@ export interface AppTemplateInstallation {
 
 export interface AppTemplateInstallPayload {
   applicationName: string
-  applicationSlug: string
+  applicationIdentifier: string
   deploymentName: string
   stage: string
   clusterId: string
@@ -329,7 +330,7 @@ export interface NotificationPreset {
 export interface PlatformEventEntityRef {
   id: string
   name: string
-  slug: string
+  identifier: string
 }
 
 export interface PlatformEventSnapshot {
@@ -382,7 +383,7 @@ export interface PlatformEventCatalogEntry {
 export interface DashboardEntityRef {
   id: string
   name: string
-  slug: string
+  identifier: string
 }
 
 export interface DashboardActivity {
@@ -404,7 +405,7 @@ export interface DashboardActivity {
 export interface DashboardProjectShortcut {
   id: string
   name: string
-  slug: string
+  identifier: string
   description: string
   pinned: boolean
   applicationCount: number
@@ -900,6 +901,7 @@ export interface DeploymentTarget {
   environmentId: string
   name: string
   stage: 'dev' | 'test' | 'staging' | 'prod'
+  kubernetesName: string
   clusterId: string
   namespace: string
   workloadType: 'Deployment' | 'StatefulSet' | string
@@ -1016,7 +1018,7 @@ export interface DeploymentTargetMetrics {
   updatedAt: string
 }
 
-export type DeploymentTargetPayload = Omit<DeploymentTarget, 'id' | 'projectId' | 'applicationId' | 'createdBy' | 'createdAt' | 'buildVariableSetIds' | 'runtimeConfigSetIds' | 'runtimeConfigRefs' | 'secretRefsSet' | 'secretFilesSet' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'> & {
+export type DeploymentTargetPayload = Omit<DeploymentTarget, 'id' | 'projectId' | 'applicationId' | 'kubernetesName' | 'createdBy' | 'createdAt' | 'buildVariableSetIds' | 'runtimeConfigSetIds' | 'runtimeConfigRefs' | 'secretRefsSet' | 'secretFilesSet' | 'deleteStatus' | 'deleteMessage' | 'deleteStartedAt' | 'deleteFinishedAt'> & {
   buildVariableSetIds: string | string[]
   buildVariables?: Record<string, string>
   buildSecrets?: Record<string, string>
@@ -1026,7 +1028,7 @@ export type DeploymentTargetPayload = Omit<DeploymentTarget, 'id' | 'projectId' 
   secretFiles?: string
 }
 
-export type ApplicationPayload = Pick<Application, 'name' | 'slug' | 'icon'>
+export type ApplicationPayload = Pick<Application, 'name' | 'identifier' | 'icon'>
 
 export interface BuildJob {
   id: string
@@ -1330,10 +1332,10 @@ export interface BillingSpendCategory {
 export interface BillingDeploymentSpend {
   projectId: string
   projectName: string
-  projectSlug: string
+  projectIdentifier: string
   applicationId: string
   applicationName: string
-  applicationSlug: string
+  applicationIdentifier: string
   deploymentTargetId: string
   deploymentTargetName: string
   deploymentTargetStage: string
@@ -1387,7 +1389,7 @@ export interface BillingLedgerEntry {
   projectId: string
   applicationId: string
   applicationName: string
-  applicationSlug: string
+  applicationIdentifier: string
   type: 'debit' | 'credit' | 'adjustment' | string
   amountCredits: string
   balanceAfterCredits: string
@@ -1407,7 +1409,7 @@ export interface BillingUsageRecord {
   billedUserId: string
   applicationId: string
   applicationName: string
-  applicationSlug: string
+  applicationIdentifier: string
   meter: string
   quantity: string
   unit: string
@@ -1624,6 +1626,7 @@ export const mfaPurposes = [
   'security_settings_update',
   'data_retention_cleanup',
   'password_update',
+  'access_token_manage',
 ] as const
 
 export type MFAPurpose = typeof mfaPurposes[number]

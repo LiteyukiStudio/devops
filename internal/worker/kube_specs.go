@@ -107,7 +107,7 @@ func environmentClusterLookup(clusterID string) (string, []any) {
 }
 
 func projectNamespace(project model.Project) string {
-	return resourcename.ProjectNamespace(project.ID)
+	return resourcename.PersistedOrLegacy(project.KubernetesNamespace, "ns", project.ID)
 }
 
 func deploymentNamespace(project model.Project, _ model.Environment) string {
@@ -115,7 +115,7 @@ func deploymentNamespace(project model.Project, _ model.Environment) string {
 }
 
 func applicationResourceName(deploymentTarget model.DeploymentTarget) string {
-	return resourcename.DeploymentTarget(deploymentTarget.ID)
+	return resourcename.PersistedOrLegacy(deploymentTarget.KubernetesName, "dplt", deploymentTarget.ID)
 }
 
 func hookJobName(run model.HookRun) string {
@@ -258,7 +258,7 @@ func httpRouteSpec(route model.GatewayRoute, project model.Project, application 
 		ParentGatewayName:      firstNonEmpty(route.ParentGatewayName, cluster.GatewayName, "luna-gateway"),
 		ParentGatewayNamespace: firstNonEmpty(route.ParentGatewayNamespace, cluster.GatewayNamespace, "kube-system"),
 		SectionName:            gatewayRouteSectionName(route, cluster),
-		ServiceName:            firstNonEmpty(serviceName, dnsLabel(application.Slug)),
+		ServiceName:            firstNonEmpty(serviceName, dnsLabel(application.Identifier)),
 		ServicePort:            int32(servicePort),
 		BackendWeight:          int32(normalizePositive(route.BackendWeight, 1)),
 		RequestHeaders:         requestHeaders,

@@ -2,10 +2,10 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"github.com/LiteyukiStudio/devops/internal/authz"
 	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"github.com/LiteyukiStudio/devops/internal/tasks"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -36,7 +36,7 @@ func (h *Handlers) ListProjects(ctx *gin.Context) {
 	if !authz.IsPlatformAdmin(user.Role) || strings.EqualFold(strings.TrimSpace(ctx.Query("scope")), "related") {
 		baseQuery = baseQuery.Where("project_members.user_id = ?", user.ID)
 	}
-	baseQuery = applySearch(ctx, baseQuery, "projects.name", "projects.slug")
+	baseQuery = applySearch(ctx, baseQuery, "projects.name", "projects.identifier")
 
 	if ctx.Query("page") != "" || ctx.Query("pageSize") != "" {
 		pagination := paginationFromQuery(ctx)
@@ -77,18 +77,19 @@ func (h *Handlers) CreateProject(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	input.Slug = strings.TrimSpace(input.Slug)
-	if len(input.Slug) > projectSlugMaxLength {
-		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("项目空间标识最多 %d 个字符", projectSlugMaxLength))
+	input.Identifier = strings.TrimSpace(input.Identifier)
+	if err := resourceidentifier.Validate(input.Identifier, projectIdentifierMinLength, projectIdentifierMaxLength); err != nil {
+		writeErrorCode(ctx, http.StatusBadRequest, "project.identifier_invalid", err.Error())
 		return
 	}
-	if !h.ensureProjectSlugAvailable(ctx, input.Slug, "") {
+	if !h.ensureProjectIdentifierAvailable(ctx, input.Identifier, "") {
 		return
 	}
 
 	project := model.Project{
-		ID:                  id.New("prj"),
-		Slug:                input.Slug,
+		ID:                  resourceidentifier.ProjectID(input.Identifier),
+		Identifier:          input.Identifier,
+		KubernetesNamespace: resourceidentifier.ProjectNamespace(input.Identifier),
 		Name:                input.Name,
 		Description:         input.Description,
 		NamespaceStrategy:   fallback(input.NamespaceStrategy, "project"),
@@ -140,16 +141,12 @@ func (h *Handlers) UpdateProject(ctx *gin.Context) {
 	if !bindJSON(ctx, &input) {
 		return
 	}
-	input.Slug = strings.TrimSpace(input.Slug)
-	if len(input.Slug) > projectSlugMaxLength {
-		writeError(ctx, http.StatusBadRequest, fmt.Sprintf("项目空间标识最多 %d 个字符", projectSlugMaxLength))
-		return
-	}
-	if !h.ensureProjectSlugAvailable(ctx, input.Slug, project.ID) {
+	input.Identifier = strings.TrimSpace(input.Identifier)
+	if input.Identifier != project.Identifier {
+		writeErrorCode(ctx, http.StatusConflict, "project.identifier_immutable", "project identifier cannot be changed")
 		return
 	}
 
-	project.Slug = input.Slug
 	project.Name = input.Name
 	project.Description = input.Description
 	project.NamespaceStrategy = fallback(input.NamespaceStrategy, "project")
@@ -209,7 +206,7 @@ func (h *Handlers) ListProjectPins(ctx *gin.Context) {
 
 	var rows []projectPinResponse
 	err := h.db.Table("project_pins").
-		Select("projects.id, projects.slug, projects.name, projects.description, projects.namespace_strategy, projects.created_at, project_members.dashboard_order, project_members.last_used_at, project_members.use_count, project_pins.pinned_at").
+		Select("projects.id, projects.identifier, projects.kubernetes_namespace, projects.name, projects.description, projects.namespace_strategy, projects.created_at, project_members.dashboard_order, project_members.last_used_at, project_members.use_count, project_pins.pinned_at").
 		Joins("join projects on projects.id = project_pins.project_id and projects.deleted_at is null").
 		Joins("join project_members on project_members.project_id = projects.id and project_members.user_id = project_pins.user_id").
 		Where("project_pins.user_id = ?", user.ID).
@@ -316,12 +313,12 @@ func (h *Handlers) UpdateProjectOrder(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"projectIds": projectIDs})
 }
 
-func (h *Handlers) ensureProjectSlugAvailable(ctx *gin.Context, slug string, excludeProjectID string) bool {
-	if slug == "" {
+func (h *Handlers) ensureProjectIdentifierAvailable(ctx *gin.Context, identifier string, excludeProjectID string) bool {
+	if identifier == "" {
 		writeError(ctx, http.StatusBadRequest, "项目空间标识不能为空")
 		return false
 	}
-	query := h.db.Model(&model.Project{}).Where("slug = ?", slug)
+	query := h.db.Unscoped().Model(&model.Project{}).Where("identifier = ?", identifier)
 	if strings.TrimSpace(excludeProjectID) != "" {
 		query = query.Where("id <> ?", excludeProjectID)
 	}
@@ -633,7 +630,7 @@ func (h *Handlers) projectHasAnotherOwner(projectID, memberID string) bool {
 }
 
 type projectInput struct {
-	Slug                string `json:"slug" binding:"required"`
+	Identifier          string `json:"identifier" binding:"required"`
 	Name                string `json:"name" binding:"required"`
 	Description         string `json:"description"`
 	NamespaceStrategy   string `json:"namespaceStrategy"`
@@ -647,7 +644,7 @@ type projectOrderInput struct {
 
 type projectPinResponse struct {
 	ID                string     `json:"id"`
-	Slug              string     `json:"slug"`
+	Identifier        string     `json:"identifier"`
 	Name              string     `json:"name"`
 	Description       string     `json:"description"`
 	NamespaceStrategy string     `json:"namespaceStrategy"`
@@ -692,7 +689,7 @@ func (h *Handlers) projectResponse(project model.Project) projectResponse {
 func projectPinResponseFrom(project model.Project, pin model.ProjectPin, dashboardOrder int) projectPinResponse {
 	return projectPinResponse{
 		ID:                project.ID,
-		Slug:              project.Slug,
+		Identifier:        project.Identifier,
 		Name:              project.Name,
 		Description:       project.Description,
 		NamespaceStrategy: project.NamespaceStrategy,
@@ -719,8 +716,8 @@ func projectListOrderClause(sortBy string, sortOrder string) string {
 		return "projects.updated_at " + order + ", projects.id asc"
 	case "name":
 		return "projects.name " + order + ", projects.id asc"
-	case "slug":
-		return "projects.slug " + order + ", projects.id asc"
+	case "identifier":
+		return "projects.identifier " + order + ", projects.id asc"
 	default:
 		return "coalesce(project_members.last_used_at, projects.created_at) " + order + ", projects.created_at desc"
 	}
@@ -763,30 +760,4 @@ func normalizedProjectOrderIDs(values []string) []string {
 		output = append(output, value)
 	}
 	return output
-}
-
-type projectMemberInput struct {
-	UserID string `json:"userId"`
-	Email  string `json:"email"`
-	Role   string `json:"role" binding:"required"`
-}
-
-type projectMemberResponse struct {
-	ID        string `json:"id"`
-	ProjectID string `json:"projectId"`
-	UserID    string `json:"userId"`
-	Role      string `json:"role"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-}
-
-type projectMemberCandidateResponse struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	Name      string `json:"name"`
-	AvatarURL string `json:"avatarUrl"`
-}
-
-func normalizeProjectRole(role string) string {
-	return authz.NormalizeProjectRole(role)
 }

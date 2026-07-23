@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SearchMultiSelect, SearchSelect } from '@/components/common/search-select'
 
-type ProjectOption = Pick<Project, 'id' | 'name' | 'slug' | 'description'>
+type ProjectOption = Pick<Project, 'id' | 'name' | 'identifier' | 'description'>
 
 export function ProjectSpaceSelect({ disabled, projects, value, onChange }: {
   disabled?: boolean
@@ -54,7 +54,7 @@ export function ProjectSpaceMultiSelect({ disabled, projects, value, onChange }:
 
 function useProjectOptions(projects: ProjectOption[]) {
   return useMemo(() => projects.map(project => ({
-    description: project.slug,
+    description: project.identifier,
     keywords: project.description,
     label: project.name,
     value: project.id,

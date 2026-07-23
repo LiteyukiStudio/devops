@@ -250,7 +250,7 @@ func detailLabelsForLocale(locale string) detailLabels {
 
 func entityDetail(ref EntityRef) string {
 	parts := make([]string, 0, 3)
-	for _, part := range []string{ref.Name, ref.Slug, ref.ID} {
+	for _, part := range []string{ref.Name, ref.Identifier, ref.ID} {
 		part = strings.TrimSpace(part)
 		if part != "" {
 			parts = append(parts, part)

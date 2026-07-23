@@ -278,7 +278,7 @@ func (r *Runner) gatewayServiceName(route model.GatewayRoute, application model.
 	if err == nil {
 		return applicationResourceName(target)
 	}
-	return dnsLabel(application.Slug)
+	return dnsLabel(application.Identifier)
 }
 
 func (r *Runner) gatewayDNSStatus(ctx context.Context, route model.GatewayRoute) string {

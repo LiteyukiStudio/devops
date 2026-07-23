@@ -1,7 +1,9 @@
 package security
 
 import (
+	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
 )
@@ -129,5 +131,45 @@ func TestEgressPolicyForRole(t *testing.T) {
 	}
 	if !EgressPolicyForRole("platform_admin").AllowPrivateNetwork {
 		t.Fatal("platform admin should be allowed to access private network")
+	}
+}
+
+func TestDialContextPinsValidatedDNSAddress(t *testing.T) {
+	policy := PublicEgressPolicy()
+	var dialed string
+	lookup := func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("93.184.216.34")}}, nil
+	}
+	dial := func(_ context.Context, _ string, address string) (net.Conn, error) {
+		dialed = address
+		return nil, errors.New("test dial stopped")
+	}
+
+	_, err := dialContextWithPolicy(context.Background(), "tcp", "example.com:443", policy, lookup, dial)
+	if err == nil {
+		t.Fatal("test dial should stop with an error")
+	}
+	if dialed != "93.184.216.34:443" {
+		t.Fatalf("dialed address = %q, want validated IP", dialed)
+	}
+}
+
+func TestDialContextRejectsPrivateDNSResultBeforeDial(t *testing.T) {
+	policy := PublicEgressPolicy()
+	dialCalled := false
+	lookup := func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("169.254.169.254")}}, nil
+	}
+	dial := func(context.Context, string, string) (net.Conn, error) {
+		dialCalled = true
+		return nil, nil
+	}
+
+	_, err := dialContextWithPolicy(context.Background(), "tcp", "attacker.example:80", policy, lookup, dial)
+	if !errors.Is(err, ErrBlockedByPolicy) {
+		t.Fatalf("private DNS result should be blocked, got %v", err)
+	}
+	if dialCalled {
+		t.Fatal("dial must not run for a blocked DNS result")
 	}
 }

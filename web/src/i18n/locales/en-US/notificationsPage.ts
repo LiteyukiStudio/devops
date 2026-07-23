@@ -33,6 +33,10 @@ const notificationsPage = {
   channelDialog: 'Notification channel',
   channelDialogDescription: 'Configure a Webhook or SMTP adapter. Secrets are stored in Secret Store, and lists only show whether a secret is set.',
   adapter: 'Adapter',
+  adapters: {
+    webhook: 'Webhook',
+    smtp: 'SMTP email',
+  },
   configJson: 'Config JSON',
   secretLines: 'Secret key-values',
   secretPlaceholder: 'password=...',

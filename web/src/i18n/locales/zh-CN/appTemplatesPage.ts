@@ -32,7 +32,7 @@ const appTemplatesPage = {
   runtimeCluster: '运行集群',
   defaultCluster: '使用默认集群',
   applicationName: '应用名称',
-  applicationSlug: '应用标识',
+  applicationIdentifier: '应用标识',
   deploymentName: '部署配置',
   stage: '阶段',
   imageRef: '镜像地址',

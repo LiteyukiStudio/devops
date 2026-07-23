@@ -68,6 +68,10 @@ func (h *Handlers) CreateAccessToken(ctx *gin.Context) {
 		writeError(ctx, http.StatusForbidden, "无权创建该 Access Token scope")
 		return
 	}
+	if !validAccessTokenLifetimeDays(input.ExpiresInDays) {
+		writeErrorCode(ctx, http.StatusBadRequest, "access_token.expires_in_days_invalid", "Access Token 有效期不受支持")
+		return
+	}
 
 	plainToken := "lyd_" + randomHex(24)
 	token := model.AccessToken{
@@ -129,4 +133,13 @@ func normalizeAccessTokenScope(scopeText string) string {
 
 func userCanCreateAccessTokenScope(user model.User, scopeText string) bool {
 	return service.UserCanCreateAccessTokenScope(user.Role, scopeText)
+}
+
+func validAccessTokenLifetimeDays(days int) bool {
+	switch days {
+	case 0, 7, 15, 30, 90:
+		return true
+	default:
+		return false
+	}
 }

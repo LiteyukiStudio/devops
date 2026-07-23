@@ -108,6 +108,10 @@ func assertFreshMigrationState(t *testing.T, db *gorm.DB) {
 		{table: "access_tokens", column: "oauth_application_id"},
 		{table: "access_tokens", column: "oauth_grant_id"},
 		{table: "auth_registration_settings", column: "allow_oidc_registration"},
+		{table: "projects", column: "identifier"},
+		{table: "projects", column: "kubernetes_namespace"},
+		{table: "applications", column: "identifier"},
+		{table: "deployment_targets", column: "kubernetes_name"},
 	} {
 		if !db.Migrator().HasColumn(expected.table, expected.column) {
 			t.Fatalf("fresh database is missing %s.%s", expected.table, expected.column)
@@ -130,6 +134,11 @@ func assertFreshMigrationState(t *testing.T, db *gorm.DB) {
 	}
 	if db.Migrator().HasColumn("users", "auth_type") {
 		t.Fatal("fresh database contains obsolete users.auth_type")
+	}
+	for _, table := range []string{"projects", "applications"} {
+		if db.Migrator().HasColumn(table, "slug") {
+			t.Fatalf("fresh database contains obsolete %s.slug", table)
+		}
 	}
 
 	var defaultRuleCount int64

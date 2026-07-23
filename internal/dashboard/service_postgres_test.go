@@ -31,8 +31,8 @@ func TestOverviewAggregatesVisibleDashboardData(t *testing.T) {
 	}
 
 	now := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC)
-	project := model.Project{ID: "prj_visible", Name: "Visible", Slug: "visible", NamespaceStrategy: "project", MaxConcurrentBuilds: 2, WebConsoleEnabled: true, CreatedAt: now.Add(-time.Hour)}
-	hiddenProject := model.Project{ID: "prj_hidden", Name: "Hidden", Slug: "hidden", NamespaceStrategy: "project", MaxConcurrentBuilds: 2, WebConsoleEnabled: true, CreatedAt: now}
+	project := model.Project{ID: "prj_visible", Name: "Visible", Identifier: "visible", NamespaceStrategy: "project", MaxConcurrentBuilds: 2, WebConsoleEnabled: true, CreatedAt: now.Add(-time.Hour)}
+	hiddenProject := model.Project{ID: "prj_hidden", Name: "Hidden", Identifier: "hidden", NamespaceStrategy: "project", MaxConcurrentBuilds: 2, WebConsoleEnabled: true, CreatedAt: now}
 	if err := db.Create(&[]model.Project{project, hiddenProject}).Error; err != nil {
 		t.Fatalf("create projects: %v", err)
 	}
@@ -42,8 +42,8 @@ func TestOverviewAggregatesVisibleDashboardData(t *testing.T) {
 	if err := db.Create(&model.ProjectPin{ID: "pin_1", ProjectID: project.ID, UserID: "usr_1", PinnedAt: now, CreatedAt: now}).Error; err != nil {
 		t.Fatalf("create project pin: %v", err)
 	}
-	application := model.Application{ID: "app_visible", ProjectID: project.ID, Name: "API", Slug: "api", CreatedAt: now}
-	hiddenApplication := model.Application{ID: "app_hidden", ProjectID: hiddenProject.ID, Name: "Hidden API", Slug: "hidden-api", CreatedAt: now}
+	application := model.Application{ID: "app_visible", ProjectID: project.ID, Name: "API", Identifier: "api", CreatedAt: now}
+	hiddenApplication := model.Application{ID: "app_hidden", ProjectID: hiddenProject.ID, Name: "Hidden API", Identifier: "hidden-api", CreatedAt: now}
 	if err := db.Create(&[]model.Application{application, hiddenApplication}).Error; err != nil {
 		t.Fatalf("create applications: %v", err)
 	}

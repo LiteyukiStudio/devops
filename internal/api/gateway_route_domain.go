@@ -69,18 +69,18 @@ func (h *Handlers) gatewayClusterForDomainCheck(ctx *gin.Context) model.RuntimeC
 	return model.RuntimeCluster{}
 }
 
-func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationSlug string, cluster model.RuntimeCluster, domainSuffix string) string {
+func (h *Handlers) defaultGatewayHost(project model.Project, stage, applicationIdentifier string, cluster model.RuntimeCluster, domainSuffix string) string {
 	rootDomain := h.gatewayDomainSuffix(cluster, domainSuffix)
 	if rootDomain == "" {
 		return ""
 	}
-	appSlug := gatewayHostSegment(applicationSlug)
-	projectSlug := gatewayHostSegment(project.Slug)
+	appIdentifier := gatewayHostSegment(applicationIdentifier)
+	projectIdentifier := gatewayHostSegment(project.Identifier)
 	stageSlug := gatewayHostSegment(normalizeStage(stage))
-	if appSlug == "" || projectSlug == "" {
+	if appIdentifier == "" || projectIdentifier == "" {
 		return ""
 	}
-	base := strings.Trim(fmt.Sprintf("%s-%s-%s", projectSlug, appSlug, stageSlug), "-")
+	base := strings.Trim(fmt.Sprintf("%s-%s-%s", projectIdentifier, appIdentifier, stageSlug), "-")
 	for index := 0; index < 100; index++ {
 		prefix := base
 		if index > 0 {

@@ -28,7 +28,7 @@ type TopologyNode struct {
 	ID                string                     `json:"id"`
 	Kind              string                     `json:"kind"`
 	Name              string                     `json:"name"`
-	Slug              string                     `json:"slug"`
+	Identifier        string                     `json:"identifier"`
 	Status            string                     `json:"status"`
 	DeploymentTargets []TopologyDeploymentTarget `json:"deploymentTargets"`
 }
@@ -172,7 +172,7 @@ func (service *Service) ProjectTopology(ctx context.Context, projectID string, f
 			applicationTargets = []TopologyDeploymentTarget{}
 		}
 		nodes = append(nodes, TopologyNode{
-			ID: application.ID, Kind: "application", Name: application.Name, Slug: application.Slug, Status: "unknown", DeploymentTargets: applicationTargets,
+			ID: application.ID, Kind: "application", Name: application.Name, Identifier: application.Identifier, Status: "unknown", DeploymentTargets: applicationTargets,
 		})
 	}
 

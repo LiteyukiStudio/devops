@@ -1,13 +1,15 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Project struct {
 	ID                  string         `gorm:"primaryKey" json:"id"`
-	Slug                string         `gorm:"uniqueIndex:idx_projects_slug_active,where:deleted_at IS NULL;not null" json:"slug"`
+	Identifier          string         `gorm:"column:identifier;uniqueIndex:idx_projects_identifier_active,where:deleted_at IS NULL;not null" json:"identifier"`
+	KubernetesNamespace string         `gorm:"not null;default:''" json:"kubernetesNamespace"`
 	Name                string         `gorm:"not null" json:"name"`
 	Description         string         `json:"description"`
 	NamespaceStrategy   string         `gorm:"not null" json:"namespaceStrategy"`

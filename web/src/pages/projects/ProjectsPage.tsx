@@ -29,11 +29,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
-import { PROJECT_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
+import { PROJECT_IDENTIFIER_MAX_LENGTH, PROJECT_IDENTIFIER_MIN_LENGTH } from '@/lib/identifier-limits'
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('projectSpaces.nameRequired')),
-  slug: z.string().min(1, i18next.t('projectSpaces.slugRequired')).max(PROJECT_SLUG_MAX_LENGTH, i18next.t('projectSpaces.slugMaxLength', { count: PROJECT_SLUG_MAX_LENGTH })).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
+  identifier: z.string()
+    .min(PROJECT_IDENTIFIER_MIN_LENGTH, i18next.t('projectSpaces.identifierLength', { min: PROJECT_IDENTIFIER_MIN_LENGTH, max: PROJECT_IDENTIFIER_MAX_LENGTH }))
+    .max(PROJECT_IDENTIFIER_MAX_LENGTH, i18next.t('projectSpaces.identifierLength', { min: PROJECT_IDENTIFIER_MIN_LENGTH, max: PROJECT_IDENTIFIER_MAX_LENGTH }))
+    .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, i18next.t('common.identifierFormat')),
   description: z.string().optional(),
   maxConcurrentBuilds: z.number().int().min(1, i18next.t('projectSpaces.maxConcurrentBuildsMin')),
   webConsoleEnabled: z.boolean(),
@@ -79,7 +82,7 @@ export function ProjectsPage() {
   const form = useForm<ProjectForm>({
     resolver: zodResolver(schema),
     mode: 'onChange',
-    defaultValues: { name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true },
+    defaultValues: { name: '', identifier: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true },
   })
 
   const createProject = useMutation({
@@ -108,7 +111,7 @@ export function ProjectsPage() {
   })
 
   const updateProject = useMutation({
-    mutationFn: ({ projectId, payload }: { projectId: string, payload: Pick<Project, 'slug' | 'name' | 'description' | 'maxConcurrentBuilds' | 'webConsoleEnabled'> }) =>
+    mutationFn: ({ projectId, payload }: { projectId: string, payload: Pick<Project, 'identifier' | 'name' | 'description' | 'maxConcurrentBuilds' | 'webConsoleEnabled'> }) =>
       api.updateProject(projectId, payload),
     onSuccess: () => {
       toast.success(t('projectSpaces.updated'))
@@ -127,7 +130,7 @@ export function ProjectsPage() {
           <Button
             onClick={() => {
               setEditingProject(null)
-              form.reset({ name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
+              form.reset({ name: '', identifier: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
               setDialogOpen(true)
             }}
           >
@@ -148,12 +151,12 @@ export function ProjectsPage() {
             render: project => <ProjectSummary project={project} />,
           },
           {
-            key: 'slug',
-            header: t('common.slug'),
+            key: 'identifier',
+            header: t('common.identifier'),
             className: 'px-4 py-3 align-middle text-muted-foreground',
             mobile: 'hidden',
             width: 'secondary',
-            render: project => <code className="rounded bg-background px-2 py-1 text-xs">{project.slug}</code>,
+            render: project => <code className="rounded bg-background px-2 py-1 text-xs">{project.identifier}</code>,
           },
           {
             key: 'namespaceStrategy',
@@ -189,7 +192,7 @@ export function ProjectsPage() {
                 setEditingProject(project)
                 form.reset({
                   name: project.name,
-                  slug: project.slug,
+                  identifier: project.identifier,
                   description: project.description,
                   maxConcurrentBuilds: project.maxConcurrentBuilds || 2,
                   webConsoleEnabled: project.webConsoleEnabled ?? true,
@@ -360,7 +363,7 @@ export function ProjectsPage() {
           setDialogOpen(open)
           if (!open) {
             setEditingProject(null)
-            form.reset({ name: '', slug: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
+            form.reset({ name: '', identifier: '', description: '', maxConcurrentBuilds: 2, webConsoleEnabled: true })
           }
         }}
       >
@@ -383,8 +386,20 @@ export function ProjectsPage() {
             <Field error={form.formState.errors.name?.message} hint={t('projectSpaces.nameHint')} label={t('projectSpaces.name')} required>
               <Input {...form.register('name')} aria-invalid={Boolean(form.formState.errors.name)} placeholder={t('projectSpaces.namePlaceholder')} />
             </Field>
-            <Field error={form.formState.errors.slug?.message} hint={t('projectSpaces.slugHint', { count: PROJECT_SLUG_MAX_LENGTH })} label={t('projectSpaces.slug')} required>
-              <Input {...form.register('slug')} aria-invalid={Boolean(form.formState.errors.slug)} maxLength={PROJECT_SLUG_MAX_LENGTH} placeholder={t('projectSpaces.slugPlaceholder')} />
+            <Field
+              error={form.formState.errors.identifier?.message}
+              hint={t('projectSpaces.identifierHint', { min: PROJECT_IDENTIFIER_MIN_LENGTH, max: PROJECT_IDENTIFIER_MAX_LENGTH })}
+              label={t('projectSpaces.identifier')}
+              required
+            >
+              <Input
+                {...form.register('identifier')}
+                aria-invalid={Boolean(form.formState.errors.identifier)}
+                maxLength={PROJECT_IDENTIFIER_MAX_LENGTH}
+                minLength={PROJECT_IDENTIFIER_MIN_LENGTH}
+                placeholder={t('projectSpaces.identifierPlaceholder')}
+                readOnly={Boolean(editingProject)}
+              />
             </Field>
             <Field error={form.formState.errors.description?.message} hint={t('projectSpaces.descriptionHint')} label={t('projectSpaces.descriptionLabel')}>
               <Textarea {...form.register('description')} placeholder={t('projectSpaces.descriptionPlaceholder')} />
@@ -467,7 +482,7 @@ function ProjectSummary({ project }: { project: Project }) {
           {project.description || t('common.noDescription')}
         </p>
         <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground md:hidden">
-          <code className="max-w-32 truncate rounded bg-background px-1.5 py-0.5">{project.slug}</code>
+          <code className="max-w-32 truncate rounded bg-background px-1.5 py-0.5">{project.identifier}</code>
           <span className="truncate">
             {project.lastUsedAt
               ? formatSmartDateTime(project.lastUsedAt, t)

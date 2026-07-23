@@ -134,6 +134,11 @@ const projectTopology = {
     advancedSection: '高级选项',
     advancedSummary: '协议、路径、部署配置范围和备注',
     protocol: '协议',
+    protocols: {
+      http: 'HTTP',
+      https: 'HTTPS',
+      tcp: 'TCP',
+    },
     path: 'HTTP 路径',
     pathPlaceholder: '/api',
     manualPort: '端口',

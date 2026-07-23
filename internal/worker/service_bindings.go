@@ -96,7 +96,8 @@ func serviceBindingTargetPort(binding model.ServiceBinding, target model.Deploym
 }
 
 func serviceBindingValues(project model.Project, binding model.ServiceBinding, target model.DeploymentTarget, port model.DeploymentServicePort) (map[string]string, error) {
-	host := resourcename.DeploymentTarget(target.ID) + "." + resourcename.ProjectNamespace(project.ID) + ".svc.cluster.local"
+	host := resourcename.PersistedOrLegacy(target.KubernetesName, "dplt", target.ID) + "." +
+		resourcename.PersistedOrLegacy(project.KubernetesNamespace, "ns", project.ID) + ".svc.cluster.local"
 	switch strings.TrimSpace(binding.InjectionMode) {
 	case "url":
 		protocol := strings.ToLower(strings.TrimSpace(binding.Protocol))

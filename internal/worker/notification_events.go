@@ -27,8 +27,8 @@ func (r *Runner) emitBuildEvent(ctx context.Context, run model.BuildRun, status 
 	r.emitNotificationEvent(ctx, notification.Event{
 		Type:             "build." + status,
 		Severity:         notificationSeverity(status),
-		Project:          entityRef(project.ID, project.Name, project.Slug),
-		Application:      entityRef(application.ID, application.Name, application.Slug),
+		Project:          entityRef(project.ID, project.Name, project.Identifier),
+		Application:      entityRef(application.ID, application.Name, application.Identifier),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Build: notification.BuildContext{
 			ID:      run.ID,
@@ -56,8 +56,8 @@ func (r *Runner) emitReleaseEvent(ctx context.Context, release model.Release, st
 	r.emitNotificationEvent(ctx, notification.Event{
 		Type:             "release." + status,
 		Severity:         notificationSeverity(status),
-		Project:          entityRef(project.ID, project.Name, project.Slug),
-		Application:      entityRef(application.ID, application.Name, application.Slug),
+		Project:          entityRef(project.ID, project.Name, project.Identifier),
+		Application:      entityRef(application.ID, application.Name, application.Identifier),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Release: notification.ReleaseContext{
 			ID:       release.ID,
@@ -84,8 +84,8 @@ func (r *Runner) emitHookEvent(ctx context.Context, run model.HookRun, status st
 	r.emitNotificationEvent(ctx, notification.Event{
 		Type:             "hook." + status,
 		Severity:         notificationSeverity(status),
-		Project:          entityRef(project.ID, project.Name, project.Slug),
-		Application:      entityRef(application.ID, application.Name, application.Slug),
+		Project:          entityRef(project.ID, project.Name, project.Identifier),
+		Application:      entityRef(application.ID, application.Name, application.Identifier),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Hook: notification.HookContext{
 			ID:      run.ID,
@@ -111,8 +111,8 @@ func (r *Runner) emitGatewayEvent(ctx context.Context, route model.GatewayRoute,
 	r.emitNotificationEvent(ctx, notification.Event{
 		Type:             "gateway." + status,
 		Severity:         notificationSeverity(status),
-		Project:          entityRef(project.ID, project.Name, project.Slug),
-		Application:      entityRef(application.ID, application.Name, application.Slug),
+		Project:          entityRef(project.ID, project.Name, project.Identifier),
+		Application:      entityRef(application.ID, application.Name, application.Identifier),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Gateway: notification.GatewayContext{
 			ID:      route.ID,
@@ -135,8 +135,8 @@ func (r *Runner) emitCertificateEvent(ctx context.Context, route model.GatewayRo
 	r.emitNotificationEvent(ctx, notification.Event{
 		Type:             "certificate." + status,
 		Severity:         notificationSeverity(status),
-		Project:          entityRef(project.ID, project.Name, project.Slug),
-		Application:      entityRef(application.ID, application.Name, application.Slug),
+		Project:          entityRef(project.ID, project.Name, project.Identifier),
+		Application:      entityRef(application.ID, application.Name, application.Identifier),
 		DeploymentTarget: entityRef(target.ID, target.Name, target.Stage),
 		Gateway: notification.GatewayContext{
 			ID:     route.ID,
@@ -207,8 +207,8 @@ func (r *Runner) notificationContext(projectID string, applicationID string, tar
 	return project, application, target
 }
 
-func entityRef(id string, name string, slug string) notification.EntityRef {
-	return notification.EntityRef{ID: id, Name: name, Slug: slug}
+func entityRef(id string, name string, identifier string) notification.EntityRef {
+	return notification.EntityRef{ID: id, Name: name, Identifier: identifier}
 }
 
 func (r *Runner) notificationLinks(projectID string, applicationID string, tab string, primaryKey string) map[string]string {

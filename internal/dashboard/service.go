@@ -46,15 +46,15 @@ type Summary struct {
 }
 
 type EntityRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Identifier string `json:"identifier"`
 }
 
 type ProjectShortcut struct {
 	ID               string    `json:"id"`
 	Name             string    `json:"name"`
-	Slug             string    `json:"slug"`
+	Identifier       string    `json:"identifier"`
 	Description      string    `json:"description"`
 	Pinned           bool      `json:"pinned"`
 	ApplicationCount int64     `json:"applicationCount"`
@@ -181,7 +181,7 @@ func (s *Service) visibleProjectIDs(ctx context.Context, scope Scope) ([]string,
 type projectRow struct {
 	ID          string
 	Name        string
-	Slug        string
+	Identifier  string
 	Description string
 	Pinned      bool
 }
@@ -196,7 +196,7 @@ func (s *Service) projectShortcuts(ctx context.Context, scope Scope, projectIDs 
 		return []ProjectShortcut{}, nil
 	}
 	query := s.db.WithContext(ctx).Table("projects").
-		Select("projects.id, projects.name, projects.slug, projects.description, (project_pins.project_id is not null) as pinned").
+		Select("projects.id, projects.name, projects.identifier, projects.description, (project_pins.project_id is not null) as pinned").
 		Joins("left join project_members on project_members.project_id = projects.id and project_members.user_id = ?", scope.UserID).
 		Joins("left join project_pins on project_pins.project_id = projects.id and project_pins.user_id = ?", scope.UserID).
 		Where("projects.deleted_at is null and projects.id in ?", projectIDs).
@@ -233,7 +233,7 @@ func (s *Service) projectShortcuts(ctx context.Context, scope Scope, projectIDs 
 	}
 	shortcuts := make([]ProjectShortcut, 0, len(rows))
 	for _, row := range rows {
-		shortcut := ProjectShortcut{ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description, Pinned: row.Pinned, ApplicationCount: counts[row.ID]}
+		shortcut := ProjectShortcut{ID: row.ID, Name: row.Name, Identifier: row.Identifier, Description: row.Description, Pinned: row.Pinned, ApplicationCount: counts[row.ID]}
 		if activity, exists := latest[row.ID]; exists {
 			activityCopy := activity
 			shortcut.LatestActivity = &activityCopy
@@ -273,7 +273,7 @@ func (s *Service) loadEntityReferences(ctx context.Context, projectIDs []string,
 			return references, fmt.Errorf("load dashboard project references: %w", err)
 		}
 		for _, project := range projects {
-			references.projects[project.ID] = EntityRef{ID: project.ID, Name: project.Name, Slug: project.Slug}
+			references.projects[project.ID] = EntityRef{ID: project.ID, Name: project.Name, Identifier: project.Identifier}
 		}
 	}
 	applicationIDs := make([]string, 0)
@@ -300,7 +300,7 @@ func (s *Service) loadEntityReferences(ctx context.Context, projectIDs []string,
 			return references, fmt.Errorf("load dashboard application references: %w", err)
 		}
 		for _, application := range applications {
-			references.apps[application.ID] = EntityRef{ID: application.ID, Name: application.Name, Slug: application.Slug}
+			references.apps[application.ID] = EntityRef{ID: application.ID, Name: application.Name, Identifier: application.Identifier}
 		}
 	}
 	if len(targetIDs) > 0 {
@@ -309,7 +309,7 @@ func (s *Service) loadEntityReferences(ctx context.Context, projectIDs []string,
 			return references, fmt.Errorf("load dashboard deployment target references: %w", err)
 		}
 		for _, target := range targets {
-			references.targets[target.ID] = EntityRef{ID: target.ID, Name: target.Name, Slug: target.Stage}
+			references.targets[target.ID] = EntityRef{ID: target.ID, Name: target.Name, Identifier: target.Stage}
 		}
 	}
 	return references, nil

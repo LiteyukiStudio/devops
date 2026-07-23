@@ -4,14 +4,14 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/LiteyukiStudio/devops/internal/id"
 	"github.com/LiteyukiStudio/devops/internal/model"
+	"github.com/LiteyukiStudio/devops/internal/resourceidentifier"
 	"gorm.io/gorm"
 )
 
 const (
-	platformSystemProjectKey  = "platform"
-	platformSystemProjectSlug = "platform-system"
+	platformSystemProjectKey        = "platform"
+	platformSystemProjectIdentifier = "platform-system"
 )
 
 func isSystemProject(project model.Project) bool {
@@ -27,8 +27,9 @@ func (h *Handlers) ensurePlatformSystemProject(user model.User) (model.Project, 
 	}
 
 	project = model.Project{
-		ID:                  id.New("prj"),
-		Slug:                platformSystemProjectSlug,
+		ID:                  resourceidentifier.ProjectID(platformSystemProjectIdentifier),
+		Identifier:          platformSystemProjectIdentifier,
+		KubernetesNamespace: resourceidentifier.ProjectNamespace(platformSystemProjectIdentifier),
 		Name:                "Luna Platform",
 		Description:         "Platform-owned applications and probes managed by Luna DevOps.",
 		NamespaceStrategy:   "project",

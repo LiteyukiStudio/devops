@@ -17,54 +17,54 @@ type updateBillingRateRuleInput struct {
 }
 
 type billingLedgerEntryItem struct {
-	ID                  string          `json:"id"`
-	UserID              string          `json:"userId"`
-	ProjectID           string          `json:"projectId"`
-	ApplicationID       string          `json:"applicationId"`
-	ApplicationName     string          `json:"applicationName"`
-	ApplicationSlug     string          `json:"applicationSlug"`
-	Type                string          `json:"type"`
-	AmountCredits       decimal.Decimal `json:"amountCredits"`
-	BalanceAfterCredits decimal.Decimal `json:"balanceAfterCredits"`
-	Reason              string          `json:"reason"`
-	Meter               string          `json:"meter"`
-	UsageRecordID       string          `json:"usageRecordId"`
-	ResourceType        string          `json:"resourceType"`
-	ResourceID          string          `json:"resourceId"`
-	Description         string          `json:"description"`
-	CreatedBy           string          `json:"createdBy"`
-	CreatedAt           time.Time       `json:"createdAt"`
+	ID                    string          `json:"id"`
+	UserID                string          `json:"userId"`
+	ProjectID             string          `json:"projectId"`
+	ApplicationID         string          `json:"applicationId"`
+	ApplicationName       string          `json:"applicationName"`
+	ApplicationIdentifier string          `json:"applicationIdentifier"`
+	Type                  string          `json:"type"`
+	AmountCredits         decimal.Decimal `json:"amountCredits"`
+	BalanceAfterCredits   decimal.Decimal `json:"balanceAfterCredits"`
+	Reason                string          `json:"reason"`
+	Meter                 string          `json:"meter"`
+	UsageRecordID         string          `json:"usageRecordId"`
+	ResourceType          string          `json:"resourceType"`
+	ResourceID            string          `json:"resourceId"`
+	Description           string          `json:"description"`
+	CreatedBy             string          `json:"createdBy"`
+	CreatedAt             time.Time       `json:"createdAt"`
 }
 
 type billingUsageRecordItem struct {
-	ID              string          `json:"id"`
-	ProjectID       string          `json:"projectId"`
-	BilledUserID    string          `json:"billedUserId"`
-	ApplicationID   string          `json:"applicationId"`
-	ApplicationName string          `json:"applicationName"`
-	ApplicationSlug string          `json:"applicationSlug"`
-	Meter           string          `json:"meter"`
-	Quantity        decimal.Decimal `json:"quantity"`
-	Unit            string          `json:"unit"`
-	AmountCredits   decimal.Decimal `json:"amountCredits"`
-	ResourceType    string          `json:"resourceType"`
-	ResourceID      string          `json:"resourceId"`
-	PeriodStart     time.Time       `json:"periodStart"`
-	PeriodEnd       time.Time       `json:"periodEnd"`
-	Status          string          `json:"status"`
-	Metadata        string          `json:"metadata"`
-	SettledAt       *time.Time      `json:"settledAt"`
-	CreatedAt       time.Time       `json:"createdAt"`
-	UpdatedAt       time.Time       `json:"updatedAt"`
+	ID                    string          `json:"id"`
+	ProjectID             string          `json:"projectId"`
+	BilledUserID          string          `json:"billedUserId"`
+	ApplicationID         string          `json:"applicationId"`
+	ApplicationName       string          `json:"applicationName"`
+	ApplicationIdentifier string          `json:"applicationIdentifier"`
+	Meter                 string          `json:"meter"`
+	Quantity              decimal.Decimal `json:"quantity"`
+	Unit                  string          `json:"unit"`
+	AmountCredits         decimal.Decimal `json:"amountCredits"`
+	ResourceType          string          `json:"resourceType"`
+	ResourceID            string          `json:"resourceId"`
+	PeriodStart           time.Time       `json:"periodStart"`
+	PeriodEnd             time.Time       `json:"periodEnd"`
+	Status                string          `json:"status"`
+	Metadata              string          `json:"metadata"`
+	SettledAt             *time.Time      `json:"settledAt"`
+	CreatedAt             time.Time       `json:"createdAt"`
+	UpdatedAt             time.Time       `json:"updatedAt"`
 }
 
 type billingDeploymentSpendItem struct {
 	ProjectID             string          `json:"projectId"`
 	ProjectName           string          `json:"projectName"`
-	ProjectSlug           string          `json:"projectSlug"`
+	ProjectIdentifier     string          `json:"projectIdentifier"`
 	ApplicationID         string          `json:"applicationId"`
 	ApplicationName       string          `json:"applicationName"`
-	ApplicationSlug       string          `json:"applicationSlug"`
+	ApplicationIdentifier string          `json:"applicationIdentifier"`
 	DeploymentTargetID    string          `json:"deploymentTargetId"`
 	DeploymentTargetName  string          `json:"deploymentTargetName"`
 	DeploymentTargetStage string          `json:"deploymentTargetStage"`

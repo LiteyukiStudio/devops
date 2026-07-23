@@ -69,11 +69,11 @@ export function branchOptions(values: Array<{ name: string }>, current?: string)
   return options
 }
 
-export function defaultTargetImageRef(registry: ArtifactRegistry | undefined, projectSlug: string, appSlug: string) {
-  const imageName = [slugSegment(projectSlug), slugSegment(appSlug)].filter(Boolean).join('-')
+export function defaultTargetImageRef(registry: ArtifactRegistry | undefined, projectIdentifier: string, applicationIdentifier: string) {
+  const imageName = [identifierSegment(projectIdentifier), identifierSegment(applicationIdentifier)].filter(Boolean).join('-')
   if (!imageName)
     return ''
-  const namespace = registry?.namespace?.trim().replace(/^\/+|\/+$/g, '') || slugSegment(projectSlug)
+  const namespace = registry?.namespace?.trim().replace(/^\/+|\/+$/g, '') || identifierSegment(projectIdentifier)
   return `${namespace ? `${namespace}/` : ''}${imageName}:latest`
 }
 
@@ -85,6 +85,6 @@ function registryHost(endpoint: string) {
   return endpoint.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
 }
 
-function slugSegment(value: string) {
+function identifierSegment(value: string) {
   return value.trim().replace(/^\/+|\/+$/g, '').toLowerCase()
 }

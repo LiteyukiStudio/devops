@@ -271,8 +271,8 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 
 		v1.GET("/access-tokens/scopes", handlers.ListAccessTokenScopes)
 		v1.GET("/access-tokens", handlers.ListAccessTokens)
-		v1.POST("/access-tokens", handlers.CreateAccessToken)
-		v1.DELETE("/access-tokens/:tokenId", handlers.RevokeAccessToken)
+		v1.POST("/access-tokens", handlers.stepUpMiddleware(stepUpPurposeAccessTokenManage), handlers.CreateAccessToken)
+		v1.DELETE("/access-tokens/:tokenId", handlers.stepUpMiddleware(stepUpPurposeAccessTokenManage), handlers.RevokeAccessToken)
 	}
 
 	registerSwaggerUI(router)

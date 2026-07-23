@@ -13,7 +13,7 @@ func TestWebhookAdapterRendersURLHeadersAndBody(t *testing.T) {
 		"method": "POST",
 		"url": "https://8.8.8.8/hooks/{{.Secrets.Token}}",
 		"headers": {
-			"X-Project": "{{.Event.Project.Slug}}"
+			"X-Project": "{{.Event.Project.Identifier}}"
 		}
 	}`)
 	secrets := json.RawMessage(`{"Token":"token-ref"}`)
@@ -23,7 +23,7 @@ func TestWebhookAdapterRendersURLHeadersAndBody(t *testing.T) {
 		Severity:   SeverityError,
 		Message:    "migration failed",
 		OccurredAt: time.Now(),
-		Project:    EntityRef{Name: "Demo", Slug: "demo"},
+		Project:    EntityRef{Name: "Demo", Identifier: "demo"},
 	}
 	message, err := adapter.Render(context.Background(), event, Template{JSON: `{"text": {{json .Event.Message}}}`}, config, secrets, StaticSecretResolver{"token-ref": "abc"}, "")
 	if err != nil {

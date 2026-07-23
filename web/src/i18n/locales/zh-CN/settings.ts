@@ -23,6 +23,8 @@ const settings = {
     smtpPort: 'SMTP 端口',
     smtpSecurity: '连接安全',
     smtpSecurityNone: '无加密',
+    smtpSecurityStartTLS: 'STARTTLS（先连接后升级加密）',
+    smtpSecurityTLS: 'TLS（直接加密连接）',
     smtpUsername: 'SMTP 用户名',
     smtpPassword: 'SMTP 密码',
     smtpPasswordHint: '编辑时留空会保留现有密码；密码由平台密钥存储管理，不会回显。',

@@ -23,7 +23,7 @@ Recommended values:
 | Field | Example |
 | --- | --- |
 | Name | `Neo Blog` |
-| Slug | `neo-blog` |
+| Identifier | `neo-blog` |
 | Members | Start with yourself |
 
 ## 2. Create Applications
@@ -32,7 +32,7 @@ Create two applications in the project space.
 
 ![Create applications](/guide/deploy-web-project/02-applications.svg)
 
-| Application | Slug | Purpose |
+| Application | Identifier | Purpose |
 | --- | --- | --- |
 | `Neo Blog Frontend` | `neo-blog-frontend` | Public web UI. |
 | `Neo Blog Backend` | `neo-blog-backend` | API and backend logic. |

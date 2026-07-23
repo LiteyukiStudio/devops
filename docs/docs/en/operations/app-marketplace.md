@@ -26,7 +26,7 @@ Secret parameters are written to the platform secret store. Deployment targets k
 
 1. Open “App Marketplace”.
 2. Pick a template and click “Install”.
-3. Select a project space and confirm the application name, slug, runtime cluster, image reference, CPU, memory, replicas, and data capacity. The image reference is prefilled from the template and can be replaced with a Harbor, DockerHub proxy, or private registry image.
+3. Select a project space and confirm the application name, immutable identifier, runtime cluster, image reference, CPU, memory, replicas, and data capacity. The image reference is prefilled from the template and can be replaced with a Harbor, DockerHub proxy, or private registry image.
 4. Fill in template parameters. Auto-generated passwords can be left empty; the backend generates them.
 5. Keep “Deploy after install” enabled, or disable it and release manually from the application deployment page later.
 

@@ -26,11 +26,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { APPLICATION_SLUG_MAX_LENGTH } from '@/lib/slug-limits'
+import { APPLICATION_IDENTIFIER_MAX_LENGTH, APPLICATION_IDENTIFIER_MIN_LENGTH } from '@/lib/identifier-limits'
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('apps.nameRequired')),
-  slug: z.string().min(1, i18next.t('apps.slugRequired')).max(APPLICATION_SLUG_MAX_LENGTH, i18next.t('apps.slugMaxLength', { count: APPLICATION_SLUG_MAX_LENGTH })).regex(/^[a-z0-9-]+$/, i18next.t('common.lowercaseSlugOnly')),
+  identifier: z.string()
+    .min(APPLICATION_IDENTIFIER_MIN_LENGTH, i18next.t('apps.identifierLength', { min: APPLICATION_IDENTIFIER_MIN_LENGTH, max: APPLICATION_IDENTIFIER_MAX_LENGTH }))
+    .max(APPLICATION_IDENTIFIER_MAX_LENGTH, i18next.t('apps.identifierLength', { min: APPLICATION_IDENTIFIER_MIN_LENGTH, max: APPLICATION_IDENTIFIER_MAX_LENGTH }))
+    .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, i18next.t('common.identifierFormat')),
   icon: z.string().default('box'),
 })
 
@@ -73,7 +76,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
     mode: 'onChange',
     defaultValues: {
       name: '',
-      slug: '',
+      identifier: '',
       icon: 'box',
     },
   })
@@ -81,7 +84,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
   const resetApplicationForm = (application?: Application) => {
     form.reset({
       name: application?.name ?? '',
-      slug: application?.slug ?? '',
+      identifier: application?.identifier ?? '',
       icon: application?.icon ?? 'box',
     })
   }
@@ -99,7 +102,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
       (async () => {
         const appPayload = {
           name: payload.name,
-          slug: payload.slug,
+          identifier: payload.identifier,
           icon: payload.icon,
         }
         return api.createApplication(projectId, appPayload)
@@ -121,7 +124,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
 
         const appPayload = {
           name: payload.name,
-          slug: payload.slug,
+          identifier: payload.identifier,
           icon: payload.icon,
         }
         return api.updateApplication(projectId, editingApplication.id, appPayload)
@@ -331,9 +334,10 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
               icon={form.watch('icon')}
               nameError={form.formState.errors.name?.message}
               nameField={form.register('name')}
-              slugError={form.formState.errors.slug?.message}
-              slugField={form.register('slug')}
-              slugMaxLength={APPLICATION_SLUG_MAX_LENGTH}
+              identifierError={form.formState.errors.identifier?.message}
+              identifierField={form.register('identifier')}
+              identifierMaxLength={APPLICATION_IDENTIFIER_MAX_LENGTH}
+              identifierReadOnly={Boolean(editingApplication)}
               onIconChange={icon => form.setValue('icon', icon, { shouldDirty: true, shouldValidate: true })}
             />
             <DialogFooter>
@@ -373,7 +377,7 @@ function ApplicationSummary({ application, projectId }: { application: Applicati
           )}
         </div>
         <p className="truncate text-sm text-muted-foreground">
-          {application.slug}
+          {application.identifier}
         </p>
       </div>
     </div>

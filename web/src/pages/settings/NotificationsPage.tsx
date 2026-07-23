@@ -293,8 +293,8 @@ function ChannelDialog({ onClose, onSave, onUpdate, openState, saving }: { onClo
           <Field label={t('notificationsPage.name')}><Input value={openState.name} onChange={event => onUpdate({ ...openState, name: event.target.value })} /></Field>
           <Field label={t('notificationsPage.adapter')}>
             <Select value={openState.adapterKind} onChange={event => onUpdate({ ...openState, adapterKind: event.target.value })}>
-              <option value="webhook">Webhook</option>
-              <option value="smtp">SMTP</option>
+              <option value="webhook">{t('notificationsPage.adapters.webhook')}</option>
+              <option value="smtp">{t('notificationsPage.adapters.smtp')}</option>
             </Select>
           </Field>
           <Field wide label={t('notificationsPage.configJson')}><Textarea className="min-h-40 font-mono" value={openState.configText} onChange={event => onUpdate({ ...openState, configText: event.target.value })} /></Field>
@@ -351,8 +351,8 @@ function TemplateDialog({ onClose, onSave, onUpdate, openState, saving }: { onCl
           <Field label={t('notificationsPage.eventType')}><Select value={openState.eventType} onChange={event => onUpdate({ ...openState, eventType: event.target.value })}>{FAILURE_EVENTS.map(event => <option key={event} value={event}>{event}</option>)}</Select></Field>
           <Field label={t('notificationsPage.adapter')}>
             <Select value={openState.adapterKind} onChange={event => onUpdate({ ...openState, adapterKind: event.target.value })}>
-              <option value="webhook">Webhook</option>
-              <option value="smtp">SMTP</option>
+              <option value="webhook">{t('notificationsPage.adapters.webhook')}</option>
+              <option value="smtp">{t('notificationsPage.adapters.smtp')}</option>
             </Select>
           </Field>
           <Field label={t('notificationsPage.locale')}><Input value={openState.locale} onChange={event => onUpdate({ ...openState, locale: event.target.value })} /></Field>

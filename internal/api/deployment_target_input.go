@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, app model.Application, input deploymentTargetInput, targetID string, existingSecretFiles map[string]string, existingRuntimeConfigRefs string) (model.DeploymentTarget, bool) {
+func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, app model.Application, input deploymentTargetInput, targetID, kubernetesName string, existingSecretFiles map[string]string, existingRuntimeConfigRefs string) (model.DeploymentTarget, bool) {
 	sourceType := normalizeDeploymentSourceType(input.SourceType)
 	repositoryBindingID := strings.TrimSpace(input.RepositoryBindingID)
 	if sourceType == "repository" {
@@ -168,6 +168,7 @@ func (h *Handlers) deploymentTargetFromInput(ctx *gin.Context, user model.User, 
 		EnvironmentID:                strings.TrimSpace(input.EnvironmentID),
 		Name:                         name,
 		Stage:                        stage,
+		KubernetesName:               kubernetesName,
 		ClusterID:                    clusterID,
 		Namespace:                    strings.TrimSpace(input.Namespace),
 		WorkloadType:                 normalizeWorkloadType(input.WorkloadType),

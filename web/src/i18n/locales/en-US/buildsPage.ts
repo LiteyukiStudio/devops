@@ -122,7 +122,7 @@ const buildsPage = {
   targetTagTemplateHint: 'Supports $' + '{{ github.sha }}, {short_sha}, $' + '{{ github.ref_name }}, $' + '{{ github.ref_type }}, and $' + '{{ github.ref }}. The build job renders the real commit after checkout.',
   targetImageRef: 'Target image reference template',
   targetImageRefPlaceholder: 'snowykami/demo-blog:latest',
-  targetImageRefHint: 'Enter the full repository:tag template. The default is registry namespace/project slug-application slug:latest, for example snowykami/demo-blog:latest. The first build saves it to the application, and later builds and deployments reuse it by default.',
+  targetImageRefHint: 'Enter the full repository:tag template. The default is registry namespace/project identifier-application identifier:latest, for example snowykami/demo-blog:latest. The first build saves it to the application, and later builds and deployments reuse it by default.',
   targetImagePreview: 'Target image preview',
   targetImagePreviewHint: 'The preview combines this template with the selected registry. DockerHub omits the domain prefix; other registries add the registry domain.',
   targetImage: 'Target image',

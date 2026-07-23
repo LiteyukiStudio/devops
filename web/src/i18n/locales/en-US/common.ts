@@ -63,6 +63,8 @@ const common = {
   helpSuffix: 'Help',
   validEmailRequired: 'Enter a valid email address',
   lowercaseSlugOnly: 'Use lowercase letters, numbers, and hyphens only',
+  identifier: 'Identifier',
+  identifierFormat: 'Use lowercase letters, numbers, and hyphens, starting and ending with a letter or number',
   platformAdminPermissionRequired: 'Confirm the current account has platform administrator permissions.',
   default: 'Default',
   forbiddenTitle: 'No access',
