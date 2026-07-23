@@ -1,4 +1,5 @@
 const projectSpaces = {
+  listTitle: 'Project space list',
   title: 'Project Spaces',
   description: 'Project spaces group applications, members, permissions, and runtime resources.',
   workspaceTitle: 'Project Space',

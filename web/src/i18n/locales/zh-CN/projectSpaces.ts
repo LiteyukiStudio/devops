@@ -1,4 +1,5 @@
 const projectSpaces = {
+  listTitle: '项目空间列表',
   title: '项目空间',
   description: '项目空间承载一组应用、成员、权限和运行资源，默认映射一个 Kubernetes Namespace。',
   createTitle: '创建项目空间',

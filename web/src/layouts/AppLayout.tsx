@@ -174,10 +174,10 @@ export function AppLayout() {
 
     return (
       <>
-        <SidebarHeader className="h-14">
+        <SidebarHeader className="h-18">
           <Link
             aria-label={configs['site.title'] || t('appName')}
-            className="flex h-full w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-5"
+            className="flex h-full w-full min-w-0 max-w-full items-center gap-3 overflow-hidden px-4"
             to="/projects"
           >
             <img

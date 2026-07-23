@@ -66,6 +66,22 @@ describe('data list layout', () => {
     expect(screen.getByRole('cell', { name: '...' })).toHaveClass('sticky', 'right-0')
   })
 
+  it('renders query controls in the list header toolbar', () => {
+    render(
+      <DataList
+        columns={[{ key: 'name', header: 'Name', render: item => item.name }]}
+        emptyTitle="Empty"
+        items={[{ id: 'one', name: 'One' }]}
+        rowKey={item => item.id}
+        title="Projects"
+        toolbar={<button type="button">Sort projects</button>}
+      />,
+    )
+
+    const toolbarButton = screen.getByRole('button', { name: 'Sort projects' })
+    expect(screen.getByText('Projects').parentElement?.parentElement).toContainElement(toolbarButton)
+  })
+
   it('does not render pagination controls for an empty result', () => {
     render(
       <DataList

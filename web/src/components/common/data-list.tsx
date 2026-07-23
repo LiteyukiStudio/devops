@@ -28,6 +28,7 @@ interface DataListProps<T> {
   columns: DataListColumn<T>[]
   rowKey: (item: T) => string
   title?: ReactNode
+  toolbar?: ReactNode
   variant?: 'card' | 'plain'
   emptyTitle: string
   emptyActions?: ReactNode
@@ -68,7 +69,8 @@ function stickyColumnClass(sticky: DataListColumn<unknown>['sticky'], surface: '
 
   return cn(
     'sticky',
-    sticky === 'right' ? 'right-0 border-l border-border' : 'left-0 border-r border-border',
+    surface === 'cell' && (sticky === 'right' ? 'right-0 border-l border-border' : 'left-0 border-r border-border'),
+    surface === 'header' && (sticky === 'right' ? 'right-0' : 'left-0'),
     surface === 'header' ? 'z-30 bg-muted' : 'z-20 bg-card group-hover:bg-muted/40',
   )
 }
@@ -149,6 +151,7 @@ export function DataList<T>({
   columns,
   rowKey,
   title,
+  toolbar,
   variant = 'card',
   emptyTitle,
   emptyActions,
@@ -190,8 +193,8 @@ export function DataList<T>({
   }
 
   return (
-    <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden p-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none border-0 bg-transparent shadow-none')}>
-      {(title || search || selection?.bulkActions) && (
+    <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden border-0 p-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none bg-transparent shadow-none')}>
+      {(title || toolbar || search || selection?.bulkActions) && (
         <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="min-w-0">
             {title && <h2 className="text-base font-semibold">{title}</h2>}
@@ -209,6 +212,7 @@ export function DataList<T>({
               />
             )}
             {selection?.bulkActions}
+            {toolbar}
           </div>
         </div>
       )}
@@ -228,8 +232,8 @@ export function DataList<T>({
               )
             : (
                 <table className="w-max min-w-full table-auto caption-bottom text-sm" data-slot="data-list-table">
-                  <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur [&_tr]:border-b">
-                    <tr className="border-b border-border transition-colors hover:bg-muted/40">
+                  <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+                    <tr className="transition-colors hover:bg-muted/40">
                       {selectable && (
                         <th className="h-10 w-10 px-4 py-3 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground">
                           <input

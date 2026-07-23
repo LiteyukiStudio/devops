@@ -125,14 +125,14 @@ export function ContentTabs({
       </div>
       <PageChromeTabs className={headerClassName}>
         <div className="-mx-1 min-w-0 overflow-x-auto px-1">
-          <TabsList className="w-max max-w-none flex-nowrap">
+          <TabsList className="relative w-max max-w-none flex-nowrap border-0 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:rounded-full after:bg-border">
             {tabs.map(tab => (
-              <TabsTrigger key={tab.value} className="relative data-[state=active]:border-transparent" value={tab.value}>
+              <TabsTrigger key={tab.value} className="relative border-0 data-[state=active]:border-0" value={tab.value}>
                 <span className="truncate">{tab.label}</span>
                 {tab.value === effectiveValue && (
                   <motion.span
                     aria-hidden="true"
-                    className="absolute inset-x-0 -bottom-px h-0.5 bg-primary"
+                    className="absolute inset-x-0 bottom-0 z-10 h-0.5 rounded-full bg-primary"
                     layoutId={indicatorLayoutId}
                     transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                   />
