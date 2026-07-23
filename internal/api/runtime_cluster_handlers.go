@@ -21,13 +21,37 @@ func (h *Handlers) ListRuntimeClusters(ctx *gin.Context) {
 	projectID := strings.TrimSpace(ctx.Query("projectId"))
 
 	var clusters []model.RuntimeCluster
-	query := h.db.Order("is_default desc, created_at desc")
+	query := h.db.Model(&model.RuntimeCluster{})
 	var visible bool
 	query, visible = h.applyScopedResourceVisibility(ctx, query, scopedResourceRuntimeCluster, user, projectID)
 	if !visible {
 		return
 	}
-	if err := applySearch(ctx, query, "name", "endpoint").Find(&clusters).Error; err != nil {
+	query = applySearch(ctx, query, "name", "endpoint")
+	if paginationRequested(ctx) {
+		pagination := paginationFromQuery(ctx)
+		var total int64
+		if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := query.Order(orderByClause(pagination, map[string]string{
+			"name":      "name",
+			"type":      "type",
+			"scope":     "scope",
+			"status":    "status",
+			"createdAt": "created_at",
+		}, "created_at")).Limit(pagination.PageSize).Offset(pagination.Offset()).Find(&clusters).Error; err != nil {
+			writeError(ctx, http.StatusInternalServerError, err.Error())
+			return
+		}
+		for index := range clusters {
+			clusters[index] = h.runtimeClusterResponseForUser(user, clusters[index])
+		}
+		ctx.JSON(http.StatusOK, paginatedResponse(clusters, total, pagination))
+		return
+	}
+	if err := query.Order("is_default desc, created_at desc").Find(&clusters).Error; err != nil {
 		writeError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

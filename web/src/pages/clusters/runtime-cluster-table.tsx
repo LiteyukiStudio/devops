@@ -7,8 +7,16 @@ import { StatusValueBadge } from '@/components/common/status-badge'
 import { Button } from '@/components/ui/button'
 import { canManageCluster, clusterTypeLabel, gatewayDomainSuffixSummary, gatewayPublicPortSummary, scopeLabel } from './cluster-helpers'
 
-export function RuntimeClusterTable({ clusters, projects, user, onDelete, onEdit, onTest }: {
+export function RuntimeClusterTable({ clusters, pagination, projects, user, onDelete, onEdit, onTest }: {
   clusters: RuntimeCluster[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    onPageChange: (page: number) => void
+    onPageSizeChange: (pageSize: number) => void
+  }
   projects: Project[]
   user?: CurrentUser
   onDelete: (cluster: RuntimeCluster) => void
@@ -52,6 +60,15 @@ export function RuntimeClusterTable({ clusters, projects, user, onDelete, onEdit
       ]}
       emptyTitle={t('deploymentsPage.emptyClusters')}
       items={clusters}
+      pagination={{
+        ...pagination,
+        pageInfoLabel: t('pagination.pageInfo', {
+          page: pagination.page,
+          totalPages: pagination.totalPages,
+          total: pagination.total,
+        }),
+        pageSizeOptions: [10, 20, 50, 100],
+      }}
       rowKey={item => item.id}
     />
   )

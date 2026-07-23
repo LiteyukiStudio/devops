@@ -902,6 +902,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
 
+  /api/v1/runtime/clusters:
+    get:
+      tags: [Runtime]
+      summary: List runtime clusters
+      description: Returns the legacy array response when pagination parameters are omitted, or a paginated response when `page`/`pageSize` is supplied.
+      parameters:
+        - name: projectId
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, type, scope, status, createdAt]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
+      responses:
+        "200":
+          description: Runtime cluster list or paginated runtime cluster list.
+
   /api/v1/git/providers:
     get:
       tags: [Git]
@@ -1112,6 +1134,15 @@ paths:
           in: query
           schema:
             type: string
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, scope, createdAt]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
       responses:
         "200":
           description: Artifact registry list.
@@ -1168,6 +1199,15 @@ paths:
       summary: List registry credentials
       parameters:
         - $ref: "#/components/parameters/RegistryId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, username, createdAt]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
       responses:
         "200":
           description: Registry credential list.
@@ -1185,6 +1225,24 @@ paths:
       responses:
         "201":
           description: Created registry credential.
+
+  /api/v1/registry-credentials:
+    get:
+      tags: [Registries]
+      summary: List visible registry credentials across registries
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, username, createdAt]
+            default: createdAt
+        - $ref: "#/components/parameters/SortOrder"
+      responses:
+        "200":
+          description: Paginated registry credential list.
 
   /api/v1/registries/{registryId}/credentials/{credentialId}:
     put:

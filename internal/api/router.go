@@ -121,6 +121,7 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 		v1.GET("/registries/:registryId/image-template-default", handlers.GetRegistryImageTemplateDefault)
 		v1.GET("/registries/:registryId/repositories/search", handlers.SearchRegistryRepositories)
 		v1.GET("/registries/:registryId/repository-tags", handlers.ListRegistryRepositoryTags)
+		v1.GET("/registry-credentials", handlers.ListAllRegistryCredentials)
 		v1.GET("/registries/:registryId/credentials", handlers.ListRegistryCredentials)
 		v1.POST("/registries/:registryId/credentials", handlers.CreateRegistryCredential)
 		v1.PUT("/registries/:registryId/credentials/:credentialId", handlers.UpdateRegistryCredential)

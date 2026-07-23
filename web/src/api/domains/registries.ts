@@ -31,6 +31,8 @@ export const registriesApi = {
     request<RegistryCredential[]>(`/registries/${registryId}/credentials`),
   listRegistryCredentialsPage: (registryId: string, params: PaginationParams) =>
     request<PaginatedResponse<RegistryCredential>>(`/registries/${registryId}/credentials?${paginationQuery(params)}`),
+  listAllRegistryCredentialsPage: (params: PaginationParams) =>
+    request<PaginatedResponse<RegistryCredential>>(`/registry-credentials?${paginationQuery(params)}`),
   createRegistryCredential: (registryId: string, payload: { name: string, username: string, password?: string, token?: string, usage: RegistryCredential['usage'], scope: RegistryCredential['scope'], projectIds: string[], repositoryTemplate: string, tagTemplate: string }) =>
     request<RegistryCredential>(`/registries/${registryId}/credentials`, { method: 'POST', body: JSON.stringify(payload) }),
   updateRegistryCredential: (registryId: string, credentialId: string, payload: { name: string, username: string, password?: string, token?: string, usage: RegistryCredential['usage'], scope: RegistryCredential['scope'], projectIds: string[], repositoryTemplate: string, tagTemplate: string }) =>

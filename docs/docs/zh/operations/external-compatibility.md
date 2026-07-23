@@ -1,6 +1,6 @@
 # 外部组件兼容矩阵
 
-更新时间：2026-07-01。
+更新时间：2026-07-24。
 
 这张表根据平台实际调用的外部接口整理，适合在安装、升级或排障前快速确认版本。“可用区间”是当前实现优先支持和测试的范围，“推荐版本”是新部署时更稳妥的选择。GitHub.com、DockerHub 这类 SaaS 没有可安装版本，因此以它们当前公开的 API 作为兼容边界。
 
@@ -51,6 +51,8 @@ GitLab 目前只是模型枚举，不是可用 provider。若后续实现 GitLab
 运行集群的官方支持区间按 `client-go v0.36.x` 对齐 Kubernetes `1.34 ~ 1.36`。K3s 应看它内置的 Kubernetes 小版本，而不是只看 K3s 发行号。
 
 访问入口主路径已经切换到 Gateway API HTTPRoute。集群必须提前安装 Gateway API CRD，并部署支持 Gateway API 的控制器。当前优先按 Traefik 3.x 的 Kubernetes Gateway provider 验收，但平台模型保留 Gateway API 的通用语义，不把业务字段写死到 Traefik annotation。
+
+镜像站、单镜像站凭据和运行集群管理列表支持 `page`、`pageSize`、`sortBy`、`sortOrder` 查询参数。为兼容部署配置等少量选项读取场景，省略分页参数时仍返回原数组；管理页始终使用分页响应，避免资源数量增长后一次性加载全部记录。
 
 ### 数据库、队列和构建
 

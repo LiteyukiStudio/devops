@@ -121,14 +121,13 @@ function registryProviderLabel(provider: ArtifactRegistry['provider'], t: Return
 
 interface CredentialsPanelProps {
   items: CredentialWithRegistry[]
-  registryFilterId: string
   pagination: PageState<CredentialWithRegistry>
   projectMap: Record<string, { name: string }>
   onEdit: (credential: CredentialWithRegistry) => void
   onDelete: (credential: CredentialWithRegistry) => void
 }
 
-export function CredentialsPanel({ items, registryFilterId, pagination, projectMap, onDelete, onEdit }: CredentialsPanelProps) {
+export function CredentialsPanel({ items, pagination, projectMap, onDelete, onEdit }: CredentialsPanelProps) {
   const { t } = useTranslation()
 
   return (
@@ -194,7 +193,7 @@ export function CredentialsPanel({ items, registryFilterId, pagination, projectM
       emptyTitle={t('registriesPage.noCredentialsTitle')}
       emptyDescription={t('registriesPage.noCredentialsDescription')}
       items={items}
-      pagination={registryFilterId ? dataListPagination(t, pagination) : undefined}
+      pagination={dataListPagination(t, pagination)}
       rowKey={credential => credential.id}
     />
   )
@@ -230,6 +229,7 @@ export function ImagesPanel({ images, registries, pagination }: ImagesPanelProps
       emptyTitle={t('registriesPage.noImagesTitle')}
       emptyDescription={t('registriesPage.noImagesDescription')}
       items={images}
+      constrainedHeight
       pagination={dataListPagination(t, pagination, IMAGE_PAGE_SIZE_OPTIONS)}
       rowKey={image => image.id}
     />

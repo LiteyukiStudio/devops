@@ -51,20 +51,8 @@ export function RegistriesPage() {
   })
   const projectMap = useMemo(() => Object.fromEntries((projects.data ?? []).map(project => [project.id, project])), [projects.data])
   const allCredentials = useQuery({
-    queryKey: ['registry-credentials', 'all', registryOptionItems.map(registry => registry.id).join(',')],
-    queryFn: async () => {
-      const results = await Promise.all(registryOptionItems.map(async (registry) => {
-        try {
-          const items = await api.listRegistryCredentials(registry.id)
-          return items.map(credential => ({ ...credential, registryName: registry.name }))
-        }
-        catch {
-          return [] as CredentialWithRegistry[]
-        }
-      }))
-      return results.flat().sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-    },
-    enabled: registryOptions.isSuccess,
+    queryKey: ['registry-credentials', 'all', credentialPage, credentialPageSize],
+    queryFn: () => api.listAllRegistryCredentialsPage({ page: credentialPage, pageSize: credentialPageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
   })
   const credentials = useQuery({
     queryKey: ['registry-credentials', credentialRegistryFilterId, credentialPage, credentialPageSize],
@@ -236,9 +224,23 @@ export function RegistriesPage() {
   }
 
   const selectedRegistry = registryOptionItems.find(registry => registry.id === credentialRegistryFilterId)
-  const visibleCredentials: CredentialWithRegistry[] = credentialRegistryFilterId
-    ? (credentials.data?.items ?? []).map(credential => ({ ...credential, registryName: selectedRegistry?.name ?? '' }))
-    : (allCredentials.data ?? [])
+  const credentialPageData = credentialRegistryFilterId
+    ? credentials.data
+      ? {
+          ...credentials.data,
+          items: credentials.data.items.map(credential => ({ ...credential, registryName: selectedRegistry?.name ?? '' })),
+        }
+      : undefined
+    : allCredentials.data
+      ? {
+          ...allCredentials.data,
+          items: allCredentials.data.items.map(credential => ({
+            ...credential,
+            registryName: registryOptionItems.find(registry => registry.id === credential.registryId)?.name ?? credential.registryId,
+          })),
+        }
+      : undefined
+  const visibleCredentials: CredentialWithRegistry[] = credentialPageData?.items ?? []
 
   const selectImageRepository = (repository: RegistryRepositoryItem) => {
     imageForm.setValue('repository', repository.name, { shouldDirty: true, shouldValidate: true })
@@ -348,16 +350,10 @@ export function RegistriesPage() {
         <TabsContent value="credentials">
           <CredentialsPanel
             items={visibleCredentials}
-            registryFilterId={credentialRegistryFilterId}
             projectMap={projectMap}
             pagination={credentialRegistryFilterId
               ? {
-                  data: credentials.data
-                    ? {
-                        ...credentials.data,
-                        items: credentials.data.items.map(credential => ({ ...credential, registryName: selectedRegistry?.name ?? '' })),
-                      }
-                    : undefined,
+                  data: credentialPageData,
                   page: credentialPage,
                   pageSize: credentialPageSize,
                   onPageChange: setCredentialPage,
@@ -367,11 +363,14 @@ export function RegistriesPage() {
                   },
                 }
               : {
-                  data: undefined,
+                  data: credentialPageData,
                   page: credentialPage,
                   pageSize: credentialPageSize,
                   onPageChange: setCredentialPage,
-                  onPageSizeChange: setCredentialPageSize,
+                  onPageSizeChange: (nextPageSize) => {
+                    setCredentialPageSize(nextPageSize)
+                    setCredentialPage(1)
+                  },
                 }}
             onDelete={setCredentialToDelete}
             onEdit={beginEditCredential}

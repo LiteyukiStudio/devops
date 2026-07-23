@@ -17,9 +17,26 @@ func (h *Handlers) ListRegistryCredentials(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	var credentials []model.RegistryCredential
 	query := h.db.Model(&model.RegistryCredential{}).Where("registry_id = ?", registry.ID)
 	query = h.applyScopedResourceVisibilityForUser(query, scopedResourceRegistryCredential, user)
+	h.listRegistryCredentials(ctx, query)
+}
+
+func (h *Handlers) ListAllRegistryCredentials(ctx *gin.Context) {
+	user, ok := h.currentUser(ctx)
+	if !ok {
+		return
+	}
+	query := h.applyScopedResourceVisibilityForUser(
+		h.db.Model(&model.RegistryCredential{}),
+		scopedResourceRegistryCredential,
+		user,
+	)
+	h.listRegistryCredentials(ctx, query)
+}
+
+func (h *Handlers) listRegistryCredentials(ctx *gin.Context, query *gorm.DB) {
+	var credentials []model.RegistryCredential
 	query = applySearch(ctx, query, "name", "username")
 	if paginationRequested(ctx) {
 		pagination := paginationFromQuery(ctx)

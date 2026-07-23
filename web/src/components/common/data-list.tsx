@@ -36,6 +36,7 @@ interface DataListProps<T> {
   emptyIcon?: ReactNode
   emptyMode?: 'actionable' | 'filtered'
   loading?: boolean
+  constrainedHeight?: boolean
   search?: {
     value: string
     placeholder: string
@@ -159,6 +160,7 @@ export function DataList<T>({
   emptyIcon,
   emptyMode = 'actionable',
   loading = false,
+  constrainedHeight = false,
   search,
   selection,
   pagination,
@@ -194,7 +196,14 @@ export function DataList<T>({
   }
 
   return (
-    <Card className={cn('flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden border-0 md:max-h-[calc(100vh-15rem)]', variant === 'plain' && 'rounded-none bg-transparent shadow-none')} padding="none">
+    <Card
+      className={cn(
+        'flex w-full min-w-0 max-w-full max-h-none flex-col overflow-hidden border-0 md:max-h-[calc(100vh-15rem)]',
+        constrainedHeight && 'md:h-[calc(100vh-15rem)]',
+        variant === 'plain' && 'rounded-none bg-transparent shadow-none',
+      )}
+      padding="none"
+    >
       {(title || toolbar || search || selection?.bulkActions) && (
         <div
           className={cn(

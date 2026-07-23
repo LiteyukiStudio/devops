@@ -29,11 +29,17 @@ export function ClustersPage() {
   const [dialogRevision, setDialogRevision] = useState(0)
   const [editingCluster, setEditingCluster] = useState<RuntimeCluster | null>(null)
   const [clusterToDelete, setClusterToDelete] = useState<RuntimeCluster | null>(null)
+  const [clusterPage, setClusterPage] = useState(1)
+  const [clusterPageSize, setClusterPageSize] = useState(10)
   const projects = useQuery({ queryKey: ['projects'], queryFn: api.listProjects })
-  const clusters = useQuery({ queryKey: ['runtime-clusters'], queryFn: () => api.listRuntimeClusters() })
+  const clusters = useQuery({
+    queryKey: ['runtime-clusters', 'page', clusterPage, clusterPageSize],
+    queryFn: () => api.listRuntimeClustersPage({ page: clusterPage, pageSize: clusterPageSize, sortBy: 'createdAt', sortOrder: 'desc' }),
+  })
+  const clusterOptions = useQuery({ queryKey: ['runtime-clusters', 'options'], queryFn: () => api.listRuntimeClusters() })
   const manageableClusters = useMemo(
-    () => (clusters.data ?? []).filter(cluster => canManageCluster(cluster, user?.id, user?.role)),
-    [clusters.data, user?.id, user?.role],
+    () => (clusterOptions.data ?? []).filter(cluster => canManageCluster(cluster, user?.id, user?.role)),
+    [clusterOptions.data, user?.id, user?.role],
   )
   const resources = useClusterResources({ activeTab, manageableClusters, user })
 
@@ -126,7 +132,18 @@ export function ClustersPage() {
       >
         <TabsContent value="clusters">
           <RuntimeClusterTable
-            clusters={clusters.data ?? []}
+            clusters={clusters.data?.items ?? []}
+            pagination={{
+              page: clusters.data?.page ?? clusterPage,
+              pageSize: clusters.data?.pageSize ?? clusterPageSize,
+              total: clusters.data?.total ?? 0,
+              totalPages: clusters.data?.totalPages ?? 0,
+              onPageChange: setClusterPage,
+              onPageSizeChange: (nextPageSize) => {
+                setClusterPageSize(nextPageSize)
+                setClusterPage(1)
+              },
+            }}
             projects={projects.data ?? []}
             user={user}
             onDelete={setClusterToDelete}
