@@ -227,6 +227,7 @@ export function DataList<T>({
   const selectableRowKeys = selection ? items.filter(item => selection.isRowSelectable?.(item) ?? true).map(rowKey) : rowKeys
   const selectable = Boolean(selection)
   const hasTools = Boolean(title || toolbar || search || selection?.bulkActions)
+  const hasToolsLead = Boolean(title || (selection && selection.selectedKeys.length > 0))
   const showTableFrame = loading || items.length > 0
   const allRowsSelected = selectableRowKeys.length > 0 && selectableRowKeys.every(key => selectedKeySet.has(key))
   const someRowsSelected = selectableRowKeys.some(key => selectedKeySet.has(key))
@@ -285,20 +286,24 @@ export function DataList<T>({
         <div
           className={cn(
             'flex shrink-0 flex-col gap-3 pb-4 sm:flex-row sm:flex-wrap sm:items-center',
-            title ? 'sm:justify-between' : 'sm:justify-start',
+            hasToolsLead ? 'sm:justify-between' : 'sm:justify-start',
           )}
           data-slot="data-list-tools"
         >
-          <div className="min-w-0">
-            {title && <h2 className="text-base font-semibold">{title}</h2>}
-            {selection && selection.selectedKeys.length > 0 && (
-              <p className="mt-1 text-xs text-muted-foreground">{selection.selectedLabel}</p>
-            )}
-          </div>
-          <div className={cn(
-            'flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center',
-            title && 'sm:justify-end',
+          {hasToolsLead && (
+            <div className="min-w-0" data-slot="data-list-tools-lead">
+              {title && <h2 className="text-base font-semibold">{title}</h2>}
+              {selection && selection.selectedKeys.length > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">{selection.selectedLabel}</p>
+              )}
+            </div>
           )}
+          <div
+            className={cn(
+              'flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center',
+              hasToolsLead && 'sm:justify-end',
+            )}
+            data-slot="data-list-tools-controls"
           >
             {search && (
               <Input

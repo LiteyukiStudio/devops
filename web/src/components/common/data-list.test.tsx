@@ -137,6 +137,11 @@ describe('data list layout', () => {
       'after:ring-1',
     )
     const search = screen.getByPlaceholderText('Search projects')
+    const tools = search.closest<HTMLElement>('[data-slot="data-list-tools"]')
+    expect(tools?.children).toHaveLength(1)
+    expect(tools?.querySelector('[data-slot="data-list-tools-lead"]')).not.toBeInTheDocument()
+    expect(tools?.firstElementChild).toHaveAttribute('data-slot', 'data-list-tools-controls')
+    expect(tools?.firstElementChild).toContainElement(search)
     expect(search.parentElement).not.toHaveClass('sm:justify-end')
     expect(search.parentElement).toContainElement(screen.getByRole('button', { name: 'Sort projects' }))
     expect(screen.getByRole('table').closest('[data-slot="card"]')).not.toBeInTheDocument()

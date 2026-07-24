@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { MetricGroup, MetricItem } from './metric-group'
 
 describe('metric group semantics', () => {
-  it('maps risk tones to semantic surfaces and values', () => {
+  it('keeps a neutral surface while mapping risk tones to values', () => {
     render(
       <MemoryRouter>
         <MetricGroup>
@@ -15,7 +15,8 @@ describe('metric group semantics', () => {
     )
 
     const failed = screen.getByRole('link', { name: /Failed/ })
-    expect(failed).toHaveClass('bg-danger-subtle/45', 'ring-danger-border/45')
+    expect(failed).toHaveClass('bg-surface-raised', 'ring-transparent')
+    expect(failed).not.toHaveClass('bg-danger-subtle/45', 'ring-danger-border/45')
     expect(screen.getByText('3')).toHaveClass('text-danger')
     expect(screen.getByText('0')).toHaveClass('text-muted-foreground')
   })
