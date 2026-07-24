@@ -21,6 +21,7 @@ describe('data list layout', () => {
     expect(screen.getAllByRole('rowgroup')[1]).toHaveClass('bg-card')
     expect(table.closest('[data-scrollbars="both"]')).toHaveAttribute('data-scroll-area-type', 'auto')
     expect(table.closest('[data-slot="table-frame"]')).toHaveClass(
+      'mt-group',
       'rounded-container',
       'border',
       'border-border',
@@ -125,6 +126,7 @@ describe('data list layout', () => {
       'border',
       'border-border',
     )
+    expect(screen.getByRole('table').closest('[data-slot="table-frame"]')).not.toHaveClass('mt-group')
     expect(screen.getByRole('table').closest('[data-slot="scroll-area"]')).not.toHaveClass(
       'rounded-container',
       'border',

@@ -229,6 +229,7 @@ export function DataList<T>({
   const rowKeys = items.map(rowKey)
   const selectableRowKeys = selection ? items.filter(item => selection.isRowSelectable?.(item) ?? true).map(rowKey) : rowKeys
   const selectable = Boolean(selection)
+  const hasTools = Boolean(title || toolbar || search || selection?.bulkActions)
   const showTableFrame = loading || items.length > 0
   const allRowsSelected = selectableRowKeys.length > 0 && selectableRowKeys.every(key => selectedKeySet.has(key))
   const someRowsSelected = selectableRowKeys.some(key => selectedKeySet.has(key))
@@ -264,7 +265,7 @@ export function DataList<T>({
       )}
       padding="none"
     >
-      {(title || toolbar || search || selection?.bulkActions) && (
+      {hasTools && (
         <div
           className={cn(
             'flex shrink-0 flex-col gap-3 px-0 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-4',
@@ -297,7 +298,10 @@ export function DataList<T>({
         </div>
       )}
       <TableFrame
-        className="mx-0 w-auto flex-1 sm:mx-group"
+        className={cn(
+          'mx-0 w-auto flex-1 sm:mx-group',
+          !hasTools && showTableFrame && 'mt-group',
+        )}
         framed={showTableFrame}
         scrollAreaClassName="h-full"
         scrollbars="both"
