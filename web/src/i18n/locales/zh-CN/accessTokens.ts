@@ -118,7 +118,7 @@ const accessTokens = {
     application: {
       read: '读取应用列表、详情和关联资源。',
       create: '在项目空间中创建应用。',
-      update: '修改应用名称、标识和仓库来源。',
+      update: '修改应用可编辑信息和仓库来源。',
       delete: '删除应用。',
     },
     deployment: {

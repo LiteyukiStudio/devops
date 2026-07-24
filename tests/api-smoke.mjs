@@ -158,7 +158,7 @@ async function main() {
     slug: environmentSlug,
     stage: 'dev',
     clusterId: cluster.id,
-    namespace: `${project.slug}-dev`,
+    namespace: project.kubernetesNamespace,
     replicas: 1,
     cpuRequest: '100m',
     memoryRequest: '128Mi',

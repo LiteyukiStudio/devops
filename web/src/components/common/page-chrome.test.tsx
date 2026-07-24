@@ -16,6 +16,7 @@ describe('page chrome', () => {
     )
 
     expect(container.querySelector('[data-slot="page-chrome-title-row"]')).toHaveClass('min-h-10')
+    expect(container.querySelector('[data-slot="page-chrome"]')).toHaveClass('hidden', 'lg:block')
   })
 
   it('places optional back navigation below the title', () => {
@@ -34,6 +35,7 @@ describe('page chrome', () => {
     const desktopBackLink = container.querySelector('.lg\\:flex [data-slot="page-chrome-back-navigation"]')
     const tabsRow = container.querySelector('[data-slot="page-chrome-tabs-row"]')
 
+    expect(container.querySelector('[data-slot="page-chrome"]')).not.toHaveClass('hidden')
     expect(screen.getAllByRole('link', { name: 'Back to project spaces' })).toHaveLength(2)
     expect(desktopBackLink).toHaveAttribute('href', '/projects')
     expect(titleRow!.compareDocumentPosition(desktopBackLink!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

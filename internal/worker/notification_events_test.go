@@ -1,6 +1,10 @@
 package worker
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/LiteyukiStudio/devops/internal/model"
+)
 
 func TestNotificationLinksPointToApplicationTabs(t *testing.T) {
 	runner := NewRunner(nil, Options{PublicBaseURL: "https://devops.example.com/"})
@@ -26,5 +30,31 @@ func TestNotificationLinksStayEmptyWithoutPublicBaseURL(t *testing.T) {
 
 	if links := runner.notificationLinks("prj_1", "app_1", "builds", "build"); links != nil {
 		t.Fatalf("links = %#v", links)
+	}
+}
+
+func TestNotificationBuildImageRefPrefersPersistedImage(t *testing.T) {
+	run := model.BuildRun{
+		ImageRef:         "registry.example.com/team/app:resolved",
+		TargetRepository: "registry.example.com/team/app",
+		TargetTag:        "fallback",
+	}
+
+	if got := (&Runner{}).notificationBuildImageRef(run); got != run.ImageRef {
+		t.Fatalf("notificationBuildImageRef() = %q, want %q", got, run.ImageRef)
+	}
+}
+
+func TestNotificationBuildImageRefFallsBackToBuildTarget(t *testing.T) {
+	run := model.BuildRun{
+		TargetRepository: "registry.example.com/team/app",
+		TargetTag:        "{branchSlug}-{shortSha}",
+		SourceBranch:     "feature/identifier-notifications",
+		SourceCommit:     "1234567890abcdef",
+	}
+
+	want := "registry.example.com/team/app:feature-identifier-notifications-1234567890ab"
+	if got := (&Runner{}).notificationBuildImageRef(run); got != want {
+		t.Fatalf("notificationBuildImageRef() = %q, want %q", got, want)
 	}
 }

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { DataList } from './data-list'
 
@@ -106,9 +106,12 @@ describe('data list layout', () => {
     )
     expect(screen.getByRole('button', { name: 'Sort projects' }).closest('[data-slot="data-list-tools"]')).toHaveClass(
       'after:border-separator-strong',
-      'after:inset-x-4',
+      'after:inset-x-0',
+      'sm:after:inset-x-4',
+      'px-0',
+      'sm:px-4',
     )
-    expect(screen.getByRole('table').closest('[data-slot="scroll-area"]')).toHaveClass('mx-group')
+    expect(screen.getByRole('table').closest('[data-slot="scroll-area"]')).toHaveClass('mx-0', 'sm:mx-group')
     const search = screen.getByPlaceholderText('Search projects')
     expect(search.parentElement).not.toHaveClass('sm:justify-end')
     expect(search.parentElement).toContainElement(screen.getByRole('button', { name: 'Sort projects' }))
@@ -213,6 +216,87 @@ describe('data list layout', () => {
 
     expect(screen.getByRole('columnheader', { name: 'Detail' })).toHaveClass('hidden', 'md:table-cell')
     expect(screen.getByRole('columnheader', { name: 'Actions' })).not.toHaveClass('hidden')
+  })
+
+  it('collapses action groups into one overflow trigger on mobile', () => {
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: (query: string) => ({
+        matches: query === '(max-width: 47.999rem)',
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }),
+    })
+
+    const view = render(
+      <DataList
+        columns={[
+          { key: 'name', header: 'Name', render: item => item.name },
+          {
+            key: 'actions',
+            header: 'Actions',
+            sticky: 'right',
+            render: () => (
+              <div>
+                <button type="button">Edit</button>
+                <button type="button">Delete</button>
+              </div>
+            ),
+          },
+        ]}
+        emptyTitle="Empty"
+        items={[{ id: 'one', name: 'One' }]}
+        rowKey={item => item.id}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }))
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+
+    view.unmount()
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
+  })
+
+  it('keeps an existing responsive action menu inline on mobile', () => {
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: (query: string) => ({
+        matches: query === '(max-width: 47.999rem)',
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }),
+    })
+
+    const view = render(
+      <DataList
+        columns={[
+          { key: 'name', header: 'Name', render: item => item.name },
+          {
+            key: 'actions',
+            header: 'Actions',
+            mobileActions: 'inline',
+            render: () => <button type="button">Existing menu</button>,
+          },
+        ]}
+        emptyTitle="Empty"
+        items={[{ id: 'one', name: 'One' }]}
+        rowKey={item => item.id}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Existing menu' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Actions' })).not.toBeInTheDocument()
+
+    view.unmount()
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
   })
 
   it('renders filtered empty results as a compact centered state with a clear action', () => {

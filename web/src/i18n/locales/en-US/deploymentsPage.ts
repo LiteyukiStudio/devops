@@ -74,7 +74,7 @@ const deploymentsPage = {
   createDeploymentConfig: 'New deploy config',
   editDeploymentConfig: 'Edit deploy config',
   deploymentConfigDialogDescription: 'Configure runtime, build, and release policy for this deploy config.',
-  deploymentConfigNameHint: 'Used only as a platform display name. Spaces, symbols, and local-language names are allowed; Kubernetes resource names are generated from internal IDs.',
+  deploymentConfigNameHint: 'Used only as a platform display name. Spaces, symbols, and local-language names are allowed; Kubernetes resource names use the immutable application identifier and stage.',
   deploymentConfigNamePattern: 'Enter a deploy config name.',
   environmentSlugHint: 'Choose the stage from development, test, staging, or production. This field is the short stage code; prefer dev, test, staging, or prod, up to {{count}} characters.',
   targetCreated: 'Deploy config created',

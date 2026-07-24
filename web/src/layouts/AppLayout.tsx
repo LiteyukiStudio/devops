@@ -287,7 +287,7 @@ export function AppLayout() {
           <main
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-transparent px-page-inline py-page-block transition-colors"
           >
-            <div className="flex min-h-full min-w-0 flex-col gap-group">
+            <div className="flex min-h-full min-w-0 flex-col gap-group py-0">
               <PageChrome
                 backNavigation={pageMeta.backNavigation}
                 tabsTargetRef={setPageTabsTarget}

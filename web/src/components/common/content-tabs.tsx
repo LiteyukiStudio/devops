@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useId, useMemo } from 'react'
 import { PageChromeTabs, PageChromeTools } from '@/components/common/page-chrome'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
@@ -106,41 +105,33 @@ export function ContentTabs({
   }, [onValueChange, valueToRoute, writeHashRoute])
 
   const effectiveValue = valueToRoute.has(value) ? value : tabs[0]?.value ?? value
+  const tabNavigation = (scope: 'desktop' | 'mobile') => (
+    <div className="-mx-1 min-w-0 overflow-x-auto px-1">
+      <TabsList className="relative w-max max-w-none flex-nowrap border-0 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:rounded-full after:bg-border">
+        {tabs.map(tab => (
+          <TabsTrigger key={tab.value} className="relative shrink-0 border-0 data-[state=active]:border-0" value={tab.value}>
+            <span>{tab.label}</span>
+            {tab.value === effectiveValue && (
+              <motion.span
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 z-10 h-0.5 rounded-full bg-primary"
+                layoutId={`${indicatorLayoutId}-${scope}`}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              />
+            )}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </div>
+  )
 
   return (
     <Tabs value={effectiveValue} onValueChange={handleValueChange}>
       <div className={cn('min-w-0 lg:hidden', headerClassName)}>
-        <Select value={effectiveValue} onValueChange={handleValueChange}>
-          <SelectTrigger className="h-10 w-full min-w-0 justify-between bg-muted text-base shadow-none">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="start" className="min-w-[var(--radix-select-trigger-width)]" position="popper">
-            {tabs.map(tab => (
-              <SelectItem key={tab.value} value={tab.value}>
-                {tab.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {tabNavigation('mobile')}
       </div>
       <PageChromeTabs className={headerClassName}>
-        <div className="-mx-1 min-w-0 overflow-x-auto px-1">
-          <TabsList className="relative w-max max-w-none flex-nowrap border-0 after:absolute after:inset-x-0 after:bottom-0 after:h-px after:rounded-full after:bg-border">
-            {tabs.map(tab => (
-              <TabsTrigger key={tab.value} className="relative border-0 data-[state=active]:border-0" value={tab.value}>
-                <span className="truncate">{tab.label}</span>
-                {tab.value === effectiveValue && (
-                  <motion.span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 z-10 h-0.5 rounded-full bg-primary"
-                    layoutId={indicatorLayoutId}
-                    transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  />
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+        {tabNavigation('desktop')}
       </PageChromeTabs>
       <PageChromeTools>{tools}</PageChromeTools>
       {children}

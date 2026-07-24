@@ -1,6 +1,11 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, MouseEvent, ReactNode } from 'react'
+import { MoreHorizontal } from 'lucide-react'
+import { useState, useSyncExternalStore } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { EmptyState } from './empty-state'
@@ -18,6 +23,7 @@ export interface DataListColumn<T> {
   maxWidth?: number | string
   minWidth?: number | string
   mobile?: 'hidden' | 'visible'
+  mobileActions?: 'collapse' | 'inline'
   sticky?: 'left' | 'right'
   width?: DataListColumnWidth
   render: (item: T) => ReactNode
@@ -141,11 +147,59 @@ function columnCellClassName(column: DataListColumn<unknown>) {
   return 'w-px min-w-0 px-2 whitespace-nowrap sm:px-4'
 }
 
+const mobileActionMediaQuery = '(max-width: 47.999rem)'
+
+function subscribeMobileActionViewport(onStoreChange: () => void) {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function')
+    return () => undefined
+
+  const mediaQuery = window.matchMedia(mobileActionMediaQuery)
+  mediaQuery.addEventListener('change', onStoreChange)
+  return () => mediaQuery.removeEventListener('change', onStoreChange)
+}
+
+function mobileActionViewportSnapshot() {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia(mobileActionMediaQuery).matches
+}
+
+function MobileActionMenu({ children, label }: { children: ReactNode, label: string }) {
+  const [open, setOpen] = useState(false)
+  const closeAfterAction = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof Element))
+      return
+    const action = target.closest('button:not(:disabled), a[href], [role="menuitem"]:not([aria-disabled="true"])')
+    if (action && action.getAttribute('aria-haspopup') !== 'dialog')
+      setOpen(false)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button aria-label={label} size="icon" variant="ghost">
+          <MoreHorizontal className="size-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-max min-w-40 max-w-[calc(100vw-2rem)] p-1.5">
+        <div
+          className="flex flex-col items-stretch gap-1 [&>div]:flex-col [&>div]:items-stretch [&>div]:gap-1 [&_a]:w-full [&_a]:justify-start [&_button]:w-full [&_button]:justify-start"
+          data-slot="data-list-mobile-actions"
+          onClick={closeAfterAction}
+        >
+          {children}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 /**
  * 管理台列表和表格的统一展示组件。
  * 用于资源列表、用户列表、凭据列表等需要列、空状态和分页的场景；布局型页面或少量指标卡片不应套用它。
  * 列宽采用“内容自适应 + 画像上限”策略：浏览器先按每列最宽内容分配宽度，未填满容器时由 min-w-full 均摊剩余空间；
- * 超过容器时按列画像限制最大宽度，让次要列先收缩，主列保留更高的最小宽度；操作列按按钮内容撑开并交给外层滚动处理。
+ * 超过容器时按列画像限制最大宽度，让次要列先收缩，主列保留更高的最小宽度；操作列在桌面按内容撑开，移动端统一收进溢出菜单。
  */
 export function DataList<T>({
   items,
@@ -165,6 +219,12 @@ export function DataList<T>({
   selection,
   pagination,
 }: DataListProps<T>) {
+  const { t } = useTranslation()
+  const collapseMobileActions = useSyncExternalStore(
+    subscribeMobileActionViewport,
+    mobileActionViewportSnapshot,
+    () => false,
+  )
   const selectedKeySet = new Set(selection?.selectedKeys ?? [])
   const rowKeys = items.map(rowKey)
   const selectableRowKeys = selection ? items.filter(item => selection.isRowSelectable?.(item) ?? true).map(rowKey) : rowKeys
@@ -207,9 +267,9 @@ export function DataList<T>({
       {(title || toolbar || search || selection?.bulkActions) && (
         <div
           className={cn(
-            'relative flex shrink-0 flex-col gap-3 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center',
+            'relative flex shrink-0 flex-col gap-3 px-0 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-4',
             title ? 'sm:justify-between' : 'sm:justify-start',
-            hasHeaderTools && 'after:absolute after:inset-x-4 after:bottom-0 after:border-b after:border-separator-strong',
+            hasHeaderTools && 'after:absolute after:inset-x-0 after:bottom-0 after:border-b after:border-separator-strong sm:after:inset-x-4',
           )}
           data-slot="data-list-tools"
         >
@@ -237,7 +297,7 @@ export function DataList<T>({
           </div>
         </div>
       )}
-      <ScrollArea className="mx-group min-h-0 w-auto min-w-0 max-w-full flex-1" scrollbars="both" type="auto">
+      <ScrollArea className="mx-0 min-h-0 w-auto min-w-0 max-w-full flex-1 sm:mx-group" scrollbars="both" type="auto">
         {loading
           ? <DataListSkeleton columns={Math.max(2, Math.min(columns.length + (selectable ? 1 : 0), 6))} />
           : items.length === 0
@@ -311,23 +371,31 @@ export function DataList<T>({
                               />
                             </td>
                           )}
-                          {columns.map(column => (
-                            <td
-                              key={column.key}
-                              className={cn(
-                                'px-4 py-3 align-middle',
-                                column.className,
-                                stickyColumnClass(column.sticky, 'cell'),
-                                column.cellClassName,
-                                column.mobile === 'hidden' && 'hidden md:table-cell',
-                                columnCellClassName(column as DataListColumn<unknown>),
-                              )}
-                            >
-                              <div className={columnContentClassName(column as DataListColumn<unknown>, 'cell')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
-                                {column.render(item)}
-                              </div>
-                            </td>
-                          ))}
+                          {columns.map((column) => {
+                            const content = column.render(item)
+                            const collapseActions = collapseMobileActions
+                              && inferredColumnWidth(column as DataListColumn<unknown>) === 'actions'
+                              && column.mobileActions !== 'inline'
+                            return (
+                              <td
+                                key={column.key}
+                                className={cn(
+                                  'px-4 py-3 align-middle',
+                                  column.className,
+                                  stickyColumnClass(column.sticky, 'cell'),
+                                  column.cellClassName,
+                                  column.mobile === 'hidden' && 'hidden md:table-cell',
+                                  columnCellClassName(column as DataListColumn<unknown>),
+                                )}
+                              >
+                                <div className={columnContentClassName(column as DataListColumn<unknown>, 'cell')} style={columnWidthStyle(column as DataListColumn<unknown>)}>
+                                  {collapseActions
+                                    ? <MobileActionMenu label={t('common.actions')}>{content}</MobileActionMenu>
+                                    : content}
+                                </div>
+                              </td>
+                            )
+                          })}
                         </tr>
                       )
                     })}
@@ -337,7 +405,7 @@ export function DataList<T>({
       </ScrollArea>
 
       {pagination && pagination.total > 0 && !loading && (
-        <div className="shrink-0 px-4 py-3 text-sm text-muted-foreground">
+        <div className="shrink-0 px-0 py-3 text-sm text-muted-foreground sm:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>{pagination.pageInfoLabel}</span>
             <PaginationController

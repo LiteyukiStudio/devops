@@ -74,6 +74,8 @@ Templates use Go template syntax with missing-field errors enabled, so typoed va
 | `.Event.Links` | Platform detail link map. Built-in failure events generate `primary`, `project`, `application`, and event-specific `build`/`release`/`hook`/`gateway` links when `PUBLIC_BASE_URL` is configured, jumping to the build, deployment, or gateway tab according to the event type. Use `{{ link .Event.Links "primary" }}` to avoid missing-key render errors. |
 | `.Secrets.<Name>` | Channel secret value injected only while rendering. It is not echoed by APIs. |
 
+When upgrading to immutable identifiers, saved notification templates and webhook channel configurations are migrated from `.Event.Project.Slug`, `.Event.Application.Slug`, and `.Event.DeploymentTarget.Slug` to the corresponding `.Identifier` fields. Historical event snapshots are converted as well.
+
 Available functions:
 
 - `json`: encode a value as a JSON string.

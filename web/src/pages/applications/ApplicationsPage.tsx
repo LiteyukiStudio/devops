@@ -182,6 +182,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
             key: 'actions',
             header: t('common.actions'),
             className: 'w-[1%] whitespace-nowrap px-4 py-3 align-middle text-right',
+            mobileActions: 'inline',
             render: (application) => {
               const deleting = application.deleteStatus === 'deleting'
               const openEditDialog = () => {
@@ -195,7 +196,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
               }
               return (
                 <div className="flex justify-end">
-                  <div className="hidden justify-end gap-2 sm:flex">
+                  <div className="hidden justify-end gap-2 md:flex">
                     <Link
                       aria-label={t('apps.openDetailAria')}
                       aria-disabled={deleting}
@@ -222,7 +223,7 @@ export function ApplicationsPage({ embedded = false, projectId: projectIdProp, r
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button aria-label={t('common.actions')} className="sm:hidden" size="icon" variant="ghost">
+                      <Button aria-label={t('common.actions')} className="md:hidden" size="icon" variant="ghost">
                         <MoreHorizontal size={16} />
                       </Button>
                     </DropdownMenuTrigger>

@@ -27,7 +27,7 @@ export function PageChrome({
   toolsTargetRef: (node: HTMLDivElement | null) => void
 }) {
   return (
-    <div className="min-w-0" data-slot="page-chrome">
+    <div className={cn('min-w-0', !backNavigation && 'hidden lg:block')} data-slot="page-chrome">
       <div className="hidden min-w-0 flex-col gap-group lg:flex">
         <div className="flex min-h-10 min-w-0 items-center justify-between gap-section" data-slot="page-chrome-title-row">
           <div className="min-w-0 flex-1">{title}</div>

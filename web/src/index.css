@@ -94,6 +94,12 @@
     color-mix(in oklab, var(--primary) 28%, hsl(var(--surface-base))),
     color-mix(in oklab, var(--theme-secondary) 24%, hsl(var(--surface-base)))
   );
+  --workspace-background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--primary) 8%, hsl(var(--surface-base))) 0%,
+    color-mix(in oklab, var(--theme-secondary) 7%, hsl(var(--surface-base))) 50%,
+    color-mix(in oklab, var(--theme-supporting) 6%, hsl(var(--surface-base))) 100%
+  );
 }
 
 :root[data-theme="dark"]:is(
@@ -108,6 +114,12 @@
     115deg,
     color-mix(in oklab, var(--primary) 28%, hsl(var(--surface-base))),
     color-mix(in oklab, var(--theme-secondary) 22%, hsl(var(--surface-base)))
+  );
+  --workspace-background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--primary) 7%, hsl(var(--surface-base))) 0%,
+    color-mix(in oklab, var(--theme-secondary) 6%, hsl(var(--surface-base))) 50%,
+    color-mix(in oklab, var(--theme-supporting) 5%, hsl(var(--surface-base))) 100%
   );
 }
 
@@ -327,41 +339,6 @@ textarea {
   animation-name: luna-devops-sheet-bottom-out;
 }
 
-[data-sonner-toast]::after {
-  position: absolute;
-  right: calc(var(--spacing) * 2);
-  bottom: calc(var(--spacing) * 1.5);
-  left: calc(var(--spacing) * 2);
-  height: calc(var(--spacing) * 0.5);
-  border-radius: 50%;
-  background: currentColor;
-  content: "";
-  opacity: 0.4;
-  pointer-events: none;
-  transform-origin: left center;
-  animation: toast-countdown 4000ms linear forwards;
-}
-
-[data-sonner-toast]:hover::after,
-[data-sonner-toast]:focus-within::after {
-  animation-play-state: paused;
-}
-
-[data-sonner-toast][data-type="loading"]::after,
-[data-sonner-toast][data-promise="true"]::after {
-  display: none;
-}
-
-@keyframes toast-countdown {
-  from {
-    transform: scaleX(1);
-  }
-
-  to {
-    transform: scaleX(0);
-  }
-}
-
 @keyframes luna-devops-sheet-overlay-in {
   from {
     opacity: 0;
@@ -470,9 +447,5 @@ textarea {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-  }
-
-  [data-sonner-toast]::after {
-    animation: none;
   }
 }

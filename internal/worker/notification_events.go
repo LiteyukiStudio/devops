@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LiteyukiStudio/devops/internal/imageref"
 	"github.com/LiteyukiStudio/devops/internal/model"
 	"github.com/LiteyukiStudio/devops/internal/notification"
 )
@@ -34,7 +35,7 @@ func (r *Runner) emitBuildEvent(ctx context.Context, run model.BuildRun, status 
 			ID:      run.ID,
 			Status:  status,
 			Message: strings.TrimSpace(message),
-			Image:   run.ImageRef,
+			Image:   r.notificationBuildImageRef(run),
 			GitRef:  firstNonEmpty(run.SourceBranch, run.SourceTag, run.SourceCommit),
 			GitSHA:  run.SourceCommit,
 		},
@@ -45,6 +46,17 @@ func (r *Runner) emitBuildEvent(ctx context.Context, run model.BuildRun, status 
 		Links:         r.notificationLinks(run.ProjectID, run.ApplicationID, "builds", "build"),
 		Message:       firstNonEmpty(message, "Build "+status),
 	})
+}
+
+func (r *Runner) notificationBuildImageRef(run model.BuildRun) string {
+	if imageRef := strings.TrimSpace(run.ImageRef); imageRef != "" {
+		return imageRef
+	}
+	var registry model.ArtifactRegistry
+	if r.db != nil && strings.TrimSpace(run.TargetRegistryID) != "" {
+		_ = r.db.First(&registry, "id = ?", run.TargetRegistryID).Error
+	}
+	return imageref.BuildImageRef(registry, run)
 }
 
 func (r *Runner) emitReleaseFailed(ctx context.Context, release model.Release, message string) {

@@ -85,20 +85,20 @@
 }
 
 :root {
-  --layout-page-inline: 2rem;
+  --layout-page-inline: 1rem;
   --layout-page-block: 1rem;
 }
 
 @media (width >= 40rem) {
   :root {
     --layout-page-inline: 3rem;
-    --layout-page-block: 1.5rem;
+    --layout-page-block: 3rem;
   }
 }
 
 @media (width >= 64rem) {
   :root {
     --layout-page-inline: 4rem;
-    --layout-page-block: 2rem;
+    --layout-page-block: 4rem;
   }
 }

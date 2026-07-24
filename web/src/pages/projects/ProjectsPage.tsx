@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect as Select } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { PROJECT_IDENTIFIER_MAX_LENGTH, PROJECT_IDENTIFIER_MIN_LENGTH } from '@/lib/identifier-limits'
+import { cn } from '@/lib/utils'
 
 const schema = z.object({
   name: z.string().min(1, i18next.t('projectSpaces.nameRequired')),
@@ -182,6 +183,7 @@ export function ProjectsPage() {
             key: 'actions',
             header: t('common.actions'),
             className: 'whitespace-nowrap text-right',
+            mobileActions: 'inline',
             sticky: 'right',
             render: (project) => {
               const deleting = project.deleteStatus === 'deleting'
@@ -210,7 +212,7 @@ export function ProjectsPage() {
                   <Link
                     aria-disabled={deleting}
                     aria-label={t('projectSpaces.openWorkspace')}
-                    className={buttonVariants({ className: deleting ? 'pointer-events-none opacity-50' : undefined, size: 'sm', variant: 'ghost' })}
+                    className={buttonVariants({ className: cn('hidden md:inline-flex', deleting && 'pointer-events-none opacity-50'), size: 'sm', variant: 'ghost' })}
                     title={t('projectSpaces.openWorkspace')}
                     to={`/projects/${project.id}`}
                   >
@@ -224,6 +226,13 @@ export function ProjectsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild disabled={deleting}>
+                        <Link className={deleting ? 'pointer-events-none opacity-50' : undefined} to={`/projects/${project.id}`}>
+                          <FolderKanban size={16} />
+                          {t('projectSpaces.openWorkspace')}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem disabled={deleting || systemProject} onSelect={openEditDialog}>
                         <Pencil size={16} />
                         {t('edit')}

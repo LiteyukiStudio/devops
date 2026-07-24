@@ -124,7 +124,7 @@ const accessTokens = {
     application: {
       read: 'Read applications and related resources.',
       create: 'Create applications in project spaces.',
-      update: 'Update application name, slug, and repository source.',
+      update: 'Update editable application metadata and repository source.',
       delete: 'Delete applications.',
     },
     deployment: {

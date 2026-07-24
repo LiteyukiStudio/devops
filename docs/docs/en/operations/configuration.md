@@ -114,6 +114,8 @@ New records use readable, stable IDs and Kubernetes names:
 
 Kubernetes names are persisted separately, so changing a display name never renames runtime resources. Project spaces and deployment targets created before this migration keep their existing `ns-*` and `dplt-*` names to avoid workload recreation or traffic interruption during upgrade.
 
+During upgrade, legacy registry credential placeholders such as `{projectSlug}`, `{appSlug}`, `{applicationSlug}`, and `{targetSlug}` are migrated to their immutable-identifier equivalents. Concrete image references already stored on deployment targets, build runs, and image records are not rewritten.
+
 Runtime clusters also own available access-route domain suffixes, external access schemes, external access ports, and Gateway API defaults. A cluster can define multiple suffixes; when users create an access route, they choose one suffix from the deployment target's cluster. Access routes use the selected suffix to generate default domains, expand short host prefixes, and return console access links, so multiple clusters can use different GatewayClasses, shared Gateways, or root domains, and one cluster can expose public, internal, or business-specific domains.
 
 Gateway config is split into external display and internal cluster layers:

@@ -189,6 +189,7 @@
 - [x] Project/Application/Stage 使用创建后不可修改的标识：项目和应用限制为 2–22 个字符，阶段限制为 2–12 个字符，只允许 DNS label 字符集；展示名称保持可编辑。
 - [x] 修正 Kubernetes 资源名生成：部署配置不再使用用户填写名称生成运行态资源名，避免中文名称或长名称影响 Deployment/Service；前后端允许部署配置名称作为可读展示名自由填写。
 - [x] Kubernetes 运行态资源改为可读且不可变的 `luna-` 命名：Namespace 使用 `luna-{projectIdentifier}`，Deployment/StatefulSet/Service/HPA 基名使用 `luna-{appIdentifier}-{stage}`，ConfigMap/Secret/PVC 使用对应后缀；历史记录保留原 `ns-*` / `dplt-*` 名称。
+- [x] 补齐不可变标识升级的数据影响：迁移历史镜像仓库/Tag 模板、通知模板、Webhook 渠道配置和事件快照中的旧 slug 变量；构建在镜像解析前失败时仍按目标仓库生成通知中的镜像信息。
 - [x] 部署配置支持维护运行时 ConfigMap/Secret 覆盖项：入口挂靠到模块的部署配置，按“环境默认 + 部署配置覆盖”生成运行态资源，Secret 不回显原文。
 - [x] 增加 i18n 边界准则：能在前端本地化的内容由前端按 key 映射，后端只返回稳定 key、原始枚举和必要备注。
 - [x] 继续将仓库绑定等多表单页面改为创建/编辑 Dialog。

@@ -74,7 +74,7 @@ const deploymentsPage = {
   createDeploymentConfig: '新增部署配置',
   editDeploymentConfig: '编辑部署配置',
   deploymentConfigDialogDescription: '配置当前部署配置的运行、构建和发布策略。',
-  deploymentConfigNameHint: '仅用于平台展示，支持中文、空格和符号；Kubernetes 资源名由平台内部 ID 生成。',
+  deploymentConfigNameHint: '仅用于平台展示，支持中文、空格和符号；Kubernetes 资源名由不可变的应用标识和部署阶段生成。',
   deploymentConfigNamePattern: '请输入部署配置名称。',
   environmentSlugHint: '阶段从开发、测试、预发、生产中选择；这里是对应的短英文标识，建议使用 dev、test、staging、prod，最多 {{count}} 个字符。',
   targetCreated: '部署配置已创建',
