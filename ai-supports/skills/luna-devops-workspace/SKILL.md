@@ -1,29 +1,27 @@
 ---
 name: luna-devops-workspace
-description: Luna DevOps 项目空间和工作台操作。用于看板、项目空间、项目成员、项目顺序、置顶、项目概览、项目内资源入口和项目级权限判断。
+description: 使用已安装的 Luna DevOps CLI 管理看板、项目空间、成员、固定项、排序、摘要和项目级访问检查；CLI 可用前仅用于规划，不执行平台操作。
 ---
 
 # 项目空间 Skill
 
-## 适用能力
+先遵循 `luna-devops-cli` 的可用性、命令发现、上下文、输出和确认规范。
 
-- dashboard 概览。
-- project spaces 列表、详情、创建、更新、删除。
-- project pins 和项目排序。
-- project members 管理。
-- 项目概览里的 applications、builds、releases、routes、events 摘要。
+## 命令发现
+
+- 从 `luna help catalog query=project category=project limit=20 agent=true` 查找 dashboard、project 和成员相关命令，再通过 `luna help command path=<category.tool> agent=true` 读取参数契约。
+- 目录中没有对应能力时，明确报告 CLI 尚未支持，不根据 API 名称猜命令。
 
 ## 操作流程
 
-1. 获取当前用户和可见项目空间。
-2. 需要进入项目时，确认 `projectId`。
-3. 成员管理前确认当前 actor 是否为 Owner/Admin/平台管理员。
-4. 删除项目空间前检查应用、部署、网关、账单和拓扑影响。
-5. 对项目级 mutation 写入 audit，并返回清晰影响摘要。
+1. 获取当前身份、上下文和可见项目空间。
+2. 将用户输入的项目名称解析为稳定 `projectId`。
+3. 读取项目概览、应用、构建、发布、入口和事件摘要。
+4. 成员变更前检查 actor 的项目角色。
+5. 删除前读取依赖和影响，等待明确确认后再使用 Help 声明的确认参数。
 
 ## 风险边界
 
-- 删除项目空间是 high risk，必须 confirmation。
-- 成员角色变更会影响权限，至少按 medium risk 处理。
+- 删除项目空间是高风险操作。
+- 成员角色变更会改变授权范围。
 - 普通 Viewer 只查看，不创建、修改或删除。
-

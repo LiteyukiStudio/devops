@@ -1,17 +1,11 @@
 ---
 name: luna-devops-runtime
-description: Luna DevOps 运行集群和 Kubernetes 资源操作。用于 runtime clusters、cluster resources、resource YAML、resource events、Pod 状态、集群连通性和 runtime 诊断。
+description: 使用已安装的 Luna DevOps CLI 管理运行集群、Kubernetes 资源、YAML、事件、Pod 状态、日志、终端、命令执行、数据导出和运行时诊断；CLI 可用前仅用于规划。
 ---
 
 # 运行集群 Skill
 
-## 适用能力
-
-- runtime clusters 列表、创建、更新、删除、测试。
-- cluster resources 查询和删除。
-- resource YAML 查看。
-- resource events 查看。
-- Pod terminal 授权和 stream 边界说明。
+先遵循 `luna-devops-cli`，并从机器可读 Help 发现 `cluster` 分类下的集群与 Kubernetes 资源工具，以及相关发布运行态工具。
 
 ## 操作流程
 
@@ -22,8 +16,8 @@ description: Luna DevOps 运行集群和 Kubernetes 资源操作。用于 runtim
 
 ## 风险边界
 
-- kubeconfig update 是 high risk，需要 step-up。
+- kubeconfig update 是高风险操作，且 CLI 必须使用安全输入。
 - 删除 cluster resource 是 high risk，默认只在用户明确指定资源后执行。
-- terminal 和 runtime exec 是 critical，第一版不开放给外部 MCP；内部也必须 browser session + MFA + confirmation。
+- terminal、runtime exec 和 data export 只有在 CLI Help 明确开放、OAuth 会话完成 MFA 且用户明确确认后才能执行。
+- Access Token 不能替代需要 Step-up MFA 的交互式 OAuth 会话。
 - 不返回 kubeconfig 内容。
-

@@ -1,16 +1,11 @@
 ---
 name: luna-devops-gateway
-description: Luna DevOps 访问入口和网关操作。用于 gateway routes、domain check、Gateway API、HTTPRoute、TLS、证书、访问 URL 和网关故障诊断。
+description: 使用已安装的 Luna DevOps CLI 管理访问入口、域名检查、Gateway API、HTTPRoute、TLS、证书、访问地址和网关诊断；CLI 可用前仅用于规划。
 ---
 
 # 网关 Skill
 
-## 适用能力
-
-- gateway routes 列表、创建、更新、删除。
-- domain check。
-- Gateway/HTTPRoute/Service 关联诊断。
-- TLS 和证书状态解释。
+先遵循 `luna-devops-cli`，并从机器可读 Help 发现 gateway 命令。
 
 ## 操作流程
 
@@ -24,4 +19,3 @@ description: Luna DevOps 访问入口和网关操作。用于 gateway routes、d
 - 修改或删除 gateway route 会影响公网访问，至少 medium risk。
 - 泛域名证书使用 DNS-01；HTTP challenge 不支持 wildcard。
 - 不把内部服务地址误认为公网访问地址。
-

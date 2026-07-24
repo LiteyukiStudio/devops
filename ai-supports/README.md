@@ -1,26 +1,18 @@
-# Luna DevOps AI 支持方案
+# Luna DevOps AI Skills
 
-这个目录用于存放 Luna DevOps 面向 AI 能力的设计文档、工具声明和配套 skills。
+这个目录存放与 `luna` CLI 配套的 AI Skills。Agent 通过 CLI 使用 Luna DevOps，不直接调用平台 REST API、Kubernetes API 或第三方 Provider API。
 
-第一阶段目标是平台内嵌 AI 助手。外部 MCP 仍然保留在设计里，但应在内部助手、共享 Tool Kernel、二次确认、审计和输出脱敏稳定后再开放。
-
-AI 能力应把 Luna DevOps 后端能力包装成安全 tools，同时继续使用现有 REST API、session/access-token 鉴权、RBAC、审计日志、MFA step-up 和 secret 脱敏作为安全边界。
+当前状态为**预发布设计**：应先完成 [`notes/cli-spec.md`](../notes/cli-spec.md) 中的 CLI、机器可读 Help、稳定输出和鉴权能力，再进行 Skills 安装与真实场景验证。CLI 尚未可用时，这些 Skills 只用于审阅和规划，不能假装执行平台命令。
 
 ## 目录结构
 
 ```text
 ai-supports/
-  assistant/
-    design.md           平台内嵌 AI 助手设计
-  mcp/
-    design.md           MCP 接入设计
-    security.md         风险、确认、审计和安全策略
-    tools.yaml          MCP tool 白名单声明
   skills/
     luna-devops-router/
       SKILL.md          skill 路由器，先判断任务再按需加载模块
-    luna-devops-operator/
-      SKILL.md          跨模块运维入口
+    luna-devops-cli/
+      SKILL.md          CLI 可用性、命令发现、输出和安全契约
     luna-devops-workspace/
       SKILL.md          工作台、项目空间和成员
     luna-devops-source/
@@ -51,25 +43,26 @@ ai-supports/
 
 ## 设计原则
 
-- 先做内部助手，再开放外部 MCP。
-- 内部 ADK tools 和未来外部 MCP tools 共用同一个 Tool Kernel。
-- 第一版只暴露小而实用的工具集，不自动发布所有 REST endpoint。
-- 复用现有后端权限模型，AI tools 不能绕过 Luna DevOps RBAC。
+- 先完成 CLI，再启用和验证 Skills。
+- CLI 的 `help catalog agent=true` 和 `help command ... agent=true` 是命令、参数、输出和风险元数据的事实来源。
+- Skills 只负责意图路由、操作顺序、风险控制和结果解释，不复制完整命令手册。
+- Agent 只调用 `luna`，不能绕过 CLI 直接编排平台或第三方 API。
+- CLI 和后端继续执行 OAuth、Scope、RBAC、MFA、审计和 Secret 脱敏。
 - 删除、计费、secret、runtime exec、terminal、data export 等操作按高风险处理。
-- mutation 优先走 preflight 和 confirmation，不直接执行。
-- 内部助手使用平台内嵌确认弹窗；外部 MCP 返回平台 confirmation URL。
-- tool 输出必须短、结构化、可审计、脱敏。
-- 先写工具声明，再在声明后实现 adapter。
+- mutation 必须先读取当前状态、说明影响并等待用户明确确认。
+- Agent 每条命令都强制使用 `agent=true`，由 CLI 统一启用结构化输出、禁用交互和颜色，并施加分页、轮询、流式读取和响应体大小上限；不能依赖用户的默认输出模式。
+- 命令输出必须短、结构化、可审计、脱敏。
 - skills 按模块渐进加载：先加载 `luna-devops-router` 判断意图，再只加载当前任务需要的一个或少数模块 skill。
+- 所有 `SKILL.md` 的元数据描述、标题、规则和工作流统一使用中文编写；命令名、参数名、JSON key、API 枚举、Scope 和稳定错误码保留英文技术标识。
 
 ## Skills 覆盖
 
-当前 skills 按平台能力拆成 15 个模块，目标是覆盖 Luna DevOps 的主要用户路径和管理员路径，而不是把所有 REST endpoint 生硬映射成一个大说明。
+当前 Skills 按平台能力拆成 15 个模块，目标是覆盖 Luna DevOps 的主要用户路径和管理员路径。完整接口覆盖由 CLI 与 OpenAPI 保证，Skills 不重复罗列所有 endpoint。
 
 | 模块 | 覆盖能力 |
 | --- | --- |
 | `luna-devops-router` | 意图识别、模块分流、按需加载 |
-| `luna-devops-operator` | 综合巡检、跨模块运维、安全操作规划 |
+| `luna-devops-cli` | CLI 可用性、上下文、命令发现、输出和安全操作 |
 | `luna-devops-workspace` | 看板、项目空间、成员、置顶和排序 |
 | `luna-devops-source` | Git provider、Git account、仓库、分支、Webhook、代码源绑定 |
 | `luna-devops-registry` | 镜像站、凭据、镜像模板、镜像仓库和 tag |
@@ -84,26 +77,24 @@ ai-supports/
 | `luna-devops-system` | 站点设置、公开配置、应用市场、系统组件、数据保留 |
 | `luna-devops-debugging` | 构建、部署、网关、拓扑、账单、通知、权限排障 |
 
-这些 skill 描述用于内部 Agent 的工具选择和未来 MCP/skill 分层，不替代后端 RBAC、审计、确认和脱敏逻辑。
+这些 Skill 不替代 CLI Help、后端 RBAC、Scope、审计、MFA 和脱敏逻辑。
 
-## 当前方向
-
-内部助手：
+## 调用拓扑
 
 ```text
-前端 AI 小窗
-  -> /api/v1/assistant/*
-  -> 后端 Agent runtime，第一版使用 ADK Go
-  -> shared Tool Kernel
-  -> 现有 Luna DevOps services/API
+用户或 AI Agent
+  -> Luna DevOps Skills
+  -> luna CLI
+  -> Luna DevOps REST API
+  -> 后端权限、MFA、审计和业务服务
 ```
 
-未来外部接入：
+## 启用门禁
 
-```text
-外部 Agent 平台 / MCP client
-  -> /api/v1/mcp
-  -> 现有 Luna DevOps Access Token
-  -> shared Tool Kernel
-  -> 现有 Luna DevOps services/API
-```
+只有满足以下条件后，才能把 Skills 标记为可用：
+
+1. `luna version show agent=true`、机器可读 Help 和多实例 context 已稳定。
+2. CLI 公开 API 覆盖门禁达到 100%。
+3. JSON 输出、错误结构和退出码完成兼容性测试。
+4. OAuth、Device Code、Access Token 和 Step-up MFA 已完成集成测试。
+5. 使用真实测试实例完成各领域 Skill 的只读、变更、失败和权限场景评估。

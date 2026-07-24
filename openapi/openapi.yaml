@@ -28,6 +28,34 @@ paths:
         "200":
           description: Service is healthy.
 
+  /api/v1/meta:
+    get:
+      operationId: getApiMeta
+      tags: [Health]
+      summary: Get API version and CLI capability metadata
+      responses:
+        "200":
+          description: Public API compatibility and feature metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [apiVersion, serverVersion, openapiDigest, minimumCliVersion, features]
+                properties:
+                  apiVersion: { type: string, example: v1 }
+                  serverVersion: { type: string, example: 0.1.0 }
+                  openapiDigest: { type: string, example: "sha256:0123456789abcdef" }
+                  minimumCliVersion: { type: string, example: 0.1.0 }
+                  features:
+                    type: object
+                    required: [accessToken, deviceCode, mfaBearer, oauthAuthorization, openapiOperations]
+                    properties:
+                      accessToken: { type: boolean }
+                      deviceCode: { type: boolean }
+                      mfaBearer: { type: boolean }
+                      oauthAuthorization: { type: boolean }
+                      openapiOperations: { type: boolean }
+
   /api/v1/public/configs:
     post:
       tags: [Configs]

@@ -43,6 +43,7 @@ func NewRouterWithStaticFSAndMetrics(db *gorm.DB, staticFS fs.FS, httpMetrics *o
 
 	v1 := router.Group("/api/v1")
 	{
+		v1.GET("/meta", handlers.GetAPIMeta)
 		v1.POST("/public/configs", handlers.GetPublicConfigs)
 		v1.GET("/auth/bootstrap", handlers.GetBootstrapStatus)
 		v1.POST("/auth/bootstrap/admin", handlers.InitializeAdmin)

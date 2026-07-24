@@ -1,17 +1,11 @@
 ---
 name: luna-devops-deployment
-description: Luna DevOps 应用部署操作。用于 application、deployment target、runtime config、release、rollback、restart、release image candidates、资源配置和发布状态检查。
+description: 使用已安装的 Luna DevOps CLI 管理应用、部署配置、运行配置、发布、回滚、重启、候选镜像、资源规格和发布状态；CLI 可用前仅用于规划。
 ---
 
 # 部署 Skill
 
-## 适用能力
-
-- applications 创建、更新、删除。
-- deployment targets 创建、更新、删除、restart。
-- release image candidates 查询。
-- releases 创建、列表、日志、runtime logs、rollback。
-- replicas、resources、env vars、service ports、runtime profile。
+先遵循 `luna-devops-cli`，并从机器可读 Help 发现 application、deployment 和 release 命令。
 
 ## 部署检查清单
 
@@ -19,13 +13,11 @@ description: Luna DevOps 应用部署操作。用于 application、deployment ta
 2. 检查 repository binding、build result、image candidate。
 3. 检查 registry、runtime cluster、service ports 和 gateway route。
 4. 准备 release plan：target、image、replicas、resources、env vars、route impact。
-5. 创建 release 或 rollback 前必须 confirmation。
+5. 创建 release、restart 或 rollback 前说明中断风险并等待确认。
 6. 发布后检查 release status、runtime events、gateway route 和最近 platform events。
 
 ## 风险边界
 
-- release create 和 rollback 是 high risk。
-- restart 是 medium risk。
-- 删除 application/deployment target 是 high risk。
-- runtime exec、terminal、data export 第一版不作为普通助手能力开放。
-
+- release、rollback 和删除是高风险操作。
+- Secret 环境变量不回显，也不通过命令参数传递。
+- runtime exec、terminal 和 data export 交由 `luna-devops-runtime` 的更严格流程处理。

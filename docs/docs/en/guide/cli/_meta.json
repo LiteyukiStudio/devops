@@ -1,0 +1,17 @@
+[
+  {
+    "type": "file",
+    "name": "index",
+    "label": "CLI Overview"
+  },
+  {
+    "type": "file",
+    "name": "installation",
+    "label": "Install and Use"
+  },
+  {
+    "type": "file",
+    "name": "release-security",
+    "label": "Release Security"
+  }
+]

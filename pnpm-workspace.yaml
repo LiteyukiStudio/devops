@@ -1,0 +1,8 @@
+packages:
+  - "cli"
+  - "packages/*"
+  - "web"
+  - "docs"
+  - "tests"
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,61 @@
+package api
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"os"
+	"strings"
+
+	"github.com/LiteyukiStudio/devops/openapi"
+	"github.com/gin-gonic/gin"
+)
+
+const (
+	apiVersion        = "v1"
+	minimumCLIVersion = "0.1.0"
+)
+
+type apiMetaFeatures struct {
+	AccessToken        bool `json:"accessToken"`
+	DeviceCode         bool `json:"deviceCode"`
+	MFABearer          bool `json:"mfaBearer"`
+	OAuthAuthorization bool `json:"oauthAuthorization"`
+	OpenAPIOperations  bool `json:"openapiOperations"`
+}
+
+type apiMetaResponse struct {
+	APIVersion        string          `json:"apiVersion"`
+	ServerVersion     string          `json:"serverVersion"`
+	OpenAPIDigest     string          `json:"openapiDigest"`
+	MinimumCLIVersion string          `json:"minimumCliVersion"`
+	Features          apiMetaFeatures `json:"features"`
+}
+
+func (h *Handlers) GetAPIMeta(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, apiMetaResponse{
+		APIVersion:        apiVersion,
+		ServerVersion:     serverVersion(),
+		OpenAPIDigest:     openAPIDigest(),
+		MinimumCLIVersion: minimumCLIVersion,
+		Features: apiMetaFeatures{
+			AccessToken:        true,
+			DeviceCode:         false,
+			MFABearer:          false,
+			OAuthAuthorization: true,
+			OpenAPIOperations:  true,
+		},
+	})
+}
+
+func serverVersion() string {
+	if version := strings.TrimSpace(os.Getenv("APP_VERSION")); version != "" {
+		return version
+	}
+	return "dev"
+}
+
+func openAPIDigest() string {
+	digest := sha256.Sum256(openapi.SpecYAML)
+	return "sha256:" + hex.EncodeToString(digest[:])
+}

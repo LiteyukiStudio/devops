@@ -1,17 +1,11 @@
 ---
 name: luna-devops-notifications
-description: Luna DevOps 通知系统操作。用于 notification presets、channels、templates、rules、deliveries、测试通知、投递失败诊断和事件订阅配置。
+description: 使用已安装的 Luna DevOps CLI 管理通知预设、渠道、模板、规则、投递、测试通知、投递诊断和事件订阅；CLI 可用前仅用于规划。
 ---
 
 # 通知 Skill
 
-## 适用能力
-
-- notification presets 查看。
-- channels 创建、更新、删除、测试。
-- templates 创建、更新、删除。
-- rules 创建、更新、删除。
-- deliveries 查询和失败诊断。
+先遵循 `luna-devops-cli`，并从机器可读 Help 发现 notification 命令。
 
 ## 操作流程
 
@@ -26,4 +20,3 @@ description: Luna DevOps 通知系统操作。用于 notification presets、chan
 - Webhook URL 和 SMTP secret 不回显。
 - 删除 channel/template/rule 会影响告警，应要求 confirmation。
 - 测试通知可能触达外部系统，执行前说明目标。
-

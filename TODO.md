@@ -989,6 +989,38 @@
 - [x] 保护审计、计费账本、构建/发布/Hook 元数据、Secret 与 Kubernetes 运行数据，不允许通过数据保留入口删除。
 - [x] 在站点设置中提供渐进式数据保留配置和手动清理界面，并同步中英文文档与 OpenAPI。
 
+## 16. Luna CLI
+
+详细规格见 [`notes/cli-spec.md`](notes/cli-spec.md)。
+
+- [x] 确定 CLI 技术栈、两级工具命令、`key=value` 与多行/复杂输入规范、参数校验、多实例上下文、context 级默认项目空间、版本化 JSON Envelope、OAuth、Device Code、Access Token、Step-up MFA、i18n、AI 输出契约、npm/pnpm 安装、独立 `cli-v*` 发版、npm Trusted Publishing 和 Bun 单二进制方案。
+- [x] 完成 CLI spec 与 AI Agent 可实施性审计：按 `method + normalizedPath` 确认当前 222 条 Gin 路由中 OpenAPI 已覆盖 108 条、缺失 114 条；明确业务命令、协议适配、浏览器入口、服务端入口和内部可观测五类路由，`api request` 不计入覆盖；补齐 Agent 模式、复杂参数、受限工具发现、服务端计划、并发保护、版本化事件流、不可信内容和资源边界；第一版要求每项公开能力成功主路径和关键旅程 100%、完整操作场景矩阵不低于 95%。
+- [x] 移除旧 MCP 与内嵌 Assistant 设计，将 `ai-supports` 收敛为仅通过未来 `luna` CLI 工作的预发布 Skills。
+- [x] 建立根 pnpm workspace，抽取环境无关的 `@luna-devops/api-contract` 与 `@luna-devops/api-client`，CLI 从生成契约注册命令并复用统一 HTTP 客户端。
+- [ ] 将 Web 现有 API Client 渐进迁移到共享 contract/client；保持浏览器 Session、CSRF 和页面状态只属于 Web，不进入共享包。
+- [ ] 从 Gin Router 自动生成完整路由清单，把路由分类为业务命令、协议适配、浏览器入口、服务端入口和内部可观测性；除明确登记的内部可观测白名单外，补齐全部 HTTP API 的 OpenAPI、稳定 `operationId`、Scope 和 CLI 元数据，并增加 100% 路由/OpenAPI/Scope/命令/协议消费覆盖门禁；所有允许 Bearer 调用的业务与协议路由必须具有稳定非 `system:unmapped` Scope，且 OpenAPI 与运行时鉴权映射一致。
+- [ ] 新增语言无关的 `openapi/errors.yaml` 错误目录，把业务、OAuth、MFA、SSE、WebSocket、下载和服务端入口收敛到稳定错误 Envelope；Go、OpenAPI、Web 和 CLI 均从同一目录生成或校验，运行时出现未登记错误码时契约测试失败。
+- [ ] 为 Agent 可调用 operation 补齐 JSON Schema Draft 2020-12 输入/输出契约和 `x-luna-cli` 风险、敏感字段、dry-run、并发、资源上限、批准元数据；实现 `agent=true`、`params=@file|@-`、按 query/category/risk/scope 受限发现和 Schema digest 漂移检测。
+- [ ] 新增 `openapi/workflows.yaml`，使用 Arazzo 1.1 描述 OAuth、Device Code、Git 授权、构建发布部署、MFA、数据导出和终端等关键旅程，并用于文档、Skills 和集成测试生成，不实现通用运行时工作流解释器。
+- [ ] 为删除、权限、Secret、凭据、kubeconfig、终端、数据导出、账单和用户管理等高风险操作实现短时单次服务端计划；计划精确绑定 actor、认证上下文、项目、目标、规范化参数和资源版本，`yes=true` 不得绕过计划。
+- [ ] 为中高风险更新补齐 ETag/version/resourceVersion 乐观并发控制；CLI 和 Skills 遇到冲突时必须重新读取、重新计划并再次确认，不允许盲覆盖或自动追加 `force`。
+- [ ] 定义版本化 JSONL 长任务事件协议：首帧版本、sequence/eventId/correlationId/operationId/resourceRef、恢复游标、资源上限和唯一终态摘要；缺少摘要时不得报告成功。
+- [x] 新增公开且不泄露部署信息的 `/api/v1/meta` 能力接口，返回 API/服务端版本、OpenAPI digest、功能开关和最低 CLI 版本；未实现的 Device Code 与 Bearer MFA 明确返回 `false`。
+- [ ] CLI 接入启动能力协商和版本兼容判断；对缺少接口、未知 API 版本或版本不兼容的实例 fail closed，不通过试探业务接口猜测能力。
+- [x] 实现 CLI 基础框架、`~/.luna/auth.json`、上下文切换、`project current/use/unset`、项目空间解析优先级、稳定输出、完整 Help、机器可读 Help 和 Shell Completion；context 切换实例地址时隔离凭据和默认项目空间，临时跨源 `server=` 不复用当前 Token。
+- [ ] 实现由平台固定初始化、无需动态注册的内置 OAuth 公共 CLI Client：Token Endpoint 支持 `token_endpoint_auth_method=none`，仅允许严格 loopback redirect，完成 Authorization Code + PKCE、刷新和吊销；拆分 OAuth 与个人访问令牌 Scope 策略，使第一方 CLI 可在明确授权和 Step-up 保护下申请敏感 Scope，但不自动授予通配权限。
+- [ ] 实现 RFC 8628 Device Authorization Grant，包括设备授权端点、浏览器 GET/POST 确认接口、CSRF 防护、哈希状态、批准/拒绝、轮询限流、过期清理和一次性兑换。
+- [ ] 改造 Step-up MFA 与交互认证上下文：OAuth Bearer 可验证 OTP/恢复码并按 OAuth Grant/Token Family + purpose 读取 assertion；终端预授权、终端存活监控和数据导出票据同时支持绑定 Web Session 或 OAuth Grant/Token Family；个人访问令牌仍不得绕过 MFA 保护。
+- [ ] 按业务域覆盖全部公开控制面 API；当前 CLI 已从 OpenAPI 注册全部 109 个已登记操作，并提供统一 JSON HTTP 传输和诊断用 `api request`，但 Gin Router 中尚未进入 OpenAPI 的公开路由、SSE、WebSocket 终端、二进制下载、异步任务等待和批量部分成功仍需补齐。
+- [ ] 为 Git Provider OAuth 增加短时授权事务创建/查询接口，回调写入事务终态；`luna git authorize` 打开浏览器并返回确定的 Git Account ID，不通过轮询账号列表猜测授权结果。
+- [ ] 建立干净测试实例的全 operation 场景矩阵：关键登录/CRUD/构建/发布/日志/终端/导出/MFA 旅程 100% 通过，完整可执行场景通过率不低于 95%。
+- [x] 新增 CLI CI 与 Release 工作流；平台项目继续由 `v*` 发版，CLI 仅由 `cli-v*` 发版；工作流验证契约 drift、CLI 类型/规范/测试、npm/pnpm 全局安装和 Bun 二进制 smoke，并按正式版、RC、Beta 维护 npm dist-tag。
+- [ ] 在 npm 配置 `@liteyukistudio/luna-cli` Trusted Publisher 和 GitHub `npm` Environment，完成首次真实 OIDC 发布验收。
+- [x] 使用固定 Bun 版本构建 Linux x64/arm64/musl、macOS arm64/x64 和 Windows x64 制品，生成 checksum、SBOM 和 provenance，并对 Linux host/musl 完成无 Node.js smoke。
+- [ ] 接入 Apple Developer ID、公证和 Windows Authenticode；稳定矩阵中的 macOS/Windows 制品必须完成平台代码签名后才可发布。
+- [ ] CLI 完成后生成 Skills 发布元数据，执行结构校验和真实实例的只读、变更、失败、权限、MFA 与脱敏评估，再标记 Skills 可用。
+- [ ] 建立 Agent 安全与可靠性评估集：覆盖提示注入、恶意日志/仓库内容、终端控制字符、越权工具选择、计划重放、目标集合漂移、无限分页/轮询、MFA 用户在场、执行后状态验证和审计关联；安全不变量要求 100% 通过。
+
 ## 100.优化需求
 
 - [ ] 智能引导：例如用户在创建APP选择Git账号时发现没有账号，旁边用一个按钮引导去授权页面。这样的场景还有很多，不一定是Git账号，后续可以总结一批这样的场景进行统一优化。

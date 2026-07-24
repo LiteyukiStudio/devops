@@ -1,9 +1,11 @@
 ---
 name: luna-devops-debugging
-description: Luna DevOps 故障诊断操作。用于构建失败、部署异常、网关访问失败、集群资源异常、账单异常、通知失败、权限错误和跨模块排障。
+description: 使用已安装的 Luna DevOps CLI 跨领域诊断构建、部署、网关、运行时、账单、通知、拓扑和授权故障；CLI 可用前仅用于规划，不执行平台操作。
 ---
 
 # 诊断 Skill
+
+先遵循 `luna-devops-cli`，再加载受影响领域的 Skill，并从机器可读 Help 发现只读诊断命令。
 
 ## 方法
 

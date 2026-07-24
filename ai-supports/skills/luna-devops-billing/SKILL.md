@@ -1,17 +1,11 @@
 ---
 name: luna-devops-billing
-description: Luna DevOps 账单和计费操作。用于 billing summary、deployment spend、ledger、usage records、rate rules、wallet transactions、external transactions、gateway traffic usage 和 credits 解释。
+description: 使用已安装的 Luna DevOps CLI 查询账单摘要、消费、账本、用量、费率、账户流水、网关流量和 Credits 说明；CLI 可用前仅用于规划，不执行平台操作。
 ---
 
 # 账单 Skill
 
-## 适用能力
-
-- billing summary 查询。
-- deployment spend、ledger、usage records 查询。
-- rate rules 查看和更新。
-- wallet transactions 和 external transactions。
-- gateway traffic status 和 usage。
+先遵循 `luna-devops-cli`，并从机器可读 Help 发现 billing 命令。
 
 ## 操作流程
 
@@ -25,5 +19,5 @@ description: Luna DevOps 账单和计费操作。用于 billing summary、deploy
 
 - `billing:write` 是高风险，默认只允许平台管理员或明确授权流程。
 - 不自动给用户补偿或扣费。
+- 充值、补偿、扣费或费率调整前必须展示账户、金额、单位、生效时间和影响。
 - 账单记录不因项目或应用删除而删除。
-
