@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import i18next from 'i18next'
 import { ChevronDown, CircleHelp } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ interface ProgressiveSectionProps {
  * 用于把高级配置折叠到稳定摘要后面，避免首屏暴露过多字段；不负责表单状态和校验。
  */
 export function ProgressiveSection({ children, defaultOpen = false, description, hint, storageKey, summary, title }: ProgressiveSectionProps) {
+  const titleId = useId()
   const [open, setOpen] = useState(() => {
     if (!storageKey || typeof window === 'undefined')
       return defaultOpen
@@ -39,41 +40,45 @@ export function ProgressiveSection({ children, defaultOpen = false, description,
 
   return (
     <section className="min-w-0 rounded-lg border border-border bg-card">
-      <div className="flex min-w-0 items-start gap-1 rounded-lg px-4 py-3 transition-colors hover:bg-muted/60">
+      <div className="relative min-w-0 rounded-lg px-4 py-3">
         <Button
           aria-expanded={open}
-          className="h-auto min-w-0 flex-1 justify-between gap-3 rounded-none p-0 text-left whitespace-normal hover:bg-transparent"
+          aria-labelledby={titleId}
+          className="absolute inset-0 z-0 h-full w-full rounded-lg p-0 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
           type="button"
           variant="ghost"
           onClick={toggleOpen}
-        >
+        />
+        <div className="pointer-events-none relative z-10 flex min-w-0 items-start justify-between gap-3">
           <span className="min-w-0 flex-1 text-left">
-            <span className="block text-sm font-semibold break-words text-foreground">{title}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span id={titleId} className="min-w-0 text-sm font-semibold break-words text-foreground">{title}</span>
+              {hint && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      aria-label={typeof title === 'string'
+                        ? `${title} ${i18next.t('common.helpSuffix', { defaultValue: 'Help' })}`
+                        : i18next.t('common.helpSuffix', { defaultValue: 'Help' })}
+                      className="pointer-events-auto size-6 shrink-0 text-muted-foreground hover:text-primary-text"
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <CircleHelp className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-72 leading-5" side="top">
+                    {hint}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </span>
             {summary && <span className="mt-1 block truncate text-xs text-muted-foreground">{summary}</span>}
             {description && open && <span className="mt-1 block text-xs break-words text-muted-foreground">{description}</span>}
           </span>
           <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
-        </Button>
-        {hint && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={typeof title === 'string'
-                  ? `${title} ${i18next.t('common.helpSuffix', { defaultValue: 'Help' })}`
-                  : i18next.t('common.helpSuffix', { defaultValue: 'Help' })}
-                className="size-7 shrink-0 text-muted-foreground hover:text-primary-text"
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <CircleHelp className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-72 leading-5" side="top">
-              {hint}
-            </TooltipContent>
-          </Tooltip>
-        )}
+        </div>
       </div>
       {open && (
         <div className="grid min-w-0 gap-4 border-t border-border px-4 py-4 [&>*]:min-w-0">

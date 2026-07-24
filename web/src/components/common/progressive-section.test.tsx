@@ -23,6 +23,7 @@ describe('progressive section', () => {
 
     const hintTrigger = container.querySelector<HTMLElement>('[data-slot="tooltip-trigger"]')
     expect(hintTrigger).not.toBeNull()
+    expect(screen.getByText('Runtime configuration').parentElement).toContainElement(hintTrigger)
     fireEvent.focus(hintTrigger!)
     const hintContents = await screen.findAllByText('Runtime configuration guidance')
     expect(hintContents[0]).toBeVisible()
